@@ -23,6 +23,160 @@ html, body { height: 100%; }
   .trip.osm-tiles .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) saturate(.4) brightness(.9); }
 }
 
+/* ---------- Day view: prototyped here; moves into the design system if it ships ---------- */
+
+/* Stop types: one color per group, on the list marker and the map pin. No blue (routes) or red (a drive that doesn't fit). */
+:root {
+  --kind-place: #5f6368; --kind-travel: #00838f; --kind-stay: #7c3aed; --kind-food: #e8710a;
+  --kind-sight: #d01884; --kind-nature: #1e8e3e; --kind-shop: #9e6a03; --kind-ink: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --kind-place: #9aa0a6; --kind-travel: #4fc3b9; --kind-stay: #b77cf8; --kind-food: #fa903e;
+    --kind-sight: #ff63b8; --kind-nature: #5bb974; --kind-shop: #e2b33c; --kind-ink: #141413;
+  }
+}
+:root[data-theme="dark"] {
+  --kind-place: #9aa0a6; --kind-travel: #4fc3b9; --kind-stay: #b77cf8; --kind-food: #fa903e;
+  --kind-sight: #ff63b8; --kind-nature: #5bb974; --kind-shop: #e2b33c; --kind-ink: #141413;
+}
+
+/* Home and settings float over the map; the sheet holds only the plan. */
+.map-bar {
+  position: absolute; z-index: var(--wt-z-sheet); left: var(--wt-space-3); right: var(--wt-space-3);
+  top: calc(var(--wt-space-3) + env(safe-area-inset-top, 0px));
+  display: flex; justify-content: space-between; pointer-events: none;
+}
+.map-btn { pointer-events: auto; width: 44px; height: 44px; background: var(--wt-surface-raised); color: var(--wt-text-primary); box-shadow: var(--wt-shadow-float); }
+.map-btn:active { background: var(--wt-surface-hover); }
+
+/* The sheet is white, like a page of the plan; overflow is clipped so a pulled-down sheet shows only its top. */
+.trip .wt-sheet { background: var(--wt-surface-raised); overflow: hidden; }
+/* Static, not sticky: a sticky bar pinned itself to the screen's bottom and covered a pulled-down sheet's top. */
+.trip .wt-add-bar { position: static; margin: 0; background: var(--wt-surface-raised); }
+.trip .wt-sheet__body { padding-bottom: var(--wt-space-3); }
+
+/* Day bar: ‹ day ›. Tap the day for the list of days. */
+.day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) var(--wt-space-2) var(--wt-space-2); }
+.day-bar[hidden] { display: none; }
+.day-bar__step { color: var(--wt-text-primary); }
+.day-bar__title {
+  font: inherit; color: inherit; background: none; border: 0; margin: 0; cursor: pointer;
+  display: grid; justify-items: center; padding: 2px var(--wt-space-3); border-radius: var(--wt-radius-md);
+}
+.day-bar__title:active { background: var(--wt-surface-hover); }
+.day-bar__title:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+.day-bar__label { display: inline-flex; align-items: center; gap: 2px; font: var(--wt-type-title); }
+.day-bar__label .wt-icon { width: 18px; height: 18px; color: var(--wt-text-secondary); }
+
+/* The list of days, in a sheet. */
+.day-list { list-style: none; margin: 0; padding: 0; }
+.day-list__item {
+  font: inherit; color: inherit; background: none; border: 0; margin: 0; cursor: pointer; text-align: left;
+  width: 100%; display: flex; align-items: center; gap: var(--wt-space-3); padding: var(--wt-space-3); border-radius: var(--wt-radius-md);
+}
+.day-list__item:active { background: var(--wt-surface-hover); }
+.day-list__item[aria-current] { background: var(--wt-surface-sunken); }
+.day-list__name { flex: 1; min-width: 0; font: var(--wt-type-name); }
+.day-list__kinds { display: flex; gap: 3px; }
+
+/* Markers: a stop's type icon on its group color. The list, the map and the day list use the same one, at different sizes. */
+.tl-marker, .stop-pin__marker, .mini-marker {
+  display: grid; place-items: center; flex: none; border-radius: var(--wt-radius-round);
+  background: var(--kind); color: var(--kind-ink);
+}
+.mini-marker { width: 20px; height: 20px; }
+.mini-marker .wt-icon { width: 12px; height: 12px; }
+
+/* Timeline: rail · stop · time. Rows touch, so the rail is one solid line down the day. */
+.tl { --tl-rail: 48px; --tl-mark-y: 22px; }
+.tl-rail { position: relative; align-self: stretch; }
+.tl-rail::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: var(--wt-border-strong); }
+.tl > :first-child .tl-rail::before { top: var(--tl-mark-y); }
+.tl > :last-child .tl-rail::before { bottom: auto; height: var(--tl-mark-y); }
+.tl > :only-child .tl-rail::before { display: none; }
+
+/* Stop row; a hotel at either end of the day is the same row, with no time. */
+.tl-stop {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
+  width: 100%; display: grid; grid-template-columns: var(--tl-rail) 1fr auto;
+  border-radius: var(--wt-radius-md); transition: background var(--wt-duration-fast);
+}
+.tl-stop:active { background: var(--wt-surface-hover); }
+@media (hover: hover) { .tl-stop:hover { background: var(--wt-surface-sunken); } }
+.tl-stop:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+.tl-stop.is-flash { animation: tl-flash var(--wt-duration-flash) ease-out; }
+@keyframes tl-flash { from { background: var(--wt-highlight); } to { background: transparent; } }
+.tl-marker { position: absolute; z-index: 1; left: 50%; top: var(--tl-mark-y); transform: translate(-50%, -50%); width: 30px; height: 30px; box-shadow: 0 0 0 3px var(--wt-surface-raised); }
+.tl-body { min-width: 0; padding: 12px var(--wt-space-2) 12px 0; }
+.tl-name { display: block; font: var(--wt-type-name); line-height: 1.3; }
+.tl-note { display: block; margin-top: 2px; font: var(--wt-type-caption); color: var(--wt-text-secondary); white-space: pre-line; }
+.tl-time { padding: 13px var(--wt-space-3) 0 0; text-align: right; white-space: nowrap; font: var(--wt-type-time); font-variant-numeric: tabular-nums; color: var(--wt-text-secondary); }
+
+/* Drive row: a small grey car on the rail, "1 hr 49 min drive", and a Directions icon where stops have their time. Tapping the row shows the route on the map. */
+.tl-drive {
+  display: grid; grid-template-columns: var(--tl-rail) 1fr auto; align-items: center;
+  min-height: 44px; padding: 2px var(--wt-space-1) 2px 0; border-radius: var(--wt-radius-md); cursor: pointer;
+  transition: background var(--wt-duration-fast);
+}
+.tl-car {
+  position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--wt-radius-round);
+  background: var(--wt-surface-raised); color: var(--wt-text-secondary);
+}
+@media (hover: hover) { .tl-drive:hover { background: var(--wt-surface-sunken); } .tl-drive:hover .tl-car { background: transparent; } }
+.tl-drive__body { min-width: 0; display: grid; gap: 1px; }
+.tl-drive__what, .tl-drive__from, .tl-drive__late { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-drive__what { font: var(--wt-type-caption); font-size: 14px; color: var(--wt-text-secondary); }
+.tl-drive__what b { font-weight: 600; color: var(--wt-text-primary); }
+.tl-drive__from { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.tl-drive__late { font: var(--wt-type-caption-strong); color: var(--wt-text-danger); }
+.tl-drive.is-late .tl-drive__what b { color: var(--wt-text-danger); }
+.tl-drive__go { width: 40px; height: 40px; color: var(--wt-text-primary); }
+.tl-drive__go:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 0; }
+@media (hover: hover) { .tl-drive__go:hover { background: var(--wt-surface-hover); } }
+
+/* Selected (from the map, or tapped): grey with an outline, for stops and drives alike. */
+.tl-stop.is-selected, .tl-drive.is-active { background: var(--wt-surface-sunken); box-shadow: 0 0 0 2px var(--wt-border-focus); }
+.tl-drive.is-active .tl-car { background: transparent; }
+
+/* Today: what's happening now is tinted with its color on the map (a stop's type, a drive's route); what's over dims. */
+.tl .is-past :is(.tl-time, .tl-body, .tl-drive__body, .tl-marker, .tl-car, .tl-drive__go) { opacity: .45; }
+.tl-stop.is-now { background: color-mix(in srgb, var(--kind) 12%, var(--wt-surface-raised)); }
+.tl-stop.is-now .tl-marker { box-shadow: 0 0 0 3px var(--wt-surface-raised), 0 0 0 5px var(--kind); }
+.tl-drive.is-now { background: color-mix(in srgb, var(--wt-route) 12%, var(--wt-surface-raised)); }
+.tl-drive.is-now .tl-car { background: var(--wt-route); color: #fff; }
+
+/* Nights, for a hotel, in the stop sheet */
+.nights[hidden] { display: none; }
+.nights__row { display: flex; align-items: center; gap: var(--wt-space-2); }
+.nights__step { width: 36px; height: 36px; box-shadow: inset 0 0 0 1px var(--wt-border-default); font: var(--wt-type-title); color: var(--wt-text-primary); }
+.nights__step:disabled { opacity: .35; }
+.nights__n { min-width: 24px; text-align: center; font: var(--wt-type-name); font-variant-numeric: tabular-nums; }
+.nights__out { margin-left: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+
+/* Type picker in the stop sheet */
+.kinds { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--wt-space-1); }
+.kinds__item {
+  font: var(--wt-type-caption); font-size: 12px; color: var(--wt-text-secondary); background: none; border: 0; margin: 0; cursor: pointer;
+  display: grid; justify-items: center; gap: 4px; padding: 6px 2px; border-radius: var(--wt-radius-md);
+}
+.kinds__item:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: -2px; }
+.kinds__icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--wt-radius-round); background: var(--wt-surface-sunken); }
+.kinds__item[aria-checked="true"] { color: var(--wt-text-primary); font-weight: 600; }
+.kinds__item[aria-checked="true"] .kinds__icon { background: var(--kind); color: var(--kind-ink); }
+
+/* Map pins: the stop's marker, ringed in white. The day before's last stop, where a day with no hotel starts, is quiet. */
+.stop-pin__marker { width: 28px; height: 28px; border: 2px solid var(--wt-pin-fill); box-shadow: var(--wt-shadow-pin); transition: transform var(--wt-duration-base), opacity var(--wt-duration-base); }
+.stop-pin__marker .wt-icon { width: 15px; height: 15px; }
+.stop-pin.wt-pin--selected .stop-pin__marker { width: 36px; height: 36px; }
+.stop-pin.wt-pin--selected .stop-pin__marker .wt-icon { width: 19px; height: 19px; }
+.stop-pin.wt-pin--muted:not(.wt-pin--selected) .stop-pin__marker { opacity: .5; transform: scale(.85); box-shadow: none; }
+
+/* The map's credits, in trip settings */
+.map-credit { margin: var(--wt-space-5) 0 0; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.map-credit a { color: inherit; }
+
 /* Prototype-only helper in the share sheet */
 .proto-note { margin-top: var(--wt-space-5); padding: var(--wt-space-3); border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .proto-note a { color: var(--wt-text-link); font-weight: 600; }

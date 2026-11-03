@@ -156,7 +156,9 @@ The system font throughout, so the app feels native on every phone. Each token i
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin`
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `directions`
+
+Stop types: `plane` `bed` `utensils` `cup` `star` `museum` `tree` `camera` `bag` `fuel` (with `pin` for a plain place).
 
 ```js
 WaythreadIcons.svg('car');           // the size the product uses
