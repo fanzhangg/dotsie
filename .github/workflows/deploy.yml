@@ -1,0 +1,109 @@
+# Checks every pull request; deploys app/ to Cloudflare on every push to main.
+# One-time setup (repository settings → Secrets and variables → Actions) is in app/README.md.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# One deploy at a time; a newer push waits rather than racing an older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      # Types for the Worker's bindings and secrets come from wrangler.jsonc and the example env file
+      - run: cp .dev.vars.example .dev.vars && npx wrangler types
+      - run: npm run typecheck
+      - run: node --check web/app.js
+      # Builds and bundles exactly as a deploy would, without uploading
+      - run: npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/dist"
+
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+
+      - name: Check setup
+        run: |
+          missing=0
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::error::Add the CLOUDFLARE_API_TOKEN repository secret (see app/README.md)."; missing=1; }
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "::error::Add the CLOUDFLARE_ACCOUNT_ID repository variable (see app/README.md)."; missing=1; }
+          [ -n "$BETTER_AUTH_SECRET" ] || { echo "::error::Add the BETTER_AUTH_SECRET repository secret (see app/README.md)."; missing=1; }
+          exit $missing
+        env:
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+
+      # The app's public origin: the APP_URL variable if you've set one (a custom domain),
+      # otherwise this Worker's workers.dev address.
+      - name: Work out the app URL
+        id: url
+        run: |
+          if [ -n "$APP_URL" ]; then url="${APP_URL%/}"; else
+            sub=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r '.result.subdomain')
+            [ -n "$sub" ] && [ "$sub" != null ] || { echo "::error::Couldn't read the workers.dev subdomain. Set the APP_URL variable instead."; exit 1; }
+            url="https://waythread.$sub.workers.dev"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "App URL: $url"
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+
+      - name: Apply database migrations
+        run: npx wrangler d1 migrations apply waythread --remote
+
+      # Secrets go up with the code as one version. Only the ones you've set are sent; unset
+      # optional ones (Google, Apple, Resend, Stadia) leave that feature off.
+      - name: Deploy
+        run: |
+          jq -n 'env | with_entries(select(.key | IN("BETTER_AUTH_SECRET","GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET","APPLE_CLIENT_ID","APPLE_CLIENT_SECRET","RESEND_API_KEY","EMAIL_FROM","STADIA_API_KEY")) | select(.value != ""))' > "$RUNNER_TEMP/secrets.json"
+          npx wrangler deploy --var "BETTER_AUTH_URL:${{ steps.url.outputs.url }}" --secrets-file "$RUNNER_TEMP/secrets.json"
+          rm -f "$RUNNER_TEMP/secrets.json"
+        env:
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
+          APPLE_CLIENT_SECRET: ${{ secrets.APPLE_CLIENT_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          STADIA_API_KEY: ${{ secrets.STADIA_API_KEY }}
+
+      - name: Smoke test
+        run: |
+          url="${{ steps.url.outputs.url }}"
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url/api/config") && [ "$code" = 200 ] && break
+            sleep 5
+          done
+          [ "$code" = 200 ] || { echo "::error::$url/api/config returned $code after deploy."; exit 1; }
+          curl -fsS "$url/api/config"; echo
+          echo "### Deployed to $url" >> "$GITHUB_STEP_SUMMARY"

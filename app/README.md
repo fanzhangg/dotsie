@@ -29,17 +29,27 @@ To try co-editing locally, use a second browser profile (each needs its own sess
 
 ## Deploy
 
-```bash
-npx wrangler d1 create waythread          # put the id in wrangler.jsonc
-npx wrangler kv namespace create ROUTES   # put the id in wrangler.jsonc
-npm run db:migrate:remote
-npx wrangler secret put BETTER_AUTH_SECRET  # and each other key in .dev.vars.example
-npm run deploy
-```
+[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) checks every pull request (typecheck, bundle) and deploys every push to `main`: it applies D1 migrations, then uploads the Worker together with its secrets, then smoke-tests `/api/config`. The production D1 database and KV namespace already exist; their IDs are in `wrangler.jsonc`.
+
+One-time setup, in the GitHub repo under Settings → Secrets and variables → Actions:
+
+| Name | Kind | What |
+| --- | --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Secret | Cloudflare dashboard → My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template, then add **Account → D1 → Edit** |
+| `CLOUDFLARE_ACCOUNT_ID` | Variable | Your Cloudflare account ID |
+| `BETTER_AUTH_SECRET` | Secret | Any long random string. Changing it signs everyone out |
+| `STADIA_API_KEY` | Secret | Needed for place search and routes in production |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Secrets | Optional: Google sign-in |
+| `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET` | Secrets | Optional: Apple sign-in |
+| `RESEND_API_KEY` | Secret | Optional: email sign-in links |
+| `EMAIL_FROM` | Variable | With Resend, e.g. `Waythread <signin@yourdomain.com>` |
+| `APP_URL` | Variable | Optional: a custom domain. Without it the app runs at `https://waythread.<your-subdomain>.workers.dev` |
+
+Only the secrets you set are uploaded, and a feature whose keys are missing stays off. Register `<app URL>/api/auth/callback/google` (and `/callback/apple`) with each provider, and the app's domain with Stadia so map tiles load.
+
+`BETTER_AUTH_URL` isn't in `wrangler.jsonc`: `.dev.vars` sets it locally and the workflow sets it for production, so deploy through the workflow rather than `npm run deploy`.
 
 Rate limits (in `wrangler.jsonc`): 10 sign-in attempts per minute per IP, and 120 place searches plus route lookups per minute per person. Over the limit, the API returns 429 `rate_limited`. Sessions last 90 days from the last visit.
-
-Set `BETTER_AUTH_URL` in `wrangler.jsonc` to the production origin, and register `<origin>/api/auth/callback/google` and `/callback/apple` with each provider.
 
 ## API
 

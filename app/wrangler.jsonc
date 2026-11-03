@@ -15,7 +15,7 @@
 
   // Users, sessions, trip membership and the home-screen trip summaries
   "d1_databases": [
-    { "binding": "DB", "database_name": "waythread", "database_id": "local-dev-placeholder", "migrations_dir": "migrations" }
+    { "binding": "DB", "database_name": "waythread", "database_id": "a1a82345-9cf8-42bf-a5f1-d59bd27bb598", "migrations_dir": "migrations" }
   ],
 
   // One Durable Object per trip: the trip's source of truth and its live-edit hub
@@ -25,7 +25,7 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripRoom"] }],
 
   // Drive routes, keyed by their endpoints
-  "kv_namespaces": [{ "binding": "ROUTES", "id": "local-dev-placeholder" }],
+  "kv_namespaces": [{ "binding": "ROUTES", "id": "975e7b4349dc41db85e0b5d325f8182d" }],
 
   // Sign-ins per IP, and place searches plus route lookups per person, per minute.
   // namespace_id is any number unique to this account's rate limiters.
@@ -34,8 +34,7 @@
     { "name": "MAPS_LIMIT", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } }
   ],
 
-  "vars": {
-    "BETTER_AUTH_URL": "http://localhost:8787"
-  },
+  // BETTER_AUTH_URL (the app's own origin) isn't set here: .dev.vars sets it for local dev, and
+  // the deploy workflow passes the production one, so a deploy can't go out pointing at localhost.
   "observability": { "enabled": true }
 }
