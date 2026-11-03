@@ -19,6 +19,7 @@ html, body { height: 100%; }
 .signin__text { margin: 0 0 var(--wt-space-2); color: var(--wt-text-secondary); }
 .signin__or { margin: 0; text-align: center; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .account-guest { margin-top: var(--wt-space-4); }
+.home-guest { color: var(--wt-text-secondary); }
 
 /* ---------- Trip: full-screen map with the list sheet on top ---------- */
 .trip { position: relative; height: 100dvh; overflow: hidden; }

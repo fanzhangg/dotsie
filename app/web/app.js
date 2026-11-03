@@ -15,7 +15,12 @@ const $sheets = document.getElementById('sheets');
 const state = { sel: null, leg: null, hoverLeg: null, snap: 'half', flash: new Set() };
 
 // Who's signed in, the home list, and the open trip ({ id, name, members, stops } or { id, error })
-let me = null, config = { google: false, apple: false }, trips = null, cur = null;
+let me = null, config = { google: false, apple: false, email: false }, trips = null, cur = null;
+// Whether any real sign-in is set up; without one, guests aren't offered an upgrade they can't do.
+const canSignIn = () => config.google || config.apple || config.email;
+// What to say when a request fails: the server's rate limit, no connection, or anything else
+const failMsg = (err, what) => err?.code === 'rate_limited' ? 'Too many tries. Wait a minute, then try again.'
+  : err?.code === 'offline' ? `${what} Check your connection.` : `${what} Try again.`;
 
 const uid = () => crypto.randomUUID().replace(/-/g, '').slice(0, 16);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -284,6 +289,11 @@ function onEvent(m) {
       if (!memberOf(m.member.id)) cur.members.push(m.member);
       if (!mine) note(`${m.member.name} joined`);
       break;
+    case 'member.updated': {
+      const i = cur.members.findIndex(x => x.id === m.member.id);
+      if (i >= 0) cur.members[i] = m.member;
+      break;
+    }
     case 'trip.updated':
       cur.name = m.name;
       break;
@@ -376,16 +386,16 @@ function renderSignIn(r) {
     }, () => {});
   }
 }
-// Google and Apple, then an emailed link, then (on the sign-in screen) going in as a guest.
+// Google and Apple, then an emailed link (each only if set up), then (on the sign-in screen) going in as a guest.
 function authHTML({ guest, joining }) {
   return `
     ${config.google ? '<button class="wt-btn wt-btn--secondary wt-btn--block" data-action="social" data-provider="google">Continue with Google</button>' : ''}
     ${config.apple ? '<button class="wt-btn wt-btn--secondary wt-btn--block" data-action="social" data-provider="apple">Continue with Apple</button>' : ''}
-    <form class="auth-email">
+    ${config.email ? `<form class="auth-email">
       <input class="wt-input" name="email" type="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email">
       <button class="wt-btn wt-btn--secondary wt-btn--block">Email me a sign-in link</button>
-    </form>
-    ${guest ? `<p class="signin__or">or</p>
+    </form>` : ''}
+    ${guest ? `${canSignIn() ? '<p class="signin__or">or</p>' : ''}
     <form class="auth-guest">
       <input class="wt-input" name="name" placeholder="Your name" autocomplete="given-name" maxlength="40" required aria-label="Your name">
       <button class="wt-btn wt-btn--primary wt-btn--block">${joining ? 'Join as a guest' : 'Continue as a guest'}</button>
@@ -393,7 +403,7 @@ function authHTML({ guest, joining }) {
 }
 function mountAuth(root) {
   const email = root.querySelector('.auth-email');
-  email.onsubmit = async e => {
+  if (email) email.onsubmit = async e => {
     e.preventDefault();
     const addr = email.elements.email.value.trim();
     email.elements[1].disabled = true;
@@ -401,9 +411,9 @@ function mountAuth(root) {
       // A guest keeps the name they gave if this email is new
       await api('/auth/sign-in/magic-link', { method: 'POST', body: { email: addr, callbackURL: callbackURL(), ...(me?.isGuest && { name: me.name }) } });
       email.outerHTML = `<p class="signin__text">Check your email. We sent a sign-in link to <b>${esc(addr)}</b>.</p>`;
-    } catch {
+    } catch (err) {
       email.elements[1].disabled = false;
-      toast('Couldn’t send the email. Try again.');
+      toast(failMsg(err, 'Couldn’t send the email.'));
     }
   };
   const guest = root.querySelector('.auth-guest');
@@ -419,7 +429,7 @@ function mountAuth(root) {
       render();
     } catch (err) {
       guest.elements[1].disabled = false;
-      toast(err.code === 'offline' ? 'Couldn’t continue. Check your connection.' : 'Couldn’t continue. Try again.');
+      toast(failMsg(err, 'Couldn’t continue.'));
     }
   };
 }
@@ -432,6 +442,7 @@ function homeHTML() {
     <main class="home">
       ${(trips || []).map(t => `<a class="wt-trip-card" href="#/trip/${esc(t.id)}"><span class="wt-trip-card__name">${esc(t.name)}</span><span class="wt-trip-card__dates">${fmtRange(t.start, t.end)}</span></a>`).join('')}
       <button class="wt-btn wt-btn--primary wt-btn--block" data-action="new-trip">${ICON.plus}New trip</button>
+      ${me.isGuest && trips?.length && canSignIn() ? '<button class="wt-btn wt-btn--ghost wt-btn--block home-guest" data-action="account">Sign in to keep your trips</button>' : ''}
     </main>`;
 }
 
@@ -784,13 +795,33 @@ function openShare(trip) {
   });
 }
 
-// Guests are offered a real sign-in, which keeps their trips; everyone can sign out.
+// Your name as others on your trips see it; guests are offered a real sign-in, which keeps their
+// trips; everyone can sign out.
 function openAccount() {
+  const upgrade = me.isGuest && canSignIn();
   openSheet(`${modalHead('Account')}
-    <ul class="wt-people"><li class="wt-people__item">${avatarHTML({ name: me.name, identity: 1 })}${esc(me.name)}${me.isGuest ? ' (guest)' : ''}</li></ul>
-    ${me.isGuest ? `<p class="wt-modal__text account-guest">Sign in to keep your trips on every device.</p><div class="signin">${authHTML({ guest: false })}</div>` : ''}
+    <form class="account-name">
+      <label class="wt-field"><span class="wt-field__label">Your name${me.isGuest ? ' (guest)' : ''}</span>
+        <input class="wt-input" name="name" autocomplete="name" maxlength="40" required></label>
+    </form>
+    ${upgrade ? `<p class="wt-modal__text account-guest">Sign in to keep your trips. As a guest, you can only reach them from this browser.</p><div class="signin">${authHTML({ guest: false })}</div>` : ''}
     <div class="wt-modal__actions"><button class="wt-btn wt-btn--danger" data-action="sign-out">Sign out</button></div>`, el => {
-    if (me.isGuest) mountAuth(el);
+    const f = el.querySelector('.account-name');
+    f.elements.name.value = me.name;
+    // Saves when you leave the field or press Return; no separate button
+    const saveName = async () => {
+      const name = f.elements.name.value.trim().replace(/\s+/g, ' ');
+      if (!name || name === me.name) { f.elements.name.value = me.name; return; }
+      try {
+        await api('/auth/update-user', { method: 'POST', body: { name } });
+        me.name = name;
+        toast('Name saved');
+        render();
+      } catch (err) { toast(failMsg(err, 'Couldn’t save your name.')); }
+    };
+    f.onsubmit = e => { e.preventDefault(); f.elements.name.blur(); };
+    f.elements.name.addEventListener('change', saveName);
+    if (upgrade) mountAuth(el);
   });
 }
 
@@ -844,7 +875,7 @@ function openStopSheet(trip, stop) {
           `<li><button type="button" class="wt-results__item" data-i="${i}"><span class="wt-results__name">${esc(p.name)}</span><span class="wt-results__detail">${esc(p.address)}</span></button></li>`,
         ).join('') : '<li class="wt-results__msg">No places found</li>';
       } catch (e) {
-        if (e.name !== 'AbortError') results.innerHTML = '<li class="wt-results__msg">Search is unavailable right now</li>';
+        if (e.name !== 'AbortError') results.innerHTML = `<li class="wt-results__msg">${e.code === 'rate_limited' ? 'Too many searches. Wait a moment.' : 'Search is unavailable right now'}</li>`;
       }
     }
     results.addEventListener('click', e => {

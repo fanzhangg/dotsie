@@ -16,6 +16,7 @@ export type TripEvent =
   | { type: 'stop.upserted'; stop: Stop }
   | { type: 'stop.removed'; id: string; name: string }
   | { type: 'member.joined'; member: Member }
+  | { type: 'member.updated'; member: Member }
   | { type: 'trip.updated'; name: string }
   | { type: 'trip.deleted' };
 
@@ -195,10 +196,12 @@ export class TripRoom extends DurableObject<Env> {
     ]);
   }
 
-  // Keep names and photos current when someone updates their profile.
+  // Keep names and photos current when someone updates their profile, live for anyone looking.
   updateMember(user: Omit<Member, 'identity'>) {
     if (!this.isMember(user.id)) return;
     this.sql.exec('update members set name = ?, image = ? where id = ?', user.name, user.image, user.id);
+    const member = this.sql.exec<Member>('select id, name, image, identity from members where id = ?', user.id).one();
+    this.broadcast({ type: 'member.updated', member }, user.id);
   }
 
   // ---------- Live edits ----------

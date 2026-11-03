@@ -21,12 +21,23 @@ export function createAuth(env: Env) {
     socialProviders: social,
     trustedOrigins: ['https://appleid.apple.com'], // Apple posts its callback cross-site
     advanced: { defaultCookieAttributes: { sameSite: 'lax', secure: env.BETTER_AUTH_URL.startsWith('https:'), httpOnly: true } },
+    // Trips are planned weeks ahead, and a guest has no other way back in, so a session lasts 90 days
+    // from the last visit rather than Better Auth's 7.
+    session: { expiresIn: 60 * 60 * 24 * 90, updateAge: 60 * 60 * 24 },
     databaseHooks: {
       user: {
         // An email sign-up arrives without a name (unless a guest passes theirs along); start from the address.
-        create: { before: async user => ({ data: { ...user, name: user.name?.trim() || user.email.split('@')[0] } }) },
-        // Names and photos on trips follow profile changes (a guest picking a name, a new Google photo)
-        update: { after: user => forEachTrip(env, user.id, r => r.updateMember({ id: user.id, name: user.name, image: user.image ?? null })) },
+        create: { before: async user => ({ data: { ...user, name: cleanName(user.name) || user.email.split('@')[0] } }) },
+        // A blank name is refused rather than saved
+        update: {
+          before: async data => {
+            if (data.name === undefined) return;
+            const name = cleanName(data.name);
+            return name ? { data: { ...data, name } } : false;
+          },
+          // Names and photos on trips follow profile changes (someone renaming themselves, a new Google photo)
+          after: user => forEachTrip(env, user.id, r => r.updateMember({ id: user.id, name: user.name, image: user.image ?? null })),
+        },
       },
     },
     plugins: [
@@ -40,9 +51,13 @@ export function createAuth(env: Env) {
 }
 export type Auth = ReturnType<typeof createAuth>;
 export const isLocal = (env: Env) => /^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(env.BETTER_AUTH_URL);
+// Email sign-in is offered only where a link can actually arrive: with Resend set up, or in local dev (console).
+export const emailEnabled = (env: Env) => !!env.RESEND_API_KEY || isLocal(env);
+const cleanName = (name: unknown) => (typeof name === 'string' ? name.trim().replace(/\s+/g, ' ').slice(0, 40) : '');
 
 async function sendEmail(env: Env, to: string, url: string) {
   if (!env.RESEND_API_KEY) {
+    if (!isLocal(env)) throw new Error('Email sign-in is not set up'); // never claim to have sent it
     console.log(`[dev] magic link for ${to}: ${url}`);
     return;
   }

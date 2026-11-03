@@ -23,7 +23,7 @@ npm run db:migrate:local
 npm run dev                      # http://localhost:8787
 ```
 
-Without OAuth keys the sign-in screen offers only email and guest. With `RESEND_API_KEY` empty, the email link is printed to the dev console. Without `STADIA_API_KEY`, local dev uses the public OSM demo servers for place search and routes; production returns 503 instead.
+Without OAuth keys the sign-in screen offers only email and guest. With `RESEND_API_KEY` empty, the email link is printed to the dev console. In production, the email option only appears once `RESEND_API_KEY` is set. Without `STADIA_API_KEY`, local dev uses the public OSM demo servers for place search and routes; production returns 503 instead.
 
 To try co-editing locally, use a second browser profile (each needs its own session cookie), or open the trip's share link in a private window.
 
@@ -37,6 +37,8 @@ npx wrangler secret put BETTER_AUTH_SECRET  # and each other key in .dev.vars.ex
 npm run deploy
 ```
 
+Rate limits (in `wrangler.jsonc`): 10 sign-in attempts per minute per IP, and 120 place searches plus route lookups per minute per person. Over the limit, the API returns 429 `rate_limited`. Sessions last 90 days from the last visit.
+
 Set `BETTER_AUTH_URL` in `wrangler.jsonc` to the production origin, and register `<origin>/api/auth/callback/google` and `/callback/apple` with each provider.
 
 ## API
@@ -45,7 +47,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config` and `/api/
 
 | Route | |
 | --- | --- |
-| `GET /api/config` | Which sign-in providers are set up: `{ google, apple }` |
+| `GET /api/config` | Which sign-in options are set up: `{ google, apple, email }` |
 | `GET /api/invite/:token` | The trip name for a share link, for the sign-in screen |
 | `GET /api/me` | `{ id, name, image, isGuest }` |
 | `GET /api/trips` | Home cards: `[{ id, name, start, end }]` |
@@ -58,8 +60,8 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config` and `/api/
 | `PUT /api/trips/:id/stops/:stopId` | Create a stop, or restore one (Undo). The client picks the id |
 | `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ done: true }` |
 | `DELETE /api/trips/:id/stops/:stopId` | |
-| `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `trip.updated`, `trip.deleted`, each with `by` |
+| `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search |
 | `GET /api/route?from=lat,lng&to=lat,lng` | `{ duration, distance, coords }` |
 
-Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member`, 404 `not_found`, 410 `gone`, or 503 `maps_not_configured`.
+Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.

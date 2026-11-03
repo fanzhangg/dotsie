@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { createAuth, isLocal, type Auth } from './auth';
+import { createAuth, emailEnabled, isLocal, type Auth } from './auth';
 import { driveRoute, searchPlaces } from './maps';
 import { ERR } from './trip';
 
@@ -28,11 +28,22 @@ app.onError((err, c) => {
 const bad = () => { throw new Error(ERR.invalid); };
 
 app.use(csrf()); // writes must come from our own origin
+
+// ---------- Rate limits ----------
+// Cloudflare's rate-limiting binding: counts are kept per Cloudflare location and are approximate,
+// which is enough to stop scripted sign-ups and runaway map calls billed to the Stadia key.
+const tooMany = async (limiter: RateLimit, key: string) => !(await limiter.limit({ key })).success;
+const rateLimited = (c: Context<AppEnv>) => c.json({ error: 'rate_limited' }, 429);
+// Every sign-in endpoint (guest, email link, Google/Apple) creates accounts or sends email: limit per IP.
+app.use('/auth/sign-in/*', async (c, next) => {
+  if (c.req.method === 'POST' && await tooMany(c.env.SIGNIN_LIMIT, c.req.header('cf-connecting-ip') ?? 'local')) return rateLimited(c);
+  await next();
+});
 app.on(['GET', 'POST'], '/auth/*', c => getAuth(c.env).handler(c.req.raw));
 
 // ---------- Before sign-in ----------
 // Which sign-in buttons to show
-app.get('/config', c => c.json({ google: !!c.env.GOOGLE_CLIENT_ID, apple: !!c.env.APPLE_CLIENT_ID }));
+app.get('/config', c => c.json({ google: !!c.env.GOOGLE_CLIENT_ID, apple: !!c.env.APPLE_CLIENT_ID, email: emailEnabled(c.env) }));
 // The trip name for a share link, so the sign-in screen can say what you're joining.
 // Anyone holding the link may join anyway, so its name is no secret from them.
 app.get('/invite/:token', async c => {
@@ -140,6 +151,13 @@ const point = (v: string | undefined) => {
 };
 // Without a Stadia key, local dev falls back to the public OSM demo services; production returns 503.
 const mapsOff = (env: Env) => !env.STADIA_API_KEY && !isLocal(env);
+// Search runs as people type and a trip's routes load together, so the per-person limit is generous.
+for (const path of ['/places', '/route']) {
+  app.use(path, async (c, next) => {
+    if (await tooMany(c.env.MAPS_LIMIT, c.get('user').id)) return rateLimited(c);
+    await next();
+  });
+}
 app.get('/places', async c => {
   if (mapsOff(c.env)) return c.json({ error: 'maps_not_configured' }, 503);
   const q = c.req.query('q')?.trim() ?? '';
