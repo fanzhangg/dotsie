@@ -1,7 +1,7 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { createAuth, type Auth } from './auth';
+import { createAuth, isLocal, type Auth } from './auth';
 import { driveRoute, searchPlaces } from './maps';
 import { ERR } from './trip';
 
@@ -12,7 +12,8 @@ export { TripRoom } from './trip';
    which checks membership itself; this layer authenticates, validates the URL, and routes. */
 
 type User = { id: string; name: string; image: string | null };
-const app = new Hono<{ Bindings: Env; Variables: { user: User; guest: boolean } }>().basePath('/api');
+type AppEnv = { Bindings: Env; Variables: { user: User; guest: boolean } };
+const app = new Hono<AppEnv>().basePath('/api');
 
 let auth: Auth | undefined; // env is the same for every request in an isolate
 const getAuth = (env: Env) => (auth ??= createAuth(env));
@@ -96,13 +97,15 @@ app.post('/trips/:id/restore', async c => {
 
 // ---------- Sharing: the link is the invite ----------
 // The token rides in the URL fragment, so it never reaches server logs or Referer headers.
-const shareURL = (env: Env, token: string) => `${env.BETTER_AUTH_URL}/#/join/${token}`;
+// In local dev the link uses the address you're on (localhost or 127.0.0.1), like sign-in does.
+const shareURL = (c: Context<AppEnv>, token: string) =>
+  `${isLocal(c.env) ? new URL(c.req.url).origin : c.env.BETTER_AUTH_URL}/#/join/${token}`;
 app.get('/trips/:id/invite', async c =>
-  c.json({ url: shareURL(c.env, await room(c.env, c.req.param('id')).invite(c.get('user').id)) }));
+  c.json({ url: shareURL(c, await room(c.env, c.req.param('id')).invite(c.get('user').id)) }));
 app.post('/trips/:id/invite/rotate', async c => {
   const invite = await newInvite();
   await room(c.env, c.req.param('id')).rotateInvite(c.get('user').id, invite);
-  return c.json({ url: shareURL(c.env, invite.token) });
+  return c.json({ url: shareURL(c, invite.token) });
 });
 app.post('/join/:token', async c => {
   const row = await c.env.DB.prepare('select id from trips where invite_hash = ?')
@@ -137,7 +140,6 @@ const point = (v: string | undefined) => {
 };
 // Without a Stadia key, local dev falls back to the public OSM demo services; production returns 503.
 const mapsOff = (env: Env) => !env.STADIA_API_KEY && !isLocal(env);
-const isLocal = (env: Env) => /^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(env.BETTER_AUTH_URL);
 app.get('/places', async c => {
   if (mapsOff(c.env)) return c.json({ error: 'maps_not_configured' }, 503);
   const q = c.req.query('q')?.trim() ?? '';

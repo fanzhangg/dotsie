@@ -13,7 +13,9 @@ export function createAuth(env: Env) {
 
   return betterAuth({
     database: env.DB,
-    baseURL: env.BETTER_AUTH_URL,
+    // `wrangler dev` answers on both localhost and 127.0.0.1; follow whichever the browser opened, so
+    // its origin is trusted and email links come back to the same cookies. Production is fixed.
+    baseURL: isLocal(env) ? { allowedHosts: ['localhost:*', '127.0.0.1:*'], protocol: 'http', fallback: env.BETTER_AUTH_URL } : env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     basePath: '/api/auth',
     socialProviders: social,
@@ -37,6 +39,7 @@ export function createAuth(env: Env) {
   });
 }
 export type Auth = ReturnType<typeof createAuth>;
+export const isLocal = (env: Env) => /^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(env.BETTER_AUTH_URL);
 
 async function sendEmail(env: Env, to: string, url: string) {
   if (!env.RESEND_API_KEY) {

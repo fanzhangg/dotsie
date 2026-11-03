@@ -411,13 +411,15 @@ function mountAuth(root) {
     e.preventDefault();
     guest.elements[1].disabled = true;
     try {
-      await api('/auth/sign-in/anonymous', { method: 'POST', body: {} });
+      // A guest session may already exist from an attempt that failed halfway; reuse it rather than
+      // asking for another, which Better Auth refuses.
+      if (!(await api('/auth/get-session'))) await api('/auth/sign-in/anonymous', { method: 'POST', body: {} });
       await api('/auth/update-user', { method: 'POST', body: { name: guest.elements.name.value.trim() } });
       me = await api('/me');
       render();
-    } catch {
+    } catch (err) {
       guest.elements[1].disabled = false;
-      toast('Couldn’t continue. Check your connection.');
+      toast(err.code === 'offline' ? 'Couldn’t continue. Check your connection.' : 'Couldn’t continue. Try again.');
     }
   };
 }
