@@ -5,6 +5,4 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 APPLE_CLIENT_ID=
 APPLE_CLIENT_SECRET=
-RESEND_API_KEY=      # without it, magic links are printed to the dev console
-EMAIL_FROM=Waythread <signin@example.com>
 STADIA_API_KEY=      # without it, /api/places and /api/route return 503

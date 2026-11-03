@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { createAuth, emailEnabled, isLocal, type Auth } from './auth';
+import { createAuth, isLocal, type Auth } from './auth';
 import { driveRoute, searchPlaces } from './maps';
 import { ERR } from './trip';
 
@@ -34,16 +34,18 @@ app.use(csrf()); // writes must come from our own origin
 // which is enough to stop scripted sign-ups and runaway map calls billed to the Stadia key.
 const tooMany = async (limiter: RateLimit, key: string) => !(await limiter.limit({ key })).success;
 const rateLimited = (c: Context<AppEnv>) => c.json({ error: 'rate_limited' }, 429);
-// Every sign-in endpoint (guest, email link, Google/Apple) creates accounts or sends email: limit per IP.
-app.use('/auth/sign-in/*', async (c, next) => {
+// Sign-in and sign-up (guest, password, Google/Apple) create accounts or check passwords: limit per IP.
+const signInLimit = async (c: Context<AppEnv>, next: () => Promise<void>) => {
   if (c.req.method === 'POST' && await tooMany(c.env.SIGNIN_LIMIT, c.req.header('cf-connecting-ip') ?? 'local')) return rateLimited(c);
   await next();
-});
+};
+app.use('/auth/sign-in/*', signInLimit);
+app.use('/auth/sign-up/*', signInLimit);
 app.on(['GET', 'POST'], '/auth/*', c => getAuth(c.env).handler(c.req.raw));
 
 // ---------- Before sign-in ----------
 // Which sign-in buttons to show
-app.get('/config', c => c.json({ google: !!c.env.GOOGLE_CLIENT_ID, apple: !!c.env.APPLE_CLIENT_ID, email: emailEnabled(c.env) }));
+app.get('/config', c => c.json({ google: !!c.env.GOOGLE_CLIENT_ID, apple: !!c.env.APPLE_CLIENT_ID, password: true }));
 // The trip name for a share link, so the sign-in screen can say what you're joining.
 // Anyone holding the link may join anyway, so its name is no secret from them.
 app.get('/invite/:token', async c => {

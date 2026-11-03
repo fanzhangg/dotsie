@@ -15,9 +15,9 @@ const $sheets = document.getElementById('sheets');
 const state = { sel: null, leg: null, hoverLeg: null, snap: 'half', flash: new Set() };
 
 // Who's signed in, the home list, and the open trip ({ id, name, members, stops } or { id, error })
-let me = null, config = { google: false, apple: false, email: false }, trips = null, cur = null;
+let me = null, config = { google: false, apple: false, password: false }, trips = null, cur = null;
 // Whether any real sign-in is set up; without one, guests aren't offered an upgrade they can't do.
-const canSignIn = () => config.google || config.apple || config.email;
+const canSignIn = () => config.google || config.apple || config.password;
 // What to say when a request fails: the server's rate limit, no connection, or anything else
 const failMsg = (err, what) => err?.code === 'rate_limited' ? 'Too many tries. Wait a minute, then try again.'
   : err?.code === 'offline' ? `${what} Check your connection.` : `${what} Try again.`;
@@ -78,7 +78,7 @@ async function api(path, { method = 'GET', body, signal } = {}) {
     throw new ApiError(0, 'offline');
   }
   if (res.status === 401 && !path.startsWith('/auth/')) { signedOut(); throw new ApiError(401, 'unauthorized'); }
-  if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => ({}))).error);
+  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new ApiError(res.status, j.error || j.code); } // ours, or Better Auth's
   return res.status === 204 ? null : res.json();
 }
 const fromSnapshot = s => ({ id: s.trip.id, name: s.trip.name, members: s.members, stops: s.stops });
@@ -386,36 +386,70 @@ function renderSignIn(r) {
     }, () => {});
   }
 }
-// Google and Apple, then an emailed link (each only if set up), then (on the sign-in screen) going in as a guest.
+// Google and Apple (each only if set up), then email and password, then (on the sign-in screen)
+// going in as a guest. A guest upgrading starts on "Create account".
 function authHTML({ guest, joining }) {
   return `
     ${config.google ? '<button class="wt-btn wt-btn--secondary wt-btn--block" data-action="social" data-provider="google">Continue with Google</button>' : ''}
     ${config.apple ? '<button class="wt-btn wt-btn--secondary wt-btn--block" data-action="social" data-provider="apple">Continue with Apple</button>' : ''}
-    ${config.email ? `<form class="auth-email">
-      <input class="wt-input" name="email" type="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email">
-      <button class="wt-btn wt-btn--secondary wt-btn--block">Email me a sign-in link</button>
-    </form>` : ''}
+    ${config.password ? `<form class="auth-password" data-mode="${me?.isGuest ? 'sign-up' : 'sign-in'}"></form>` : ''}
     ${guest ? `${canSignIn() ? '<p class="signin__or">or</p>' : ''}
     <form class="auth-guest">
       <input class="wt-input" name="name" placeholder="Your name" autocomplete="given-name" maxlength="40" required aria-label="Your name">
       <button class="wt-btn wt-btn--primary wt-btn--block">${joining ? 'Join as a guest' : 'Continue as a guest'}</button>
     </form>` : ''}`;
 }
+const passwordFieldsHTML = (mode, email = '') => mode === 'sign-up' ? `
+    <input class="wt-input" name="name" placeholder="Your name" autocomplete="name" maxlength="40" required aria-label="Your name">
+    <input class="wt-input" name="email" type="email" placeholder="Email" autocomplete="email" required aria-label="Email" value="${esc(email)}">
+    <input class="wt-input" name="password" type="password" placeholder="Password (8+ characters)" autocomplete="new-password" minlength="8" maxlength="128" required aria-label="Password">
+    <button class="wt-btn wt-btn--secondary wt-btn--block">Create account</button>
+    <button type="button" class="wt-btn wt-btn--ghost wt-btn--block signin__switch" data-mode-to="sign-in">Have an account? Sign in</button>` : `
+    <input class="wt-input" name="email" type="email" placeholder="Email" autocomplete="email" required aria-label="Email" value="${esc(email)}">
+    <input class="wt-input" name="password" type="password" placeholder="Password" autocomplete="current-password" maxlength="128" required aria-label="Password">
+    <button class="wt-btn wt-btn--secondary wt-btn--block">Sign in</button>
+    <button type="button" class="wt-btn wt-btn--ghost wt-btn--block signin__switch" data-mode-to="sign-up">New here? Create an account</button>`;
+// Better Auth's codes, in words
+const AUTH_ERRORS = {
+  INVALID_EMAIL_OR_PASSWORD: 'Wrong email or password.',
+  INVALID_EMAIL: 'That email address doesn’t look right.',
+  PASSWORD_TOO_SHORT: 'Use at least 8 characters for your password.',
+  PASSWORD_TOO_LONG: 'That password is too long.',
+};
+const authFailMsg = err => AUTH_ERRORS[err?.code]
+  || (err?.code?.startsWith('USER_ALREADY_EXISTS') ? 'There’s already an account with this email. Sign in instead.' : failMsg(err, 'Couldn’t sign in.'));
+
 function mountAuth(root) {
-  const email = root.querySelector('.auth-email');
-  if (email) email.onsubmit = async e => {
-    e.preventDefault();
-    const addr = email.elements.email.value.trim();
-    email.elements[1].disabled = true;
-    try {
-      // A guest keeps the name they gave if this email is new
-      await api('/auth/sign-in/magic-link', { method: 'POST', body: { email: addr, callbackURL: callbackURL(), ...(me?.isGuest && { name: me.name }) } });
-      email.outerHTML = `<p class="signin__text">Check your email. We sent a sign-in link to <b>${esc(addr)}</b>.</p>`;
-    } catch (err) {
-      email.elements[1].disabled = false;
-      toast(failMsg(err, 'Couldn’t send the email.'));
-    }
-  };
+  const pw = root.querySelector('.auth-password');
+  if (pw) {
+    const show = (mode, email) => {
+      pw.dataset.mode = mode;
+      pw.innerHTML = passwordFieldsHTML(mode, email);
+      if (mode === 'sign-up' && me?.isGuest) pw.elements.name.value = me.name; // a guest keeps the name they gave
+    };
+    show(pw.dataset.mode);
+    pw.addEventListener('click', e => {
+      const to = e.target.closest('[data-mode-to]')?.dataset.modeTo;
+      if (to) show(to, pw.elements.email.value.trim());
+    });
+    // A guest's trips move to the account they create or sign in to (Better Auth's anonymous linking).
+    pw.onsubmit = async e => {
+      e.preventDefault();
+      const signUp = pw.dataset.mode === 'sign-up', F = pw.elements, submit = pw.querySelector('button:not([type])');
+      const body = { email: F.email.value.trim(), password: F.password.value, ...(signUp && { name: F.name.value.trim() }) };
+      submit.disabled = true;
+      try {
+        await api(signUp ? '/auth/sign-up/email' : '/auth/sign-in/email', { method: 'POST', body });
+        me = await api('/me');
+        trips = null;
+        closeSheet();
+        render();
+      } catch (err) {
+        submit.disabled = false;
+        toast(authFailMsg(err));
+      }
+    };
+  }
   const guest = root.querySelector('.auth-guest');
   if (guest) guest.onsubmit = async e => {
     e.preventDefault();
@@ -447,6 +481,10 @@ function homeHTML() {
 }
 
 // ---------- Trip screen: map + list sheet ----------
+// Stadia answers a domain it doesn't know with a "401" picture instead of an error, which Leaflet
+// can't tell from a real tile; ask once per visit whether it will serve this site.
+let stadiaCheck = null;
+const stadiaServes = () => (stadiaCheck ??= fetch('https://tiles.stadiamaps.com/tiles/alidade_smooth/0/0/0.png').then(r => r.ok, () => false));
 let map = null, layer = null, fitKey = '';
 function teardownTrip() {
   if (map) { map.remove(); map = null; layer = null; fitKey = ''; }
@@ -469,16 +507,20 @@ function mountTrip(trip) {
   map = L.map($app.querySelector('#map'), { zoomControl: false }).setView([32.6, -106.1], 8);
   // A quiet basemap so routes lead. Stadia needs no key on localhost; in production, register the
   // domain with Stadia. Fall back to OpenStreetMap if it's refused.
-  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-  const quiet = L.tileLayer(`https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, {
-    attribution: '© <a href="https://stadiamaps.com/">Stadia Maps</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 20,
-  }).addTo(map);
-  quiet.once('tileerror', () => {
-    map.removeLayer(quiet);
+  const m = map, dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const osm = () => {
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19,
-    }).addTo(map);
+    }).addTo(m);
     $app.querySelector('.trip')?.classList.add('osm-tiles');
+  };
+  stadiaServes().then(ok => {
+    if (map !== m) return; // left the trip meanwhile
+    if (!ok) return osm();
+    const quiet = L.tileLayer(`https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, {
+      attribution: '© <a href="https://stadiamaps.com/">Stadia Maps</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 20,
+    }).addTo(m);
+    quiet.once('tileerror', () => { m.removeLayer(quiet); osm(); });
   });
   layer = L.layerGroup().addTo(map);
   map.on('click', () => {

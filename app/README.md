@@ -6,7 +6,7 @@ One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`Tri
 | --- | --- |
 | [src/index.ts](src/index.ts) | API routes, session check, share links |
 | [src/trip.ts](src/trip.ts) | `TripRoom`: trip data, validation, membership, live events |
-| [src/auth.ts](src/auth.ts) | Better Auth: Google, Apple, email magic link, guests |
+| [src/auth.ts](src/auth.ts) | Better Auth: Google, Apple, email and password, guests |
 | [src/maps.ts](src/maps.ts) | Stadia place search and drive routes, routes cached in KV |
 | [migrations/](migrations) | D1 schema |
 | [web/](web) | The frontend: plain HTML, CSS and JS, started from `../prototype` |
@@ -23,7 +23,7 @@ npm run db:migrate:local
 npm run dev                      # http://localhost:8787
 ```
 
-Without OAuth keys the sign-in screen offers only email and guest. With `RESEND_API_KEY` empty, the email link is printed to the dev console. In production, the email option only appears once `RESEND_API_KEY` is set. Without `STADIA_API_KEY`, local dev uses the public OSM demo servers for place search and routes; production returns 503 instead.
+Without OAuth keys the sign-in screen offers email and password, and guest. Email addresses aren't verified and there's no password reset yet: both need an email service. Without `STADIA_API_KEY`, local dev uses the public OSM demo servers for place search and routes; production returns 503 instead.
 
 To try co-editing locally, use a second browser profile (each needs its own session cookie), or open the trip's share link in a private window.
 
@@ -41,15 +41,13 @@ One-time setup, in the GitHub repo under Settings → Secrets and variables → 
 | `STADIA_API_KEY` | Secret | Needed for place search and routes in production |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Secrets | Optional: Google sign-in |
 | `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET` | Secrets | Optional: Apple sign-in |
-| `RESEND_API_KEY` | Secret | Optional: email sign-in links |
-| `EMAIL_FROM` | Variable | With Resend, e.g. `Waythread <signin@yourdomain.com>` |
 | `APP_URL` | Variable | Optional: a custom domain. Without it the app runs at `https://waythread.<your-subdomain>.workers.dev` |
 
 Only the secrets you set are uploaded, and a feature whose keys are missing stays off. Register `<app URL>/api/auth/callback/google` (and `/callback/apple`) with each provider, and the app's domain with Stadia so map tiles load.
 
 `BETTER_AUTH_URL` isn't in `wrangler.jsonc`: `.dev.vars` sets it locally and the workflow sets it for production, so deploy through the workflow rather than `npm run deploy`.
 
-Rate limits (in `wrangler.jsonc`): 10 sign-in attempts per minute per IP, and 120 place searches plus route lookups per minute per person. Over the limit, the API returns 429 `rate_limited`. Sessions last 90 days from the last visit.
+Rate limits (in `wrangler.jsonc`): 10 sign-in and sign-up attempts per minute per IP, and 120 place searches plus route lookups per minute per person. Over the limit, the API returns 429 `rate_limited`. Sessions last 90 days from the last visit.
 
 ## API
 
@@ -57,7 +55,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config` and `/api/
 
 | Route | |
 | --- | --- |
-| `GET /api/config` | Which sign-in options are set up: `{ google, apple, email }` |
+| `GET /api/config` | Which sign-in options are set up: `{ google, apple, password }` |
 | `GET /api/invite/:token` | The trip name for a share link, for the sign-in screen |
 | `GET /api/me` | `{ id, name, image, isGuest }` |
 | `GET /api/trips` | Home cards: `[{ id, name, start, end }]` |

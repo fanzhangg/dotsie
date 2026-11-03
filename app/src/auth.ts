@@ -1,10 +1,10 @@
 import { betterAuth } from 'better-auth';
-import { anonymous, magicLink } from 'better-auth/plugins';
+import { anonymous } from 'better-auth/plugins';
 import type { TripRoom } from './trip';
 
-/* Sign-in: Google and Apple first (phone-first app), email magic link as the fallback, and guest
-   sessions so a friend opening a share link can join before making an account. A guest who signs
-   in later keeps their trips: onLinkAccount moves their memberships to the new user. */
+/* Sign-in: Google and Apple (when set up), email and password, and guest sessions so a friend
+   opening a share link can join before making an account. A guest who signs in later keeps their
+   trips: onLinkAccount moves their memberships to the new user. */
 export function createAuth(env: Env) {
   const social: Parameters<typeof betterAuth>[0]['socialProviders'] = {};
   if (env.GOOGLE_CLIENT_ID) social.google = { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET };
@@ -19,6 +19,8 @@ export function createAuth(env: Env) {
     secret: env.BETTER_AUTH_SECRET,
     basePath: '/api/auth',
     socialProviders: social,
+    // No email is sent: addresses aren't verified, and a forgotten password can't be reset yet.
+    emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 128, autoSignIn: true },
     trustedOrigins: ['https://appleid.apple.com'], // Apple posts its callback cross-site
     advanced: { defaultCookieAttributes: { sameSite: 'lax', secure: env.BETTER_AUTH_URL.startsWith('https:'), httpOnly: true } },
     // Trips are planned weeks ahead, and a guest has no other way back in, so a session lasts 90 days
@@ -26,7 +28,7 @@ export function createAuth(env: Env) {
     session: { expiresIn: 60 * 60 * 24 * 90, updateAge: 60 * 60 * 24 },
     databaseHooks: {
       user: {
-        // An email sign-up arrives without a name (unless a guest passes theirs along); start from the address.
+        // A sign-up without a name (Google can omit it) starts from the email address.
         create: { before: async user => ({ data: { ...user, name: cleanName(user.name) || user.email.split('@')[0] } }) },
         // A blank name is refused rather than saved
         update: {
@@ -41,7 +43,6 @@ export function createAuth(env: Env) {
       },
     },
     plugins: [
-      magicLink({ sendMagicLink: ({ email, url }) => sendEmail(env, email, url) }),
       anonymous({
         generateName: () => 'Guest',
         onLinkAccount: ({ anonymousUser, newUser }) => moveMemberships(env, anonymousUser.user.id, newUser.user),
@@ -51,28 +52,7 @@ export function createAuth(env: Env) {
 }
 export type Auth = ReturnType<typeof createAuth>;
 export const isLocal = (env: Env) => /^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(env.BETTER_AUTH_URL);
-// Email sign-in is offered only where a link can actually arrive: with Resend set up, or in local dev (console).
-export const emailEnabled = (env: Env) => !!env.RESEND_API_KEY || isLocal(env);
 const cleanName = (name: unknown) => (typeof name === 'string' ? name.trim().replace(/\s+/g, ' ').slice(0, 40) : '');
-
-async function sendEmail(env: Env, to: string, url: string) {
-  if (!env.RESEND_API_KEY) {
-    if (!isLocal(env)) throw new Error('Email sign-in is not set up'); // never claim to have sent it
-    console.log(`[dev] magic link for ${to}: ${url}`);
-    return;
-  }
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: env.EMAIL_FROM,
-      to,
-      subject: 'Sign in to Waythread',
-      text: `Tap to sign in to Waythread:\n\n${url}\n\nThe link works once and expires in 5 minutes.`,
-    }),
-  });
-  if (!res.ok) throw new Error(`Email send failed: ${res.status}`);
-}
 
 const moveMemberships = (env: Env, fromId: string, to: { id: string; name: string; image?: string | null }) =>
   forEachTrip(env, fromId, r => r.replaceMember(fromId, { id: to.id, name: to.name, image: to.image ?? null }));
