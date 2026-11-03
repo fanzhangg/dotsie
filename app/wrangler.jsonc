@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "waythread",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // The frontend: web/ plus the shared ../design-system, copied into public/ by the build
+  "build": { "command": "node scripts/build.mjs", "watch_dir": ["web", "../design-system"] },
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Users, sessions, trip membership and the home-screen trip summaries
+  "d1_databases": [
+    { "binding": "DB", "database_name": "waythread", "database_id": "local-dev-placeholder", "migrations_dir": "migrations" }
+  ],
+
+  // One Durable Object per trip: the trip's source of truth and its live-edit hub
+  "durable_objects": {
+    "bindings": [{ "name": "TRIP", "class_name": "TripRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripRoom"] }],
+
+  // Drive routes, keyed by their endpoints
+  "kv_namespaces": [{ "binding": "ROUTES", "id": "local-dev-placeholder" }],
+
+  "vars": {
+    "BETTER_AUTH_URL": "http://localhost:8787"
+  },
+  "observability": { "enabled": true }
+}

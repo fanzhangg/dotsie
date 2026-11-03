@@ -1,0 +1,32 @@
+/* Waythread — app layout only.
+ * Look and components come from the design system (design-system/tokens.css, components.css);
+ * this file places them on the screen. */
+
+html, body { height: 100%; }
+
+#app { max-width: var(--wt-size-column); margin: 0 auto; min-height: 100dvh; background: var(--wt-surface-raised); position: relative; }
+@media (min-width: 520px) { #app { box-shadow: 0 0 0 1px var(--wt-border-default); } }
+
+/* ---------- Home ---------- */
+.home-head { display: flex; align-items: center; justify-content: space-between; padding: var(--wt-space-6) var(--wt-space-4) var(--wt-space-3); }
+.home-head h1 { margin: 0; font: var(--wt-type-display); letter-spacing: var(--wt-tracking-display); }
+.home { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }
+
+/* ---------- Sign in: provider buttons, an email link, then guest ---------- */
+.signin { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }
+.wt-modal .signin { padding: 0; }
+.signin form { display: grid; gap: var(--wt-space-2); }
+.signin__text { margin: 0 0 var(--wt-space-2); color: var(--wt-text-secondary); }
+.signin__or { margin: 0; text-align: center; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.account-guest { margin-top: var(--wt-space-4); }
+
+/* ---------- Trip: full-screen map with the list sheet on top ---------- */
+.trip { position: relative; height: 100dvh; overflow: hidden; }
+#map { position: absolute; inset: 0; background: var(--wt-surface-map); }
+.trip .leaflet-bottom { bottom: var(--bottom-h, 0); transition: bottom var(--wt-duration-base); }
+.trip .leaflet-control-attribution { font-size: 10px; }
+/* Only the busier fallback basemap needs quieting. */
+.trip.osm-tiles .leaflet-tile-pane { filter: saturate(.55) brightness(1.03); }
+@media (prefers-color-scheme: dark) {
+  .trip.osm-tiles .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) saturate(.4) brightness(.9); }
+}

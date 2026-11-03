@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "5173", "-d", "."],
       "port": 5173
+    },
+    {
+      "name": "app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "app", "run", "dev"],
+      "port": 8787
     }
   ]
 }
