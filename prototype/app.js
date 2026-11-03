@@ -1,6 +1,6 @@
 'use strict';
 
-/* Trippy prototype — vanilla JS, no build step.
+/* Waythread prototype — vanilla JS, no build step.
    One trip screen: a full-screen map with the stop list as a draggable sheet on top.
    Data lives in localStorage; a BroadcastChannel keeps open tabs in sync to simulate co-editing
    (open the app with ?as=sam in a second tab). Routes come from the public OSRM demo server,
@@ -18,8 +18,16 @@ if (ME !== 'alex') document.title += ` (${USERS[ME].name})`;
 // ?today=YYYY-MM-DD pretends it's a trip day, so the check-off UI can be previewed before the trip
 const TODAY = /^\d{4}-\d{2}-\d{2}$/.test(params.get('today') || '') ? params.get('today') : null;
 
-const DB_KEY = 'trippy:v2';
-const ROUTE_KEY = 'trippy:routes:v1';
+const DB_KEY = 'waythread:v2';
+const ROUTE_KEY = 'waythread:routes:v1';
+// One-time carry-over of data saved under the app's old name (Trippy)
+for (const [from, to] of [['trippy:v2', DB_KEY], ['trippy:routes:v1', ROUTE_KEY]]) {
+  try {
+    const old = localStorage.getItem(from);
+    if (old !== null && localStorage.getItem(to) === null) localStorage.setItem(to, old);
+    localStorage.removeItem(from);
+  } catch {}
+}
 const $app = document.getElementById('app');
 const $sheets = document.getElementById('sheets');
 const state = { sel: null, leg: null, hoverLeg: null, snap: 'half', flash: new Set() };
@@ -171,7 +179,7 @@ function directionsURL(from, to) {
 }
 
 // ---------- Sync between tabs ----------
-const bc = 'BroadcastChannel' in window ? new BroadcastChannel('trippy') : null;
+const bc = 'BroadcastChannel' in window ? new BroadcastChannel('waythread') : null;
 if (bc) bc.onmessage = ({ data: m }) => {
   if (m.type !== 'sync') return;
   const old = db;
@@ -236,7 +244,7 @@ function render() {
 function homeHTML() {
   const trips = Object.values(db.trips).filter(t => t.members.includes(ME)).sort((a, b) => b.updatedAt - a.updatedAt);
   return `
-    <header class="home-head"><h1>Trippy</h1></header>
+    <header class="home-head"><h1>Waythread</h1></header>
     <main class="home">
       ${trips.map(t => `<a class="trip-card" href="#/trip/${t.id}"><b>${esc(t.name)}</b><span>${fmtRange(t)}</span></a>`).join('')}
       <button class="btn primary block" data-action="new-trip">${ICON.plus} New trip</button>

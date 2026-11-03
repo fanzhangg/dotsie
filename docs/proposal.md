@@ -1,4 +1,4 @@
-# Trippy: A Minimal Trip Planner
+# Waythread: A Minimal Trip Planner
 
 ## Motivation
 

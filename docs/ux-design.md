@@ -1,6 +1,6 @@
-# Trippy UX Design
+# Waythread UX Design
 
-This document describes the UX of the Trippy prototype in [`prototype/`](../prototype), the reasoning behind it, and what was left out on purpose. It builds on the [proposal](proposal.md).
+This document describes the UX of the Waythread prototype in [`prototype/`](../prototype), the reasoning behind it, and what was left out on purpose. It builds on the [proposal](proposal.md).
 
 ## Principles
 
@@ -12,7 +12,7 @@ The proposal set three principles. This is how each one shows up in the design:
 | **The route and the plan are the focus** | The map fills the screen and the plan sits on top of it. The most prominent things are the stops and the routes between them, not controls. |
 | **Co-editing is the default** | Every trip is shared. Everyone on it can edit, there are no roles, and the people on a trip are always visible. |
 
-One more rule came out of the iterations: **don't rebuild what Google Maps and Apple Maps already do.** Trippy plans the trip and hands off to the phone's maps app for navigation.
+One more rule came out of the iterations: **don't rebuild what Google Maps and Apple Maps already do.** Waythread plans the trip and hands off to the phone's maps app for navigation.
 
 ## Screens
 
@@ -111,7 +111,7 @@ Checked stops fade, and the route leading to them turns grey on the map.
 
 ### Handing off navigation
 
-Every drive's grey button opens directions from one stop to the next in the phone's own maps app: **Apple Maps** on iPhone and iPad, **Google Maps** everywhere else. Trippy has no turn-by-turn directions, step lists, or navigation mode. Those are what the maps apps do best.
+Every drive's grey button opens directions from one stop to the next in the phone's own maps app: **Apple Maps** on iPhone and iPad, **Google Maps** everywhere else. Waythread has no turn-by-turn directions, step lists, or navigation mode. Those are what the maps apps do best.
 
 ## Collaboration
 
