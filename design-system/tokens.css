@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.0.0
+/* Waythread design system — tokens v1.1.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -104,6 +104,16 @@
   --wt-danger-surface: var(--wt-color-red-50);
   --wt-highlight: #fff1b8;                          /* a co-editor's change, flashed once */
 
+  /* Stop types: one color per group, on markers and pins. No blue (routes) or red (doesn't fit). */
+  --wt-kind-place: #5f6368;
+  --wt-kind-travel: #00838f;
+  --wt-kind-stay: #7c3aed;
+  --wt-kind-food: #e8710a;
+  --wt-kind-sight: #d01884;
+  --wt-kind-nature: #1e8e3e;
+  --wt-kind-shop: #9e6a03;
+  --wt-marker-ink: #ffffff;                         /* the icon on a marker, and the car of the drive you're on */
+
   /* Overlays and shadows */
   --wt-overlay: rgba(0, 0, 0, .32);
   --wt-shadow-color: rgba(0, 0, 0, .14);
@@ -161,6 +171,14 @@
     --wt-danger: var(--wt-color-red-300);
     --wt-danger-surface: var(--wt-color-red-900);
     --wt-highlight: #4a3f12;
+    --wt-kind-place: #9aa0a6;
+    --wt-kind-travel: #4fc3b9;
+    --wt-kind-stay: #b77cf8;
+    --wt-kind-food: #fa903e;
+    --wt-kind-sight: #ff63b8;
+    --wt-kind-nature: #5bb974;
+    --wt-kind-shop: #e2b33c;
+    --wt-marker-ink: #141413;
     --wt-overlay: rgba(0, 0, 0, .55);
     --wt-shadow-color: rgba(0, 0, 0, .5);
     color-scheme: dark;
@@ -204,6 +222,14 @@
   --wt-danger: var(--wt-color-red-300);
   --wt-danger-surface: var(--wt-color-red-900);
   --wt-highlight: #4a3f12;
+  --wt-kind-place: #9aa0a6;
+  --wt-kind-travel: #4fc3b9;
+  --wt-kind-stay: #b77cf8;
+  --wt-kind-food: #fa903e;
+  --wt-kind-sight: #ff63b8;
+  --wt-kind-nature: #5bb974;
+  --wt-kind-shop: #e2b33c;
+  --wt-marker-ink: #141413;
   --wt-overlay: rgba(0, 0, 0, .55);
   --wt-shadow-color: rgba(0, 0, 0, .5);
   color-scheme: dark;

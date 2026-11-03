@@ -1,7 +1,8 @@
 /* Place search and drive routes, proxied so the Stadia key stays on the server and routes are cached.
    Map tiles don't come through here: the browser loads them from Stadia directly, authorized by domain. */
 
-export type Place = { name: string; address: string; lat: number; lng: number };
+// category is the source's place category (e.g. "accommodation", "tourism:museum"), for the app's first guess at a stop's type
+export type Place = { name: string; address: string; lat: number; lng: number; category: string };
 export type Route = { duration: number; distance: number; coords: [number, number][] };
 
 const STADIA = 'https://api.stadiamaps.com';
@@ -20,12 +21,13 @@ export async function searchPlaces(env: Env, q: string, near?: { lat: number; ln
   u.searchParams.set('api_key', env.STADIA_API_KEY);
   const res = await fetch(u);
   if (!res.ok) throw new Error(`Stadia search ${res.status}`);
-  const { features } = await res.json<{ features: { properties: Record<string, string>; geometry: { coordinates: [number, number] } }[] }>();
+  const { features } = await res.json<{ features: { properties: Record<string, string> & { category?: string[] }; geometry: { coordinates: [number, number] } }[] }>();
   return features.map(({ properties: p, geometry: { coordinates: [lng, lat] } }) => ({
     name: p.name,
     // In a plan the place name matters; keep the address short: street, town, state
     address: [[p.housenumber, p.street].filter(Boolean).join(' '), p.locality, p.region_a].filter(Boolean).join(', '),
     lat, lng,
+    category: (p.category ?? []).join(' '),
   }));
 }
 
@@ -62,13 +64,14 @@ async function devSearch(q: string, near?: { lat: number; lng: number }): Promis
   if (near) u.searchParams.set('viewbox', `${near.lng - 1.5},${near.lat + 1.5},${near.lng + 1.5},${near.lat - 1.5}`);
   const res = await fetch(u, { headers: DEV_UA });
   if (!res.ok) throw new Error(`Nominatim ${res.status}`);
-  const list = await res.json<{ name: string; display_name: string; lat: string; lon: string; address?: Record<string, string> }[]>();
+  const list = await res.json<{ name: string; display_name: string; lat: string; lon: string; category: string; type: string; address?: Record<string, string> }[]>();
   return list.map(p => {
     const a = p.address ?? {};
     return {
       name: p.name || p.display_name.split(', ')[0],
       address: [[a.house_number, a.road].filter(Boolean).join(' '), a.city || a.town || a.village, a.state].filter(Boolean).join(', '),
       lat: +p.lat, lng: +p.lon,
+      category: `${p.category}:${p.type}`,
     };
   });
 }

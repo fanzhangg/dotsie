@@ -7,9 +7,12 @@ import { DurableObject } from 'cloudflare:workers';
 
 // identity is 1–6, the design system's --wt-identity-N avatar colors
 export type Member = { id: string; name: string; image: string | null; identity: number };
+// kind is the stop's type ('' until someone picks one; the app guesses from the name). nights is for a
+// hotel: how many nights from its check-in, or null to last until the next hotel or the trip's last day.
+// done is no longer shown; it's kept so older clients' writes still validate.
 export type Stop = {
   id: string; name: string; address: string; lat: number; lng: number;
-  time: string; note: string; done: boolean; by: string; updatedAt: number;
+  time: string; note: string; kind: Kind | ''; nights: number | null; done: boolean; by: string; updatedAt: number;
 };
 export type StopFields = Omit<Stop, 'id' | 'by' | 'updatedAt'>;
 export type TripEvent =
@@ -25,6 +28,10 @@ export const ERR = { notFound: 'not_found', notMember: 'not_member', gone: 'gone
 
 const IDENTITIES = 6;
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+// Stop types; the app gives each an icon and color. Keep in sync with KINDS in web/app.js.
+export const KINDS = ['place', 'airport', 'hotel', 'restaurant', 'cafe', 'attraction', 'museum', 'viewpoint', 'nature', 'shopping', 'gas'] as const;
+type Kind = typeof KINDS[number];
+const MAX_NIGHTS = 30;
 
 // Checks a full stop (create) or a partial one (patch); unknown keys are dropped.
 export function cleanStop(input: unknown, partial: boolean): Partial<StopFields> {
@@ -50,11 +57,19 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
     if (typeof i.time !== 'string' || !TIME.test(i.time)) throw new Error(ERR.invalid);
     out.time = i.time;
   }
+  if (i.kind !== undefined) {
+    if (i.kind !== '' && !KINDS.includes(i.kind as Kind)) throw new Error(ERR.invalid);
+    out.kind = i.kind as Kind | '';
+  }
+  if (i.nights !== undefined) {
+    if (i.nights !== null && !(Number.isInteger(i.nights) && (i.nights as number) >= 1 && (i.nights as number) <= MAX_NIGHTS)) throw new Error(ERR.invalid);
+    out.nights = i.nights as number | null;
+  }
   if (i.done !== undefined) {
     if (typeof i.done !== 'boolean') throw new Error(ERR.invalid);
     out.done = i.done;
   }
-  if (!partial) out = { address: '', note: '', done: false, ...out };
+  if (!partial) out = { address: '', note: '', kind: '', nights: null, done: false, ...out };
   return out;
 }
 
@@ -73,6 +88,10 @@ export class TripRoom extends DurableObject<Env> {
         id text primary key, name text not null, address text not null, lat real not null, lng real not null,
         time text not null, note text not null, done integer not null, by text not null, updated_at integer not null
       );`);
+    // Added after launch: stop types and hotel nights
+    const cols = new Set(this.sql.exec<{ name: string }>('pragma table_info(stops)').toArray().map(c => c.name));
+    if (!cols.has('kind')) this.sql.exec("alter table stops add column kind text not null default ''");
+    if (!cols.has('nights')) this.sql.exec('alter table stops add column nights integer');
     // Answer keep-alive pings without waking the object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
@@ -130,8 +149,8 @@ export class TripRoom extends DurableObject<Env> {
     this.check(userId);
     const f = cleanStop(input, false) as StopFields;
     this.sql.exec(
-      `insert or replace into stops (id, name, address, lat, lng, time, note, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, +f.done, userId, Date.now());
+      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, +f.done, userId, Date.now());
     return this.afterStopWrite(stopId);
   }
 
@@ -248,10 +267,12 @@ export class TripRoom extends DurableObject<Env> {
     this.broadcast({ type: 'stop.upserted', stop }, stop.by);
     return stop;
   }
-  // Mirror the home-card fields to D1 (name, date range, last edit for sorting).
+  // Mirror the home-card fields to D1 (name, date range, last edit for sorting). The trip ends at its
+  // last stop, or later if a hotel's nights run past it.
   private async syncSummary() {
     const trip = this.trip()!;
-    const r = this.sql.exec<{ first: string | null; last: string | null }>('select min(time) as first, max(time) as last from stops').one();
+    const r = this.sql.exec<{ first: string | null; last: string | null }>(
+      `select min(time) as first, max(max(time), coalesce((select max(date(time, '+' || nights || ' days')) from stops where nights is not null), '')) as last from stops`).one();
     await this.env.DB.prepare('update trips set name = ?, first_stop = ?, last_stop = ?, updated_at = ? where id = ?')
       .bind(trip.name, r.first, r.last, Date.now(), trip.id).run();
   }

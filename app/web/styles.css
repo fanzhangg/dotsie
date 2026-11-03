@@ -33,11 +33,13 @@ html, body { height: 100%; }
 .account-keep { margin: var(--wt-space-6) 0 var(--wt-space-1); font: var(--wt-type-heading); }
 .home-guest { color: var(--wt-text-secondary); }
 
+/* ---------- Trip settings ---------- */
+.settings-new-link { margin-top: var(--wt-space-2); padding: 0; color: var(--wt-text-secondary); }
+
 /* ---------- Trip: full-screen map with the list sheet on top ---------- */
 .trip { position: relative; height: 100dvh; overflow: hidden; }
 #map { position: absolute; inset: 0; background: var(--wt-surface-map); }
 .trip .leaflet-bottom { bottom: var(--bottom-h, 0); transition: bottom var(--wt-duration-base); }
-.trip .leaflet-control-attribution { font-size: 10px; }
 /* Only the busier fallback basemap needs quieting. */
 .trip.osm-tiles .leaflet-tile-pane { filter: saturate(.55) brightness(1.03); }
 @media (prefers-color-scheme: dark) {

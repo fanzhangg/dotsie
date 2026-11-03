@@ -1,6 +1,6 @@
 # Waythread UX Design
 
-This document describes the UX of the Waythread prototype in [`prototype/`](../prototype), the reasoning behind it, and what was left out on purpose. It builds on the [proposal](proposal.md).
+This document describes the UX of the Waythread prototype in [`prototype/`](../prototype), the reasoning behind it, and what was left out on purpose. The app in [`app/web`](../app/web) has the same trip screen, on real data. It builds on the [proposal](proposal.md).
 
 ## Principles
 
@@ -218,9 +218,9 @@ The full visual language (tokens, components, light and dark themes, accessibili
 - **Production map services:** a paid or self-hosted service for routes, search, and the background map.
 - **Transport modes:** walking and flights currently all show as driving time.
 - **Phone-friendly gestures:** for example, dragging to reorder.
-- **Day view in the app:** the day bar, timeline, hotel stays, stop types and floating buttons exist only in `prototype/`, with their styles in `prototype/styles.css`. If they ship, the styles move into the design system and `app/web` gets the same change.
+- **Day view in the app:** shipped. The day bar, timeline, hotel stays, stop types and floating buttons are in `app/web`, with their styles in the design system (v2.0.0). Stops store `kind` and `nights` on the server. In the app, trip settings also holds Make a new link, and the trip name saves when you leave the field. Try changes in `prototype/` first, then port them by hand.
 - **How long a stop lasts:** stops have only a start time, so "Arrives late" and the highlight assume you leave each stop just in time for the next. Default lengths per type (a meal 1 hour, a museum 2, a flight's check-in 90 minutes) would make both more honest, without showing durations in the list.
 - **From the UX review, not yet done:** a lighter Add stop (type as one tappable marker instead of a grid, quick time choices), showing who's on the trip at a glance and what changed while you were away, working offline, an "All days" map of the whole route, and marking estimated drive times with `≈`.
-- **Map credits:** Stadia's and OpenStreetMap's terms ask for attribution on or next to the map. Settings is fine for a prototype; before launch, check the terms, and if needed bring back a small ⓘ button on the map that shows the credits.
+- **Map credits:** Stadia's and OpenStreetMap's terms ask for attribution on or next to the map. The app now shows them only in trip settings, like the prototype. Check the terms before this deploys; if needed, bring back a small ⓘ button on the map that shows the credits.
 - **People at a glance:** with the header gone, who's on the trip is one tap away. If that hides co-editing too much, a small stack of faces could go back on the settings button.
 - **Accessibility:** a full review, including focus handling in the sheets and screen-reader labels for pins.
