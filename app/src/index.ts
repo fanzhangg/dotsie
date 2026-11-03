@@ -46,6 +46,21 @@ app.on(['GET', 'POST'], '/auth/*', c => getAuth(c.env).handler(c.req.raw));
 // ---------- Before sign-in ----------
 // Which sign-in buttons to show
 app.get('/config', c => c.json({ google: !!c.env.GOOGLE_CLIENT_ID, apple: !!c.env.APPLE_CLIENT_ID, password: true }));
+// Where an email address leads, so sign-in can ask for the right thing next: its password, Google,
+// or a new account. This does tell anyone whether an address has an account here; that's the price
+// of not making people guess between "sign in" and "sign up", and the per-IP limit keeps it slow.
+app.post('/sign-in-options', signInLimit, async c => {
+  const { email } = await body(c.req.raw);
+  if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) bad();
+  const { results } = await c.env.DB.prepare(
+    `select a.providerId as provider from "user" u join account a on a.userId = u.id
+     where u.email = ? and coalesce(u.isAnonymous, 0) = 0`,
+  ).bind((email as string).trim().toLowerCase()).all<{ provider: string }>();
+  const providers = results.map(r => r.provider);
+  const account = providers.includes('credential') ? 'password' : providers.includes('google') ? 'google'
+    : providers.length ? 'other' : 'none';
+  return c.json({ account });
+});
 // The trip name for a share link, so the sign-in screen can say what you're joining.
 // Anyone holding the link may join anyway, so its name is no secret from them.
 app.get('/invite/:token', async c => {

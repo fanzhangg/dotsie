@@ -119,6 +119,8 @@ function legsOf(trip) {
 async function boot() {
   [config, me] = await Promise.all([api('/config').catch(() => config), api('/me').catch(() => null)]);
   render();
+  const msg = socialErrorMessage();
+  if (msg) toast(msg);
 }
 function signedOut() {
   me = null; trips = null;
@@ -132,13 +134,23 @@ async function signOut() {
   location.hash = '#/';
   signedOut();
 }
-// Come back to the same screen (a share link, say) after the provider or the email link.
+// Come back to the same screen (a share link, say) after Google, whether it worked or not.
 const callbackURL = () => location.pathname + location.hash;
 async function signInSocial(provider) {
   try {
-    const { url } = await api('/auth/sign-in/social', { method: 'POST', body: { provider, callbackURL: callbackURL() } });
+    const { url } = await api('/auth/sign-in/social', { method: 'POST', body: { provider, callbackURL: callbackURL(), errorCallbackURL: callbackURL() } });
     location.href = url;
-  } catch { toast('Sign-in is unavailable right now'); }
+  } catch (err) { toast(failMsg(err, 'Sign-in is unavailable right now.')); }
+}
+// Better Auth returns a failed provider sign-in as ?error=…; say what happened, then tidy the address.
+// An existing password account isn't joined to Google automatically, since its email was never verified.
+function socialErrorMessage() {
+  const code = params.get('error');
+  if (!code) return null;
+  history.replaceState(null, '', location.pathname + location.hash);
+  if (code === 'access_denied') return null; // they cancelled
+  if (code === 'account_not_linked' || code === 'unable_to_link_account') return 'This email already has a Waythread password. Use Continue with email to sign in.';
+  return 'Couldn’t sign in with Google. Try again.';
 }
 
 // ---------- Routes: only the line and drive time; navigation is handed to the maps app ----------
@@ -366,17 +378,17 @@ function render() {
 }
 
 // ---------- Sign in ----------
-// Opening a share link signed out shows what you're joining; joining as a guest takes only a name.
+/* One choice per screen. Start: Google, email, or guest. The email step asks only for the address,
+   then goes where it leads: the password for an existing account, "use Google" for a Google account,
+   or a new account. A guest gives only a name. The same steps run in the Account sheet when a guest
+   saves their trips (without the guest option, and without asking their name again). */
 let invite = { token: null, name: null };
 function renderSignIn(r) {
   const joining = r.page === 'join';
   $app.innerHTML = `
     <header class="home-head"><h1 class="signin-title">${joining ? esc(invite.token === r.token && invite.name ? `Join ${invite.name}` : 'Join the trip') : 'Waythread'}</h1></header>
-    <main class="signin">
-      <p class="signin__text">${joining ? 'Everyone on the trip can see and edit the plan.' : 'Plan a trip together, in one place.'}</p>
-      ${authHTML({ guest: true, joining })}
-    </main>`;
-  mountAuth($app);
+    <main class="signin"></main>`;
+  authFlow($app.querySelector('.signin'), { joining, guest: true });
   if (joining && invite.token !== r.token) {
     invite = { token: r.token, name: null };
     api(`/invite/${encodeURIComponent(r.token)}`).then(({ name }) => {
@@ -386,86 +398,137 @@ function renderSignIn(r) {
     }, () => {});
   }
 }
-// Google and Apple (each only if set up), then email and password, then (on the sign-in screen)
-// going in as a guest. A guest upgrading starts on "Create account".
-function authHTML({ guest, joining }) {
-  return `
-    ${config.google ? '<button class="wt-btn wt-btn--secondary wt-btn--block" data-action="social" data-provider="google">Continue with Google</button>' : ''}
-    ${config.apple ? '<button class="wt-btn wt-btn--secondary wt-btn--block" data-action="social" data-provider="apple">Continue with Apple</button>' : ''}
-    ${config.password ? `<form class="auth-password" data-mode="${me?.isGuest ? 'sign-up' : 'sign-in'}"></form>` : ''}
-    ${guest ? `${canSignIn() ? '<p class="signin__or">or</p>' : ''}
-    <form class="auth-guest">
-      <input class="wt-input" name="name" placeholder="Your name" autocomplete="given-name" maxlength="40" required aria-label="Your name">
-      <button class="wt-btn wt-btn--primary wt-btn--block">${joining ? 'Join as a guest' : 'Continue as a guest'}</button>
-    </form>` : ''}`;
-}
-const passwordFieldsHTML = (mode, email = '') => mode === 'sign-up' ? `
-    <input class="wt-input" name="name" placeholder="Your name" autocomplete="name" maxlength="40" required aria-label="Your name">
-    <input class="wt-input" name="email" type="email" placeholder="Email" autocomplete="email" required aria-label="Email" value="${esc(email)}">
-    <input class="wt-input" name="password" type="password" placeholder="Password (8+ characters)" autocomplete="new-password" minlength="8" maxlength="128" required aria-label="Password">
-    <button class="wt-btn wt-btn--secondary wt-btn--block">Create account</button>
-    <button type="button" class="wt-btn wt-btn--ghost wt-btn--block signin__switch" data-mode-to="sign-in">Have an account? Sign in</button>` : `
-    <input class="wt-input" name="email" type="email" placeholder="Email" autocomplete="email" required aria-label="Email" value="${esc(email)}">
-    <input class="wt-input" name="password" type="password" placeholder="Password" autocomplete="current-password" maxlength="128" required aria-label="Password">
-    <button class="wt-btn wt-btn--secondary wt-btn--block">Sign in</button>
-    <button type="button" class="wt-btn wt-btn--ghost wt-btn--block signin__switch" data-mode-to="sign-up">New here? Create an account</button>`;
-// Better Auth's codes, in words
-const AUTH_ERRORS = {
-  INVALID_EMAIL_OR_PASSWORD: 'Wrong email or password.',
-  INVALID_EMAIL: 'That email address doesn’t look right.',
-  PASSWORD_TOO_SHORT: 'Use at least 8 characters for your password.',
-  PASSWORD_TOO_LONG: 'That password is too long.',
-};
-const authFailMsg = err => AUTH_ERRORS[err?.code]
-  || (err?.code?.startsWith('USER_ALREADY_EXISTS') ? 'There’s already an account with this email. Sign in instead.' : failMsg(err, 'Couldn’t sign in.'));
 
-function mountAuth(root) {
-  const pw = root.querySelector('.auth-password');
-  if (pw) {
-    const show = (mode, email) => {
-      pw.dataset.mode = mode;
-      pw.innerHTML = passwordFieldsHTML(mode, email);
-      if (mode === 'sign-up' && me?.isGuest) pw.elements.name.value = me.name; // a guest keeps the name they gave
-    };
-    show(pw.dataset.mode);
-    pw.addEventListener('click', e => {
-      const to = e.target.closest('[data-mode-to]')?.dataset.modeTo;
-      if (to) show(to, pw.elements.email.value.trim());
-    });
-    // A guest's trips move to the account they create or sign in to (Better Auth's anonymous linking).
-    pw.onsubmit = async e => {
-      e.preventDefault();
-      const signUp = pw.dataset.mode === 'sign-up', F = pw.elements, submit = pw.querySelector('button:not([type])');
-      const body = { email: F.email.value.trim(), password: F.password.value, ...(signUp && { name: F.name.value.trim() }) };
-      submit.disabled = true;
+// Google's mark, in its own colors as Google's sign-in guidelines ask; the only colored icon in the app.
+const GOOGLE_MARK = '<svg class="wt-icon" width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+const googleBtnHTML = `<button type="button" class="wt-btn wt-btn--secondary wt-btn--block" data-action="social" data-provider="google">${GOOGLE_MARK}Continue with Google</button>`;
+const appleBtnHTML = '<button type="button" class="wt-btn wt-btn--secondary wt-btn--block" data-action="social" data-provider="apple">Continue with Apple</button>';
+// A password field with a Show button, so a typo is easy to spot on a phone keyboard
+const passwordHTML = (autocomplete, placeholder) => `<div class="signin__pw">
+  <input class="wt-input" name="password" type="password" placeholder="${placeholder}" autocomplete="${autocomplete}" ${autocomplete === 'new-password' ? 'minlength="8"' : ''} maxlength="128" required aria-label="Password">
+  <button type="button" class="signin__show" data-show aria-label="Show password">Show</button></div>`;
+// Password managers pair a password with the address it belongs to
+const usernameHTML = email => `<input class="wt-visually-hidden" type="email" name="username" autocomplete="username" value="${esc(email)}" tabindex="-1" aria-hidden="true">`;
+
+// Better Auth's codes (and ours), in words
+const AUTH_ERRORS = {
+  INVALID_EMAIL_OR_PASSWORD: 'That password isn’t right.',
+  INVALID_EMAIL: 'That email address doesn’t look right.',
+  PASSWORD_TOO_SHORT: 'Use at least 8 characters.',
+  PASSWORD_TOO_LONG: 'That password is too long.',
+  invalid: 'That email address doesn’t look right.',
+};
+
+function authFlow(root, { joining = false, guest = false } = {}) {
+  const s = { step: 'start', email: '' };
+  const head = (title, back) => `<div class="signin__head">
+    <button type="button" class="wt-icon-btn signin__back" data-to="${back}" aria-label="Back">${ICON.back}</button>
+    <h2 class="signin__title">${title}</h2></div>`;
+  const emailLine = () => `<p class="signin__text">${esc(s.email)} · <button type="button" class="signin__link" data-to="email">Change</button></p>`;
+  const errorHTML = '<p class="signin__error" role="alert" hidden></p>';
+  const STEPS = {
+    start: () => `
+      ${guest ? `<p class="signin__text">${joining ? 'Everyone on the trip can see and edit the plan.' : 'Plan a trip together, in one place.'}</p>` : ''}
+      ${config.google ? googleBtnHTML : ''}
+      ${config.apple ? appleBtnHTML : ''}
+      ${config.password ? '<button type="button" class="wt-btn wt-btn--secondary wt-btn--block" data-to="email">Continue with email</button>' : ''}
+      ${guest ? `<button type="button" class="wt-btn wt-btn--ghost wt-btn--block" data-to="guest">${joining ? 'Join as a guest' : 'Continue as a guest'}</button>
+      <p class="signin__hint signin__hint--center">No account needed, but you can only reach your trips from this browser.</p>` : ''}`,
+    email: () => `${head('Continue with email', 'start')}
+      <form data-submit="lookup">
+        <input class="wt-input" name="email" type="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email" value="${esc(s.email)}">
+        ${errorHTML}<button class="wt-btn wt-btn--primary wt-btn--block">Continue</button></form>`,
+    password: () => `${head('Welcome back', 'email')}${emailLine()}
+      <form data-submit="sign-in">${usernameHTML(s.email)}
+        ${passwordHTML('current-password', 'Password')}
+        ${errorHTML}<button class="wt-btn wt-btn--primary wt-btn--block">Sign in</button></form>
+      <p class="signin__hint">Forgot it? Password reset isn’t available yet.</p>`,
+    'sign-up': () => `${head('Create your account', 'email')}${emailLine()}
+      <form data-submit="sign-up">${usernameHTML(s.email)}
+        ${me?.isGuest ? '' : '<input class="wt-input" name="name" placeholder="Your name" autocomplete="name" maxlength="40" required aria-label="Your name">'}
+        ${passwordHTML('new-password', 'Choose a password')}
+        <p class="signin__hint">At least 8 characters.${me?.isGuest ? ' Your trips move to this account.' : ''}</p>
+        ${errorHTML}<button class="wt-btn wt-btn--primary wt-btn--block">Create account</button></form>`,
+    google: () => `${head('Use Google for this email', 'email')}
+      <p class="signin__text">${esc(s.email)} signs in with Google.</p>${googleBtnHTML}`,
+    guest: () => `${head(joining ? 'Join as a guest' : 'Continue as a guest', 'start')}
+      <form data-submit="guest">
+        <input class="wt-input" name="name" placeholder="Your name" autocomplete="given-name" maxlength="40" required aria-label="Your name">
+        <p class="signin__hint">Others on the trip see this name.</p>
+        ${errorHTML}<button class="wt-btn wt-btn--primary wt-btn--block">${joining ? 'Join the trip' : 'Continue'}</button></form>`,
+  };
+  const go = (step, patch) => {
+    Object.assign(s, patch, { step });
+    root.innerHTML = STEPS[step]();
+    if (step !== 'start') root.querySelector('input:not([tabindex="-1"])')?.focus();
+  };
+  // Signed in: a guest who saved their trips lands back where they were, now with an account
+  const done = async msg => {
+    me = await api('/me');
+    trips = null;
+    closeSheet();
+    render();
+    if (msg) toast(msg);
+  };
+  // Shown under the form; thrown by a step to explain something that isn't an API error
+  const say = message => Object.assign(new Error(message), { local: true });
+  const ACTIONS = {
+    lookup: async F => {
+      const email = F.email.value.trim();
+      const { account } = await api('/sign-in-options', { method: 'POST', body: { email } });
+      go(account === 'password' ? 'password' : account === 'none' ? 'sign-up' : 'google', { email });
+    },
+    'sign-in': async F => {
+      const wasGuest = me?.isGuest;
+      await api('/auth/sign-in/email', { method: 'POST', body: { email: s.email, password: F.password.value } });
+      await done(wasGuest ? 'Signed in. Your trips are saved to your account.' : null);
+    },
+    'sign-up': async F => {
+      const wasGuest = me?.isGuest;
+      const name = wasGuest ? me.name : F.name.value.trim();
       try {
-        await api(signUp ? '/auth/sign-up/email' : '/auth/sign-in/email', { method: 'POST', body });
-        me = await api('/me');
-        trips = null;
-        closeSheet();
-        render();
+        await api('/auth/sign-up/email', { method: 'POST', body: { email: s.email, password: F.password.value, name } });
       } catch (err) {
-        submit.disabled = false;
-        toast(authFailMsg(err));
+        // The account appeared a moment ago (another tab?): ask for its password instead
+        if (err.code?.startsWith('USER_ALREADY_EXISTS')) { go('password'); throw say('You already have an account. Enter its password.'); }
+        throw err;
       }
-    };
-  }
-  const guest = root.querySelector('.auth-guest');
-  if (guest) guest.onsubmit = async e => {
-    e.preventDefault();
-    guest.elements[1].disabled = true;
-    try {
+      await done(wasGuest ? 'Account created. Your trips are saved to it.' : null);
+    },
+    guest: async F => {
       // A guest session may already exist from an attempt that failed halfway; reuse it rather than
       // asking for another, which Better Auth refuses.
       if (!(await api('/auth/get-session'))) await api('/auth/sign-in/anonymous', { method: 'POST', body: {} });
-      await api('/auth/update-user', { method: 'POST', body: { name: guest.elements.name.value.trim() } });
-      me = await api('/me');
-      render();
-    } catch (err) {
-      guest.elements[1].disabled = false;
-      toast(failMsg(err, 'Couldn’t continue.'));
+      await api('/auth/update-user', { method: 'POST', body: { name: F.name.value.trim() } });
+      await done();
+    },
+  };
+  root.onclick = e => {
+    const to = e.target.closest('[data-to]')?.dataset.to;
+    if (to) return go(to);
+    const show = e.target.closest('[data-show]');
+    if (show) {
+      const input = show.previousElementSibling, hidden = input.type === 'password';
+      input.type = hidden ? 'text' : 'password';
+      show.textContent = hidden ? 'Hide' : 'Show';
+      show.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
+      input.focus();
     }
   };
+  root.onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target, submit = f.querySelector('button:not([type])');
+    submit.disabled = true;
+    f.querySelector('.signin__error').hidden = true;
+    try { await ACTIONS[f.dataset.submit](f.elements); } catch (err) {
+      // The step may have changed (sign-up → password); explain on whatever form is showing now
+      const box = root.querySelector('.signin__error');
+      if (box) { box.textContent = err.local ? err.message : AUTH_ERRORS[err.code] || failMsg(err, 'Couldn’t sign in.'); box.hidden = false; }
+      const btn = root.querySelector('form button:not([type])');
+      if (btn) btn.disabled = false;
+    }
+  };
+  go('start');
 }
 
 // ---------- Home ----------
@@ -846,7 +909,9 @@ function openAccount() {
       <label class="wt-field"><span class="wt-field__label">Your name${me.isGuest ? ' (guest)' : ''}</span>
         <input class="wt-input" name="name" autocomplete="name" maxlength="40" required></label>
     </form>
-    ${upgrade ? `<p class="wt-modal__text account-guest">Sign in to keep your trips. As a guest, you can only reach them from this browser.</p><div class="signin">${authHTML({ guest: false })}</div>` : ''}
+    ${upgrade ? `<h3 class="account-keep">Keep your trips</h3>
+    <p class="wt-modal__text">As a guest, you can only reach your trips from this browser. Sign in to keep them on any device.</p>
+    <div class="signin"></div>` : ''}
     <div class="wt-modal__actions"><button class="wt-btn wt-btn--danger" data-action="sign-out">Sign out</button></div>`, el => {
     const f = el.querySelector('.account-name');
     f.elements.name.value = me.name;
@@ -863,7 +928,7 @@ function openAccount() {
     };
     f.onsubmit = e => { e.preventDefault(); f.elements.name.blur(); };
     f.elements.name.addEventListener('change', saveName);
-    if (upgrade) mountAuth(el);
+    if (upgrade) authFlow(el.querySelector('.signin'));
   });
 }
 

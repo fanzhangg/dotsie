@@ -23,7 +23,7 @@ npm run db:migrate:local
 npm run dev                      # http://localhost:8787
 ```
 
-Without OAuth keys the sign-in screen offers email and password, and guest. Email addresses aren't verified and there's no password reset yet: both need an email service. Without `STADIA_API_KEY`, local dev uses the public OSM demo servers for place search and routes; production returns 503 instead.
+Sign-in offers Google (when its keys are set), email, and guest, one choice per screen. Email asks for the address first, then for its password, to use Google, or to create an account. A Google sign-in isn't joined to an existing password account with the same email, because that email was never verified; the app explains this and points to email sign-in. Email addresses aren't verified and there's no password reset yet: both need an email service. Without `STADIA_API_KEY`, local dev uses the public OSM demo servers for place search and routes; production returns 503 instead.
 
 To try co-editing locally, use a second browser profile (each needs its own session cookie), or open the trip's share link in a private window.
 
@@ -47,15 +47,16 @@ Only the secrets you set are uploaded, and a feature whose keys are missing stay
 
 `BETTER_AUTH_URL` isn't in `wrangler.jsonc`: `.dev.vars` sets it locally and the workflow sets it for production, so deploy through the workflow rather than `npm run deploy`.
 
-Rate limits (in `wrangler.jsonc`): 10 sign-in and sign-up attempts per minute per IP, and 120 place searches plus route lookups per minute per person. Over the limit, the API returns 429 `rate_limited`. Sessions last 90 days from the last visit.
+Rate limits (in `wrangler.jsonc`): 20 sign-in steps per minute per IP (an email lookup and a sign-in count as two), and 120 place searches plus route lookups per minute per person. Over the limit, the API returns 429 `rate_limited`. Sessions last 90 days from the last visit.
 
 ## API
 
-All routes need a session cookie, except `/api/auth/*`, `/api/config` and `/api/invite/:token`.
+All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sign-in-options` and `/api/invite/:token`.
 
 | Route | |
 | --- | --- |
 | `GET /api/config` | Which sign-in options are set up: `{ google, apple, password }` |
+| `POST /api/sign-in-options` `{ email }` | Where an address leads: `{ account: 'password' \| 'google' \| 'none' }`, so sign-in asks for the right thing next |
 | `GET /api/invite/:token` | The trip name for a share link, for the sign-in screen |
 | `GET /api/me` | `{ id, name, image, isGuest }` |
 | `GET /api/trips` | Home cards: `[{ id, name, start, end }]` |

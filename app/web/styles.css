@@ -12,13 +12,25 @@ html, body { height: 100%; }
 .home-head h1 { margin: 0; font: var(--wt-type-display); letter-spacing: var(--wt-tracking-display); }
 .home { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }
 
-/* ---------- Sign in: provider buttons, an email link, then guest ---------- */
+/* ---------- Sign in: one choice per step ---------- */
 .signin { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }
 .wt-modal .signin { padding: 0; }
-.signin form { display: grid; gap: var(--wt-space-2); }
-.signin__text { margin: 0 0 var(--wt-space-2); color: var(--wt-text-secondary); }
-.signin__or { margin: 0; text-align: center; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-.account-guest { margin-top: var(--wt-space-4); }
+.signin form { display: grid; gap: var(--wt-space-3); }
+.signin__text { margin: 0; color: var(--wt-text-secondary); overflow-wrap: anywhere; }
+.signin__head { display: flex; align-items: center; gap: var(--wt-space-1); margin-left: calc(-1 * var(--wt-space-3)); }
+.signin__title { margin: 0; font: var(--wt-type-title); }
+.signin__hint { margin: calc(-1 * var(--wt-space-1)) 0 0; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.signin__hint--center { margin-top: 0; text-align: center; }
+.signin__error { margin: 0; font: var(--wt-type-caption); color: var(--wt-text-danger); }
+.signin__link { font: inherit; color: var(--wt-text-link); background: none; border: 0; padding: 0; cursor: pointer; }
+.signin__pw { position: relative; }
+.signin__pw .wt-input { padding-right: 72px; }
+.signin__show {
+  position: absolute; right: var(--wt-space-1); top: 50%; transform: translateY(-50%);
+  padding: var(--wt-space-2); font: var(--wt-type-label); color: var(--wt-text-secondary);
+  background: none; border: 0; cursor: pointer;
+}
+.account-keep { margin: var(--wt-space-6) 0 var(--wt-space-1); font: var(--wt-type-heading); }
 .home-guest { color: var(--wt-text-secondary); }
 
 /* ---------- Trip: full-screen map with the list sheet on top ---------- */
