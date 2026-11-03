@@ -122,6 +122,8 @@ Every drive's grey button opens directions from one stop to the next in the phon
 
 ## Visual language
 
+The full visual language (tokens, components, light and dark themes, accessibility rules) is the [Waythread design system](../design-system/README.md). Its live demo page is at `/design-system/` on the preview server. In short:
+
 - **Color:**
   - Near-black for text and the main buttons.
   - Grey for secondary information.
@@ -133,8 +135,8 @@ Every drive's grey button opens directions from one stop to the next in the phon
 
 ## Prototype notes
 
-- **Running it:** `python -m http.server 5173 -d prototype`, then open `http://localhost:5173`.
-- **Tech:** plain HTML, CSS, and JavaScript with no build step. The map uses [Leaflet](https://leafletjs.com) 1.9.4.
+- **Running it:** from the repo root, `python -m http.server 5173 -d .`, then open `http://localhost:5173/prototype/`. The design system demo is at `http://localhost:5173/design-system/`.
+- **Tech:** plain HTML, CSS, and JavaScript with no build step, styled entirely by the [design system](../design-system/README.md). It follows the phone's light or dark setting. The map uses [Leaflet](https://leafletjs.com) 1.9.4.
 - **External services:**
 
   | Purpose | Service | Notes |

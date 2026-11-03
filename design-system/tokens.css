@@ -1,0 +1,282 @@
+/* Waythread design system — tokens v1.0.0
+ *
+ * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
+ *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
+ *   2. Semantic    --wt-surface-*, --wt-text-*, --wt-border-*, --wt-route-*, ...   themed by role
+ *   3. Scales      --wt-space-*, --wt-radius-*, --wt-type-*, --wt-shadow-*, ...   shared by every theme
+ *
+ * Theming: light on :root; dark follows the OS unless the page sets data-theme="light" | "dark".
+ */
+
+/* ---------- 1. Primitives ---------- */
+:root {
+  /* Neutrals lean very slightly warm so the grey sheet reads as paper, not steel. */
+  --wt-color-gray-0: #ffffff;
+  --wt-color-gray-50: #f5f5f3;
+  --wt-color-gray-100: #f2f2f0;
+  --wt-color-gray-150: #ebebea;
+  --wt-color-gray-200: #e4e4e2;
+  --wt-color-gray-300: #c8c8c6;
+  --wt-color-gray-400: #9a9a98;
+  --wt-color-gray-450: #8a8a88;
+  --wt-color-gray-500: #6b6b69;
+  --wt-color-gray-600: #575755;
+  --wt-color-gray-700: #3d3d3b;
+  --wt-color-gray-800: #2a2a29;
+  --wt-color-gray-850: #222221;
+  --wt-color-gray-900: #1c1c1b;
+  --wt-color-gray-950: #141413;
+  --wt-color-gray-1000: #0d0d0c;
+
+  /* Blue is reserved for routes and links. */
+  --wt-color-blue-100: #e3ecfd;
+  --wt-color-blue-200: #c3d4f2;
+  --wt-color-blue-300: #9dbbec;
+  --wt-color-blue-400: #8ab4f8;
+  --wt-color-blue-500: #1a73e8;
+  --wt-color-blue-600: #0b57d0;
+  --wt-color-blue-800: #243a5e;
+
+  /* Red is reserved for "doesn't fit" and destructive actions. */
+  --wt-color-red-50: #fdecea;
+  --wt-color-red-300: #f28b82;
+  --wt-color-red-600: #c5221f;
+  --wt-color-red-900: #3a1d1b;
+
+  /* Identity colors for people. Each passes 4.5:1 with white initials. */
+  --wt-color-identity-1: #2563eb;
+  --wt-color-identity-2: #c2410c;
+  --wt-color-identity-3: #0f766e;
+  --wt-color-identity-4: #7c3aed;
+  --wt-color-identity-5: #be185d;
+  --wt-color-identity-6: #4d7c0f;
+}
+
+/* ---------- 2. Semantic roles (light) ---------- */
+:root {
+  /* Surfaces, back to front */
+  --wt-surface-page: var(--wt-color-gray-100);      /* behind the app column on wide screens */
+  --wt-surface-sheet: var(--wt-color-gray-100);     /* the list sheet over the map */
+  --wt-surface-raised: var(--wt-color-gray-0);      /* stop cards, modal sheets, inputs on focus */
+  --wt-surface-sunken: var(--wt-color-gray-50);     /* resting inputs */
+  --wt-surface-hover: var(--wt-color-gray-200);     /* pressed / hovered quiet controls */
+  --wt-surface-inverse: #202124;                    /* toasts */
+  --wt-surface-map: #e9eef1;                        /* map placeholder before tiles load */
+
+  /* Text */
+  --wt-text-primary: var(--wt-color-gray-950);
+  --wt-text-secondary: var(--wt-color-gray-500);
+  --wt-text-placeholder: var(--wt-color-gray-400);
+  --wt-text-inverse: var(--wt-color-gray-0);
+  --wt-text-inverse-action: var(--wt-color-blue-400);
+  --wt-text-link: var(--wt-color-blue-500);
+  --wt-text-danger: var(--wt-color-red-600);
+
+  /* Lines */
+  --wt-border-subtle: rgba(0, 0, 0, .06);           /* card hairlines */
+  --wt-border-default: var(--wt-color-gray-150);    /* input borders */
+  --wt-border-strong: var(--wt-color-gray-300);     /* grab handle (decorative) */
+  --wt-border-control: var(--wt-color-gray-450);    /* unchecked check ring: 3:1 on cards */
+  --wt-border-focus: var(--wt-color-gray-950);      /* focused input, selected card */
+
+  /* Actions */
+  --wt-action-primary: var(--wt-color-gray-950);
+  --wt-action-primary-text: var(--wt-color-gray-0);
+  --wt-action-secondary: var(--wt-color-gray-0);
+  --wt-action-secondary-text: var(--wt-color-gray-950);
+  --wt-action-done: var(--wt-color-gray-950);       /* filled check */
+  --wt-action-done-text: var(--wt-color-gray-0);
+
+  /* Routes and pins (map) */
+  --wt-route: var(--wt-color-blue-500);
+  --wt-route-active: var(--wt-color-blue-600);
+  --wt-route-muted: var(--wt-color-blue-300);       /* other routes while one is active */
+  --wt-route-done: #b4b4b4;
+  --wt-route-casing: var(--wt-color-gray-0);        /* outline under route lines */
+  --wt-pin-fill: var(--wt-color-gray-0);
+  --wt-pin-ring: var(--wt-route);
+  --wt-pin-ring-muted: var(--wt-color-blue-200);
+  --wt-pin-ring-done: var(--wt-color-gray-400);
+  --wt-map-label: var(--wt-color-gray-0);
+
+  /* Status */
+  --wt-danger: var(--wt-color-red-600);
+  --wt-danger-surface: var(--wt-color-red-50);
+  --wt-highlight: #fff1b8;                          /* a co-editor's change, flashed once */
+
+  /* Overlays and shadows */
+  --wt-overlay: rgba(0, 0, 0, .32);
+  --wt-shadow-color: rgba(0, 0, 0, .14);
+
+  /* People */
+  --wt-identity-1: var(--wt-color-identity-1);
+  --wt-identity-2: var(--wt-color-identity-2);
+  --wt-identity-3: var(--wt-color-identity-3);
+  --wt-identity-4: var(--wt-color-identity-4);
+  --wt-identity-5: var(--wt-color-identity-5);
+  --wt-identity-6: var(--wt-color-identity-6);
+  --wt-identity-text: var(--wt-color-gray-0);
+
+  color-scheme: light;
+}
+
+/* ---------- 2b. Semantic roles (dark) ----------
+ * The same role values appear twice: once for "follow the OS", once for an explicit choice. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --wt-surface-page: var(--wt-color-gray-1000);
+    --wt-surface-sheet: var(--wt-color-gray-950);
+    --wt-surface-raised: var(--wt-color-gray-900);
+    --wt-surface-sunken: var(--wt-color-gray-850);
+    --wt-surface-hover: var(--wt-color-gray-800);
+    --wt-surface-inverse: var(--wt-color-gray-100);
+    --wt-surface-map: #1d2226;
+    --wt-text-primary: var(--wt-color-gray-100);
+    --wt-text-secondary: #a3a3a0;
+    --wt-text-placeholder: var(--wt-color-gray-500);
+    --wt-text-inverse: var(--wt-color-gray-950);
+    --wt-text-inverse-action: var(--wt-color-blue-600);
+    --wt-text-link: var(--wt-color-blue-400);
+    --wt-text-danger: var(--wt-color-red-300);
+    --wt-border-subtle: rgba(255, 255, 255, .08);
+    --wt-border-default: var(--wt-color-gray-800);
+    --wt-border-strong: var(--wt-color-gray-600);
+    --wt-border-control: var(--wt-color-gray-500);
+    --wt-border-focus: var(--wt-color-gray-100);
+    --wt-action-primary: var(--wt-color-gray-100);
+    --wt-action-primary-text: var(--wt-color-gray-950);
+    --wt-action-secondary: var(--wt-color-gray-900);
+    --wt-action-secondary-text: var(--wt-color-gray-100);
+    --wt-action-done: var(--wt-color-gray-100);
+    --wt-action-done-text: var(--wt-color-gray-950);
+    --wt-route: var(--wt-color-blue-400);
+    --wt-route-active: #aecbfa;
+    --wt-route-muted: var(--wt-color-blue-800);
+    --wt-route-done: var(--wt-color-gray-600);
+    --wt-route-casing: var(--wt-color-gray-950);
+    --wt-pin-fill: var(--wt-color-gray-950);
+    --wt-pin-ring-muted: var(--wt-color-blue-800);
+    --wt-pin-ring-done: var(--wt-color-gray-600);
+    --wt-map-label: var(--wt-color-gray-900);
+    --wt-danger: var(--wt-color-red-300);
+    --wt-danger-surface: var(--wt-color-red-900);
+    --wt-highlight: #4a3f12;
+    --wt-overlay: rgba(0, 0, 0, .55);
+    --wt-shadow-color: rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --wt-surface-page: var(--wt-color-gray-1000);
+  --wt-surface-sheet: var(--wt-color-gray-950);
+  --wt-surface-raised: var(--wt-color-gray-900);
+  --wt-surface-sunken: var(--wt-color-gray-850);
+  --wt-surface-hover: var(--wt-color-gray-800);
+  --wt-surface-inverse: var(--wt-color-gray-100);
+  --wt-surface-map: #1d2226;
+  --wt-text-primary: var(--wt-color-gray-100);
+  --wt-text-secondary: #a3a3a0;
+  --wt-text-placeholder: var(--wt-color-gray-500);
+  --wt-text-inverse: var(--wt-color-gray-950);
+  --wt-text-inverse-action: var(--wt-color-blue-600);
+  --wt-text-link: var(--wt-color-blue-400);
+  --wt-text-danger: var(--wt-color-red-300);
+  --wt-border-subtle: rgba(255, 255, 255, .08);
+  --wt-border-default: var(--wt-color-gray-800);
+  --wt-border-strong: var(--wt-color-gray-600);
+  --wt-border-control: var(--wt-color-gray-500);
+  --wt-border-focus: var(--wt-color-gray-100);
+  --wt-action-primary: var(--wt-color-gray-100);
+  --wt-action-primary-text: var(--wt-color-gray-950);
+  --wt-action-secondary: var(--wt-color-gray-900);
+  --wt-action-secondary-text: var(--wt-color-gray-100);
+  --wt-action-done: var(--wt-color-gray-100);
+  --wt-action-done-text: var(--wt-color-gray-950);
+  --wt-route: var(--wt-color-blue-400);
+  --wt-route-active: #aecbfa;
+  --wt-route-muted: var(--wt-color-blue-800);
+  --wt-route-done: var(--wt-color-gray-600);
+  --wt-route-casing: var(--wt-color-gray-950);
+  --wt-pin-fill: var(--wt-color-gray-950);
+  --wt-pin-ring-muted: var(--wt-color-blue-800);
+  --wt-pin-ring-done: var(--wt-color-gray-600);
+  --wt-map-label: var(--wt-color-gray-900);
+  --wt-danger: var(--wt-color-red-300);
+  --wt-danger-surface: var(--wt-color-red-900);
+  --wt-highlight: #4a3f12;
+  --wt-overlay: rgba(0, 0, 0, .55);
+  --wt-shadow-color: rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+/* ---------- 3. Scales (theme-independent) ---------- */
+:root {
+  /* Type: the system face, so the app feels native on every phone. */
+  --wt-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --wt-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  /* font shorthands: weight size/line-height family */
+  --wt-type-display: 700 28px/34px var(--wt-font-sans);   /* app name on Home */
+  --wt-type-title: 700 18px/24px var(--wt-font-sans);     /* trip name, modal titles */
+  --wt-type-heading: 700 15px/20px var(--wt-font-sans);   /* day headings */
+  --wt-type-name: 600 16px/21px var(--wt-font-sans);      /* stop and trip names */
+  --wt-type-body: 400 15px/21px var(--wt-font-sans);      /* running text */
+  --wt-type-time: 600 15px/21px var(--wt-font-sans);      /* stop times (use tabular-nums) */
+  --wt-type-label: 600 14px/20px var(--wt-font-sans);     /* buttons */
+  --wt-type-caption: 400 13px/18px var(--wt-font-sans);   /* notes, field labels, hints */
+  --wt-type-caption-strong: 500 13px/18px var(--wt-font-sans); /* drive times */
+  --wt-type-micro: 600 11px/14px var(--wt-font-sans);     /* AM / PM, avatar initials */
+  --wt-type-input: 400 16px/22px var(--wt-font-sans);     /* 16px stops iOS zooming into fields */
+  --wt-tracking-display: -.02em;
+
+  /* Space: a 4px grid */
+  --wt-space-1: 4px;
+  --wt-space-2: 8px;
+  --wt-space-3: 12px;
+  --wt-space-4: 16px;
+  --wt-space-5: 20px;
+  --wt-space-6: 24px;
+  --wt-space-8: 32px;
+  --wt-space-10: 40px;
+
+  /* Radius */
+  --wt-radius-sm: 8px;      /* pin labels */
+  --wt-radius-md: 12px;     /* cards, inputs, block buttons */
+  --wt-radius-lg: 18px;     /* sheets */
+  --wt-radius-pill: 999px;  /* buttons, drive chips, toasts */
+  --wt-radius-round: 50%;   /* avatars, checks, icon buttons */
+
+  /* Sizes */
+  --wt-size-touch: 44px;    /* minimum height of anything tapped often */
+  --wt-size-icon-btn: 40px;
+  --wt-size-avatar: 26px;
+  --wt-size-check: 26px;
+  --wt-size-icon: 22px;
+  --wt-size-column: 480px;  /* app column width on large screens */
+
+  /* Elevation: by role, never decoration */
+  --wt-shadow-hairline: 0 0 0 1px var(--wt-border-subtle);
+  --wt-shadow-sheet: 0 -2px 16px var(--wt-shadow-color);
+  --wt-shadow-float: 0 1px 4px var(--wt-shadow-color);
+  --wt-shadow-pin: 0 1px 3px rgba(0, 0, 0, .35);
+
+  /* Motion */
+  --wt-duration-fast: 150ms;
+  --wt-duration-base: 250ms;
+  --wt-duration-flash: 2400ms;
+  --wt-ease-out: cubic-bezier(.2, .8, .2, 1);
+
+  /* Layers */
+  --wt-z-raised: 1;
+  --wt-z-sheet: 500;        /* above Leaflet panes (400) */
+  --wt-z-modal: 1000;
+  --wt-z-toast: 2000;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --wt-duration-fast: 0ms;
+    --wt-duration-base: 0ms;
+    --wt-duration-flash: 0ms;
+  }
+}

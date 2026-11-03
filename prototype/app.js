@@ -4,13 +4,13 @@
    One trip screen: a full-screen map with the stop list as a draggable sheet on top.
    Data lives in localStorage; a BroadcastChannel keeps open tabs in sync to simulate co-editing
    (open the app with ?as=sam in a second tab). Routes come from the public OSRM demo server,
-   place search from Nominatim. */
+   place search from Nominatim. Look, components and icons come from ../design-system. */
 
 // ---------- People (no auth in the prototype) ----------
 const USERS = {
-  alex: { id: 'alex', name: 'Alex', color: '#2563eb' },
-  sam: { id: 'sam', name: 'Sam', color: '#d9480f' },
-  jo: { id: 'jo', name: 'Jo', color: '#0f766e' },
+  alex: { id: 'alex', name: 'Alex', identity: 1 },
+  sam: { id: 'sam', name: 'Sam', identity: 2 },
+  jo: { id: 'jo', name: 'Jo', identity: 3 },
 };
 const params = new URLSearchParams(location.search);
 const ME = USERS[params.get('as')] ? params.get('as') : 'alex';
@@ -35,19 +35,13 @@ const state = { sel: null, leg: null, hoverLeg: null, snap: 'half', flash: new S
 const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = n => String(n).padStart(2, '0');
+const avatarHTML = u => `<span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-${USERS[u].identity})">${USERS[u].name[0]}</span>`;
+// Map drawing can't use CSS classes, so it reads the design tokens directly (theme-aware).
+const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-// ---------- Icons ----------
-const svg = (d, size = 22, sw = 2) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
-const ICON = {
-  back: svg('M15 18l-6-6 6-6'),
-  close: svg('M18 6L6 18M6 6l12 12', 20),
-  plus: svg('M12 5v14M5 12h14'),
-  personAdd: svg('M15 19a6 6 0 00-12 0M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M16 11h6', 20),
-  edit: svg('M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z', 18),
-  check: svg('M5 12.5l4.5 4.5L19 7.5', 16, 3),
-  car: svg('M5 16h14M6 16v2.5M18 16v2.5M3.5 16v-3.5L6 7h12l2.5 5.5V16', 16),
-  ext: svg('M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5', 14),
-};
+// ---------- Icons (design system) ----------
+const ICON = Object.fromEntries(['back', 'close', 'plus', 'person-add', 'edit', 'check', 'car', 'external']
+  .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -221,7 +215,7 @@ function render() {
   const trip = db.trips[r.id];
   if (!trip) {
     teardownTrip();
-    $app.innerHTML = '<div class="empty">Trip not found. <a href="#/">All trips</a></div>';
+    $app.innerHTML = '<p class="wt-empty">Trip not found. <a href="#/">All trips</a></p>';
     return;
   }
   if (!trip.members.includes(ME)) { // opening a shared link is the invite
@@ -231,10 +225,10 @@ function render() {
   }
   if ($app.dataset.trip !== trip.id) mountTrip(trip);
   const el = $app.querySelector('.trip');
-  el.querySelector('.sl-head').innerHTML = sheetHeadHTML(trip);
-  el.querySelector('.sl-body').innerHTML = listHTML(trip);
-  if (!el.querySelector('.list-sheet').style.height) applySnap();
-  for (const id of state.flash) el.querySelector(`.row[data-id="${id}"]`)?.classList.add('flash');
+  el.querySelector('.wt-sheet__head').innerHTML = sheetHeadHTML(trip);
+  el.querySelector('.wt-sheet__body').innerHTML = listHTML(trip);
+  if (!el.querySelector('.wt-sheet').style.height) applySnap();
+  for (const id of state.flash) el.querySelector(`.wt-stop[data-id="${id}"]`)?.classList.add('wt-stop--flash');
   state.flash.clear();
   drawMap(trip);
   linkVisiblePins();
@@ -246,8 +240,8 @@ function homeHTML() {
   return `
     <header class="home-head"><h1>Waythread</h1></header>
     <main class="home">
-      ${trips.map(t => `<a class="trip-card" href="#/trip/${t.id}"><b>${esc(t.name)}</b><span>${fmtRange(t)}</span></a>`).join('')}
-      <button class="btn primary block" data-action="new-trip">${ICON.plus} New trip</button>
+      ${trips.map(t => `<a class="wt-trip-card" href="#/trip/${t.id}"><span class="wt-trip-card__name">${esc(t.name)}</span><span class="wt-trip-card__dates">${fmtRange(t)}</span></a>`).join('')}
+      <button class="wt-btn wt-btn--primary wt-btn--block" data-action="new-trip">${ICON.plus}New trip</button>
     </main>`;
 }
 
@@ -264,16 +258,17 @@ function mountTrip(trip) {
   $app.dataset.trip = trip.id;
   $app.innerHTML = `<div class="trip">
     <div id="map"></div>
-    <section class="list-sheet">
-      <div class="sl-top"><div class="grab"></div><div class="sl-head"></div></div>
-      <div class="sl-body"></div>
+    <section class="wt-sheet" aria-label="Stops">
+      <div class="wt-sheet__top"><div class="wt-sheet__grab"></div><div class="wt-sheet__head"></div></div>
+      <div class="wt-sheet__body"></div>
     </section>
   </div>`;
-  $app.querySelector('.sl-body').addEventListener('scroll', linkVisiblePins, { passive: true });
+  $app.querySelector('.wt-sheet__body').addEventListener('scroll', linkVisiblePins, { passive: true });
   if (!window.L) return;
   map = L.map($app.querySelector('#map'), { zoomControl: false }).setView([32.6, -106.1], 8);
   // A quiet basemap so routes lead (Stadia needs no key on localhost); fall back to OpenStreetMap if it's refused.
-  const quiet = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const quiet = L.tileLayer(`https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, {
     attribution: '© <a href="https://stadiamaps.com/">Stadia Maps</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 20,
   }).addTo(map);
   quiet.once('tileerror', () => {
@@ -295,11 +290,11 @@ function mountTrip(trip) {
 function sheetHeadHTML(trip) {
   const people = trip.members.filter(u => USERS[u]);
   return `
-    <a class="icon-btn" href="#/" aria-label="All trips">${ICON.back}</a>
-    <span class="sl-title">${esc(trip.name)}</span>
-    <button class="icon-btn edit-btn" data-action="rename" aria-label="Edit trip">${ICON.edit}</button>
-    <button class="people-btn" data-action="share" aria-label="People and sharing">${people.length > 1
-      ? people.map(u => `<span class="face" style="--c:${USERS[u].color}">${USERS[u].name[0]}</span>`).join('')
+    <a class="wt-icon-btn" href="#/" aria-label="All trips">${ICON.back}</a>
+    <span class="wt-sheet__title">${esc(trip.name)}</span>
+    <button class="wt-icon-btn wt-icon-btn--sm wt-icon-btn--muted" data-action="rename" aria-label="Edit trip">${ICON.edit}</button>
+    <button class="wt-avatar-stack" data-action="share" aria-label="People and sharing">${people.length > 1
+      ? people.map(avatarHTML).join('')
       : ICON.personAdd}</button>`;
 }
 // Check-off only matters while travelling: show it on trip days.
@@ -309,34 +304,34 @@ function onTrip(trip) {
   const today = TODAY || toInput(new Date()).slice(0, 10);
   return today >= s[0].time.slice(0, 10) && today <= s.at(-1).time.slice(0, 10);
 }
-const timeHTML = t => fmtTime(t).replace(/ (AM|PM)$/, '<small>$1</small>');
+const timeHTML = t => fmtTime(t).replace(/ (AM|PM)$/, '<span class="wt-stop__meridiem">$1</span>');
 function driveHTML(from, to) {
   const r = getRoute(from, to);
   if (r && r.distance === 0) return '';
   // red when the drive is longer than the gap between the two stops — no extra element, just the color
   const late = r && r.duration > (toDate(to.time) - toDate(from.time)) / 1000;
-  return `<a class="drive${state.leg === to.id ? ' on' : ''}${late ? ' late' : ''}" data-leg="${to.id}" href="${directionsURL(from, to)}" target="_blank" rel="noopener">
-    <span class="dr-in" aria-label="Directions in maps app${late ? ' — not enough time before the next stop' : ''}">${ICON.car}${r ? fmtDur(r.duration) : '…'}${ICON.ext}</span>
+  return `<a class="wt-drive${state.leg === to.id ? ' wt-drive--active' : ''}${late ? ' wt-drive--late' : ''}" data-leg="${to.id}" href="${directionsURL(from, to)}" target="_blank" rel="noopener">
+    <span class="wt-drive__chip" aria-label="Directions in maps app${late ? ' — not enough time before the next stop' : ''}">${ICON.car}${r ? fmtDur(r.duration) : '…'}${ICON.external}</span>
   </a>`;
 }
 // One "Add stop", pinned to the bottom of the sheet so it's always in reach.
-const addBarHTML = `<div class="add-bar"><button class="add-btn" data-action="add">${ICON.plus}Add stop</button></div>`;
+const addBarHTML = `<div class="wt-add-bar"><button class="wt-btn wt-btn--secondary wt-btn--block" data-action="add">${ICON.plus}Add stop</button></div>`;
 // Three layers: day heading, a card per stop (time · name), and drive connectors between cards.
 function listHTML(trip) {
   const spots = spotsOf(trip);
-  if (!spots.length) return `<p class="empty">Add a flight, a hotel, or a place to see.</p>${addBarHTML}`;
+  if (!spots.length) return `<p class="wt-empty">Add a flight, a hotel, or a place to see.</p>${addBarHTML}`;
   const checks = onTrip(trip);
   let html = '', day = '';
   spots.forEach((s, i) => {
     const d = s.time.slice(0, 10);
-    if (d !== day) { day = d; html += `<h3 class="day">${fmtDay(s.time)}</h3>`; }
+    if (d !== day) { day = d; html += `<h3 class="wt-day">${fmtDay(s.time)}</h3>`; }
     if (i > 0) html += driveHTML(spots[i - 1], s);
-    html += `<div class="row${s.done ? ' done' : ''}${s.id === state.sel ? ' sel' : ''}" data-id="${s.id}">
-      <button class="row-main" data-action="edit" data-id="${s.id}">
-        <span class="time">${timeHTML(s.time)}</span>
-        <span class="what"><b>${esc(s.name)}</b>${s.note ? `<span class="note">${esc(s.note)}</span>` : ''}</span>
+    html += `<div class="wt-stop${s.done ? ' wt-stop--done' : ''}${s.id === state.sel ? ' wt-stop--selected' : ''}" data-id="${s.id}">
+      <button class="wt-stop__main" data-action="edit" data-id="${s.id}">
+        <span class="wt-stop__time">${timeHTML(s.time)}</span>
+        <span><span class="wt-stop__name">${esc(s.name)}</span>${s.note ? `<span class="wt-stop__note">${esc(s.note)}</span>` : ''}</span>
       </button>
-      ${checks ? `<button class="check" data-action="toggle-done" data-id="${s.id}" aria-label="${s.done ? 'Mark not done' : 'Mark done'}" aria-pressed="${!!s.done}">${ICON.check}</button>` : ''}
+      ${checks ? `<button class="wt-check" data-action="toggle-done" data-id="${s.id}" aria-label="${s.done ? 'Mark not done' : 'Mark done'}" aria-pressed="${!!s.done}">${ICON.check}</button>` : ''}
     </div>`;
   });
   return html + addBarHTML;
@@ -345,10 +340,10 @@ function listHTML(trip) {
 // Sheet snaps between peek (header only), half, and full; drag the top or tap it to toggle.
 function snaps() {
   const H = $app.querySelector('.trip').clientHeight;
-  return { peek: $app.querySelector('.sl-top').offsetHeight, half: Math.round(H * 0.48), full: H - 48 };
+  return { peek: $app.querySelector('.wt-sheet__top').offsetHeight, half: Math.round(H * 0.48), full: H - 48 };
 }
 function applySnap() {
-  const sheet = $app.querySelector('.list-sheet');
+  const sheet = $app.querySelector('.wt-sheet');
   if (!sheet) return;
   const h = snaps()[state.snap];
   sheet.style.height = `${h}px`;
@@ -357,7 +352,7 @@ function applySnap() {
 }
 const drag = { active: false, moved: false, y0: 0, h0: 0, suppressClick: false };
 document.addEventListener('pointerdown', e => {
-  const top = e.target.closest('.sl-top');
+  const top = e.target.closest('.wt-sheet__top');
   if (!top) return;
   Object.assign(drag, { active: true, moved: false, y0: e.clientY, h0: parseFloat(top.parentElement.style.height) || top.parentElement.offsetHeight });
 });
@@ -366,16 +361,16 @@ document.addEventListener('pointermove', e => {
   const dy = drag.y0 - e.clientY;
   if (!drag.moved && Math.abs(dy) < 6) return;
   drag.moved = true;
-  const sheet = $app.querySelector('.list-sheet'), s = snaps();
-  sheet.classList.add('dragging');
+  const sheet = $app.querySelector('.wt-sheet'), s = snaps();
+  sheet.classList.add('is-dragging');
   sheet.style.height = `${Math.max(s.peek, Math.min(s.full, drag.h0 + dy))}px`;
 });
 document.addEventListener('pointerup', e => {
   if (!drag.active) return;
   drag.active = false;
-  const sheet = $app.querySelector('.list-sheet');
+  const sheet = $app.querySelector('.wt-sheet');
   if (!sheet) return;
-  sheet.classList.remove('dragging');
+  sheet.classList.remove('is-dragging');
   if (!drag.moved) {
     if (!e.target.closest?.('button, a')) { state.snap = state.snap === 'peek' ? 'half' : 'peek'; applySnap(); }
     return;
@@ -403,12 +398,13 @@ function drawMap(trip) {
   const spots = spotsOf(trip);
   const active = state.leg || state.hoverLeg;
   const legs = legsOf(trip);
+  const C = { on: token('--wt-route-active'), done: token('--wt-route-done'), muted: token('--wt-route-muted'), route: token('--wt-route'), casing: token('--wt-route-casing') };
   // draw the active route last so it sits on top
   for (const l of [...legs.filter(l => l.to.id !== active), ...legs.filter(l => l.to.id === active)]) {
     const rt = getRoute(l.from, l.to), isOn = l.to.id === active;
-    const color = isOn ? '#0b57d0' : l.to.done ? '#b4b4b4' : active ? '#9dbbec' : '#1a73e8';
+    const color = isOn ? C.on : l.to.done ? C.done : active ? C.muted : C.route;
     const coords = rt ? rt.coords : [[l.from.lat, l.from.lng], [l.to.lat, l.to.lng]];
-    L.polyline(coords, { color: '#fff', weight: isOn ? 11 : 8, opacity: 0.9, interactive: false }).addTo(layer);
+    L.polyline(coords, { color: C.casing, weight: isOn ? 11 : 8, opacity: 0.9, interactive: false }).addTo(layer);
     L.polyline(coords, { color, weight: isOn ? 7 : 4.5, dashArray: rt?.ok ? null : '1 9', lineCap: 'round', interactive: false }).addTo(layer);
     // wide invisible line so the route is easy to tap
     L.polyline(coords, { opacity: 0, weight: 24, bubblingMouseEvents: false })
@@ -424,12 +420,12 @@ function drawMap(trip) {
   pins = [];
   for (const g of groups.values()) {
     const focus = g.find(s => s.id === state.sel);
-    const cls = [focus ? 'on' : '', g.every(s => s.done) ? 'done' : ''].join(' ');
+    const cls = [focus ? 'wt-pin--selected' : '', g.every(s => s.done) ? 'wt-pin--done' : ''].join(' ');
     const m = L.marker([g[0].lat, g[0].lng], {
-      icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="pin ${cls}"><i></i>${focus ? `<span>${esc(focus.name)}</span>` : ''}</div>` }),
+      icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="wt-pin ${cls}"><i class="wt-pin__dot"></i>${focus ? `<span class="wt-pin__label">${esc(focus.name)}</span>` : ''}</div>` }),
       zIndexOffset: focus ? 1000 : 0, title: g[0].name,
     }).on('click', () => selectSpot(g.find(s => !s.done) || g[0])).addTo(layer);
-    pins.push({ ids: g.map(s => s.id), el: m.getElement()?.querySelector('.pin') });
+    pins.push({ ids: g.map(s => s.id), el: m.getElement()?.querySelector('.wt-pin') });
   }
 
   const pts = spots.map(s => [s.lat, s.lng]);
@@ -446,23 +442,22 @@ function selectLeg(l) {
   if (state.snap === 'peek') state.snap = 'half';
   render();
   applySnap();
-  $app.querySelector(`.drive[data-leg="${l.to.id}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  $app.querySelector(`.wt-drive[data-leg="${l.to.id}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 // Pins for the stops scrolled into view stay strong; the rest step back, so list and map read as one.
 let pins = [];
 function linkVisiblePins() {
-  const body = $app.querySelector('.sl-body');
+  const body = $app.querySelector('.wt-sheet__body');
   if (!body || !pins.length) return;
   const box = body.getBoundingClientRect();
-  const rows = [...body.querySelectorAll('.row')];
+  const rows = [...body.querySelectorAll('.wt-stop')];
   const vis = new Set(rows.filter(r => { const b = r.getBoundingClientRect(); return b.bottom > box.top + 40 && b.top < box.bottom; }).map(r => r.dataset.id));
   const linked = vis.size > 0 && vis.size < rows.length;
-  $app.querySelector('.trip').classList.toggle('pins-linked', linked);
-  for (const p of pins) p.el?.classList.toggle('vis', p.ids.some(id => vis.has(id)));
+  for (const p of pins) p.el?.classList.toggle('wt-pin--muted', linked && !p.ids.some(id => vis.has(id)));
 }
 // Hovering a drive in the list previews its route on the map.
 document.addEventListener('mouseover', e => {
-  const id = e.target.closest?.('.drive')?.dataset.leg || null;
+  const id = e.target.closest?.('.wt-drive')?.dataset.leg || null;
   if (id === state.hoverLeg) return;
   state.hoverLeg = id;
   const trip = db.trips[parseHash().id];
@@ -475,7 +470,7 @@ function selectSpot(s) {
   if (state.snap === 'peek') state.snap = 'half';
   render();
   applySnap();
-  $app.querySelector(`.row[data-id="${s.id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  $app.querySelector(`.wt-stop[data-id="${s.id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 // Opening a stop moves it into the strip of map left visible above the edit sheet.
 function focusSpot(s) {
@@ -486,18 +481,19 @@ function focusSpot(s) {
 }
 
 // ---------- Sheets ----------
-const closeBtn = `<button class="icon-btn" data-action="close-sheet" aria-label="Close">${ICON.close}</button>`;
+const closeBtn = `<button class="wt-icon-btn" data-action="close-sheet" aria-label="Close">${ICON.close}</button>`;
+const modalHead = title => `<div class="wt-modal__head"><h2 class="wt-modal__title">${title}</h2>${closeBtn}</div>`;
 function openSheet(html, mount) {
-  $sheets.innerHTML = `<div class="backdrop" data-action="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
-  mount?.($sheets.querySelector('.sheet'));
-  requestAnimationFrame(() => requestAnimationFrame(() => $sheets.classList.add('open')));
+  $sheets.innerHTML = `<div class="wt-modal__backdrop" data-action="close-sheet"></div><div class="wt-modal" role="dialog" aria-modal="true">${html}</div>`;
+  mount?.($sheets.querySelector('.wt-modal'));
+  requestAnimationFrame(() => requestAnimationFrame(() => $sheets.classList.add('is-open')));
 }
-function closeSheet() { $sheets.classList.remove('open'); $sheets.innerHTML = ''; }
+function closeSheet() { $sheets.classList.remove('is-open'); $sheets.innerHTML = ''; }
 
 function openNewTrip() {
-  openSheet(`<div class="sheet-head"><h2>New trip</h2>${closeBtn}</div>
-    <form><input name="title" placeholder="Trip to White Sands, NM" autocomplete="off" required>
-    <div class="actions"><button class="btn primary">Create</button></div></form>`, el => {
+  openSheet(`${modalHead('New trip')}
+    <form><input class="wt-input" name="title" placeholder="Trip to White Sands, NM" autocomplete="off" required aria-label="Trip name">
+    <div class="wt-modal__actions"><button class="wt-btn wt-btn--primary">Create</button></div></form>`, el => {
     const f = el.querySelector('form');
     f.elements.title.focus();
     f.onsubmit = e => {
@@ -511,9 +507,9 @@ function openNewTrip() {
 }
 
 function openRename(trip) {
-  openSheet(`<div class="sheet-head"><h2>Edit trip</h2>${closeBtn}</div>
-    <form><input name="title" autocomplete="off" required>
-    <div class="actions"><button type="button" class="btn danger" data-del>Delete trip</button><button class="btn primary">Save</button></div></form>`, el => {
+  openSheet(`${modalHead('Edit trip')}
+    <form><input class="wt-input" name="title" autocomplete="off" required aria-label="Trip name">
+    <div class="wt-modal__actions"><button type="button" class="wt-btn wt-btn--danger" data-del>Delete trip</button><button class="wt-btn wt-btn--primary">Save</button></div></form>`, el => {
     const f = el.querySelector('form');
     f.elements.title.value = trip.name;
     f.onsubmit = e => {
@@ -534,11 +530,11 @@ function openShare(trip) {
   const base = location.origin + location.pathname;
   const link = `${base}#/trip/${trip.id}`;
   const others = Object.values(USERS).filter(u => u.id !== ME);
-  openSheet(`<div class="sheet-head"><h2>Share</h2>${closeBtn}</div>
-    <p class="muted">Anyone with the link can edit this trip.</p>
-    <div class="copy-row"><input readonly value="${esc(link)}"><button class="btn primary" data-action="copy" data-text="${esc(link)}">Copy</button></div>
-    <ul class="people">${trip.members.filter(u => USERS[u]).map(u => `<li><span class="face" style="--c:${USERS[u].color}">${USERS[u].name[0]}</span>${USERS[u].name}${u === ME ? ' (you)' : ''}</li>`).join('')}</ul>
-    <div class="proto"><b>Prototype:</b> try co-editing — open this trip
+  openSheet(`${modalHead('Share')}
+    <p class="wt-modal__text">Anyone with the link can edit this trip.</p>
+    <div class="wt-copy-row"><input class="wt-input" readonly value="${esc(link)}" aria-label="Trip link"><button class="wt-btn wt-btn--primary" data-action="copy" data-text="${esc(link)}">Copy</button></div>
+    <ul class="wt-people">${trip.members.filter(u => USERS[u]).map(u => `<li class="wt-people__item">${avatarHTML(u)}${USERS[u].name}${u === ME ? ' (you)' : ''}</li>`).join('')}</ul>
+    <div class="proto-note"><b>Prototype:</b> try co-editing — open this trip
       ${others.map(u => `<a href="${base}?as=${u.id}#/trip/${trip.id}" target="_blank">as ${u.name}</a>`).join(' or ')} in another tab.
       ${trip.spots.length ? `Check-off shows on trip days: <a href="${base}?today=${spotsOf(trip)[0].time.slice(0, 10)}#/trip/${trip.id}">preview day 1</a>.` : ''}</div>`);
 }
@@ -568,15 +564,15 @@ function openSpotSheet(trip, spot) {
   const draft = spot ? { ...spot } : { lat: null, lng: null, address: '' };
   state.leg = null;
   if (spot) { state.sel = spot.id; render(); focusSpot(spot); }
-  openSheet(`<div class="sheet-head"><h2>${spot ? 'Edit stop' : 'Add stop'}</h2>${closeBtn}</div>
+  openSheet(`${modalHead(spot ? 'Edit stop' : 'Add stop')}
     <form>
-      <label class="field"><span>Place</span><input name="title" type="search" placeholder="Search a place" autocomplete="off" required></label>
-      <ul class="results"></ul>
-      <label class="field"><span>When</span><input name="time" type="datetime-local" required></label>
-      <label class="field"><span>Note</span><textarea name="note" rows="2" placeholder="Confirmation #, tickets, tips…"></textarea></label>
-      <div class="actions">${spot ? '<button type="button" class="btn danger" data-del>Delete</button>' : ''}<button class="btn primary">${spot ? 'Save' : 'Add'}</button></div>
+      <label class="wt-field"><span class="wt-field__label">Place</span><input class="wt-input" name="title" type="search" placeholder="Search a place" autocomplete="off" required></label>
+      <ul class="wt-results"></ul>
+      <label class="wt-field"><span class="wt-field__label">When</span><input class="wt-input" name="time" type="datetime-local" required></label>
+      <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" placeholder="Confirmation #, tickets, tips…"></textarea></label>
+      <div class="wt-modal__actions">${spot ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${spot ? 'Save' : 'Add'}</button></div>
     </form>`, el => {
-    const results = el.querySelector('.results'), f = el.querySelector('form'), F = f.elements;
+    const results = el.querySelector('.wt-results'), f = el.querySelector('form'), F = f.elements;
     if (spot) { F.title.value = spot.name; F.time.value = spot.time; F.note.value = spot.note || ''; }
     else { F.time.value = defaultTime(trip); setTimeout(() => F.title.focus(), 280); }
 
@@ -590,16 +586,16 @@ function openSpotSheet(trip, spot) {
     async function search(v) {
       ctrl?.abort();
       ctrl = new AbortController();
-      results.innerHTML = '<li class="muted">Searching…</li>';
+      results.innerHTML = '<li class="wt-results__msg">Searching…</li>';
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=${encodeURIComponent(v)}${viewbox(trip)}`, { signal: ctrl.signal });
         list = await res.json();
         results.innerHTML = list.length ? list.map((p, i) => {
           const pl = placeOf(p);
-          return `<li><button type="button" data-i="${i}"><b>${esc(pl.name)}</b><span>${esc(pl.address)}</span></button></li>`;
-        }).join('') : '<li class="muted">No places found</li>';
+          return `<li><button type="button" class="wt-results__item" data-i="${i}"><span class="wt-results__name">${esc(pl.name)}</span><span class="wt-results__detail">${esc(pl.address)}</span></button></li>`;
+        }).join('') : '<li class="wt-results__msg">No places found</li>';
       } catch (e) {
-        if (e.name !== 'AbortError') results.innerHTML = '<li class="muted">Search is unavailable right now</li>';
+        if (e.name !== 'AbortError') results.innerHTML = '<li class="wt-results__msg">Search is unavailable right now</li>';
       }
     }
     results.addEventListener('click', e => {
@@ -613,7 +609,7 @@ function openSpotSheet(trip, spot) {
 
     f.onsubmit = e => {
       e.preventDefault();
-      if (draft.lat == null) { results.innerHTML = '<li class="muted">Pick a place from the search results</li>'; return; }
+      if (draft.lat == null) { results.innerHTML = '<li class="wt-results__msg">Pick a place from the search results</li>'; return; }
       const data = { name: F.title.value.trim(), address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim() };
       if (spot) editSpot(trip.id, spot.id, data);
       else mutate(d => {
@@ -634,15 +630,15 @@ function openSpotSheet(trip, spot) {
 }
 
 // ---------- Toast ----------
-const $toast = Object.assign(document.createElement('div'), { id: 'toast' });
+const $toast = Object.assign(document.createElement('div'), { className: 'wt-toast', role: 'status' });
 document.body.append($toast);
 let toastTimer;
 function toast(msg, label, onAction) {
-  $toast.innerHTML = `<span>${esc(msg)}</span>${label ? `<button>${esc(label)}</button>` : ''}`;
-  if (label) $toast.querySelector('button').onclick = () => { $toast.classList.remove('show'); onAction(); };
-  $toast.classList.add('show');
+  $toast.innerHTML = `<span>${esc(msg)}</span>${label ? `<button class="wt-toast__action">${esc(label)}</button>` : ''}`;
+  if (label) $toast.querySelector('button').onclick = () => { $toast.classList.remove('is-visible'); onAction(); };
+  $toast.classList.add('is-visible');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $toast.classList.remove('show'), label ? 5000 : 2800);
+  toastTimer = setTimeout(() => $toast.classList.remove('is-visible'), label ? 5000 : 2800);
 }
 
 // ---------- Events ----------
