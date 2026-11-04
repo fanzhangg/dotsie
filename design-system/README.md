@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 5.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 5.4.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -38,7 +38,7 @@ Each principle comes with a rule you can check:
 
   Nothing else is colored. A highlight is grey, never tinted.
 - Use one way to show emphasis at a time. A card is set apart by its surface, not by surface and shadow and border together.
-- Weight is for the few things that lead. Stop names are medium (500); the day bar and modal titles are semibold (600); only the app name on Home is bold. Everything else is regular, and steps down by size and ink (`--wt-text-secondary`, then `--wt-text-tertiary`, and `--wt-text-past` for what's over), never by adding weight.
+- Weight is for the few things that lead. Stop names are medium (500) and the strongest text on the trip screen: the trip's name and the day above them are smaller and grey (`--wt-type-context`). Modal titles are semibold (600); only the app name on Home is bold. Everything else is regular, and steps down by size and ink (`--wt-text-secondary`, then `--wt-text-tertiary`, and `--wt-text-past` for what's over), never by adding weight.
 - Show state with what's already there. A late drive is the same row in red; a past row turns light grey. Don't add a badge.
 
 ## Getting started
@@ -128,6 +128,7 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-kind-drive` | The car marker on a drive in the timeline: grey, and quieter than any stop type. |
 | `--wt-kind-drive-current` | The car on the selected drive: a darker grey, never blue. |
 | `--wt-kind-past` | Markers, cars and muted pins of what's over: light grey. |
+| `--wt-marker-gloss` | The gradient over every marker, car and pin, as on a maps app's: lighter at the top, darker at the bottom. It shades whatever color is under it (`background-image` over `background-color`), so set a marker's color with `background-color`, never the `background` shorthand. |
 | `--wt-marker-ink` | The icon on a marker, the number or dot on a map pin, and the car on a drive. Meets 3:1 on every kind color, `--wt-kind-drive`, `--wt-kind-drive-current`, `--wt-now`, `--wt-danger` and `--wt-route`. Not on `--wt-kind-past`: what's over is faded on purpose. |
 | `--wt-danger`, `--wt-danger-surface` | "Doesn't fit" and destructive states; a late drive's car. The loudest color. |
 | `--wt-now` | The ring on the stop happening now and the car on the drive you're on: the blackest ink (`gray-950`; `gray-100` in dark). |
@@ -157,7 +158,8 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 | Token | Size / line | Weight | Use for |
 | --- | --- | --- | --- |
 | `--wt-type-display` | 28 / 34 | 700 | The app name on Home. Pair it with `--wt-tracking-display`. |
-| `--wt-type-title` | 18 / 24 | 600 | The day bar, modal titles. |
+| `--wt-type-title` | 18 / 24 | 600 | Modal titles. |
+| `--wt-type-context` | 15 / 20 | 500 | Where you are: the trip's name and the day bar, in `--wt-text-secondary`. Smaller and lighter than a stop's name, so the plan leads. |
 | `--wt-type-heading` | 15 / 20 | 600 | Section headings in settings ("Keep your trips"). |
 | `--wt-type-name` | 16 / 21 | 500 | Stop and trip names: the strongest text in a list. |
 | `--wt-type-body` | 15 / 21 | 400 | Running text. |
@@ -310,7 +312,7 @@ Labels are verbs that say exactly what happens.
 
 ### Marker `.wt-marker`
 
-A stop's type icon on its type's color. The same marker sits on the timeline's rail, in the day list, in the Type picker and in place search. On the map, a stop's [pin](#map-pin-wt-pin) has the same color but carries its number instead of the icon.
+A stop's type icon on its type's color, with `--wt-marker-gloss` over it, so it reads as a solid, tappable object like a maps app's marker. The same marker sits on the timeline's rail, in the day list, in the Type picker and in place search. On the map, a stop's [pin](#map-pin-wt-pin) has the same color but carries its number instead of the icon.
 
 ```html
 <i class="wt-marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)">${icon('utensils')}</i>
@@ -532,7 +534,7 @@ With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 </div>
 ```
 
-- **The header** is one row: home, the trip's name, settings. The name is always in view. It stays quiet next to the list: `--wt-size-trip-head` (44px) tall, the name at 15px, the icons 20px in `--wt-text-secondary`. Floating, it's frosted (`--wt-surface-raised` at 80% with a backdrop blur) with `--wt-shadow-float`; docked and in the side panel it's solid. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
+- **The header** is one row: home, the trip's name, settings. The name is always in view. It stays quiet next to the list: `--wt-size-trip-head` (44px) tall, the name in `--wt-type-context` and `--wt-text-secondary`, the icons 20px in `--wt-text-secondary`. Floating, it's frosted (`--wt-surface-raised` at 80% with a backdrop blur) with `--wt-shadow-float`; docked and in the side panel it's solid. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
 - **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has two heights:
   - **Compact** (`.is-peek`), the default: the day bar, one row of the list and the add bar, so the map has most of the screen and still says what you're looking at. The app marks that row `.is-peek-row` (the selected stop or drive, or else the row happening now, or else the first stop), scrolls it to the list's top, and makes the sheet as tall as the day bar, the row (at most 120px) and the add bar. **A drive comes with its two stops:** the rows before and after it are `.is-peek-row` too, so the sheet says where the drive goes from and to (at most 240px for the three). The other rows hide.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
@@ -645,7 +647,7 @@ The name and dates only: enough to pick a trip.
 ```
 
 - **A teardrop, like a maps app's pin.** Its tip is on the place, so it points at it exactly; place the element at the place and the tip lands there. 30 × 39px.
-- **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), outlined in `--wt-pin-fill`.
+- **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), with the same gloss (`::after`, cut to the drop's shape), outlined in `--wt-pin-fill`.
 - **Its head holds one thing: the stop's number,** in the day's order (on All days, the trip's), in `--wt-marker-ink`. A place that isn't a numbered stop has `.wt-pin__dot` instead.
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal.
 - Variants: `--selected` (a quarter larger: the selected stop, and both ends of a route on show) and `--muted` (smaller and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). The pins still in color are the ones that matter now. Both scale from the tip.
@@ -721,6 +723,15 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 5.4.0
+
+The plan leads, and its markers look like a maps app's (tokens 1.9.0).
+
+- `--wt-type-context` (15 / 20, 500) is new: the trip's name (`.wt-trip-head__name`) and the day bar (`.wt-day-bar__label`) use it, in `--wt-text-secondary`. Both used to be as strong as the stops or stronger (the day bar was 18px semibold in black). The day bar's arrows are `--wt-text-secondary` too. `--wt-type-title` is now for modal titles only.
+- `--wt-marker-gloss` is new: a gradient over `.wt-marker`, `.wt-tl-car` and `.wt-pin` (as `::after`), lighter at the top and darker at the bottom, as on Apple Maps' markers. Their colors are now set with `background-color`.
+- `--wt-kind-drive` is `gray-500` in light (was `gray-450`), so the car's icon keeps 3:1 under the gloss.
+- Nothing was renamed or removed.
 
 ### Changed in 5.3.0
 

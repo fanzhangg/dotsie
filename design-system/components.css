@@ -1,4 +1,4 @@
-/* Waythread design system — components v5.3.0
+/* Waythread design system — components v5.4.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -154,7 +154,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* The same marker in the list, on the map and in the day list, at different sizes. Set --wt-kind-color. */
 .wt-marker {
   display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: var(--wt-radius-round);
-  background: var(--wt-kind-color, var(--wt-kind-place)); color: var(--wt-marker-ink);
+  background-color: var(--wt-kind-color, var(--wt-kind-place)); background-image: var(--wt-marker-gloss); color: var(--wt-marker-ink);
 }
 .wt-marker .wt-icon { width: 16px; height: 16px; }
 .wt-marker--sm { width: 20px; height: 20px; }
@@ -218,7 +218,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-car {
   position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: 20px; height: 20px; display: grid; place-items: center; border-radius: var(--wt-radius-round);
-  background: var(--wt-kind-drive); color: var(--wt-marker-ink);
+  background-color: var(--wt-kind-drive); background-image: var(--wt-marker-gloss); color: var(--wt-marker-ink);
 }
 .wt-tl-car .wt-icon { width: 13px; height: 13px; }
 /* The row itself takes no hover or press look: only its Directions button reads as a control. */
@@ -276,8 +276,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   color: var(--wt-text-past);
   --wt-text-primary: var(--wt-text-past); --wt-text-secondary: var(--wt-text-past); --wt-text-tertiary: var(--wt-text-past); --wt-text-link: var(--wt-text-past);
 }
-.wt-tl .is-past .wt-tl-marker { background: var(--wt-kind-past); }
-.wt-tl .is-past:not(.is-active) .wt-tl-car { background: var(--wt-kind-past); }
+.wt-tl .is-past .wt-tl-marker { background-color: var(--wt-kind-past); }
+.wt-tl .is-past:not(.is-active) .wt-tl-car { background-color: var(--wt-kind-past); }
 .wt-tl .wt-tl-drive.is-past.is-late :is(.wt-tl-drive__what b, .wt-tl-drive__late) { color: var(--wt-text-secondary); }
 
 /* Day heading: the overview (every day on one page) puts each day's stops under the day's name. It's a label, not a
@@ -304,15 +304,16 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* The arrows are centred on the timeline's columns: ‹ on the rail, › on the Directions column (with the sheet top's padding). */
 .wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) 0 var(--wt-space-2); }
 .wt-day-bar[hidden] { display: none; }
-.wt-day-bar__step { color: var(--wt-text-primary); }
+.wt-day-bar__step { color: var(--wt-text-secondary); }
 .wt-day-bar__title {
   font: inherit; color: inherit; background: none; border: 0; margin: 0; cursor: pointer;
   display: grid; justify-items: center; padding: 2px var(--wt-space-3); border-radius: var(--wt-radius-md);
 }
 .wt-day-bar__title:active { background: var(--wt-surface-hover); }
 .wt-day-bar__title:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
-.wt-day-bar__label { display: inline-flex; align-items: center; gap: 2px; font: var(--wt-type-title); }
-.wt-day-bar__label .wt-icon { width: 18px; height: 18px; color: var(--wt-text-tertiary); }
+/* The day says where you are, so it stays below the plan: --wt-type-context in secondary ink, quieter than a stop's name. */
+.wt-day-bar__label { display: inline-flex; align-items: center; gap: 2px; font: var(--wt-type-context); color: var(--wt-text-secondary); }
+.wt-day-bar__label .wt-icon { width: 16px; height: 16px; color: var(--wt-text-tertiary); }
 
 /* ---------- Day list: every day of the trip, in a modal sheet ---------- */
 .wt-day-list { list-style: none; margin: 0; padding: 0; }
@@ -440,7 +441,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-trip-head .wt-icon-btn { color: var(--wt-text-secondary); }
 .wt-trip-head .wt-icon-btn .wt-icon { width: 20px; height: 20px; }
-.wt-trip-head__name { flex: 1; min-width: 0; margin: 0; padding-right: var(--wt-space-1); font: var(--wt-type-name); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-trip-head__name { flex: 1; min-width: 0; margin: 0; padding-right: var(--wt-space-1); font: var(--wt-type-context); color: var(--wt-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Map / List (unused since 4.1.0: the sheet's three heights are reached by dragging it, as in a maps app) */
 .wt-view-toggle {
   display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px 0 11px;
@@ -660,6 +661,12 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   filter: drop-shadow(var(--wt-shadow-pin));
 }
 .wt-pin--muted .wt-pin__shape { filter: none; }
+/* The gloss, as on a marker: laid over the drop's fill, cut to its shape, under the number. */
+.wt-pin::after {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background-image: var(--wt-marker-gloss);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 39'%3E%3Cpath d='M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 39'%3E%3Cpath d='M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
 .wt-pin--muted:not(.wt-pin--selected) .wt-pin__shape { fill: var(--wt-kind-past); }
 /* Centered in the head of the drop, whose circle's center is 14.3px down */
 .wt-pin__num {

@@ -175,7 +175,7 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><path id="pin-drop" d="M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z"/></defs></svg>
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v5.3.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v5.4.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -919,7 +919,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v5.3.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v5.4.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -1030,6 +1030,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       ['--wt-kind-drive-current', 'The car on the selected drive.'],
       ['--wt-kind-past', 'Markers, cars and pins of what’s over.'],
       ['--wt-marker-ink', 'The icon on a marker, the car on a drive.'],
+      ['--wt-marker-gloss', 'The gradient over markers, cars and pins.'],
     ]],
     ['Status', [
       ['--wt-danger', 'Doesn’t fit, destructive; a late drive’s car.'],
@@ -1049,7 +1050,8 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
   // ---------- Scales ----------
   const TYPE = [
     ['--wt-type-display', 'Waythread', 'App name on Home'],
-    ['--wt-type-title', 'Today, Nov 21', 'The day bar, modal titles'],
+    ['--wt-type-title', 'Edit stop', 'Modal titles'],
+    ['--wt-type-context', 'Today, Nov 21', 'The trip’s name, the day bar'],
     ['--wt-type-heading', 'Keep your trips', 'Section headings in settings'],
     ['--wt-type-name', 'El Paso International Airport', 'Stop and trip names'],
     ['--wt-type-body', 'Anyone with the link can edit this trip.', 'Running text'],
