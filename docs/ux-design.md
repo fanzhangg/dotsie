@@ -23,55 +23,52 @@ One more rule came out of the iterations: **don't rebuild what Google Maps and A
 
 ### Trip
 
-The trip is a single screen: a **header** with the trip's name, the **map**, and the **stop list** in a sheet over the map. There are no List/Map tabs. On a phone the sheet works like the one in Google Maps' directions: you drag it between three heights.
+The trip is a single screen: a **header** with the trip's name, the **map**, and the **stop list** in a sheet over the map. There are no List/Map tabs. On a phone you drag the sheet between two heights: compact, under a map that has most of the screen, and the whole day.
 
 ```
 ┌──────────────────────────────┐
 │╭ ⌂  White Sands, NM       ⚙ ╮│  ← header card: home · trip · settings
-│        map: pins + routes    │  ← what's over is grey
+│                              │
+│   map: numbered pins +       │  ← what's over is grey
+│        routes                │
+│                              │
 ├──────────────────────────────┤  ← grab handle
 │ ‹       Today, Nov 21 ⌄    › │  ← day bar: step, or tap the day
-│ (🛏) Holiday Inn              │  ← last night's hotel
-│  ⊖   10 min drive            │  ← car on the rail; tap it for the route
-│ (🏛) Museum of Space   9:30 AM│  ← marker · stop · time
-│  ⊖   34 min drive            │  ← highlighted: you're on it now
-│ (🍴) Cloudcroft       12:30 PM│
-│      Lunch                   │
-│  ⊖   35 min drive            │
-│ (🛏) Holiday Inn              │  ← tonight's hotel
-│ [████████ + Add stop ███████]│  ← black, pinned to bottom
+│ (🏛) Museum of Space   9:30 AM│  ← compact: the row in focus; a drive
+│  ⊖   34 min drive            │     comes with its two stops
+│ (🍴) Cloudcroft       12:30 PM│     (highlighted: you're on it now)
+│ [████████ + Add stop ███████]│  ← black
 └──────────────────────────────┘
 ```
+
+Pull it up and the sheet is **the whole day**: last night's hotel, each stop with its time and notes, the drives between them, and tonight's hotel.
 
 With a stop selected, the bottom button becomes `[██████ ✎ Edit stop ██████] (+)`: Edit stop, and a small round + so adding is still one tap away. With a drive's route on show, it becomes `[██████ ◇ Directions ██████] (+)`.
 
 **The header** is one row: **home** (back to the trip list), the **trip's name**, and **trip settings**. On a phone it's a card floating over the top of the map, like the from/to card in Google Maps' directions, and the map runs under it. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings.
 
-**The sheet** is white and, on a phone, has three heights, following Google Maps' directions sheet:
-- **Peek:** the day bar and **one row of the list**, so the map has the screen and still says what you're looking at. The row is the list's focus: the selected stop or drive, or else, on a trip day, the row happening now, or else the day's first stop. It's the row itself, as in the list: marker, name, time and notes (a long note is cut after a few lines). **A drive comes with the stops it goes from and to,** the rows above and below it, since `3 hr 26 min drive` alone doesn't say where it goes. The sheet is as tall as the day bar and those rows. The day bar's arrows still step through the days, and the map follows. Add stop isn't shown here; it belongs with the whole list. (Peek used to be the day bar alone. Once the map lost its names and times, that left nothing on screen to say what a numbered pin was, or what was happening now.)
-- **Half** the screen: the default. On a short screen it grows (up to about 60%) so the list fits three stops and the drives between them: a selected stop, with the stops before and after it. Drive rows are compact for the same reason: the stops are what you read, the drives join them. **The half list is about one row, kept in its middle** (see [The focused row](#the-focused-row)), and you can't scroll it by hand: a finger moves the sheet, and a wheel or trackpad does nothing. To browse the day, pull it up to the whole day, or tap a pin.
+**The sheet** is white and, on a phone, has two heights:
+- **Compact:** the default. The day bar, **the list's focus**, and the add bar under it, so the map has most of the screen and still says what you're looking at. The focus is the selected stop or drive, or else, on a trip day, the row happening now, or else the day's first stop. It's the row itself, as in the list: marker, name, time and notes (a long note is cut after a few lines). **A drive comes with the stops it goes from and to,** the rows above and below it, since `3 hr 26 min drive` alone doesn't say where it goes. The sheet is as tall as these. The day bar's arrows still step through the days, and the map follows. The add bar is the focus's action: Add stop, Edit stop with Maps, or Directions.
 - **The whole day:** the sheet fills the screen up to the header, and the header card docks, flat across the top, so the two read as one page. Home and settings stay in reach.
 - **It never hides.**
 
-**Moving the sheet is dragging,** as in Google Maps, from anywhere on it: the grab handle, the day bar, or the list.
-- Dragging the list up grows the sheet; once it's the whole day, the list scrolls. Below the whole day it never scrolls by hand.
+**Moving the sheet is dragging,** from anywhere on it: the grab handle, the day bar, or the list.
+- Dragging the list up grows the sheet; once it's the whole day, the list scrolls. Compact, it never scrolls by hand: a finger moves the sheet, and a wheel or trackpad does nothing.
 - With the whole day showing, pulling the list down from its top shrinks the sheet.
-- A flick goes on to the next height its way; a slower drag settles at the nearest one.
-- **Taps:** tapping the grab handle goes from half to the whole day, and back to half from the other two. Peeking, a tap anywhere on the sheet but its buttons opens it to half; tapping the row selects it, as in the list, and opens the sheet to half. No other tap resizes the sheet, so a missed day-bar button can't hide the list.
-- **Zooming the map** (pinching, double-tapping, a two-finger tap) minimizes a half sheet to peek, as Google Maps does: you're looking at the map.
+- A flick goes on to the other height; a slower drag settles at the nearer one.
+- **Taps:** tapping the grab handle switches between the two. Compact, a tap on the sheet's top that misses its buttons opens the whole day. No other tap resizes the sheet, except choosing something on the whole day (below), so a missed day-bar button can't hide the list.
+- **Tapping a pin or a route** shows its stop's or drive's row in compact, so you can tap pin after pin and read each one without the sheet moving. **Tapping a stop or a drive on the whole day** brings the sheet down to compact, with the map showing it.
+- **Zooming the map** doesn't move the sheet: compact already leaves the map most of the screen.
 
-Why: the sheet used to have three heights reached by taps, and any tap on its top that missed a button pulled it down, so it was easy to hide the list by accident. Then it had two heights and a Map/List button in the header, which felt unlike any maps app. Dragging between three heights, the way Google Maps does it, gives a map view, a half view and the whole day, with nothing to mis-tap.
-
-- **Tapping a pin or a route while peeking keeps the peek** and shows that stop's or drive's row in it, so you can tap pin after pin and read each one without the sheet moving. From the whole day, it opens the sheet to half.
+Why: the sheet used to have three heights reached by taps, and any tap on its top that missed a button pulled it down, so it was easy to hide the list by accident. Then it had two heights and a Map/List button in the header, which felt unlike any maps app. Then three heights dragged like Google Maps' sheet: peek (the day bar alone), half and the whole day. Once the map lost its text and numbered the stops, the peek had to show the focus to say what a pin was; then half only added the focus's neighbors, which the map's numbers already give, and Edit stop or Directions, which compact now carries. So two heights, still dragged, with nothing to mis-tap.
 
 #### The focused row
 
-The half list is about one row, its **focus**: the selected stop; or else the drive whose route is on show; or else, on today, the row happening now. With none of these (another day, nothing selected), the list starts at the top.
+Compact, the list is one row, its **focus**: the selected stop; or else the drive whose route is on show; or else, on today, the row happening now; or else the day's first stop. A drive comes with its two stops.
 - **Tapping the focus again changes nothing:** no animation, in the list or on the map, unless what it shows has gone out of view.
-- **The focus sits in the middle of the half list,** so the rows before and after it are in view and one tap away. At the ends of the day the list can't scroll past its first or last row, so those stay near the edge. A stop taller than the list (a long note) shows from its top, so its name stays in view.
-- **It's put there whenever it changes or the sheet comes to half:** opening a day, tapping a stop, a pin, a drive or a route, clearing the selection (the focus falls back to the row happening now), saving or adding a stop (the stop you saved is selected, wherever its time put it), the row happening now moving on, a co-editor's change that moves it, coming to half from a peek or the whole day, and turning the phone. The whole day doesn't pull the list back while you scroll it; going back to half does.
-- **It moves once.** When the sheet changes height and the list has to scroll, both move together, in the same quarter second, so the row goes straight to the middle and never leaves the screen. (The list used to scroll after the sheet had settled, so a stop tapped on the whole day slid off the list and back.)
-- **Going down to a peek,** the list scrolls its focus to the top as the sheet slides down, and the other rows hide once it's there.
+- **The focus sits at the top of the compact list,** under the day bar, and the other rows hide once the sheet is down.
+- **It's put there whenever it changes or the sheet comes down to compact:** opening a day, tapping a stop, a pin, a drive or a route, clearing the selection (the focus falls back to the row happening now), saving or adding a stop (the stop you saved is selected, wherever its time put it), the row happening now moving on, a co-editor's change that moves it, coming down from the whole day, and turning the phone. The whole day doesn't pull the list back while you scroll it; going back to compact does.
+- **It moves once.** When the sheet changes height and the list has to scroll, both move together, in the same quarter second, so the row goes straight to its place and never leaves the screen. (The list used to scroll after the sheet had settled, so a stop tapped on the whole day slid off the list and back.)
 - **The list fades out at an edge with more of the day past it,** top or bottom, so it's clear there are stops you can't see.
 - The map zooms to fit the day's stops in what's left above the sheet and below the header. When the sheet changes height, the map re-fits for the new space, unless you've moved the map yourself. Then **Whole day** (see [The map](#the-map)) brings the day back.
 
@@ -203,7 +200,7 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 | Check circles | Checking off stops added a control to every row. The highlight and dimming show what's done without anyone having to tap. |
 | Now line | A line at the exact time added a clock to the list. Highlighting the row you're in says the same thing more plainly. |
 | Day number (`Day 1 of 3`) | The date is enough. |
-| Next card (`Leave in 30 min`, Directions) | Tried at the top of the sheet. It repeated the next drive row, which already has Directions, and took room from the list. The highlight shows where you are. (A peek now shows the row happening now, but in place of the list, not on top of it.) |
+| Next card (`Leave in 30 min`, Directions) | Tried at the top of the sheet. It repeated the next drive row, which already has Directions, and took room from the list. The highlight shows where you are. (The compact sheet now shows the row happening now, but in place of the list, not on top of it.) |
 | Hotel notes (`Start the day here`, `Back for the night`) and outlined hotel markers | Where the hotel sits in the day already says it. Only `Check out` is kept. |
 | Stop counts in the day list | The type icons show the same thing. |
 | Pins fading as you scroll the list | With one day on the map there are few pins, and fading them by scroll position made them look done. Faded pins now mean past only. |
@@ -217,7 +214,7 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 ### Adding and editing a stop
 
 - **Add stop.** One black button pinned to the bottom of the sheet, always reachable: it's the main action on the screen. A new stop starts two hours after the last stop of the day on screen.
-- **Selecting.** Tapping a stop in the list selects it instead of opening it, like tapping a drive shows its route: the row turns grey and its pin grows on the map. If the pin is off the part of the map you can see, the map pans to it, keeping the zoom; a full-screen list goes back to half. Tapping the same row again keeps it selected, so a second tap never undoes the first, and in the half list nothing moves: the row is already in the middle, and the map pans only if you've moved the pin out of view. Tapping empty map, changing the day or pressing Esc clears it. (Tapping a stop used to open it straight away, so seeing where a stop is meant opening a form.)
+- **Selecting.** Tapping a stop in the list selects it instead of opening it, like tapping a drive shows its route: the row turns grey and its pin grows on the map. If the pin is off the part of the map you can see, the map pans to it, keeping the zoom; the whole day comes down to compact. Tapping the same row again keeps it selected, so a second tap never undoes the first, and in compact nothing moves: the row is already there, and the map pans only if you've moved the pin out of view. Tapping empty map, changing the day or pressing Esc clears it. (Tapping a stop used to open it straight away, so seeing where a stop is meant opening a form.)
 - **Edit stop.** While a stop is selected, the black button says **Edit stop**, and a small round **+** beside it still adds a stop, so adding is always one tap away. There's still only one black button.
 - **Maps.** Between them, while a stop is selected, a white **Maps** button opens the place in your maps app: its photos, reviews and hours. A name alone doesn't say whether it's the right place or worth going, and this is how you find out, so it's beside Edit stop rather than inside the sheet. A stop you've just added is selected, so it's there to check the moment you save. Waythread doesn't show photos or descriptions itself: hotels and restaurants, most of a trip, aren't covered by free sources, and the plan stays the focus.
   - **The same app as Directions,** so a place and the way there never open in two different apps. It's **Google Maps** unless you pick **Apple Maps** under **Maps app** in Account (tap your picture on the trip list). A web page can't ask which maps app is the default, so it's a setting; Android's `geo:` links open the default, but only for a place, not directions, so they'd split the two. The setting is kept on the device, not the account, since which apps you have is up to the phone. (Choosing by device, Apple Maps on iPhone, was tried first; Google has the most photos and reviews, and some iPhone users live in Google Maps.)
@@ -258,9 +255,9 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 - **Showing a route.** Tapping a route on the map, or its drive in the list, shows it:
   - The route is highlighted, and the other routes and stops fade.
   - **Both ends' pins grow,** as a selected stop's does. The drive's time is in its row in the list, not on the map.
-  - **The map fits the route**, with room above its ends for their pins, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. A full list goes to half, so the map and the Directions button both show; a peek stays a peek, with the drive's row and its two stops in it, and tapping that row opens it to half.
+  - **The map fits the route**, with room above its ends for their pins, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. The whole day comes down to compact, with the drive and its two stops in it and Directions under them.
   - **The bottom button becomes Directions**, for that drive, with a round + beside it.
-- **Tapping the same drive again** keeps it on show, and in the half list nothing moves: the map re-fits the route only if you've moved one of its ends out of view. Tapping empty map, Whole day, changing the day or Esc goes back to the whole day.
+- **Tapping the same drive again** keeps it on show, and in compact nothing moves: the map re-fits the route only if you've moved one of its ends out of view. Tapping empty map, Whole day, changing the day or Esc goes back to the whole day.
 - **Hovering a drive** on a computer previews its route, without moving the map.
 - **Tapping empty map** clears the selection.
 - **A tap waits out a double-tap.** A tap on a pin, a route or empty map acts after a moment (300 ms), once it's clear no second tap is coming, as in a maps app. Selecting a pin or showing a route can move the map, and a double-tap's second tap would then zoom somewhere you didn't tap.
@@ -300,7 +297,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
 
   | Width | Trip | Home and sign-in |
   | --- | --- | --- |
-  | Under 768px | Header card over the map, plan in a bottom sheet (peek, half or the whole day); modal sheets slide up, and the stop sheet leaves the map in view | A 480px column |
+  | Under 768px | Header card over the map, plan in a bottom sheet (compact or the whole day); modal sheets slide up, and the stop sheet leaves the map in view | A 480px column |
   | 768px and up | Header and plan in a side panel beside the map; modal sheets cover the panel | Trips in a grid of cards; sign-in in a card; other sheets are dialogs in the middle |
 
   16px text in form fields (stops iPhone zooming in), and spacing for phone screen edges. The prototype has the same layouts at every width.
