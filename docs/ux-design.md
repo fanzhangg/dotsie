@@ -1,6 +1,6 @@
 # Waythread UX Design
 
-This document describes the UX of the Waythread prototype in [`prototype/`](../prototype), the reasoning behind it, and what was left out on purpose. The app in [`app/web`](../app/web) has the same trip screen, on real data. It builds on the [proposal](proposal.md).
+This document describes the UX of Waythread, the reasoning behind it, and what was left out on purpose. The app in [`app/web`](../app/web) and the prototype in [`prototype/`](../prototype) look and behave the same: the prototype is the app's frontend with the server swapped for the browser (see [CLAUDE.md](../CLAUDE.md)). It builds on the [proposal](proposal.md).
 
 ## Principles
 
@@ -110,6 +110,8 @@ The half list is about one row, its **focus**: the selected stop; or else the dr
 
 **Trip settings** holds the trip's name, the people on it, the share link, and **Delete trip**.
 
+**Account** (your picture on the trip list) holds your name, **Maps app** (Google Maps or Apple Maps, for every place and directions, on this device), and **Sign out**. Maps app is a picker, like a stop's Type: a row with the current app that opens the two on a page of the sheet. Every choice from a list works this way, however few the options, so they all look and behave the same. On a computer (768px and up) the options drop down under the row as a menu instead: one click to open, one to pick, Esc or a click outside to close. A page with a Back button suits a thumb and a phone's small screen, but it's slow with a mouse, and a computer has room to show the menu beside everything else.
+
 ## The list
 
 ### A timeline
@@ -125,7 +127,7 @@ The list is a timeline with three columns: a **rail**, the **stop**, and its **t
 ```
 
 - **Rail:** a thin, light grey line down the day, unbroken from the first stop to the last. It's quiet so the markers and names stand out. Each stop sits on it as a **type marker**: the stop's [type](#stop-types) icon on its type's color. Its color is the stop's pin's color on the map, so you can match the list to the map at a glance. Drives sit on it as a smaller grey marker with a car, so stops and drives read as one family of icons.
-- **Stop:** the name in medium weight, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. A note runs across the time column too, so a long one wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop selects it and shows it on the map (see [Adding and editing a stop](#adding-and-editing-a-stop)); it doesn't open it.
+- **Stop:** the name in medium weight, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. A link in a note (a booking, a post about the place) can be tapped: it shows just its site, `booking.com`, in blue, and opens the page without selecting the stop. A note runs across the time column too, so a long one wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop selects it and shows it on the map (see [Adding and editing a stop](#adding-and-editing-a-stop)); it doesn't open it.
 - **Time:** on the right, in grey, with a small AM/PM. The name leads the row, and the time is where a glance down the right edge finds it. Hotel rows at either end of the day have no time, so the right edge stays empty instead of leaving a gap before the name.
 
 A selected row (a stop or a drive, tapped or picked on the map) gets a grey background, with no border. It's a clear step darker than the sheet (`gray-200` on white; a lighter grey on the dark sheet): the first, paler grey was hard to see, above all in dark mode. A selected drive's car turns a darker grey. **Only one row is ever highlighted:** while something is selected, the row happening now is a plain row. A hotel that starts and ends the day highlights only the row you tapped; picked on the map, it's the first one.
@@ -207,11 +209,14 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 - **Add stop.** One black button pinned to the bottom of the sheet, always reachable: it's the main action on the screen. A new stop starts two hours after the last stop of the day on screen.
 - **Selecting.** Tapping a stop in the list selects it instead of opening it, like tapping a drive shows its route: the row turns grey and its pin grows on the map. If the pin is off the part of the map you can see, the map pans to it, keeping the zoom; a full-screen list goes back to half. Tapping the same row again keeps it selected, so a second tap never undoes the first, and in the half list nothing moves: the row is already in the middle, and the map pans only if you've moved the pin out of view. Tapping empty map, changing the day or pressing Esc clears it. (Tapping a stop used to open it straight away, so seeing where a stop is meant opening a form.)
 - **Edit stop.** While a stop is selected, the black button says **Edit stop**, and a small round **+** beside it still adds a stop, so adding is always one tap away. There's still only one black button.
+- **Maps.** Between them, while a stop is selected, a white **Maps** button opens the place in your maps app: its photos, reviews and hours. A name alone doesn't say whether it's the right place or worth going, and this is how you find out, so it's beside Edit stop rather than inside the sheet. A stop you've just added is selected, so it's there to check the moment you save. Waythread doesn't show photos or descriptions itself: hotels and restaurants, most of a trip, aren't covered by free sources, and the plan stays the focus.
+  - **The same app as Directions,** so a place and the way there never open in two different apps. It's **Google Maps** unless you pick **Apple Maps** under **Maps app** in Account (tap your picture on the trip list). A web page can't ask which maps app is the default, so it's a setting; Android's `geo:` links open the default, but only for a place, not directions, so they'd split the two. The setting is kept on the device, not the account, since which apps you have is up to the phone. (Choosing by device, Apple Maps on iPhone, was tried first; Google has the most photos and reviews, and some iPhone users live in Google Maps.)
+  - It finds the place by name and address, which opens the place itself; coordinates alone would open only a dropped pin.
 - **Editing.** Tap Edit stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
 - **The map follows the edit.** The stop's pin shows the draft: picking a place from search moves the pin there, and the map goes with it; choosing a type changes the pin's color. A new stop's pin appears once a place is picked. If the stop moves, its two drives fade until it's saved. You can pan and zoom the map while the sheet is open, and taps on the map don't change anything. Closing without saving puts the map back where it was.
 - **The stop sheet** has four fields (six for a hotel), in this order:
   1. **Place.** The first line, like in the list: the place's name and address. Tapping it opens a search page, as in a maps app. A stop's name is its place's name. See [Place search](#place-search).
-  2. **Type.** One row that opens the [stop types](#stop-types).
+  2. **Type.** One row that opens the [stop types](#stop-types): a page of the sheet on a phone, a menu under the row on a computer.
   3. **When.** Date and time. For a hotel it's **Check-in**, followed by **Nights** and **Check-out** side by side.
   4. **Note.**
 - **Place search.** <a id="place-search"></a> It works as in Google or Apple Maps, and like the Location field in their calendars. Nothing here is our own invention.
@@ -229,9 +234,9 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 
 ## The map
 
-**The map shows only the routes and the pins.** Names, times, drive times and notes are in the list, so the map doesn't repeat them: no labels, no time tags. (*In the prototype; the app still names a selected pin and puts a drive's time on its route.*)
+**The map shows only the routes and the pins.** Names, times, drive times and notes are in the list, so the map doesn't repeat them: no labels, no time tags.
 
-- **Pins** are teardrops, like a maps app's: the tip is on the place, so it points at it exactly, and the head carries the rest. The pin is the stop's [type](#stop-types) color, outlined in white, and its head holds one thing, the stop's **number in the day**: 1, 2, 3 in the day's order. A place that isn't one of the day's stops (the hotel you wake up in or come back to, or the day before's last stop) has a white dot instead; the hotel you check in to that day is a stop, so it's numbered. A selected stop's pin, and both ends of a route on show, grow from the tip; a stop that's over shrinks and fades. Stops at the same place share one pin, with the first one's number; for example, flying in and out of the same airport. (Pins used to be round, with the type's icon and no numbers: the icon repeated the list's marker, and the map couldn't show the order. A round pin's center is also harder to place exactly than a tip.)
+- **Pins** are teardrops, like a maps app's: the tip is on the place, so it points at it exactly, and the head carries the rest. The pin is the stop's [type](#stop-types) color, outlined in white, and its head holds one thing, the stop's **number**: 1, 2, 3 in the day's order, or on All days in the trip's, as its list reads. A place that isn't a numbered stop (the hotel you wake up in or come back to, or the day before's last stop) has a white dot instead; the hotel you check in to that day is a stop, so it's numbered. A selected stop's pin, and both ends of a route on show, grow from the tip; a stop that's over shrinks and fades. Stops at the same place share one pin, with the first one's number; for example, flying in and out of the same airport. (Pins used to be round, with the type's icon, no numbers, and a name label when selected: the icon and the label repeated the list, and the map couldn't show the order. A round pin's center is also harder to place exactly than a tip.)
 - **Routes** are drawn as driving routes in blue; on a trip day, past ones are grey. **Blue means routes and nothing else**: a selected stop is grey, no stop type is blue, and the list uses no blue at all: the drive you're on or have selected gets a darker grey car.
 - **The background map** is a light, low-contrast style (Stadia "Alidade Smooth"), so the routes stand out. Its credits are at the bottom of trip settings, not over the map.
 
@@ -260,7 +265,7 @@ The map zooms the way a phone's maps app does:
 
 ### Handing off navigation
 
-Tapping a drive turns the bottom button into Directions, which opens directions from one stop to the next in the phone's own maps app: **Apple Maps** on iPhone and iPad, **Google Maps** everywhere else. Waythread has no turn-by-turn directions, step lists, or navigation mode. Those are what the maps apps do best.
+Tapping a drive turns the bottom button into Directions, which opens directions from one stop to the next in your maps app: **Google Maps**, or **Apple Maps** if you picked it in Account. Waythread has no turn-by-turn directions, step lists, or navigation mode. Those are what the maps apps do best.
 
 ## Collaboration
 
@@ -287,7 +292,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
   | Under 768px | Header card over the map, plan in a bottom sheet (peek, half or the whole day); modal sheets slide up, and the stop sheet leaves the map in view | A 480px column |
   | 768px and up | Header and plan in a side panel beside the map; modal sheets cover the panel | Trips in a grid of cards; sign-in in a card; other sheets are dialogs in the middle |
 
-  16px text in form fields (stops iPhone zooming in), and spacing for phone screen edges. The prototype doesn't opt in to the side panel, so it stays phone-shaped at every width.
+  16px text in form fields (stops iPhone zooming in), and spacing for phone screen edges. The prototype has the same layouts at every width.
 
 ## Prototype notes
 
@@ -302,12 +307,12 @@ The full visual language (tokens, components, light and dark themes, accessibili
   | Background map | Stadia | Falls back to OpenStreetMap if Stadia's map doesn't load. |
 
   None of these are meant for production traffic.
-- **Data:** saved in the browser, one browser only. Open tabs sync with each other, which simulates co-editing.
+- **Data:** saved in the browser, one browser only. The app's server is answered in the browser, so share links, deleting with Undo and the rest work as in the app. Open tabs sync with each other, which simulates co-editing. There's no sign-in: you're Alex unless `?as=` says otherwise.
 - **Simulating other people and dates:**
 
   | Add to the address | Effect |
   | --- | --- |
-  | `?as=sam` or `?as=jo` | Use the app as another person. Open two tabs to try co-editing. Trip settings links to these. |
+  | `?as=sam` or `?as=jo` | Use the app as another person. Open two tabs to try co-editing. Trip settings links to these, through the trip's share link, so Jo joins the trip. |
   | `?today=2026-11-20` | Pretend it's a trip day, to preview the highlight and the dimming. |
 | `&now=14:10` | With `?today=`, pretend it's that time, to preview what's highlighted and what dims. |
 
@@ -317,9 +322,9 @@ The full visual language (tokens, components, light and dark themes, accessibili
 - **Production map services:** a paid or self-hosted service for routes, search, and the background map.
 - **Transport modes:** walking and flights currently all show as driving time.
 - **Phone-friendly gestures:** for example, dragging to reorder.
-- **Day view in the app:** shipped. The day bar, timeline, hotel stays, stop types and floating buttons are in `app/web`, with their styles in the design system (v2.0.0). Stops store `kind` and `nights` on the server. In the app, trip settings also holds Make a new link, and the trip name saves when you leave the field. Try changes in `prototype/` first, then port them by hand.
+- **Day view in the app:** shipped. The day bar, timeline, hotel stays, stop types and floating buttons are in `app/web`, with their styles in the design system (v2.0.0). Stops store `kind` and `nights` on the server. Trip settings also holds Make a new link, and the trip name saves when you leave the field.
 - **How long a stop lasts:** stops have only a start time, so "Arrives late" and the highlight assume you leave each stop just in time for the next. Default lengths per type (a meal 1 hour, a museum 2, a flight's check-in 90 minutes) would make both more honest, without showing durations in the list.
-- **The map and list:** the header, the half/whole-day sheet, route previews, the stop sheet that leaves the map in view, the Type page and hotel check-out times are in `app/web` and `prototype/`, with their styles in the design system (v3.0.0). They went into the app first, then back to the prototype, which saves `checkout` in the browser like the app's server does.
+- **The map and list:** the header, the half/whole-day sheet, route previews, the stop sheet that leaves the map in view, the Type page and hotel check-out times are in `app/web` and `prototype/`, with their styles in the design system (v3.0.0).
 - **From the UX review, not yet done:** quick time choices in Add stop, showing who's on the trip at a glance and what changed while you were away, working offline, and marking estimated drive times with `≈`.
 - **Map credits:** Stadia's and OpenStreetMap's terms ask for attribution on or next to the map. The app now shows them only in trip settings, like the prototype. Check the terms before this deploys; if needed, bring back a small ⓘ button on the map that shows the credits.
 - **People at a glance:** with the header gone, who's on the trip is one tap away. If that hides co-editing too much, a small stack of faces could go back on the settings button.

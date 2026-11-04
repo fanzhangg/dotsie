@@ -172,9 +172,10 @@
   </style>
 </head>
 <body class="wt-base">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><path id="pin-drop" d="M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z"/></defs></svg>
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.8.1</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v5.0.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -353,7 +354,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       </ul>
 
       <h3>Type picker, nights and check-out</h3>
-      <p class="intro">All live in the stop sheet. <b>Type</b> is one row that shows the stop's type; tapping it slides the sheet to the list of types, and picking one comes back. It starts as a guess from the place, until someone picks one. <b>Nights</b> and <b>Check-out</b> show only for a hotel: When becomes check-in (3:00 PM for a new hotel), and check-out is 11:00 AM unless set. Tap to try them.</p>
+      <p class="intro">All live in the stop sheet. <b>Every choice from a list is a picker like Type</b> (Account's Maps app is another, with no markers), however few the options. <b>Type</b> is one row that shows the stop's type; tapping it slides the sheet to the list of types, and picking one comes back. It starts as a guess from the place, until someone picks one. <b>Nights</b> and <b>Check-out</b> show only for a hotel: When becomes check-in (3:00 PM for a new hotel), and check-out is 11:00 AM unless set. Tap to try them.</p>
       <div class="demo">
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet id="demo-type">
           <div class="demo-type-main">
@@ -693,7 +694,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 
     <section id="map">
       <h2>Map pins, routes and buttons</h2>
-      <p class="intro">A pin is the stop's marker, ringed in the pin fill, with no numbers; a selected pin grows and shows its name. The map shows only the open day. Routes are the only blue on screen, and turn grey once they're over. Map libraries draw with script, so they read the route tokens at draw time.</p>
+      <p class="intro">A pin is a teardrop in the stop's type color with its tip on the place and the stop's number in its head; the hotel at either end of a day has a dot. A selected pin grows. The map carries no text: names and times are in the list. It shows only the open day. Routes are the only blue on screen, and turn grey once they're over. Map libraries draw with script, so they read the route tokens at draw time.</p>
       <div class="demo">
         <div class="demo__live demo__live--column">
           <div class="stage" style="height: 300px">
@@ -707,10 +708,10 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <text class="town" x="20" y="285">EL PASO</text><text class="town" x="380" y="190">ALAMOGORDO</text>
             </svg>
             <div class="pin-layer">
-              <div class="wt-pin wt-pin--muted" style="left:10%; top:83.3%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-stay)"><i data-icon="bed"></i></i></div>
-              <div class="wt-pin wt-pin--muted" style="left:35%; top:46.7%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Museum" style="--wt-kind-color: var(--wt-kind-sight)"><i data-icon="museum"></i></i></div>
-              <div class="wt-pin" style="left:66.7%; top:50%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i></div>
-              <div class="wt-pin wt-pin--selected" style="left:90%; top:23.3%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="utensils"></i></i><span class="wt-pin__label">Cloudcroft</span></div>
+              <div class="wt-pin wt-pin--muted" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="left:10%; top:83.3%; --wt-kind-color: var(--wt-kind-stay)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><i class="wt-pin__dot"></i></div>
+              <div class="wt-pin wt-pin--muted" role="img" aria-label="1. New Mexico Museum of Space History, Museum" style="left:35%; top:46.7%; --wt-kind-color: var(--wt-kind-sight)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">1</b></div>
+              <div class="wt-pin" role="img" aria-label="2. Oliver Lee State Park, Nature" style="left:66.7%; top:50%; --wt-kind-color: var(--wt-kind-nature)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">2</b></div>
+              <div class="wt-pin wt-pin--selected" role="img" aria-label="3. Cloudcroft, Restaurant" style="left:90%; top:23.3%; --wt-kind-color: var(--wt-kind-food)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">3</b></div>
             </div>
           </div>
           <div class="stage" style="height: 300px; margin-top: var(--wt-space-3)">
@@ -721,22 +722,20 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <path class="casing" d="M400 150 C450 130 480 90 540 70"/><path class="route route--muted" d="M400 150 C450 130 480 90 540 70"/>
             </svg>
             <div class="pin-layer">
-              <div class="wt-pin wt-pin--muted" style="left:10%; top:83.3%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-stay)"><i data-icon="bed"></i></i></div>
-              <div class="wt-pin wt-pin--selected" style="left:35%; top:46.7%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Museum" style="--wt-kind-color: var(--wt-kind-sight)"><i data-icon="museum"></i></i><span class="wt-pin__label">Museum of Space History</span></div>
-              <div class="wt-route-tag" style="left:51%; top:48%"><i class="wt-route-tag__car"><i data-icon="car" data-size="14"></i></i>34 min<span class="wt-route-tag__late">· 12 min late</span></div>
-              <div class="wt-pin wt-pin--selected" style="left:66.7%; top:50%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><span class="wt-pin__label wt-pin__label--below">Oliver Lee State Park</span></div>
-              <div class="wt-pin wt-pin--muted" style="left:90%; top:23.3%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="utensils"></i></i></div>
+              <div class="wt-pin wt-pin--muted" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="left:10%; top:83.3%; --wt-kind-color: var(--wt-kind-stay)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><i class="wt-pin__dot"></i></div>
+              <div class="wt-pin wt-pin--selected" role="img" aria-label="1. New Mexico Museum of Space History, Museum" style="left:35%; top:46.7%; --wt-kind-color: var(--wt-kind-sight)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">1</b></div>
+              <div class="wt-pin wt-pin--selected" role="img" aria-label="2. Oliver Lee State Park, Nature" style="left:66.7%; top:50%; --wt-kind-color: var(--wt-kind-nature)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">2</b></div>
+              <div class="wt-pin wt-pin--muted" role="img" aria-label="3. Cloudcroft, Restaurant" style="left:90%; top:23.3%; --wt-kind-color: var(--wt-kind-food)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">3</b></div>
             </div>
           </div>
         </div>
-        <details><summary>Markup and script</summary><pre><code>&lt;div class="wt-pin wt-pin--selected"&gt;
-  &lt;i class="wt-marker wt-pin__marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"&gt;${icon('utensils')}&lt;/i&gt;
-  &lt;span class="wt-pin__label"&gt;Cloudcroft&lt;/span&gt;
+        <details><summary>Markup and script</summary><pre><code>&lt;div class="wt-pin wt-pin--selected" role="img" aria-label="3. Cloudcroft, Restaurant" style="--wt-kind-color: var(--wt-kind-food)"&gt;
+  &lt;svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"&gt;&lt;path d="M15 1.5C7.8 …z"/&gt;&lt;/svg&gt;
+  &lt;b class="wt-pin__num"&gt;3&lt;/b&gt;   &lt;!-- or &lt;i class="wt-pin__dot"&gt;&lt;/i&gt; for the hotel at either end of a day --&gt;
 &lt;/div&gt;
 
-&lt;!-- a route on show: its time halfway along it, and both ends named --&gt;
-&lt;div class="wt-route-tag"&gt;&lt;i class="wt-route-tag__car"&gt;${icon('car', 14)}&lt;/i&gt;34 min&lt;span class="wt-route-tag__late"&gt;· 12 min late&lt;/span&gt;&lt;/div&gt;
-&lt;span class="wt-pin__label wt-pin__label--below"&gt;Oliver Lee State Park&lt;/span&gt;   &lt;!-- the lower end --&gt;
+// Leaflet: the pin's tip lands on the marker's position
+L.marker(latlng, { icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML }) });
 
 const token = n =&gt; getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const color = active ? '--wt-route-active' : anotherActive ? '--wt-route-muted' : past ? '--wt-route-done' : '--wt-route';
@@ -747,7 +746,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
         <thead><tr><th>State</th><th>Pin</th><th>Route</th><th>When</th></tr></thead>
         <tbody>
           <tr><td>Normal</td><td><code>.wt-pin</code></td><td><code>--wt-route</code></td><td>Nothing selected.</td></tr>
-          <tr><td>Selected</td><td><code>--selected</code></td><td><code>--wt-route-active</code></td><td>A pin, a route, or its row in the list was tapped. A selected route also names both its ends and carries a <code>.wt-route-tag</code> with its time.</td></tr>
+          <tr><td>Selected</td><td><code>--selected</code></td><td><code>--wt-route-active</code></td><td>A pin, a route, or its row in the list was tapped. A selected route enlarges the pins at both its ends.</td></tr>
           <tr><td>Others</td><td><code>--muted</code></td><td><code>--wt-route-muted</code></td><td>Another route is selected. A stop that's being moved in the stop sheet mutes its two routes too, until it's saved.</td></tr>
           <tr><td>Past</td><td><code>--muted</code></td><td><code>--wt-route-done</code></td><td>On today, the stop or drive is over. The day before's last stop, where a day with no hotel starts, is muted too.</td></tr>
         </tbody>
@@ -755,7 +754,8 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       <ul class="rules">
         <li>Draw past routes first and the selected route last, so it sits on top.</li>
         <li>Stops at the same place, like a hotel in the morning and at night, share one pin.</li>
-        <li>Showing a route moves the map to fit it, with room for its end labels; from a tap on the route itself, only when an end is out of view. The lower end's label goes under its pin.</li>
+        <li>Showing a route moves the map to fit it, with room above its ends for their pins; from a tap on the route itself, only when an end is out of view.</li>
+        <li>Nothing on the map is text: a stop's name, its time and a drive's time are in the list.</li>
       </ul>
 
       <h3>Map buttons and credit</h3>
@@ -821,10 +821,10 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
             <text class="town" x="40" y="225">ALAMOGORDO</text>
           </svg>
           <div class="pin-layer">
-            <div class="wt-pin" style="left:16%; top:38.9%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-stay)"><i data-icon="bed"></i></i></div>
-            <div class="wt-pin wt-pin--muted" style="left:40%; top:23.6%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Museum" style="--wt-kind-color: var(--wt-kind-sight)"><i data-icon="museum"></i></i></div>
-            <div class="wt-pin" style="left:77.3%; top:18.1%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="utensils"></i></i></div>
-            <div class="wt-pin" style="left:61.3%; top:31.9%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i></div>
+            <div class="wt-pin" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="left:16%; top:38.9%; --wt-kind-color: var(--wt-kind-stay)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><i class="wt-pin__dot"></i></div>
+            <div class="wt-pin wt-pin--muted" role="img" aria-label="1. New Mexico Museum of Space History, Museum" style="left:40%; top:23.6%; --wt-kind-color: var(--wt-kind-sight)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">1</b></div>
+            <div class="wt-pin" role="img" aria-label="2. Cloudcroft, Restaurant" style="left:77.3%; top:18.1%; --wt-kind-color: var(--wt-kind-food)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">2</b></div>
+            <div class="wt-pin" role="img" aria-label="3. Oliver Lee State Park, Nature" style="left:61.3%; top:31.9%; --wt-kind-color: var(--wt-kind-nature)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">3</b></div>
           </div>
           <header class="wt-trip-head">
             <a class="wt-icon-btn" href="#patterns" aria-label="All trips"><i data-icon="home"></i></a>
@@ -908,7 +908,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v4.8.1 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v5.0.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 

@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.8.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 5.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -110,13 +110,12 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-action-secondary`, `--wt-action-secondary-text` | Quiet actions, like Copy. |
 | `--wt-action-done`, `--wt-action-done-text` | Unused since 2.0.0, when checks were removed. Kept until the next major version. |
 | `--wt-route`, `--wt-route-active`, `--wt-route-muted`, `--wt-route-done`, `--wt-route-casing` | Route lines: normal, selected, the others while one is selected, past (on today), and the outline under each line. |
-| `--wt-pin-fill` | The ring around a pin's marker. |
+| `--wt-pin-fill` | The outline around a map pin. |
 | `--wt-pin-ring`, `--wt-pin-ring-muted`, `--wt-pin-ring-done` | Unused since 2.0.0, when pins became markers. Kept until the next major version. |
 | `--wt-kind-place`, `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight`, `--wt-kind-nature`, `--wt-kind-shop` | Stop types, one color per group: a plain place; airports and gas; hotels; restaurants and cafés; attractions, museums and viewpoints; nature; shopping. Only on markers, pins, the type picker and the ring on today's stop. None is blue or red. |
 | `--wt-kind-drive` | The car marker on a drive in the timeline: grey, and quieter than any stop type. |
 | `--wt-kind-drive-current` | The car on the highlighted drive: a darker grey, never blue. |
-| `--wt-marker-ink` | The icon on a marker, and the car on a drive. Meets 3:1 on every kind color, `--wt-kind-drive`, `--wt-kind-drive-current` and `--wt-route`. |
-| `--wt-map-label` | The background of a pin's name label. |
+| `--wt-marker-ink` | The icon on a marker, the number or dot on a map pin, and the car on a drive. Meets 3:1 on every kind color, `--wt-kind-drive`, `--wt-kind-drive-current` and `--wt-route`. |
 | `--wt-danger`, `--wt-danger-surface` | "Doesn't fit" and destructive states. |
 | `--wt-highlight` | Flashing a co-editor's change once. |
 | `--wt-overlay` | The dimmed backdrop behind modal sheets. |
@@ -280,11 +279,11 @@ Labels are verbs that say exactly what happens.
 - **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
 - **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it, Esc is Cancel. Keep focus in the input while a result is tapped: `preventDefault()` on the results' `mousedown`.
 - **While it searches**, the spinner shows in the field and the last results stay on the page, so the list doesn't flash.
-- `ul.wt-results` with `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet for the prototype. They can go in the next major version.
+- `ul.wt-results` with `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet, though neither the app nor the prototype uses them. They can go in the next major version.
 
 ### Marker `.wt-marker`
 
-A stop's type icon on its type's color. The same marker sits on the timeline's rail, on the map pin and in the day list, so a stop reads the same everywhere.
+A stop's type icon on its type's color. The same marker sits on the timeline's rail, in the day list, in the Type picker and in place search. On the map, a stop's [pin](#map-pin-wt-pin) has the same color but carries its number instead of the icon.
 
 ```html
 <i class="wt-marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)">${icon('utensils')}</i>
@@ -311,11 +310,11 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 
 ```html
 <div class="wt-tl">
-  <button class="wt-tl-stop" style="--wt-kind-color: var(--wt-kind-food)">
+  <div class="wt-tl-stop" tabindex="0" role="button" aria-pressed="false" style="--wt-kind-color: var(--wt-kind-food)">
     <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant">${icon('utensils')}</i></span>
     <span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span>
     <span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span>
-  </button>
+  </div>
   <div class="wt-tl-drive is-late">
     <span class="wt-tl-rail"><i class="wt-tl-car">${icon('car', 14)}</i></span>
     <span class="wt-tl-drive__body">
@@ -334,6 +333,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - Notes go in one `.wt-tl-notes`, one `.wt-tl-note` per line of meaning ("2 nights", then the stop's note). They sit under the name and run across the time column too, so a long note wraps to the row's full width and its right edge lines up with the times.
   - Notes are shown in full, never cut off. Line breaks in a note are kept.
   - Leave out `.wt-tl-notes` when there are none.
+  - **Links in a note can be tapped.** Each shows only its site (`booking.com`), in blue, so a long link doesn't fill the row; tapping it opens the page and doesn't select the stop. Since a link can't sit inside a `<button>`, the row is a `div` with `role="button"`, `tabindex="0"` and `aria-pressed`, like a drive, and Enter or Space selects it.
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
 - **The day before's last stop:** with no hotel the night before, a day opens with that stop. In place of a time, `.wt-tl-time__day` says which day it was: "Yesterday", or the weekday ("Sat").
 - **Drive** (`.wt-tl-drive`): a car on the rail and "1 hr 49 min drive". Tapping it shows its route; Directions to the maps app goes in the add bar (see [the add bar](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)), not in the row.
@@ -341,7 +341,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - **Spacing:** stops get `--wt-tl-pad` (14px) above and below their text; drives are a fixed 44px row. Change `--wt-tl-pad` on `.wt-tl` to tighten or loosen the list; the markers follow.
   - The car (`.wt-tl-car`) is a marker like a stop's: a 22px circle in `--wt-kind-drive` grey with the `car` icon in `--wt-marker-ink`. Smaller and greyer than any stop, so drives never outrank them. On the highlighted drive it turns a darker grey (`--wt-kind-drive-current`). Never blue: blue is for routes on the map.
   - Give the row `role="button"` and `aria-pressed` while its route is shown.
-  - `.wt-tl-drive__go`, a small Directions icon in the time column, is no longer used by the app (since 4.5.0); the prototype still has it. It can go in the next major version.
+  - `.wt-tl-drive__go`, a small Directions icon in the time column, is no longer used by the app (since 4.5.0) or the prototype. It can go in the next major version.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
 - **Day heading** (`.wt-tl-day`): the overview, **All days**, puts every day in one timeline, each day's stops under its name. See [All days](#all-days-wt-tl-day).
@@ -405,7 +405,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 
 ### Picker `.wt-picker`, options `.wt-options` and check-out
 
-All live in the stop sheet.
+**Every choice from a list is a picker.** A field that takes one of a set of named options is a row that shows the current choice; tapping it opens the options on a page of the sheet. A stop's **Type** (11 options) and Account's **Maps app** (2) work the same way. However few the options, there are no inline radio lists, `<select>`s, segmented controls or switches between named choices: one pattern, so every choice looks and behaves the same, and a sheet stays one column of fields.
 
 ```html
 <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
@@ -429,12 +429,39 @@ All live in the stop sheet.
   <!-- one per type -->
 </ul>
 
+<!-- A picker whose options have no marker: .wt-picker--text, and options without one -->
+<div class="wt-field"><span class="wt-field__label" id="maps-label">Maps app</span>
+  <button class="wt-picker wt-picker--text" aria-describedby="maps-label">
+    <span class="wt-picker__value">Google Maps</span>${icon('forward', 18)}</button></div>
+
+<div class="wt-modal__head wt-modal__head--sub">
+  <button class="wt-icon-btn" aria-label="Back">${icon('back')}</button>
+  <h2 class="wt-modal__title">Maps app</h2>
+</div>
+<p class="wt-modal__text">Places and directions open in this app. Saved on this device.</p>
+<ul class="wt-options" role="radiogroup" aria-label="Maps app">
+  <li><button class="wt-option" role="radio" aria-checked="true">
+    <span class="wt-option__text"><span class="wt-option__label">Google Maps</span></span>${icon('check', 18)}</button></li>
+  <li><button class="wt-option" role="radio" aria-checked="false">
+    <span class="wt-option__text"><span class="wt-option__label">Apple Maps</span></span>${icon('check', 18)}</button></li>
+</ul>
+
 <label class="wt-field">   <!-- hidden unless it's a hotel -->
   <span class="wt-field__label">Check-out</span>
   <input class="wt-input" type="datetime-local" value="2026-11-22T11:00" min="2026-11-21T00:00" max="2026-12-20T23:59"></label>
 ```
 
-- **Type** is one row that shows the current type. Tapping it slides the sheet to the types; picking one, or Back, slides back. It keeps the sheet short, so the map stays in view above it. Focus the checked option when the page opens, and the picker when it closes.
+- **The row** (`.wt-picker`) has the field's label above it, like any field, and shows the current choice with a `forward` chevron. If the options have markers (the types), the row shows the current one's; if not, use `.wt-picker--text`.
+- **The page** takes the place of everything else in the sheet (hide it; don't remove it), and the sheet scrolls to its top:
+  - A sub-head (`.wt-modal__head--sub`) with **Back** and the field's label as its title.
+  - Optionally, one `.wt-modal__text` line on what the choice affects, when the label alone doesn't say ("Places and directions open in this app").
+  - A `ul.wt-options` with `role="radiogroup"`, one `.wt-option` with `role="radio"` per choice; the current one is `aria-checked="true"` (grey, with its check).
+- **Picking applies it at once** and slides back to the sheet, which shows the new choice in the row; there's no Save or Done, and no toast. **Back** slides back with nothing changed. The sheet returns to where it was scrolled.
+- **Focus** goes to the checked option when the page opens, and back to the row when it closes. ↑ ↓ move between options.
+- **On a computer (768px and up) the options drop down as a menu** (`.wt-menu`) under the row instead of taking over the sheet, since a page and a Back button are slow with a mouse. It's the same page, moved into the field: its Back head goes, its intro line stays, smaller, and rows are 36px. Click the row to open it (its chevron points down there), click an option to pick it; Esc, a click outside, or tabbing away closes it without changing anything, and Esc doesn't close the sheet. Give the row `aria-haspopup` and `aria-expanded`. Same options, same check, same keys: only the way in and out changes.
+- **Markers and details:** give options a marker only when every option has one (types do; maps apps don't). A detail line only where a choice changes something else: Hotel's "Adds check-out".
+- **Type** keeps the stop sheet short this way, so the map stays in view above it.
+- In the app, `optionHTML`, `choicePageHTML` and `choicePage` in `app/web/app.js` build and wire any picker, as a page on a phone and a menu on a computer; use them for a new one.
 - Type starts as a guess from the place's name and category, until someone picks one.
 - **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
 - **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Adds check-out". ↑ ↓ move between types.
@@ -462,11 +489,12 @@ All live in the stop sheet.
 </section>
 ```
 
-With a stop selected, the add bar holds Edit stop and a round `+` beside it:
+With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 
 ```html
 <div class="wt-add-bar">
   <button class="wt-btn wt-btn--primary wt-btn--block">${icon('edit')}Edit stop</button>
+  <a class="wt-btn wt-btn--secondary" href="…" target="_blank" rel="noopener">${icon('map')}Maps</a>
   <button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Add stop">${icon('plus')}</button>
 </div>
 ```
@@ -484,7 +512,7 @@ With a stop selected, the add bar holds Edit stop and a round `+` beside it:
 - **Peeking**, the list and the add bar hide `--wt-duration-base` after `.is-peek` goes on, so a sheet sliding down to its peek keeps its list until it's there. Animate the height over that same duration.
 - The top holds the grab handle and the day bar. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
-- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop with a round `+` beside it, so adding is always one tap away. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
+- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop, then **Maps** (the place in the maps app picked in Account, the same one Directions opens), then a round `+`, so adding is always one tap away. The maps app is how you find out what a place is (its photos, reviews and hours), so it sits beside Edit stop rather than inside the sheet. In the bar, secondary buttons are pills like the primary, so the row reads as one set. Its short label lets Edit stop fit beside it on a 320px phone. A stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
 - Tapping a selected stop or a shown drive again keeps it selected, and at half nothing animates: it's already in the middle.
 - **One row is the half list's focus**, and it sits in the middle of the list: the selected row (`.is-selected` or `.is-active`), or else, on today, the `is-now` row. When the sheet changes height and the list has to scroll, move both together, on one timeline, so the row goes straight to the middle. The app does this frame by frame and turns off the sheet's height transition.
 
@@ -573,23 +601,24 @@ The name and dates only: enough to pick a trip.
 ### Map pin `.wt-pin`
 
 ```html
-<div class="wt-pin wt-pin--selected">
-  <i class="wt-marker wt-pin__marker" role="img" aria-label="Attraction" style="--wt-kind-color: var(--wt-kind-sight)">${icon('star')}</i>
-  <span class="wt-pin__label">White Sands Visitor Center</span>
+<div class="wt-pin wt-pin--selected" role="img" aria-label="3. White Sands Visitor Center, Attraction" style="--wt-kind-color: var(--wt-kind-sight)">
+  <svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><path d="M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z"/></svg>
+  <b class="wt-pin__num">3</b>
+</div>
+<!-- a place that isn't a numbered stop: the hotel at either end of a day, or the day before's last stop -->
+<div class="wt-pin" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="--wt-kind-color: var(--wt-kind-stay)">
+  <svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><path d="…"/></svg>
+  <i class="wt-pin__dot"></i>
 </div>
 ```
 
-- The pin is the stop's marker, ringed in `--wt-pin-fill`. No numbers.
-- Variants: `--selected` (bigger, with its name) and `--muted` (past: on today, a stop that's over; or the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at).
-- **A route on show** names both its ends: each end's pin is `--selected`, and the lower one's label gets `.wt-pin__label--below`, so the two don't meet. Its time sits halfway along it:
-
-  ```html
-  <div class="wt-route-tag"><i class="wt-route-tag__car">${icon('car', 14)}</i>34 min<span class="wt-route-tag__late">· 12 min late</span></div>
-  ```
-
-  The late part shows only when the drive doesn't fit. Showing a route moves the map to fit it, with room for the labels; from a tap on the route itself, only when an end is out of view.
-- The map shows only the open day, or the whole trip on All days.
-- Stops at the same place, like a hotel in the morning and at night, share one pin.
+- **A teardrop, like a maps app's pin.** Its tip is on the place, so it points at it exactly; place the element at the place and the tip lands there. 30 × 39px.
+- **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), outlined in `--wt-pin-fill`.
+- **Its head holds one thing: the stop's number,** in the day's order (on All days, the trip's), in `--wt-marker-ink`. A place that isn't a numbered stop has `.wt-pin__dot` instead.
+- **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal.
+- Variants: `--selected` (a quarter larger: the selected stop, and both ends of a route on show) and `--muted` (smaller and faded: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). Both scale from the tip.
+- Stops at the same place, like a hotel in the morning and at night, share one pin, with the first one's number.
+- The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves the pins' height clear above it.
 
 ### Empty state `.wt-empty`
 
@@ -613,7 +642,8 @@ Say what can go here, in the user's words. No illustrations.
   - Rows before it dim (`is-past`), their routes turn grey (`--wt-route-done`), and their pins mute (`.wt-pin--muted`).
   - The hotel you go back to tonight stays bright.
 - **Doesn't fit.** If a drive takes longer than the gap between its two stops, the drive gets `is-late` and says "Arrives 13 min late". That red text is the only warning.
-- **Handing off to maps.** Every drive's Directions button opens the phone's maps app: Apple Maps on Apple devices, Google Maps elsewhere. Directions are never rebuilt in-app.
+- **Handing off to maps.** Every drive's Directions button, and a stop's Maps button, opens the maps app the person picked in Account: Google Maps unless they chose Apple Maps. Both always open the same one. Directions are never rebuilt in-app.
+- **Choosing from a list.** Every choice of one from a set of named options is a [picker](#picker-wt-picker-options-wt-options-and-check-out): a row with the current choice that opens the options on a page of the sheet. Picking applies it and comes back. On a computer the options drop down as a menu instead. A stop's Type and Account's Maps app both work this way; a new choice should too, even with two options.
 - **Changes from others.** When a co-editor changes a stop, show a toast naming them ("Sam updated Cloudcroft") and flash the stop once with `is-flash`.
 - **Deleting.** Delete right away, then show a toast with Undo. Ask first only when undo isn't possible, such as deleting a whole trip.
 
@@ -659,6 +689,21 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 5.0.0
+
+- **Map pins are teardrops with a number** instead of a stop's marker with its icon ([Map pin](#map-pin-wt-pin)). New: `.wt-pin__shape`, `.wt-pin__num`, `.wt-pin__dot`. `.wt-pin` is now the pin itself, 30 × 39px, placed by its tip.
+- **The map carries no text.** Removed: `.wt-pin__marker` (the marker inside a pin), `.wt-pin__label` and `.wt-pin__label--below` (a selected pin's name), and `.wt-route-tag`, `.wt-route-tag__car` and `.wt-route-tag__late` (a shown drive's time). Their content is in the list.
+- Removed the token `--wt-map-label`, the background of those labels, which nothing else used.
+
+### Added in 4.9.0
+
+- The add bar with a stop selected gains **Maps** (`a.wt-btn.wt-btn--secondary`) between Edit stop and `+`. No new class.
+- `.wt-menu`: on a computer, a picker's options drop down under it as a menu instead of taking over the sheet. A picker with `aria-haspopup` turns its chevron down there.
+- **Every choice from a list is a picker** ([Picker](#picker-wt-picker-options-wt-options-and-check-out)): a row showing the current choice that opens the options on a page of the sheet. Account's Maps app, first a list in the sheet, became one, like a stop's Type. No new class.
+- In the add bar a secondary button is a pill, like the primary beside it, instead of the 12px corners it has elsewhere; the `+` stays round.
+- `.wt-tl-note a`: a link in a stop's note, in blue. Stop rows are now a `div` with `role="button"` (a link can't sit in a `<button>`); `.wt-tl-stop` styles either.
+- Nothing was renamed or removed.
 
 ### Fixed in 4.8.1
 
