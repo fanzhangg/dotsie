@@ -1,4 +1,4 @@
-/* Waythread design system — components v3.0.1
+/* Waythread design system — components v4.0.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -101,18 +101,21 @@ textarea.wt-input { resize: none; }
 .wt-marker--sm .wt-icon { width: 12px; height: 12px; }
 
 /* ---------- Timeline: rail · stop · time, with drives on the rail ---------- */
-/* Rows touch, so the rail is one solid line down the day. */
-.wt-tl { --wt-tl-rail: 48px; --wt-tl-mark-y: 22px; }
+/* Rows touch and have no padding of their own, so the rail is one solid hairline down the day. */
+/* --wt-tl-pad: space above and below a stop's text. The marker sits on the name's first line. */
+.wt-tl { --wt-tl-rail: 48px; --wt-tl-pad: 14px; --wt-tl-mark-y: calc(var(--wt-tl-pad) + 10px); }
 .wt-tl-rail { position: relative; align-self: stretch; }
-.wt-tl-rail::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: var(--wt-border-strong); }
+.wt-tl-rail::before { content: ''; position: absolute; left: calc(50% - .75px); top: 0; bottom: 0; width: 1.5px; background: var(--wt-border-rail); }
 .wt-tl > :first-child .wt-tl-rail::before { top: var(--wt-tl-mark-y); }
 .wt-tl > :last-child .wt-tl-rail::before { bottom: auto; height: var(--wt-tl-mark-y); }
 .wt-tl > :only-child .wt-tl-rail::before { display: none; }
 
-/* Stop: marker · name and note · time. A hotel at either end of the day is the same row, with no time. */
+/* Stop: marker · name · time, and its notes on the next row, across the name and time columns, so a long note
+   wraps to the row's full width and its right edge lines up with the times. A hotel at either end of the day is the
+   same row, with no time. The last row is the bottom padding, inside the grid so the rail runs through it. */
 .wt-tl-stop {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
-  width: 100%; display: grid; grid-template-columns: var(--wt-tl-rail) 1fr auto;
+  width: 100%; display: grid; grid-template-columns: var(--wt-tl-rail) 1fr auto; grid-template-rows: auto auto var(--wt-tl-pad);
   border-radius: var(--wt-radius-md); transition: background var(--wt-duration-fast);
 }
 .wt-tl-stop:active { background: var(--wt-surface-hover); }
@@ -121,54 +124,66 @@ textarea.wt-input { resize: none; }
 .wt-tl-stop.is-flash { animation: wt-flash var(--wt-duration-flash) ease-out; }
 @keyframes wt-flash { from { background: var(--wt-highlight); } to { background: transparent; } }
 .wt-tl-marker { position: absolute; z-index: 1; left: 50%; top: var(--wt-tl-mark-y); transform: translate(-50%, -50%); box-shadow: 0 0 0 3px var(--wt-surface-raised); }
-.wt-tl-body { min-width: 0; padding: 12px var(--wt-space-2) 12px 0; }
-.wt-tl-name { display: block; font: var(--wt-type-name); line-height: 1.3; }
-.wt-tl-note { display: block; margin-top: 2px; font: var(--wt-type-caption); color: var(--wt-text-secondary); white-space: pre-line; }
-.wt-tl-time { padding: 13px var(--wt-space-3) 0 0; text-align: right; white-space: nowrap; font: var(--wt-type-time); font-variant-numeric: tabular-nums; color: var(--wt-text-secondary); }
+.wt-tl-stop > .wt-tl-rail { grid-column: 1; grid-row: 1 / -1; }
+.wt-tl-name { grid-column: 2; grid-row: 1; min-width: 0; padding: var(--wt-tl-pad) var(--wt-space-2) 0 0; font: var(--wt-type-name); line-height: 1.3; overflow-wrap: anywhere; }
+.wt-tl-notes { grid-column: 2 / -1; grid-row: 2; min-width: 0; display: grid; gap: 2px; padding: 3px var(--wt-space-3) 0 0; }
+.wt-tl-note { font: var(--wt-type-caption); line-height: 19px; color: var(--wt-text-secondary); white-space: pre-line; overflow-wrap: anywhere; }
+.wt-tl-time { grid-column: 3; grid-row: 1; padding: calc(var(--wt-tl-pad) + 1px) var(--wt-space-3) 0 0; text-align: right; white-space: nowrap; font: var(--wt-type-time); font-variant-numeric: tabular-nums; color: var(--wt-text-secondary); }
 .wt-tl-meridiem { font: var(--wt-type-micro); margin-left: 2px; }
 .wt-tl-time__day { display: block; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 
-/* Drive: a small grey car on the rail, "1 hr 49 min drive", and a Directions icon where stops have their time. */
+/* Drive: a small grey car marker on the rail, "1 hr 49 min drive", and a Directions icon where stops have their time.
+   No top or bottom padding: it would leave a gap in the rail. */
 .wt-tl-drive {
   display: grid; grid-template-columns: var(--wt-tl-rail) 1fr auto; align-items: center;
-  min-height: 44px; padding: 2px var(--wt-space-1) 2px 0; border-radius: var(--wt-radius-md); cursor: pointer;
+  min-height: 44px; padding: 0 var(--wt-space-1) 0 0; border-radius: var(--wt-radius-md); cursor: pointer;
   transition: background var(--wt-duration-fast);
 }
+/* The car is a marker like a stop's, smaller and grey, sitting on the rail. */
 .wt-tl-car {
   position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--wt-radius-round);
-  background: var(--wt-surface-raised); color: var(--wt-text-secondary);
+  background: var(--wt-kind-drive); color: var(--wt-marker-ink);
 }
+.wt-tl-car .wt-icon { width: 14px; height: 14px; }
 /* The row itself takes no hover or press look: only its Directions button reads as a control. */
 .wt-tl-drive__body { min-width: 0; display: grid; gap: 1px; }
 .wt-tl-drive__what, .wt-tl-drive__late { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wt-tl-drive__what { font: var(--wt-type-caption); font-size: 14px; color: var(--wt-text-secondary); }
-.wt-tl-drive__what b { font-weight: 600; color: var(--wt-text-primary); }
+/* All grey, the duration a little heavier: the stop names are the only strong text in the list. */
+.wt-tl-drive__what { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.wt-tl-drive__what b { font-weight: 600; }
 .wt-tl-drive__late { font: var(--wt-type-caption-strong); color: var(--wt-text-danger); }
 .wt-tl-drive.is-late .wt-tl-drive__what b { color: var(--wt-text-danger); }
-/* Directions: a quiet filled circle with a grey icon, so it reads as a button without outranking the stops.
-   It darkens and sinks a little when pressed. */
+/* Directions: a small grey icon in the time column, with a 40px tap area and no fill until hovered or pressed, so it
+   never competes with the stops. On the drive that matters (below) it turns blue. */
 .wt-tl-drive__go {
-  width: 36px; height: 36px; margin: 2px; color: var(--wt-text-secondary); background: var(--wt-surface-sunken);
+  width: 40px; height: 40px; margin: 2px 0; color: var(--wt-text-secondary); background: none;
   transition: background var(--wt-duration-fast), color var(--wt-duration-fast), transform var(--wt-duration-fast);
 }
 .wt-tl-drive__go .wt-icon { width: 18px; height: 18px; }
 .wt-tl-drive__go:active { background: var(--wt-surface-hover); color: var(--wt-text-primary); transform: scale(.92); }
 .wt-tl-drive__go:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
-@media (hover: hover) { .wt-tl-drive__go:hover { background: var(--wt-surface-hover); color: var(--wt-text-primary); } }
+@media (hover: hover) { .wt-tl-drive__go:hover { background: var(--wt-surface-sunken); color: var(--wt-text-primary); } }
 
-/* Selected (from the map, or tapped): a stop is grey with an outline; a drive's car turns the color of its route. */
-.wt-tl-stop.is-selected { background: var(--wt-surface-sunken); box-shadow: 0 0 0 2px var(--wt-border-focus); }
-.wt-tl-drive.is-active .wt-tl-car { background: var(--wt-route-active); color: var(--wt-marker-ink); }
+/* One highlighted row at most: the selected row (a stop tapped or picked on the map, or a drive whose route is shown),
+   or, when nothing in the list is selected, the row happening now. With a selection, the row happening now is
+   a plain row; the dimmed rows above it still show where the day is.
+   The highlight is the same for stops and drives: a grey background, no outline, no blue. A highlighted drive's car,
+   duration and Directions icon turn dark. The stop happening now also gets a ring in its type color. */
+.wt-tl :is(.is-selected, .is-active),
+.wt-tl:not(:has(.is-selected, .is-active)) .is-now { background: var(--wt-surface-current); }
+.wt-tl .wt-tl-stop.is-selected .wt-tl-marker { box-shadow: 0 0 0 3px var(--wt-surface-current); }
+.wt-tl:not(:has(.is-selected, .is-active)) .wt-tl-stop.is-now .wt-tl-marker { box-shadow: 0 0 0 3px var(--wt-surface-current), 0 0 0 5px var(--wt-kind-color); }
+.wt-tl .wt-tl-drive.is-active,
+.wt-tl:not(:has(.is-selected, .is-active)) .wt-tl-drive.is-now { --wt-kind-drive: var(--wt-kind-drive-current); }
+.wt-tl .wt-tl-drive.is-active :is(.wt-tl-drive__what b, .wt-tl-drive__go),
+.wt-tl:not(:has(.is-selected, .is-active)) .wt-tl-drive.is-now :is(.wt-tl-drive__what b, .wt-tl-drive__go) { color: var(--wt-text-primary); }
 
-/* Today: what's happening now is tinted with its color on the map (a stop's type, a drive's route); what's over dims. */
-/* Markers and cars keep a solid backing, so the rail doesn't show through them: their color fades, not the whole thing. */
-.wt-tl .is-past :is(.wt-tl-time, .wt-tl-body, .wt-tl-drive__body, .wt-tl-drive__go, .wt-tl-car .wt-icon) { opacity: .45; }
+/* Today: what's over dims. Markers and cars keep a solid backing, so the rail doesn't show through them:
+   their color fades, not the whole thing. */
+.wt-tl .is-past :is(.wt-tl-time, .wt-tl-name, .wt-tl-notes, .wt-tl-drive__body, .wt-tl-drive__go) { opacity: .45; }
 .wt-tl .is-past .wt-tl-marker { background: color-mix(in srgb, var(--wt-kind-color) 45%, var(--wt-surface-raised)); }
-.wt-tl-stop.is-now { background: color-mix(in srgb, var(--wt-kind-color) 12%, var(--wt-surface-raised)); }
-.wt-tl-stop.is-now .wt-tl-marker { box-shadow: 0 0 0 3px var(--wt-surface-raised), 0 0 0 5px var(--wt-kind-color); }
-.wt-tl-drive.is-now { background: color-mix(in srgb, var(--wt-route) 12%, var(--wt-surface-raised)); }
-.wt-tl-drive.is-now .wt-tl-car { background: var(--wt-route); color: var(--wt-marker-ink); }
+.wt-tl .is-past:not(.is-active) .wt-tl-car { background: color-mix(in srgb, var(--wt-kind-drive) 45%, var(--wt-surface-raised)); }
 
 /* ---------- Day bar: ‹ day › at the top of the sheet; tap the day for the list of days ---------- */
 .wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) var(--wt-space-2) var(--wt-space-2); }

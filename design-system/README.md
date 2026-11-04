@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 3.0.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -89,6 +89,7 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-surface-raised` | The list sheet over the map, modal sheets, cards, focused inputs. The timeline sits on it. |
 | `--wt-surface-sunken` | Inputs at rest, and quiet panels. |
 | `--wt-surface-hover` | Pressed or hovered quiet controls. |
+| `--wt-surface-current` | The one highlighted timeline row: the selected one, or else the one happening now. The same for stops and drives. |
 | `--wt-surface-inverse` | Toasts. |
 | `--wt-surface-map` | The map before its tiles load. |
 | `--wt-text-primary` | Names, titles and running text. |
@@ -99,17 +100,20 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-text-danger` | A late drive, destructive buttons. |
 | `--wt-border-subtle` | Card hairlines. |
 | `--wt-border-default` | Input borders, list dividers. |
-| `--wt-border-strong` | The sheet's grab handle and the timeline's rail (decorative). |
+| `--wt-border-strong` | The sheet's grab handle (decorative). |
+| `--wt-border-rail` | The timeline's rail: a quiet hairline, dimmer than `--wt-border-strong`. |
 | `--wt-border-control` | Control borders that must meet 3:1 on cards. No component uses it since 2.0.0. |
-| `--wt-border-focus` | Focus rings, the focused input, the selected row's outline. |
+| `--wt-border-focus` | Focus rings, the focused input. |
 | `--wt-action-primary`, `--wt-action-primary-text` | The one main action in a view, like Add stop. |
 | `--wt-action-secondary`, `--wt-action-secondary-text` | Quiet actions, like Copy. |
 | `--wt-action-done`, `--wt-action-done-text` | Unused since 2.0.0, when checks were removed. Kept until the next major version. |
 | `--wt-route`, `--wt-route-active`, `--wt-route-muted`, `--wt-route-done`, `--wt-route-casing` | Route lines: normal, selected, the others while one is selected, past (on today), and the outline under each line. |
 | `--wt-pin-fill` | The ring around a pin's marker. |
 | `--wt-pin-ring`, `--wt-pin-ring-muted`, `--wt-pin-ring-done` | Unused since 2.0.0, when pins became markers. Kept until the next major version. |
-| `--wt-kind-place`, `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight`, `--wt-kind-nature`, `--wt-kind-shop` | Stop types, one color per group: a plain place; airports and gas; hotels; restaurants and cafés; attractions, museums and viewpoints; nature; shopping. Only on markers, pins, the type picker and today's highlight. None is blue or red. |
-| `--wt-marker-ink` | The icon on a marker, and the car of the drive you're on. Meets 3:1 on every kind color and on `--wt-route`. |
+| `--wt-kind-place`, `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight`, `--wt-kind-nature`, `--wt-kind-shop` | Stop types, one color per group: a plain place; airports and gas; hotels; restaurants and cafés; attractions, museums and viewpoints; nature; shopping. Only on markers, pins, the type picker and the ring on today's stop. None is blue or red. |
+| `--wt-kind-drive` | The car marker on a drive in the timeline: grey, and quieter than any stop type. |
+| `--wt-kind-drive-current` | The car on the highlighted drive: a darker grey, never blue. |
+| `--wt-marker-ink` | The icon on a marker, and the car on a drive. Meets 3:1 on every kind color, `--wt-kind-drive`, `--wt-kind-drive-current` and `--wt-route`. |
 | `--wt-map-label` | The background of a pin's name label. |
 | `--wt-danger`, `--wt-danger-surface` | "Doesn't fit" and destructive states. |
 | `--wt-highlight` | Flashing a co-editor's change once. |
@@ -271,7 +275,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 <div class="wt-tl">
   <button class="wt-tl-stop" style="--wt-kind-color: var(--wt-kind-food)">
     <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant">${icon('utensils')}</i></span>
-    <span class="wt-tl-body"><span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-note">Lunch</span></span>
+    <span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span>
     <span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span>
   </button>
   <div class="wt-tl-drive is-late">
@@ -287,27 +291,35 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 </div>
 ```
 
-- **Rows touch.** Put them straight inside `.wt-tl`, with nothing between, so the rail is one solid line from the first marker to the last.
-- **Surface:** put the timeline on `--wt-surface-raised`. The marker and the car are cut out of the rail in that color.
-- **Stop** (`.wt-tl-stop`): marker, name, optional note, time. Nothing else.
-  - Set `--wt-kind-color` on the row, not only on the marker. The `is-now` tint uses it.
-  - Notes are shown in full, never cut off.
+- **Rows touch.** Put them straight inside `.wt-tl`, with nothing between, so the rail is one solid hairline (`--wt-border-rail`, 1.5px) from the first marker to the last. Rows have no top or bottom padding of their own, which would break the rail.
+- **Surface:** put the timeline on `--wt-surface-raised`. Stop markers are ringed in that color.
+- **Stop** (`.wt-tl-stop`): marker, name, time, and optional notes. Nothing else.
+  - Set `--wt-kind-color` on the row, not only on the marker. The ring on the stop happening now uses it.
+  - Notes go in one `.wt-tl-notes`, one `.wt-tl-note` per line of meaning ("2 nights", then the stop's note). They sit under the name and run across the time column too, so a long note wraps to the row's full width and its right edge lines up with the times.
+  - Notes are shown in full, never cut off. Line breaks in a note are kept.
+  - Leave out `.wt-tl-notes` when there are none.
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
 - **The day before's last stop:** with no hotel the night before, a day opens with that stop. In place of a time, `.wt-tl-time__day` says which day it was: "Yesterday", or the weekday ("Sat").
 - **Drive** (`.wt-tl-drive`): a car on the rail, "1 hr 49 min drive", and a Directions button that opens the phone's maps app.
-  - The Directions button is a pale grey circle with a grey icon, the only part of the row that looks like a control; it darkens on hover and press. The row has no hover or press look, so tapping it doesn't seem to press the button.
+  - **Hierarchy:** the drive's text is 13px and all grey, its duration semibold. Stop names are the only strong text in the list, so the day reads as its stops, with drives as the links between them. The drive you're on darkens its duration; a late drive turns it red.
+  - **Spacing:** stops get `--wt-tl-pad` (14px) above and below their text; drives are a fixed 44px row. Change `--wt-tl-pad` on `.wt-tl` to tighten or loosen the list; the markers follow.
+  - The car (`.wt-tl-car`) is a marker like a stop's: a 22px circle in `--wt-kind-drive` grey with the `car` icon in `--wt-marker-ink`. Smaller and greyer than any stop, so drives never outrank them. On the highlighted drive it turns a darker grey (`--wt-kind-drive-current`). Never blue: blue is for routes on the map.
+  - The Directions button is a small grey icon in the time column, with no fill until it's hovered or pressed, so it never competes with the stops. Its tap area is still 40px. The row has no hover or press look, so tapping it doesn't seem to press the button.
+  - On the highlighted drive, the icon turns dark (`--wt-text-primary`), like the duration. It stays the same size, with no label, so the row doesn't shift.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
 - **States:**
 
   | State | On | Means |
   | --- | --- | --- |
-  | `is-selected` | a stop | Its pin was tapped, or the row was. Grey with an ink outline. |
-  | `is-active` | a drive | Its route was tapped, or the row was. The car turns the selected-route blue; the row gets no box. |
-  | `is-now` | either | On today, what's happening now: the latest row that has started. Tinted with its map color, a stop's type or a drive's route. |
+  | `is-selected` | a stop | Its pin was tapped, or the row was. Highlighted. |
+  | `is-active` | a drive | Its route was tapped, or the row was. Highlighted, like a selected stop. |
+  | `is-now` | either | On today, what's happening now: the latest row that has started. Highlighted only while nothing in the list is selected; then a stop's marker also gets a ring in its type color. |
   | `is-past` | either | On today, every row before `is-now`. On an earlier day, every row. Dims. |
   | `is-late` | a drive | The drive is longer than the gap between its two stops. The drive time turns red. |
   | `is-flash` | a stop | A co-editor just changed it. Flashes once. |
+
+  **One highlighted row at most.** A selection takes the highlight; with none, the row happening now has it (the CSS works this out with `:has()`, so scripts set the classes as before). The highlight is the same for stops and drives: `--wt-surface-current` behind the row, no outline, no blue. A highlighted drive's car turns `--wt-kind-drive-current`, and its duration and Directions icon turn `--wt-text-primary`. Color stays on the rail, where the map's colors already are.
 
 ### Day bar `.wt-day-bar` and day list `.wt-day-list`
 
@@ -514,7 +526,7 @@ Say what can go here, in the user's words. No illustrations.
   - Tapping a pin selects its stop (`is-selected`). Tapping a route, or its drive in the list, marks the drive `is-active` and shows the route: both ends named, its time on it, the map fitted to it. Tapping the drive again goes back to the whole day.
   - Editing a stop leaves the map in view (a panel), with the stop's pin showing the edit as it happens.
 - **Today.** During the trip, the trip opens on today.
-  - The row happening now is highlighted (`is-now`).
+  - The row happening now is highlighted (`is-now`), unless another row is selected.
   - Rows before it dim (`is-past`), their routes turn grey (`--wt-route-done`), and their pins mute (`.wt-pin--muted`).
   - The hotel you go back to tonight stays bright.
 - **Doesn't fit.** If a drive takes longer than the gap between its two stops, the drive gets `is-late` and says "Arrives 13 min late". That red text is the only warning.
@@ -564,6 +576,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Renamed or removed in 4.0.0
+
+The day list got quieter: one hairline rail, grey drives, and one highlight at most.
+
+- `.wt-tl-body` is removed. A stop's `.wt-tl-name` sits straight in `.wt-tl-stop`, and its notes go in a new `.wt-tl-notes` after the name, so they can run across the time column.
+- `.wt-tl-car` is now a grey marker (`--wt-kind-drive`) rather than a grey icon on the surface color.
+- The rail uses `--wt-border-rail` at 1.5px, not `--wt-border-strong` at 2px.
+- Selected rows lose their ink outline, and nothing in the list is blue: the highlighted drive's car is `--wt-kind-drive-current`.
+- Added: `--wt-border-rail`, `--wt-surface-current`, `--wt-kind-drive`, `--wt-kind-drive-current`, `--wt-tl-pad`, `.wt-tl-notes`. The `car` and `directions` icons are redrawn.
 
 ### Renamed or removed in 3.0.0
 

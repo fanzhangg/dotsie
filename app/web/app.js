@@ -787,7 +787,7 @@ function driveItem(day, leg) {
     // when you set off (until the route is in, no earlier than you arrive); the drive back to the hotel has no time, so it comes last
     start: leg.leave || leg.arrive || (toEntry.role === 'night' ? `${day}T23:58` : fromEntry.place.time),
     html: (past, now) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="group" aria-label="${r ? fmtDur(r.duration) : ''} drive to ${esc(to.name)}. Show the route on the map">
-      <span class="wt-tl-rail"><i class="wt-tl-car">${WaythreadIcons.svg('car', 14)}</i></span>
+      <span class="wt-tl-rail"><i class="wt-tl-car">${ICON.car}</i></span>
       <span class="wt-tl-drive__body">
         <span class="wt-tl-drive__what"><b>${r ? fmtDur(r.duration) : '…'}</b> drive</span>
         ${late > 0 ? `<span class="wt-tl-drive__late">Arrives ${fmtDur(late * 60)} late</span>` : ''}
@@ -796,12 +796,13 @@ function driveItem(day, leg) {
     </div>`,
   };
 }
-// A stop row: marker · name and note · time. A hotel on its check-in day says how many nights.
+// A stop row: marker · name · time, with its notes below across the name and time. A hotel on its check-in day says how many nights.
 // A row from another day than the one on screen can say which day in place of the time.
 function stopRow(s, past, now, note, time, timeDay) {
+  const notes = note.filter(Boolean);
   return `<button class="wt-tl-stop${s.id === state.sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="edit" data-id="${esc(s.id)}" style="--wt-kind-color: ${kindColor(s)}">
       <span class="wt-tl-rail">${markerHTML(s, 'wt-tl-marker')}</span>
-      <span class="wt-tl-body"><span class="wt-tl-name">${esc(s.name)}</span>${note.filter(Boolean).map(n => `<span class="wt-tl-note">${esc(n)}</span>`).join('')}</span>
+      <span class="wt-tl-name">${esc(s.name)}</span>${notes.length ? `<span class="wt-tl-notes">${notes.map(n => `<span class="wt-tl-note">${esc(n)}</span>`).join('')}</span>` : ''}
       <span class="wt-tl-time">${time ? timeHTML(time) : ''}${timeDay ? `<span class="wt-tl-time__day">${esc(timeDay)}</span>` : ''}</span>
     </button>`;
 }
