@@ -89,11 +89,23 @@ The half list is about one row, its **focus**: the selected stop; or else the dr
 └─────────────────────┴──────────────────────────────────┘
 ```
 
-**One day at a time.** The list and the map show a single day. A whole trip on one page was too much to take in, and a day is the unit you plan and travel by.
-- **The day bar** tops the sheet, so it stays visible when the sheet is pulled down. It shows the day (`Fri, Nov 20`, or `Today, Nov 21` on a trip day, so today is easy to find again) between **‹** and **›** buttons that step to the previous and next day.
-- **Picking a day:** tap the day to open a list of every day of the trip, each with the type icons of its stops and of the hotel you sleep at, so you can see what a day holds before you jump to it. On a computer, ← → also step through days.
+**One day at a time, after All days.** The list and the map show a single day: a day is the unit you plan and travel by. Before the first day comes **All days**, an overview of the whole trip.
+- **The day bar** tops the sheet, so it stays visible when the sheet is pulled down. It shows the day (`Fri, Nov 20`, or `Today, Nov 21` on a trip day, so today is easy to find again) between **‹** and **›** buttons that step to the previous and next day. From the first day, **‹** goes to All days.
+- **Picking a day:** tap the day to open a list of All days and every day of the trip, each day with the type icons of its stops and of the hotel you sleep at, so you can see what a day holds before you jump to it. On a computer, ← → also step through days.
 - There's no swipe between days: the arrows and the day list replace it.
-- **Which day opens:** today on a trip day, otherwise the first day. Saving a stop switches to that stop's day. If a day loses its last stop, the list moves to the next day.
+- **Which day opens:** today, when it's one of the trip's days; otherwise All days, so a trip you're planning or looking back on opens on the whole of it. Saving a stop switches to that stop's day (on All days, it stays there). If a day loses its last stop, the list moves to the next day.
+- **All days** lists every day under its name, with each day's stops and their times. Drives and notes are left out, so the trip reads at a glance: they're on each day's page, and the map still draws every drive. A hotel says how many nights on its check-in day, and check-out morning has its `Check out` row; a day in the middle of a stay with no stops of its own shows the hotel. **Tapping a day's name opens that day.** Tapping a stop selects it, as on a day, and the bottom button becomes Edit stop. The map shows the whole trip: every stop and every drive, and Whole day becomes **Whole trip**. Tapping a route shows it and offers Directions, as on a day. Add stop starts two hours after the trip's last stop. (A whole trip on one page was tried early on and dropped as too much to take in, when it was the only page; as an overview next to the days, without the drives and notes, it gives the shape of the trip a day can't.)
+
+```
+│ ‹         All days ⌄       › │  ← ‹ is off: this is the first page
+│     Fri, Nov 20            › │  ← tap to open the day
+│ (✈) El Paso Airport   10:30 AM│
+│ (🛏) Holiday Inn       3:00 PM│
+│      2 nights                │
+│     Sat, Nov 21            › │
+│ (🏛) Museum of Space   9:30 AM│
+│ …                            │
+```
 - **Each day starts and ends at the hotel** (see [Hotel stays](#hotel-stays)). With no hotel the night before, the day starts from the day before's last stop: the list opens with that stop, and it's a faded pin on the map. Tapping that pin goes back to the day before.
 
 **Trip settings** holds the trip's name, the people on it, the share link, and **Delete trip**.
@@ -148,6 +160,7 @@ On trip days, today's page shows where you are without a clock in the list:
 - **Now is highlighted.** The row you're in (the latest thing that has started: the stop you're at, or the drive you're on) gets the same light grey background as a selected row, whether it's a stop or a drive. A stop's marker also gets a ring in its type color, and a drive's car turns a darker grey. When you select another row, the highlight moves there; the dimmed rows above still show where the day is. (Tinting the whole row with its map color was tried first; a different color for every type made the highlight look inconsistent. A dark outline on selected rows was dropped too: it pulled the eye away from the plan. So were blue cars and icons on drive rows, and highlighting the selected row and the row happening now at once: two grey rows, sometimes touching, read as one block.)
 - **Past dims, in the list and on the map.** Everything before it fades, and so does every earlier day. The rail stays solid. On the map, past drives turn grey and sit under the rest, and a stop you're done with gets a small, faded pin. A hotel stays strong until the night is over.
 - **Today opens at now.** When today's page shows, it scrolls so the highlighted row sits a little above the middle.
+- **On All days** the same holds among its rows: the latest stop that has started is highlighted, and everything before it dims, along with every earlier day.
 
 ### Stop types
 
@@ -306,7 +319,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
 - **Day view in the app:** shipped. The day bar, timeline, hotel stays, stop types and floating buttons are in `app/web`, with their styles in the design system (v2.0.0). Stops store `kind` and `nights` on the server. In the app, trip settings also holds Make a new link, and the trip name saves when you leave the field. Try changes in `prototype/` first, then port them by hand.
 - **How long a stop lasts:** stops have only a start time, so "Arrives late" and the highlight assume you leave each stop just in time for the next. Default lengths per type (a meal 1 hour, a museum 2, a flight's check-in 90 minutes) would make both more honest, without showing durations in the list.
 - **The map and list:** the header, the half/whole-day sheet, route previews, the stop sheet that leaves the map in view, the Type page and hotel check-out times are in `app/web` and `prototype/`, with their styles in the design system (v3.0.0). They went into the app first, then back to the prototype, which saves `checkout` in the browser like the app's server does.
-- **From the UX review, not yet done:** quick time choices in Add stop, showing who's on the trip at a glance and what changed while you were away, working offline, an "All days" map of the whole route, and marking estimated drive times with `≈`.
+- **From the UX review, not yet done:** quick time choices in Add stop, showing who's on the trip at a glance and what changed while you were away, working offline, and marking estimated drive times with `≈`.
 - **Map credits:** Stadia's and OpenStreetMap's terms ask for attribution on or next to the map. The app now shows them only in trip settings, like the prototype. Check the terms before this deploys; if needed, bring back a small ⓘ button on the map that shows the credits.
 - **People at a glance:** with the header gone, who's on the trip is one tap away. If that hides co-editing too much, a small stack of faces could go back on the settings button.
 - **Accessibility:** a full review, including focus handling in the sheets and screen-reader labels for pins.

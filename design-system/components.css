@@ -1,4 +1,4 @@
-/* Waythread design system — components v4.6.0
+/* Waythread design system — components v4.7.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -17,7 +17,7 @@
 :where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel) {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
 }
-:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
+:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-tl-day, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
   outline: 2px solid var(--wt-border-focus);
   outline-offset: 2px;
   border-radius: var(--wt-radius-md);
@@ -240,6 +240,23 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl .is-past :is(.wt-tl-time, .wt-tl-name, .wt-tl-notes, .wt-tl-drive__body, .wt-tl-drive__go) { opacity: .45; }
 .wt-tl .is-past .wt-tl-marker { background: color-mix(in srgb, var(--wt-kind-color) 45%, var(--wt-surface-raised)); }
 .wt-tl .is-past:not(.is-active) .wt-tl-car { background: color-mix(in srgb, var(--wt-kind-drive) 45%, var(--wt-surface-raised)); }
+
+/* Day heading: the overview (every day on one page) puts each day's stops under the day's name, lined up with the
+   stop names. Tapping it opens the day. It isn't on the rail: each day's rail runs from its first stop to its last. */
+.wt-tl-day {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0 var(--wt-space-3) 0 0; margin: 0; cursor: pointer; text-align: left;
+  width: 100%; min-height: var(--wt-size-touch); display: grid; grid-template-columns: var(--wt-tl-rail) 1fr auto; align-items: center;
+  border-radius: var(--wt-radius-md); transition: background var(--wt-duration-fast);
+}
+.wt-tl > * + .wt-tl-day { margin-top: var(--wt-space-2); }
+.wt-tl-day__name { grid-column: 2; min-width: 0; font: var(--wt-type-heading); overflow-wrap: anywhere; }
+.wt-tl-day > .wt-icon { grid-column: 3; width: 18px; height: 18px; color: var(--wt-text-secondary); }
+.wt-tl-day:active { background: var(--wt-surface-hover); }
+@media (hover: hover) { .wt-tl-day:hover { background: var(--wt-surface-sunken); } }
+.wt-tl .wt-tl-day.is-past .wt-tl-day__name { opacity: .45; }
+.wt-tl-day + * .wt-tl-rail::before { top: var(--wt-tl-mark-y); }
+.wt-tl > :has(+ .wt-tl-day) .wt-tl-rail::before { bottom: auto; height: var(--wt-tl-mark-y); }
+.wt-tl-day + :is(:last-child, :has(+ .wt-tl-day)) .wt-tl-rail::before { display: none; }
 
 /* ---------- Day bar: ‹ day › at the top of the sheet; tap the day for the list of days ---------- */
 .wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) var(--wt-space-2) var(--wt-space-2); }
