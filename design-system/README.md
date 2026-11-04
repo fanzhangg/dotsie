@@ -347,7 +347,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 - Disable the previous arrow on the first day and the next arrow on the last.
 - The day list shows every day, with up to six small markers: the day's stops in order, then the hotel you sleep at. `aria-current="date"` marks the open day.
 
-### Picker `.wt-picker`, options `.wt-options`, nights `.wt-nights` and check-out
+### Picker `.wt-picker`, options `.wt-options` and check-out
 
 All live in the stop sheet.
 
@@ -371,26 +371,17 @@ All live in the stop sheet.
   <!-- one per type -->
 </ul>
 
-<div class="wt-field-row">   <!-- hidden unless it's a hotel -->
-  <div class="wt-field wt-nights"><span class="wt-field__label">Nights</span>
-    <div class="wt-nights__row">
-      <button class="wt-icon-btn wt-nights__step" aria-label="One night fewer">−</button>
-      <output class="wt-nights__n" aria-live="polite">2</output>
-      <button class="wt-icon-btn wt-nights__step" aria-label="One more night">+</button>
-    </div>
-  </div>
-  <div class="wt-field"><span class="wt-field__label" id="checkout-label">Check-out</span>
-    <label class="wt-input wt-input-group">
-      <span class="wt-input-group__prefix">Sun, Nov 22</span>
-      <input type="time" value="11:00" aria-labelledby="checkout-label"></label></div>
-</div>
+<label class="wt-field">   <!-- hidden unless it's a hotel -->
+  <span class="wt-field__label">Check-out</span>
+  <input class="wt-input" type="datetime-local" value="2026-11-22T11:00" min="2026-11-21T00:00" max="2026-12-20T23:59"></label>
 ```
 
 - **Type** is one row that shows the current type. Tapping it slides the sheet to the types; picking one, or Back, slides back. It keeps the sheet short, so the map stays in view above it. Focus the checked option when the page opens, and the picker when it closes.
 - Type starts as a guess from the place's name and category, until someone picks one.
-- **Nights and Check-out** show only for a hotel. When becomes check-in: 3:00 PM for a new hotel. Nights is at least 1, so disable the minus at 1. Check-out's day comes from the nights, so only its time is an input, but the day shows inside the field, before the time (`.wt-input-group`), so it reads as one value: `Sun, Nov 22  11:00 AM`. 11:00 AM unless someone sets another. The two sit side by side with their labels level; on a very narrow screen Check-out wraps below Nights.
+- **Check-out** shows only for a hotel, under Check-in, and is a day and time like it. When becomes check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. Check-out is at least a night after check-in and at most 30 (`min` and `max`); a day outside that, or an empty field, goes back to the last good one when you leave the field. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 1–30 nights.
 - **Date and time fields** (`.wt-input` on `date`, `time` and `datetime-local`) are drawn like any other field on iPhone, so they read from the left and stay inside the sheet, rather than Safari's centred control, which is wider than the sheet.
 - **`.wt-input-group`** is a `.wt-input` box with a fixed `__prefix` and a bare `<input>` after it. Make the box a `<label>` so a tap anywhere opens the input, and label the input with `aria-labelledby`.
+- `.wt-nights` (the stepper), `.wt-field-row` and `.wt-input-group` are no longer used: Check-out became a day and time, which replaced the stepper and the day shown before the time. They can go in the next major version.
 - `.wt-kinds`, a grid of every type, is no longer used: the app and the prototype both use the picker. It can go in the next major version.
 
 ### Trip header `.wt-trip-head`, bottom sheet `.wt-sheet` and add bar `.wt-add-bar`

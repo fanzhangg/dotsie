@@ -272,7 +272,8 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-nights__n { min-width: 24px; text-align: center; font: var(--wt-type-name); font-variant-numeric: tabular-nums; }
 .wt-nights__out { margin-left: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 /* A hotel's Nights and Check-out side by side, labels level; on a very narrow screen Check-out wraps below.
-   The check-out day is worked out from the nights, and shows in the field before the time (.wt-input-group). */
+   Unused since Check-out became a day and time (datetime-local) in the stop sheet: .wt-nights, .wt-field-row and
+   .wt-input-group can go in the next major version. */
 .wt-field-row { display: flex; flex-wrap: wrap; column-gap: var(--wt-space-4); align-items: flex-start; }
 .wt-field-row > .wt-field { flex: none; min-width: 0; }
 .wt-field-row > .wt-field:last-child { flex: 1 1 180px; }
