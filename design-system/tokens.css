@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.4.0
+/* Waythread design system — tokens v1.5.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -257,7 +257,7 @@
   /* font shorthands: weight size/line-height family */
   --wt-type-display: 700 28px/34px var(--wt-font-sans);   /* app name on Home */
   --wt-type-title: 700 18px/24px var(--wt-font-sans);     /* trip name, modal titles */
-  --wt-type-heading: 700 15px/20px var(--wt-font-sans);   /* day headings */
+  --wt-type-heading: 700 15px/20px var(--wt-font-sans);   /* unused since 2.0.0 */
   --wt-type-name: 600 16px/21px var(--wt-font-sans);      /* stop and trip names */
   --wt-type-body: 400 15px/21px var(--wt-font-sans);      /* running text */
   --wt-type-time: 600 15px/21px var(--wt-font-sans);      /* stop times (use tabular-nums) */
@@ -266,7 +266,9 @@
   --wt-type-caption-strong: 500 13px/18px var(--wt-font-sans); /* drive times */
   --wt-type-micro: 600 11px/14px var(--wt-font-sans);     /* AM / PM, avatar initials */
   --wt-type-input: 400 16px/22px var(--wt-font-sans);     /* 16px stops iOS zooming into fields */
+  --wt-type-overline: 600 12px/16px var(--wt-font-sans);  /* day headings in All days, in capitals */
   --wt-tracking-display: -.02em;
+  --wt-tracking-caps: .06em;                               /* text in capitals */
 
   /* Space: a 4px grid */
   --wt-space-1: 4px;
