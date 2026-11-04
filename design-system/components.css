@@ -241,16 +241,18 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl .is-past .wt-tl-marker { background: color-mix(in srgb, var(--wt-kind-color) 45%, var(--wt-surface-raised)); }
 .wt-tl .is-past:not(.is-active) .wt-tl-car { background: color-mix(in srgb, var(--wt-kind-drive) 45%, var(--wt-surface-raised)); }
 
-/* Day heading: the overview (every day on one page) puts each day's stops under the day's name, lined up with the
-   stop names. Tapping it opens the day. It isn't on the rail: each day's rail runs from its first stop to its last. */
+/* Day heading: the overview (every day on one page) puts each day's stops under the day's name. It's a label, not a
+   name: small grey capitals from the list's left edge (where the markers start), so it never reads as a stop.
+   Tapping it opens the day. It isn't on the rail: each day's rail runs from its first stop to its last. */
 .wt-tl-day {
-  font: inherit; color: inherit; background: none; border: 0; padding: 0 var(--wt-space-3) 0 0; margin: 0; cursor: pointer; text-align: left;
-  width: 100%; min-height: var(--wt-size-touch); display: grid; grid-template-columns: var(--wt-tl-rail) 1fr auto; align-items: center;
+  font: inherit; color: var(--wt-text-secondary); background: none; border: 0; margin: 0; cursor: pointer; text-align: left;
+  width: 100%; min-height: var(--wt-size-touch); display: grid; grid-template-columns: 1fr auto; align-items: end; gap: var(--wt-space-2);
+  padding: 0 var(--wt-space-3) var(--wt-space-1) calc((var(--wt-tl-rail) - 30px) / 2);
   border-radius: var(--wt-radius-md); transition: background var(--wt-duration-fast);
 }
 .wt-tl > * + .wt-tl-day { margin-top: var(--wt-space-2); }
-.wt-tl-day__name { grid-column: 2; min-width: 0; font: var(--wt-type-heading); overflow-wrap: anywhere; }
-.wt-tl-day > .wt-icon { grid-column: 3; width: 18px; height: 18px; color: var(--wt-text-secondary); }
+.wt-tl-day__name { min-width: 0; font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; overflow-wrap: anywhere; }
+.wt-tl-day > .wt-icon { width: 16px; height: 16px; }
 .wt-tl-day:active { background: var(--wt-surface-hover); }
 @media (hover: hover) { .wt-tl-day:hover { background: var(--wt-surface-sunken); } }
 .wt-tl .wt-tl-day.is-past .wt-tl-day__name { opacity: .45; }

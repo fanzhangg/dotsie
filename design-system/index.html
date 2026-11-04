@@ -539,7 +539,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         </div>
       </div>
       <ul class="rules">
-        <li><b>Day headings</b> sit in the timeline, between the days' stops, lined up with the stop names, with a <code>forward</code> icon: tapping one opens that day. They're not on the rail, so each day's rail runs from its first stop to its last.</li>
+        <li><b>Day headings</b> sit in the timeline, between the days' stops, with a <code>forward</code> icon: tapping one opens that day. They're a label, not a name: small grey capitals (<code>--wt-type-overline</code>), starting at the list's left edge, where the markers start, so a date never reads as a stop. They're not on the rail, so each day's rail runs from its first stop to its last.</li>
         <li><b>Stops only.</b> Drives and notes stay on the day's own page; a hotel keeps its nights, and check-out morning its <i>Check out</i>. Selecting, <code>is-now</code> and <code>is-past</code> work as on a day. A past day's heading dims with its stops (<code>is-past</code>).</li>
       </ul>
     </section>
@@ -1043,6 +1043,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ['--wt-type-label', 'Add stop', 'Buttons, pin labels'],
     ['--wt-type-caption', 'UA 1234 lands · rental car at Hertz', 'Notes, drives, field labels'],
     ['--wt-type-caption-strong', 'Arrives 13 min late', 'A late drive'],
+    ['--wt-type-overline', 'Fri, Nov 20', 'Day headings in All days, in capitals'],
     ['--wt-type-micro', 'AM', 'AM / PM, initials'],
     ['--wt-type-input', 'Search a place', 'Form fields'],
   ];
@@ -1086,7 +1087,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
   function renderStatic() {
     document.getElementById('type-specimens').innerHTML = TYPE.map(([t, sample, use]) => `
       <div class="type-row"><div class="type-row__meta"><code>${t.replace('--wt-type-', '')}</code><span>${use}</span><span class="mono" data-font="${t}"></span></div>
-      <div class="type-row__sample" style="font: var(${t});${t.endsWith('display') ? ' letter-spacing: var(--wt-tracking-display);' : ''}${t.endsWith('time') ? ' font-variant-numeric: tabular-nums;' : ''}">${sample}</div></div>`).join('');
+      <div class="type-row__sample" style="font: var(${t});${t.endsWith('display') ? ' letter-spacing: var(--wt-tracking-display);' : ''}${t.endsWith('overline') ? ' letter-spacing: var(--wt-tracking-caps); text-transform: uppercase;' : ''}${t.endsWith('time') ? ' font-variant-numeric: tabular-nums;' : ''}">${sample}</div></div>`).join('');
     document.getElementById('space-scale').innerHTML = SPACE.map(n => `
       <div class="space-row"><code>--wt-space-${n}</code><span class="mono" data-len="--wt-space-${n}"></span><div class="space-row__bar" style="width: calc(var(--wt-space-${n}) * 4)"></div></div>`).join('');
     document.getElementById('radius-scale').innerHTML = RADII.map(([n, use]) => `

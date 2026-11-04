@@ -135,6 +135,7 @@ The system font throughout, so the app feels native on every phone. Each token i
 | `--wt-type-label` | 14 / 20 | 600 | Buttons and pin labels. |
 | `--wt-type-caption` | 13 / 18 | 400 | Notes, drives, field labels, hints. |
 | `--wt-type-caption-strong` | 13 / 18 | 500 | A late drive's "Arrives 13 min late". |
+| `--wt-type-overline` | 12 / 16 | 600 | Day headings in All days. Set in capitals, with `--wt-tracking-caps`. |
 | `--wt-type-micro` | 11 / 14 | 600 | AM/PM, avatar initials. |
 | `--wt-type-input` | 16 / 22 | 400 | Form fields. 16px stops iPhone zooming in. |
 
@@ -364,7 +365,7 @@ The overview: every day of the trip on one page, before the first day. Each day'
 </div>
 ```
 
-- **The heading** is a row in the timeline, lined up with the stop names, in `--wt-type-heading`, with a `forward` icon on the right: tapping it opens that day. It's at least `--wt-size-touch` tall.
+- **The heading** is a row in the timeline with a `forward` icon on the right: tapping it opens that day. It's a label, not a name: `--wt-type-overline` in grey capitals (`text-transform` and `--wt-tracking-caps`; the text stays "Fri, Nov 20" for screen readers), starting at the list's left edge, where the markers start. Stop names are larger, black and indented past the rail, so a date never reads as a stop. It's at least `--wt-size-touch` tall, with its text at the bottom, next to the day's first stop.
 - **It isn't on the rail.** Each day's rail runs from its first stop's marker to its last; a day with one stop has no rail.
 - **Stops only:** marker, name, time. Drives and notes are left to the day's own page (the map still draws every drive). A hotel keeps its nights on its check-in day, and check-out morning is a row with `Check out`. A day with no stops of its own, in the middle of a stay, shows the hotel you wake up at.
 - `is-selected`, `is-now` and `is-past` work as on a day. A past day's heading gets `is-past` and dims with its stops.
@@ -654,6 +655,7 @@ Say what can go here, in the user's words. No illustrations.
 ### Added in 4.7.0
 
 - `.wt-tl-day`, with `__name`: a day's heading in the All days overview, which opens the day. Each day's rail stops at its heading.
+- Tokens (tokens.css 1.5.0): `--wt-type-overline` and `--wt-tracking-caps`, for the day headings.
 - Nothing was renamed or removed.
 
 ### Added in 4.6.0
