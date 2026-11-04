@@ -43,7 +43,7 @@ One-time setup, in the GitHub repo under Settings → Secrets and variables → 
 | `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET` | Secrets | Optional: Apple sign-in |
 | `APP_URL` | Variable | Optional: a custom domain. Without it the app runs at `https://waythread.<your-subdomain>.workers.dev` |
 
-Only the secrets you set are uploaded, and a feature whose keys are missing stays off. Register `<app URL>/api/auth/callback/google` (and `/callback/apple`) with each provider, and the app's domain with Stadia so map tiles load.
+Only the secrets you set are uploaded, and a feature whose keys are missing stays off. Register `<app URL>/api/auth/callback/google` (and `/callback/apple`) with each provider, and the app's domain with Stadia so map tiles load. The map prefetches tiles around the view and one zoom level in and out, so zooming doesn't wait on the network; that's roughly 3–4× the tile requests of the visible view alone, which counts against the Stadia plan (`EDGE_TILES` and `PREFETCH_ZOOMS` in `web/app.js` tune it).
 
 `BETTER_AUTH_URL` isn't in `wrangler.jsonc`: `.dev.vars` sets it locally and the workflow sets it for production, so deploy through the workflow rather than `npm run deploy`.
 

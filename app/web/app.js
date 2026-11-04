@@ -672,6 +672,42 @@ const CREDIT = {
   osm: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 };
 let mapCredit = CREDIT.stadia;
+// Leaflet fetches only the tiles in view, so a zoom waits on a whole fresh set and a pan shows blank edges.
+// This layer also loads a ring of tiles around the view, and once the view's tiles are in, it fetches the
+// next zoom level in (where a zoom-in lands) and the one out (a quarter as many) so the browser has them cached.
+// Skipped when the browser asks to save data. `_getTiledPixelBounds` is Leaflet-internal: check it on upgrade.
+const EDGE_TILES = 1;
+const PREFETCH_ZOOMS = [1, -1];
+function bufferedTileLayer(url, opts) {
+  const t = L.tileLayer(url, { keepBuffer: 4, ...opts });
+  const inView = t._getTiledPixelBounds;
+  t._getTiledPixelBounds = function (center) {
+    const b = inView.call(this, center), pad = this.getTileSize().multiplyBy(EDGE_TILES);
+    return L.bounds(b.min.subtract(pad), b.max.add(pad));
+  };
+  const fetched = new Set();
+  t.on('load', () => {
+    const m = t._map;
+    if (!m || navigator.connection?.saveData) return;
+    const size = t.getTileSize(), z0 = Math.round(m.getZoom()), view = m.getBounds();
+    for (const dz of PREFETCH_ZOOMS) {
+      const z = z0 + dz, n = 2 ** z;
+      if (z < t.options.minZoom || z > t.options.maxZoom) continue;
+      // A zoom in centers on the pointer or pinch, so cover the whole view; a zoom out shows a view-sized area around the center
+      const b = dz > 0 ? L.bounds(m.project(view.getNorthWest(), z), m.project(view.getSouthEast(), z)) : m.getPixelBounds(m.getCenter(), z);
+      const lo = b.min.unscaleBy(size).floor(), hi = b.max.unscaleBy(size).ceil();
+      for (let y = Math.max(lo.y, 0); y < Math.min(hi.y, n); y++) {
+        for (let x = lo.x; x < hi.x; x++) {
+          const src = L.Util.template(url, { ...t.options, r: L.Browser.retina ? '@2x' : '', x: ((x % n) + n) % n, y, z });
+          if (fetched.has(src)) continue;
+          fetched.add(src);
+          new Image().src = src;
+        }
+      }
+    }
+  });
+  return t;
+}
 function teardownTrip() {
   if (map) { map.remove(); map = null; layer = null; fitKey = ''; }
   delete $app.dataset.trip;
@@ -710,7 +746,7 @@ function mountTrip(trip) {
   // domain with Stadia. Fall back to OpenStreetMap if it's refused.
   const m = map, dark = matchMedia('(prefers-color-scheme: dark)').matches;
   const osm = () => {
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(m);
+    bufferedTileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(m);
     mapCredit = CREDIT.osm;
     $app.querySelector('.trip')?.classList.add('osm-tiles');
   };
@@ -718,7 +754,7 @@ function mountTrip(trip) {
     if (map !== m) return; // left the trip meanwhile
     if (!ok) return osm();
     mapCredit = CREDIT.stadia;
-    const quiet = L.tileLayer(`https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, { maxZoom: 20 }).addTo(m);
+    const quiet = bufferedTileLayer(`https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, { maxZoom: 20 }).addTo(m);
     quiet.once('tileerror', () => { m.removeLayer(quiet); osm(); });
   });
   layer = L.layerGroup().addTo(map);
