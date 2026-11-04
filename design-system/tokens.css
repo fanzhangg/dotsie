@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.6.0
+/* Waythread design system — tokens v1.7.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -10,25 +10,34 @@
 
 /* ---------- 1. Primitives ---------- */
 :root {
-  /* Neutrals lean very slightly warm so the grey sheet reads as paper, not steel. */
+  /* Neutrals: one warm grey (OKLCH hue 90, chroma .0035, so the sheet reads as paper, not steel), stepped by lightness.
+     Fine steps at both ends, for surfaces and lines; wide steps in the middle, where each one is an ink with its own
+     contrast and its own rank. The number is the step, not a percentage. On white (light) and on gray-900 (dark):
+       ink 1  950 18:1  /  100 15:1    names, titles: read first
+       ink 2  600  7:1  /  350  8:1    times, notes: read next (AAA)
+       ink 3  500  5:1  /  450  5:1    drives, detail: there when you look (AA on every surface)
+       ink 4  400 2.6:1 /  600 2.4:1   what's over, placeholders: out of the way
+     Below those, lines and surfaces. At the far end are the blacks: 950 is the strongest ink and the primary button,
+     1000 the dark theme's page. */
   --wt-color-gray-0: #ffffff;
-  --wt-color-gray-50: #f5f5f3;
-  --wt-color-gray-100: #f2f2f0;
-  --wt-color-gray-150: #ebebea;
-  --wt-color-gray-200: #e4e4e2;
-  --wt-color-gray-300: #c8c8c6;
-  --wt-color-gray-350: #b4b4b1;
-  --wt-color-gray-400: #9a9a98;
-  --wt-color-gray-450: #8a8a88;
-  --wt-color-gray-500: #6b6b69;
-  --wt-color-gray-600: #575755;
-  --wt-color-gray-700: #3d3d3b;
-  --wt-color-gray-750: #333331;
-  --wt-color-gray-800: #2a2a29;
-  --wt-color-gray-850: #222221;
-  --wt-color-gray-900: #1c1c1b;
-  --wt-color-gray-950: #141413;
-  --wt-color-gray-1000: #0d0d0c;
+  --wt-color-gray-50: #f9f8f5;
+  --wt-color-gray-100: #f3f2f0;
+  --wt-color-gray-150: #ecebe8;
+  --wt-color-gray-200: #e4e3e0;
+  --wt-color-gray-250: #dad9d6;
+  --wt-color-gray-300: #cdccc9;
+  --wt-color-gray-350: #b6b6b3;
+  --wt-color-gray-400: #a1a09d;
+  --wt-color-gray-450: #908f8d;
+  --wt-color-gray-500: #6c6c69;
+  --wt-color-gray-600: #575754;
+  --wt-color-gray-700: #444442;
+  --wt-color-gray-750: #373735;
+  --wt-color-gray-800: #2d2c2b;
+  --wt-color-gray-850: #252422;
+  --wt-color-gray-900: #1c1c1a;
+  --wt-color-gray-950: #141412;
+  --wt-color-gray-1000: #0c0b09;
 
   /* Blue is reserved for routes and links. */
   --wt-color-blue-100: #e3ecfd;
@@ -39,9 +48,9 @@
   --wt-color-blue-600: #0b57d0;
   --wt-color-blue-800: #243a5e;
 
-  /* Red is reserved for "doesn't fit" and destructive actions. */
+  /* Red is reserved for "doesn't fit" and destructive actions: the loudest color, for the one thing to fix. */
   --wt-color-red-50: #fdecea;
-  --wt-color-red-300: #f28b82;
+  --wt-color-red-300: #fb817c;
   --wt-color-red-600: #c5221f;
   --wt-color-red-900: #3a1d1b;
 
@@ -62,16 +71,17 @@
   --wt-surface-raised: var(--wt-color-gray-0);      /* stop cards, modal sheets, inputs on focus */
   --wt-surface-sunken: var(--wt-color-gray-50);     /* resting inputs */
   --wt-surface-hover: var(--wt-color-gray-200);     /* pressed / hovered quiet controls */
-  --wt-surface-current: var(--wt-color-gray-200);   /* the timeline rows that matter: now, and selected */
-  --wt-surface-inverse: #202124;                    /* toasts */
+  --wt-surface-current: var(--wt-color-gray-200);   /* the one highlighted timeline row: selected, or else now */
+  --wt-surface-inverse: var(--wt-color-gray-850);  /* toasts */
   --wt-surface-map: #e9eef1;                        /* map placeholder before tiles load */
 
-  /* Text */
-  /* Three steps of ink. Each passes 4.5:1 on raised, sheet and sunken surfaces; on the highlighted row
-     (--wt-surface-current) tertiary steps up to secondary. */
+  /* Text: four inks, one per rank (see the neutrals above). The first three pass 4.5:1 on raised, sheet and sunken
+     surfaces; on the highlighted row (--wt-surface-current) tertiary steps up to secondary.
+     Past text is the fourth: what's over, out of the way. */
   --wt-text-primary: var(--wt-color-gray-950);     /* names, titles, what you typed */
   --wt-text-secondary: var(--wt-color-gray-600);   /* times, notes, labels: read, but after the name */
   --wt-text-tertiary: var(--wt-color-gray-500);    /* drives, AM / PM, hints: there when you look for it */
+  --wt-text-past: var(--wt-color-gray-400);         /* rows that are over */
   --wt-text-placeholder: var(--wt-color-gray-400);
   --wt-text-inverse: var(--wt-color-gray-0);
   --wt-text-inverse-action: var(--wt-color-blue-400);
@@ -82,7 +92,7 @@
   --wt-border-subtle: rgba(0, 0, 0, .06);           /* card hairlines */
   --wt-border-default: var(--wt-color-gray-150);    /* input borders */
   --wt-border-strong: var(--wt-color-gray-300);     /* grab handle (decorative) */
-  --wt-border-rail: var(--wt-color-gray-200);       /* the day's timeline rail */
+  --wt-border-rail: var(--wt-color-gray-250);       /* the day's timeline rail: still there on a grey row */
   --wt-border-control: var(--wt-color-gray-450);    /* unchecked check ring: 3:1 on cards */
   --wt-border-focus: var(--wt-color-gray-950);      /* focused input, selected card */
 
@@ -98,29 +108,33 @@
   --wt-route: var(--wt-color-blue-500);
   --wt-route-active: var(--wt-color-blue-600);
   --wt-route-muted: var(--wt-color-blue-300);       /* other routes while one is active */
-  --wt-route-done: #b4b4b4;
+  --wt-route-done: var(--wt-color-gray-350);       /* past routes: the same grey as what's over in the list */
   --wt-route-casing: var(--wt-color-gray-0);        /* outline under route lines */
   --wt-pin-fill: var(--wt-color-gray-0);
   --wt-pin-ring: var(--wt-route);
   --wt-pin-ring-muted: var(--wt-color-blue-200);
   --wt-pin-ring-done: var(--wt-color-gray-400);
 
-  /* Status */
+  /* Status, loudest first: red needs fixing; black is now; grey is over. */
   --wt-danger: var(--wt-color-red-600);
   --wt-danger-surface: var(--wt-color-red-50);
   --wt-highlight: #fff1b8;                          /* a co-editor's change, flashed once */
+  --wt-now: var(--wt-color-gray-950);               /* the ring on the stop you're at, the car on the drive you're on: the blackest ink */
 
-  /* Stop types: one color per group, on markers and pins. No blue (routes) or red (doesn't fit). */
-  --wt-kind-place: #5f6368;
-  --wt-kind-travel: #00838f;
-  --wt-kind-stay: #7c3aed;
-  --wt-kind-food: #e8710a;
-  --wt-kind-sight: #d01884;
-  --wt-kind-nature: #1e8e3e;
-  --wt-kind-shop: #9e6a03;
+  /* Stop types: one color per group, on markers and pins. Every type has the same lightness and nearly the same
+     chroma (OKLCH L .56, C .11-.15), so color says what kind of place it is and never that one matters more.
+     Hues keep clear of blue (routes) and red (doesn't fit), which are louder than any type. */
+  --wt-kind-place: #78746d;
+  --wt-kind-travel: #00878e;
+  --wt-kind-stay: #835cbe;
+  --wt-kind-food: #b45c03;
+  --wt-kind-sight: #b94082;
+  --wt-kind-nature: #298a41;
+  --wt-kind-shop: #8b7300;
   --wt-kind-drive: var(--wt-color-gray-450);        /* the car on a drive: quieter than any stop */
-  --wt-kind-drive-current: var(--wt-color-gray-700); /* the car on the highlighted drive */
-  --wt-marker-ink: #ffffff;                         /* the icon on a marker, and the car of the drive you're on */
+  --wt-kind-drive-current: var(--wt-color-gray-700); /* the car on the selected drive: a step darker */
+  --wt-kind-past: var(--wt-color-gray-350);         /* markers, cars and pins of what's over: the color drains out */
+  --wt-marker-ink: var(--wt-color-gray-0);          /* the icon on a marker, the number on a pin, the car on a drive */
 
   /* Overlays and shadows */
   --wt-overlay: rgba(0, 0, 0, .32);
@@ -153,6 +167,7 @@
     --wt-text-primary: var(--wt-color-gray-100);
     --wt-text-secondary: var(--wt-color-gray-350);
     --wt-text-tertiary: var(--wt-color-gray-450);
+    --wt-text-past: var(--wt-color-gray-600);
     --wt-text-placeholder: var(--wt-color-gray-500);
     --wt-text-inverse: var(--wt-color-gray-950);
     --wt-text-inverse-action: var(--wt-color-blue-600);
@@ -181,16 +196,18 @@
     --wt-danger: var(--wt-color-red-300);
     --wt-danger-surface: var(--wt-color-red-900);
     --wt-highlight: #4a3f12;
-    --wt-kind-place: #9aa0a6;
-    --wt-kind-travel: #4fc3b9;
-    --wt-kind-stay: #b77cf8;
-    --wt-kind-food: #fa903e;
-    --wt-kind-sight: #ff63b8;
-    --wt-kind-nature: #5bb974;
-    --wt-kind-shop: #e2b33c;
+    --wt-now: var(--wt-color-gray-100);
+    --wt-kind-place: #b4b0aa;
+    --wt-kind-travel: #5fc3c8;
+    --wt-kind-stay: #be9ef6;
+    --wt-kind-food: #eda253;
+    --wt-kind-sight: #e889ca;
+    --wt-kind-nature: #7ac686;
+    --wt-kind-shop: #c8bd6b;
     --wt-kind-drive: var(--wt-color-gray-500);
     --wt-kind-drive-current: var(--wt-color-gray-300);
-    --wt-marker-ink: #141413;
+    --wt-kind-past: var(--wt-color-gray-600);
+    --wt-marker-ink: var(--wt-color-gray-950);
     --wt-overlay: rgba(0, 0, 0, .55);
     --wt-shadow-color: rgba(0, 0, 0, .5);
     color-scheme: dark;
@@ -208,6 +225,7 @@
   --wt-text-primary: var(--wt-color-gray-100);
   --wt-text-secondary: var(--wt-color-gray-350);
   --wt-text-tertiary: var(--wt-color-gray-450);
+  --wt-text-past: var(--wt-color-gray-600);
   --wt-text-placeholder: var(--wt-color-gray-500);
   --wt-text-inverse: var(--wt-color-gray-950);
   --wt-text-inverse-action: var(--wt-color-blue-600);
@@ -236,16 +254,18 @@
   --wt-danger: var(--wt-color-red-300);
   --wt-danger-surface: var(--wt-color-red-900);
   --wt-highlight: #4a3f12;
-  --wt-kind-place: #9aa0a6;
-  --wt-kind-travel: #4fc3b9;
-  --wt-kind-stay: #b77cf8;
-  --wt-kind-food: #fa903e;
-  --wt-kind-sight: #ff63b8;
-  --wt-kind-nature: #5bb974;
-  --wt-kind-shop: #e2b33c;
+  --wt-now: var(--wt-color-gray-100);
+  --wt-kind-place: #b4b0aa;
+  --wt-kind-travel: #5fc3c8;
+  --wt-kind-stay: #be9ef6;
+  --wt-kind-food: #eda253;
+  --wt-kind-sight: #e889ca;
+  --wt-kind-nature: #7ac686;
+  --wt-kind-shop: #c8bd6b;
   --wt-kind-drive: var(--wt-color-gray-500);
   --wt-kind-drive-current: var(--wt-color-gray-300);
-  --wt-marker-ink: #141413;
+  --wt-kind-past: var(--wt-color-gray-600);
+  --wt-marker-ink: var(--wt-color-gray-950);
   --wt-overlay: rgba(0, 0, 0, .55);
   --wt-shadow-color: rgba(0, 0, 0, .5);
   color-scheme: dark;
