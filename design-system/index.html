@@ -175,7 +175,7 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><path id="pin-drop" d="M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z"/></defs></svg>
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v5.0.1</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v5.0.2</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -616,7 +616,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       </div>
       <ul class="rules">
         <li><b>The header</b> is one row: home, the trip's name, settings. On a phone it's a card over the map; at full it docks (<code>.is-docked</code>), flat across the top. From 768px wide it tops the side panel.</li>
-        <li><b>Three heights on a phone:</b> peek (<code>.is-peek</code>: the day bar and one row, <code>.is-peek-row</code>), half, and full (<code>.is-full</code>, up to the header's bottom edge). Drag the handle, the day bar or the list to move it; below full, dragging the list moves the sheet before it scrolls, and at full a pull down from the list's top shrinks it. Zooming the map takes a half sheet down to peek.</li>
+        <li><b>Three heights on a phone:</b> peek (<code>.is-peek</code>: the day bar and one row, <code>.is-peek-row</code>; a drive with its two stops), half, and full (<code>.is-full</code>, up to the header's bottom edge). Drag the handle, the day bar or the list to move it; below full, dragging the list moves the sheet before it scrolls, and at full a pull down from the list's top shrinks it. Zooming the map takes a half sheet down to peek.</li>
         <li>The sheet's top holds the grab handle and the day bar. People live in trip settings.</li>
         <li><b>Day bar:</b> the arrows step a day; the first and last day disable theirs. The title says <i>Today, Nov 21</i> on today, and <i>Sat, Nov 21</i> otherwise. Tapping it opens the day list.</li>
         <li>The add bar comes after <code>.wt-sheet__body</code>, not inside it. It's static, not sticky.</li>
@@ -908,7 +908,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v5.0.1 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v5.0.2 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -1169,16 +1169,18 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       sheet.classList.toggle('is-full', snap === 'full');
       sheet.classList.toggle('is-peek', snap === 'peek');
       head.classList.toggle('is-docked', snap === 'full');
-      // peeking: the day bar and one row, the list's focus (or its first stop), scrolled to the list's top
+      // peeking: the day bar and one row, the list's focus (or its first stop), scrolled to the list's top;
+      // a drive comes with the stops it goes from and to
       const body = sheet.querySelector('.wt-sheet__body'), bar = sheet.querySelector('.wt-add-bar');
-      body.querySelector('.is-peek-row')?.classList.remove('is-peek-row');
+      body.querySelectorAll('.is-peek-row').forEach(r => r.classList.remove('is-peek-row'));
       const row = snap === 'peek' && (body.querySelector('.is-selected, .is-active, .is-now') || body.querySelector('.wt-tl-stop'));
-      if (row) {
-        row.classList.add('is-peek-row');
-        body.scrollTop = row.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop;
-      }
+      const stop = el => (el?.matches('.wt-tl-stop') ? el : null);
+      const rows = !row ? [] : row.matches('.wt-tl-drive') ? [stop(row.previousElementSibling), row, stop(row.nextElementSibling)].filter(Boolean) : [row];
+      rows.forEach(r => r.classList.add('is-peek-row'));
+      if (rows.length) body.scrollTop = rows[0].getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop;
+      const peekH = rows.length ? rows.at(-1).getBoundingClientRect().bottom - rows[0].getBoundingClientRect().top : 0;
       sheet.style.height = snap === 'full' ? `${stage.clientHeight - head.offsetTop - head.offsetHeight}px`
-        : row ? `${sheet.querySelector('.wt-sheet__top').offsetHeight + Math.min(row.offsetHeight, 120) + (parseFloat(getComputedStyle(bar).paddingBottom) || 0)}px` : '58%';
+        : rows.length ? `${sheet.querySelector('.wt-sheet__top').offsetHeight + Math.min(peekH, rows.length > 1 ? 240 : 120) + (parseFloat(getComputedStyle(bar).paddingBottom) || 0)}px` : '58%';
       return;
     }
     if (e.target.closest('[data-close-modal]')) { document.getElementById('modal-root').classList.remove('is-open'); return; }

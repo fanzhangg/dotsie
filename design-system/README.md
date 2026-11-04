@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 5.0.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 5.0.2. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -503,7 +503,7 @@ With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 
 - **The header** is one row: home, the trip's name, settings. The name is always in view. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
 - **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has three heights, like a maps app's sheet:
-  - **Peek** (`.is-peek`): the day bar and one row of the list, so the map has the screen and still says what you're looking at. The app marks that row `.is-peek-row` (the selected stop or drive, or else the row happening now, or else the first stop), scrolls it to the list's top, and makes the sheet as tall as the day bar, the row (at most 120px) and the add bar's bottom padding. The add bar leaves the layout and hides, and so do the other rows. Add stop isn't shown on its own while peeking.
+  - **Peek** (`.is-peek`): the day bar and one row of the list, so the map has the screen and still says what you're looking at. The app marks that row `.is-peek-row` (the selected stop or drive, or else the row happening now, or else the first stop), scrolls it to the list's top, and makes the sheet as tall as the day bar, the row (at most 120px) and the add bar's bottom padding. **A drive comes with its two stops:** the rows before and after it are `.is-peek-row` too, so the peek says where the drive goes from and to (at most 240px for the three). The add bar leaves the layout and hides, and so do the other rows. Add stop isn't shown on its own while peeking.
   - **Half** the screen, the default, but tall enough for the list to fit three stops and two drives (never more than about 60% of the screen).
   - The list (`.wt-sheet__body`) fades out at an edge with more past it: `.is-more-above` and `.is-more-below`, which the app sets from the scroll position.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
@@ -691,6 +691,10 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Fixed in 5.0.2
+
+- A peek whose row is a drive also shows the stops before and after it, both `.is-peek-row`: the drive alone (`3 hr 26 min drive`) didn't say where it went. No new class.
 
 ### Fixed in 5.0.1
 

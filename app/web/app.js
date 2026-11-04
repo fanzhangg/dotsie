@@ -554,7 +554,7 @@ function render() {
   bar.innerHTML = dayBarHTML(trip);
   bar.hidden = !trip.stops.length;
   const newDay = renderList(trip);
-  peekRow(el.querySelector('.wt-sheet__body'))?.classList.add('is-peek-row'); // the row a peek shows; the rest hide there
+  for (const r of peekRows(el.querySelector('.wt-sheet__body'))) r.classList.add('is-peek-row'); // the rows a peek shows; the rest hide there
   renderAddBar(trip);
   el.querySelector('.wt-sheet__grab').setAttribute('aria-label', grabLabel());
   if (!el.querySelector('.wt-sheet').style.height || topH !== el.querySelector('.wt-sheet__top').offsetHeight) applySnap();
@@ -1418,16 +1418,30 @@ const SNAPS = ['peek', 'half', 'full'];
 // (three stops and the two drives between them), so a selected stop, centered, has its neighbors in view.
 // On a short screen that's taller than half, though never more than HALF_MAX of it, so the map keeps some room.
 const HALF_LIST = 3 * 45 + 2 * 32 + 16, HALF_MAX = 0.62; // + a little room for the fades at its edges
-const PEEK_ROW_MAX = 120; // a row with a long note is cut there when peeking
-// The row a peek shows: the list's focus (the selected stop or drive, or else the row happening now), or else the first stop.
-const peekRow = body => body?.querySelector('.is-selected, .is-active') || body?.querySelector('.is-now') || body?.querySelector('.wt-tl-stop');
+const PEEK_ROW_MAX = 120; // a peek is cut there, or at twice that for a drive with its two stops (rows with long notes)
+// The rows a peek shows: the list's focus (the selected stop or drive, or else the row happening now), or else the first
+// stop. A drive comes with the stops it goes from and to, the rows either side of it, so the peek says where it goes.
+function peekRows(body) {
+  const row = body?.querySelector('.is-selected, .is-active') || body?.querySelector('.is-now') || body?.querySelector('.wt-tl-stop');
+  if (!row) return [];
+  if (!row.matches('.wt-tl-drive')) return [row];
+  const stop = el => (el?.matches('.wt-tl-stop') ? el : null);
+  return [stop(row.previousElementSibling), row, stop(row.nextElementSibling)].filter(Boolean);
+}
+// How much of the list a peek shows: from the top of its first row to the bottom of its last
+function peekHeight(body) {
+  const rows = peekRows(body);
+  if (!rows.length) return 0;
+  const h = rows.at(-1).offsetTop + rows.at(-1).offsetHeight - rows[0].offsetTop;
+  return Math.min(h, PEEK_ROW_MAX * (rows.length > 1 ? 2 : 1));
+}
 function snaps() {
   const H = $app.querySelector('.trip').clientHeight;
   const chrome = $app.querySelector('.wt-sheet__top').offsetHeight + $app.querySelector('.wt-add-bar').offsetHeight;
   // peeking keeps the day bar and the focused row, with the add bar's bottom padding (and the safe area) below them;
   // the add bar itself isn't shown (Add stop alone under the day bar looked like a day with no stops)
   const pad = parseFloat(getComputedStyle($app.querySelector('.wt-add-bar')).paddingBottom) || 0;
-  const row = Math.min(peekRow($app.querySelector('.wt-sheet__body'))?.offsetHeight || 0, PEEK_ROW_MAX);
+  const row = peekHeight($app.querySelector('.wt-sheet__body'));
   const half = Math.min(Math.max(H * 0.48, chrome + HALF_LIST), H * HALF_MAX, H - headBottom());
   return { peek: Math.round($app.querySelector('.wt-sheet__top').offsetHeight + row + pad), half: Math.round(half), full: H - headBottom(), chrome };
 }
@@ -1534,7 +1548,7 @@ function motionFrame(now) {
 
 // ---------- The focused row ----------
 // The half list is about one row, its focus: the selected stop, or else the drive on show, or else, on today,
-// the row happening now. Peeking, the list shows just that row (or else the first stop), at its top.
+// the row happening now. Peeking, the list shows just that row (or else the first stop), at its top; a drive with its two stops.
 // Whenever the sheet is at half, the focus sits in the middle
 // of the list, with the rows before and after it in view: on opening a day, selecting a stop or a drive, clearing it,
 // saving a stop, coming to half from peek or full, and when the plan changes under it. The list can't scroll past
@@ -1548,7 +1562,7 @@ function centerFocus({ force = false, animate = true } = {}) {
   if (!wide && !force && snap === 'full') return;
   if (wide && !force) return;
   const peek = !wide && snap === 'peek';
-  const row = peek ? peekRow(body) : body.querySelector('.is-selected, .is-active') || body.querySelector('.is-now');
+  const row = peek ? peekRows(body)[0] : body.querySelector('.is-selected, .is-active') || body.querySelector('.is-now');
   if (!row) return;
   // the list's height once the sheet has settled
   const s = wide ? null : snaps();
