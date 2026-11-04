@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.4.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -166,7 +166,7 @@ The system font throughout, so the app feels native on every phone. Each token i
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `directions` `map` `list`
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `directions` `map` `list` `fit`
 
 Stop types: `plane` `bed` `utensils` `cup` `star` `museum` `tree` `camera` `bag` `fuel` (with `pin` for a plain place).
 
@@ -462,6 +462,17 @@ Pad the top when you fit the map on a phone, so pins stay clear of the header ca
 - `.wt-map-bar` floated home and settings over the map's top corners. The trip header replaced it in the app and the prototype, so it's no longer used and can go in the next major version.
 - The map's credits go at the bottom of trip settings, not on the map.
 
+### Map action `.wt-map-action`
+
+```html
+<button class="wt-map-action" aria-label="Show the whole day on the map">${icon('fit')}Whole day</button>
+```
+
+- A labelled pill floating over the map, for a map action no icon says on its own. The app's one is **Whole day**, which fits the day's route back in view, as a maps app's route overview button does.
+- Your code places it: the app puts it at the map's bottom right, just above the sheet on a phone (`bottom: calc(var(--bottom-h) + var(--wt-space-3))`), one z-index under the sheet so a dragged sheet covers it.
+- Show it only while it would do something; hide it with `hidden`. Whole day is hidden while the map already shows the whole day, over the whole-day list, and while a stop is open.
+- 44px tall, the touch size.
+
 ### Modal sheet `.wt-modal`
 
 ```html
@@ -597,6 +608,12 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 4.4.0
+
+- `.wt-map-action`, a labelled pill floating over the map, for Whole day.
+- The `fit` icon (icons 1.2.0): a frame around a route, for showing the whole day.
+- Nothing was renamed or removed.
 
 ### Added in 4.3.0
 

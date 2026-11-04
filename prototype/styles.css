@@ -19,6 +19,14 @@ html, body { height: 100%; }
 /* While a stop is open, its sheet takes the list's place at the bottom, and the map shows above it. */
 .trip.is-editing .wt-sheet { visibility: hidden; }
 .trip .leaflet-bottom { bottom: var(--bottom-h, 0); transition: bottom var(--wt-duration-base); }
+/* Whole day sits at the map's bottom right, just above the list, riding up and down with it, and tucked
+   under the sheet when it's dragged over. Not while a stop is open. */
+.trip-fit {
+  position: absolute; z-index: calc(var(--wt-z-sheet) - 1); right: var(--wt-space-3); bottom: calc(var(--bottom-h, 0px) + var(--wt-space-3));
+  transition: bottom var(--wt-duration-base) var(--wt-ease-out), background var(--wt-duration-fast);
+}
+.trip:has(.wt-sheet.is-dragging) .trip-fit { transition: none; }
+.trip.is-editing .trip-fit { display: none; }
 .trip .leaflet-control-attribution { font-size: 10px; }
 /* Only the busier fallback basemap needs quieting. */
 .trip.osm-tiles .leaflet-tile-pane { filter: saturate(.55) brightness(1.03); }

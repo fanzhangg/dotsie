@@ -173,7 +173,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.3.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.4.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -703,7 +703,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
 
       <h3>Map buttons and credit</h3>
-      <p class="intro">Home and trip settings live in the trip header (see the sheet, above). <code>.wt-map-bar</code>, which floated them over the map's top corners, is no longer used. The map's credits go at the bottom of trip settings, not on the map.</p>
+      <p class="intro">Home and trip settings live in the trip header (see the sheet, above). <code>.wt-map-bar</code>, which floated them over the map's top corners, is no longer used. <code>.wt-map-action</code> is the one button over the map: Whole day, a labelled pill at its bottom right, just above the sheet. The map's credits go at the bottom of trip settings, not on the map.</p>
       <div class="demo">
         <div class="demo__live demo__live--column">
           <div class="stage" style="height: 120px">
@@ -715,18 +715,22 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
               <a class="wt-icon-btn wt-map-btn" href="#map" aria-label="All trips"><i data-icon="home"></i></a>
               <button class="wt-icon-btn wt-map-btn" type="button" aria-label="Trip settings and sharing"><i data-icon="settings"></i></button>
             </nav>
+            <button class="wt-map-action" type="button" aria-label="Show the whole day on the map" style="position: absolute; right: var(--wt-space-3); bottom: var(--wt-space-3); z-index: calc(var(--wt-z-sheet) - 1)"><i data-icon="fit"></i>Whole day</button>
           </div>
         </div>
         <details><summary>Markup</summary><pre><code>&lt;nav class="wt-map-bar"&gt;
   &lt;a class="wt-icon-btn wt-map-btn" href="#/" aria-label="All trips"&gt;${icon('home')}&lt;/a&gt;
   &lt;button class="wt-icon-btn wt-map-btn" aria-label="Trip settings and sharing"&gt;${icon('settings')}&lt;/button&gt;
-&lt;/nav&gt;</code></pre></details>
+&lt;/nav&gt;
+
+&lt;button class="wt-map-action" aria-label="Show the whole day on the map"&gt;${icon('fit')}Whole day&lt;/button&gt;</code></pre></details>
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
           <p class="wt-credit">Map © <a href="https://stadiamaps.com/">Stadia Maps</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</p>
         </div>
       </div>
       <ul class="rules">
-        <li>Both are icon buttons with an <code>aria-label</code>. Nothing else floats over the map.</li>
+        <li>Home and settings are icon buttons with an <code>aria-label</code>.</li>
+        <li>Whole day is the only button over the map, and only while the map shows something other than the whole day. It's labelled: no icon says "the whole day" on its own.</li>
         <li>Keep pins clear of the buttons: pad the top when fitting the map to the day.</li>
       </ul>
     </section>
@@ -848,7 +852,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v4.3.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v4.4.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 

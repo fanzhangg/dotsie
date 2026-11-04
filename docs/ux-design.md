@@ -58,12 +58,12 @@ With a stop selected, the bottom button becomes `[██████ ✎ Edit st
 - With the whole day showing, pulling the list down from its top shrinks the sheet.
 - A flick goes on to the next height its way; a slower drag settles at the nearest one.
 - **Taps:** tapping the grab handle goes from half to the whole day, and back to half from the other two. Peeking, a tap anywhere on the sheet but its buttons opens it to half. No other tap resizes the sheet, so a missed day-bar button can't hide the list.
-- **Zooming the map** (pinching, double-tapping) minimizes a half sheet to peek, as Google Maps does: you're looking at the map.
+- **Zooming the map** (pinching, double-tapping, a two-finger tap) minimizes a half sheet to peek, as Google Maps does: you're looking at the map.
 
 Why: the sheet used to have three heights reached by taps, and any tap on its top that missed a button pulled it down, so it was easy to hide the list by accident. Then it had two heights and a Map/List button in the header, which felt unlike any maps app. Dragging between three heights, the way Google Maps does it, gives a map view, a half view and the whole day, with nothing to mis-tap.
 
 - Anything that needs the list, like tapping a pin, opens the sheet to half. Showing a route from the whole day brings it down to half; from a peek, it stays a peek.
-- The map zooms to fit the day's stops in what's left above the sheet and below the header. When the sheet changes height, the map re-fits for the new space, unless you've moved the map yourself.
+- The map zooms to fit the day's stops in what's left above the sheet and below the header. When the sheet changes height, the map re-fits for the new space, unless you've moved the map yourself. Then **Whole day** (see [The map](#the-map)) brings the day back.
 
 **On a computer or tablet** (768px wide and up), the header and the sheet become a side panel: the plan down the left, about a third of the window (360–440px), and the map filling the rest. There's nothing to drag: the header tops the panel, above the day bar. Opening a stop, a day list or settings covers the panel, so the map stays in view beside it, with the stop being edited in the middle.
 
@@ -213,6 +213,16 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 - **Tapping the same drive again**, or tapping empty map, goes back to the whole day.
 - **Hovering a drive** on a computer previews its route, with its names and time, without moving the map.
 - **Tapping empty map** clears the selection.
+- **A tap waits out a double-tap.** A tap on a pin, a route or empty map acts after a moment (300 ms), once it's clear no second tap is coming, as in a maps app. Selecting a pin or showing a route can move the map, and a double-tap's second tap would then zoom somewhere you didn't tap.
+
+### Zooming and Whole day
+
+The map zooms the way a phone's maps app does:
+- **Double-tap** zooms in a step around the spot you tapped, anywhere on the map: on a route or a pin too, which is usually where you want a closer look. It only zooms: it doesn't select the pin or show the route. On a computer, double-click does the same, and Shift-double-click zooms out.
+- **Two-finger tap** zooms out a step.
+- **Pinch** and the scroll wheel zoom as usual.
+
+**Whole day** is a button over the map's bottom right, just above the sheet on a phone. It shows the whole day's route again: all its stops, fitted to the space the sheet leaves, as when the day opened. It also ends a route preview, so every drive is back in blue. It's there only when the map shows something else: after you pan or zoom, while one drive is on show, or after the sheet changed height under a map you'd moved. It isn't there over the whole-day list, which hides the map, or while a stop is open. It's a labelled pill, not an icon button: no icon says "the whole day" on its own. (Google Maps' and Apple Maps' route overview buttons do the same job.)
 
 ### Handing off navigation
 
