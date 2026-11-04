@@ -242,8 +242,7 @@ Labels are verbs that say exactly what happens.
   <button class="wt-picker wt-picker--text" aria-describedby="place-label">
     <span class="wt-picker__value"><span class="wt-picker__name">Joshua Tree Inn</span>
       <span class="wt-picker__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span>${icon('forward', 18)}
-  </button>
-  <a class="wt-field__link" href="…" target="_blank" rel="noopener">${icon('external')}View in Google Maps</a></div>
+  </button></div>
 
 <!-- …that opens a search page in place of the form (on .wt-modal, add .is-full) -->
 <div class="wt-search-bar">
@@ -268,7 +267,6 @@ Labels are verbs that say exactly what happens.
 - Placeholders show an example, never the label.
 - Messages say what happened and what to do next, for example "No places match … Try adding the town, or check the spelling".
 - `textarea.wt-input` works the same way.
-- **A link out** (`.wt-field__link`) goes under a field's value: the stop sheet's **View in Google Maps**, so you can see a place's photos and reviews before you keep it. Blue, as links are, with the `external` icon. Show it only once there's a value (hide it with `hidden`).
 - **A field picked by searching works as in Google or Apple Maps**, and their calendars' Location field. The form shows the choice as a row: its name, and under it a detail (a place's address, so two places with the same name can be told apart). Tapping the row opens a search page in place of the form, with the current name in the field and the cursor at its end, so you edit it rather than retype it. Results fill the page. Tapping one fills it in and comes back; **Cancel** (or Esc) comes back with nothing changed. Nothing typed is ever kept: only a picked result is. A choice that's required (a stop's place) can open on this page, and Cancel there closes the sheet.
 - **While the search page is open** the sheet takes the whole screen on a phone (`.wt-modal.is-full`), as a maps app's sheet rises when you search, so the results show above the keyboard. The search bar stays at the top as the results scroll.
 - **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
@@ -457,11 +455,12 @@ All live in the stop sheet.
 </section>
 ```
 
-With a stop selected, the add bar holds Edit stop and a round `+` beside it:
+With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 
 ```html
 <div class="wt-add-bar">
   <button class="wt-btn wt-btn--primary wt-btn--block">${icon('edit')}Edit stop</button>
+  <a class="wt-btn wt-btn--secondary" href="…" target="_blank" rel="noopener">${icon('map')}Maps</a>
   <button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Add stop">${icon('plus')}</button>
 </div>
 ```
@@ -479,7 +478,7 @@ With a stop selected, the add bar holds Edit stop and a round `+` beside it:
 - **Peeking**, the list and the add bar hide `--wt-duration-base` after `.is-peek` goes on, so a sheet sliding down to its peek keeps its list until it's there. Animate the height over that same duration.
 - The top holds the grab handle and the day bar. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
-- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop with a round `+` beside it, so adding is always one tap away. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
+- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop, then **Maps** (the place in Google Maps), then a round `+`, so adding is always one tap away. Google Maps is how you find out what a place is (its photos, reviews and hours), so it sits beside Edit stop rather than inside the sheet. It says Maps, not Google Maps, so Edit stop fits beside it on a 320px phone: a stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
 - Tapping a selected stop or a shown drive again keeps it selected, and at half nothing animates: it's already in the middle.
 - **One row is the half list's focus**, and it sits in the middle of the list: the selected row (`.is-selected` or `.is-active`), or else, on today, the `is-now` row. When the sheet changes height and the list has to scroll, move both together, on one timeline, so the row goes straight to the middle. The app does this frame by frame and turns off the sheet's height transition.
 
@@ -657,7 +656,7 @@ Say what can go here, in the user's words. No illustrations.
 
 ### Added in 4.8.0
 
-- `.wt-field__link`: a link under a field's value, out of the app. The stop sheet's **View in Google Maps** uses it.
+- The add bar with a stop selected gains **Maps** (`a.wt-btn.wt-btn--secondary`) between Edit stop and `+`. No new class.
 - `.wt-tl-note a`: a link in a stop's note, in blue. Stop rows are now a `div` with `role="button"` (a link can't sit in a `<button>`); `.wt-tl-stop` styles either.
 - Nothing was renamed or removed.
 

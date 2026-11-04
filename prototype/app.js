@@ -575,7 +575,7 @@ const selectedSpot = trip => (state.sel && trip.spots.find(s => s.id === state.s
 function addBarHTML(trip) {
   const s = selectedSpot(trip);
   return s
-    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${s.id}">${ICON.edit}Edit stop</button><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
+    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${s.id}">${ICON.edit}Edit stop</button><a class="wt-btn wt-btn--secondary" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="View ${esc(s.name)} in Google Maps">${ICON.map}Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
     : `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button>`;
 }
 function renderAddBar(trip) {
@@ -1088,7 +1088,6 @@ function openSpotSheet(trip, spot) {
     <form>
       <label class="wt-field"><span class="wt-field__label">Place</span><input class="wt-input" name="title" type="search" placeholder="Search a place" autocomplete="off" required></label>
       <ul class="wt-results"></ul>
-      <a class="wt-field__link" data-place-link target="_blank" rel="noopener" hidden>${ICON.external}View in Google Maps</a>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
       <label class="wt-field"><span class="wt-field__label" data-when>When</span><input class="wt-input" name="time" type="datetime-local" required></label>
@@ -1101,13 +1100,10 @@ function openSpotSheet(trip, spot) {
       <ul class="wt-options" role="radiogroup" aria-label="Type">${Object.entries(KINDS).map(option).join('')}</ul>
     </div>`, el => {
     const results = el.querySelector('.wt-results'), f = el.querySelector('form'), F = f.elements;
-    const placeLink = el.querySelector('[data-place-link]');
-    // Once there's a place, a link under the field opens it in Google Maps
-    const showPlaceLink = () => { placeLink.href = placeURL(draft); placeLink.hidden = draft.lat == null; };
     const main = el.querySelector('.stop-main'), kindsPage = el.querySelector('.stop-kinds'), picker = el.querySelector('[data-kind-open]');
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!spot;
-    if (spot) { F.title.value = spot.name; F.time.value = spot.time; F.note.value = spot.note || ''; showPlaceLink(); }
+    if (spot) { F.title.value = spot.name; F.time.value = spot.time; F.note.value = spot.note || ''; }
     else { F.time.value = defaultTime(trip); setTimeout(() => F.title.focus(), 280); }
 
     // ----- Type: the picker row, and its page -----
@@ -1215,7 +1211,6 @@ function openSpotSheet(trip, spot) {
       Object.assign(draft, { lat: +p.lat, lng: +p.lon, address: pl.address, name: pl.name });
       F.title.value = pl.name;
       results.innerHTML = '';
-      showPlaceLink();
       if (!chosen) setKind(guessKind(pl.name, `${p.category}:${p.type}`));
       else drawMap(trip);
       focusSpot(draft);

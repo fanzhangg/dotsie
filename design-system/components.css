@@ -70,10 +70,6 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 /* ---------- Form ---------- */
 .wt-field { display: block; margin-top: var(--wt-space-3); }
 .wt-field__label { display: block; margin-bottom: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-/* A link under a field's value, out of the app: the stop sheet's "View in Google Maps". Small and blue, with a 32px tap area. */
-.wt-field__link { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding-top: var(--wt-space-1); font: var(--wt-type-caption-strong); color: var(--wt-text-link); text-decoration: none; }
-.wt-field__link[hidden] { display: none; }
-.wt-field__link .wt-icon { width: 14px; height: 14px; }
 .wt-input {
   display: block; width: 100%; padding: var(--wt-space-3);
   font: var(--wt-type-input); color: var(--wt-text-primary);
@@ -432,7 +428,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-sheet__body.is-more-above { --wt-fade-top: 24px; }
 .wt-sheet__body.is-more-below { --wt-fade-bottom: 24px; }
-/* The sheet's main action, below the list: Add stop, or, with a stop selected, Edit stop and a small round + beside it,
+/* The sheet's main action, below the list: Add stop, or, with a stop selected, Edit stop, Maps and a small round + beside it,
    so adding is always one tap away. Static, not sticky: a sticky bar pinned itself to the screen's bottom and covered a pulled-down sheet's top. */
 .wt-add-bar {
   flex: none; display: flex; gap: var(--wt-space-2);

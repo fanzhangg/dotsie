@@ -35,7 +35,7 @@ const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(-
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // ---------- Icons (design system) ----------
-const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'edit', 'car', 'external', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin']
+const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin']
   .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
@@ -1260,14 +1260,14 @@ function fromItem(day, entry) {
 }
 // The selected stop, if it's still in the trip (a co-editor may have deleted it).
 const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.sel)) || null;
-// Below the list, always in reach: Add stop; with a stop selected, Edit stop; with a drive's route shown, Directions
-// to the drive's end in the maps app. Either way a small + beside it keeps adding one tap away.
+// Below the list, always in reach: Add stop; with a stop selected, Edit stop, and Maps (Google Maps) to see what the place is;
+// with a drive's route shown, Directions to the drive's end in the maps app. Either way a small + beside it keeps adding one tap away.
 function addBarHTML(trip) {
   const s = selectedStop(trip);
   const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
   if (leg) return `<a class="wt-btn wt-btn--primary wt-btn--block" href="${directionsURL(leg.from, leg.to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
   return s
-    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${esc(s.id)}">${ICON.edit}Edit stop</button><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
+    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${esc(s.id)}">${ICON.edit}Edit stop</button><a class="wt-btn wt-btn--secondary" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="View ${esc(s.name)} in Google Maps">${ICON.map}Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
     : `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button>`;
 }
 function renderAddBar(trip) {
@@ -2080,8 +2080,7 @@ function openStopSheet(trip, stop) {
   openSheet(`<div class="stop-main">${modalHead(stop ? 'Edit stop' : 'Add stop', true)}
     <form>
       <div class="wt-field"><span class="wt-field__label" id="place-label">Place</span>
-        <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button>
-        <a class="wt-field__link" data-place-link target="_blank" rel="noopener" hidden>${ICON.external}View in Google Maps</a></div>
+        <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
       <label class="wt-field"><span class="wt-field__label" data-when>When</span><input class="wt-input" name="time" type="datetime-local" required></label>
@@ -2195,7 +2194,7 @@ function openStopSheet(trip, stop) {
     // Apple Maps: the field starts with the place's name, suggestions fill the page (each with the marker of the
     // type it would get), and tapping one fills it in and comes back. Cancel (or Esc) comes back unchanged; for a
     // new stop with no place yet, it closes the sheet. A new stop opens on this page. Picking moves the pin there.
-    const placeRow = el.querySelector('[data-place-open]'), placeLink = el.querySelector('[data-place-link]'), placePage = el.querySelector('.stop-place');
+    const placeRow = el.querySelector('[data-place-open]'), placePage = el.querySelector('.stop-place');
     const input = placePage.querySelector('#stop-place'), box = input.closest('.wt-search');
     const spinner = box.querySelector('.wt-spinner'), clear = box.querySelector('.wt-search__clear');
     const list = placePage.querySelector('.wt-results'), status = placePage.querySelector('[data-place-status]');
@@ -2207,8 +2206,6 @@ function openStopSheet(trip, stop) {
 
     const showPlace = () => {
       placeRow.innerHTML = `<span class="wt-picker__value"><span class="wt-picker__name">${esc(draft.name)}</span>${draft.address ? `<span class="wt-picker__detail">${esc(draft.address)}</span>` : ''}</span>${ICON.forward}`;
-      placeLink.href = placeURL(draft);
-      placeLink.hidden = false;
     };
     // The search page takes the sheet's place, and on a phone the whole screen, like a maps app's search
     let placeScroll = 0;
