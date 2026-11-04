@@ -184,7 +184,7 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 
 | Removed | Why |
 | --- | --- |
-| Stop numbers | The order is clear from the times, and type markers match the list to the map. Numbers added marks and had to match the map pins. |
+| Stop numbers in the list | The order is clear from the times. (On the map they're back, in the prototype: there the times aren't, so the map lost the order. See [Labels, order and drive times](#labels-order-and-drive-times).) |
 | Addresses | The map already shows where each stop is. In a plan, the place name is what matters. |
 | "Last edited by" avatars | This is history, not the plan. Live edits show up as a short notice instead. |
 | Driving distance | The duration is what you plan around. The distance adds little and is one tap away in the maps app. |
@@ -232,6 +232,16 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 - **Pins** are the stop's type marker (its icon on its type's color) ringed in white, with no numbers. A selected stop gets a larger pin and its name in a label above it. Stops at the same place share one pin; for example, flying in and out of the same airport.
 - **Routes** are drawn as driving routes in blue; on a trip day, past ones are grey. **Blue means routes and nothing else**: a selected stop is grey, no stop type is blue, and the list uses no blue at all: the drive you're on or have selected gets a darker grey car.
 - **The background map** is a light, low-contrast style (Stadia "Alidade Smooth"), so the routes stand out. Its credits are at the bottom of trip settings, not over the map.
+
+### Labels, order and drive times
+
+*In the prototype; not yet in the app.* The map used to show only the stops' type markers and blue lines, so it couldn't be read without the list: which pin is which, in what order, and how long each drive is were all in the list only. With the list down to its peek, the map had the screen and said almost nothing. Maps apps do it the other way round: the map can be read on its own, and the list adds the detail.
+
+- **Every pin is named,** with its time under the name, as plain text with a halo the color of the pin's ring, the way a maps app labels places. A selected stop and a shown route's ends keep their white card. Names longer than about 150px are cut short.
+- **The day's stops are numbered** in a small dark badge on the pin's top-left corner: 1, 2, 3 in the day's order. The hotel you wake up in or come back to isn't numbered; the hotel you check in to that day is, since it's one of the day's stops.
+- **Every drive still to come says which way it goes,** with a small blue chevron on its route, a third of the way along, and **how long it takes,** in a chip on it, near the middle. A drive that doesn't fit says by how much, in red. Past drives have neither. With a route on show, only that route keeps its arrow, and its time is in its tag.
+- **The stop you're at now** gets a ring in its type's color, as its marker has in the list.
+- **Nothing covers anything else.** Each name goes to its pin's right, left, top or bottom, whichever is free first; each chip slides along its route to a free spot. The most important go first: the selected stop, then where you are now, then the day's stops in order, then the hotel, then what's over. Whatever finds no free spot is left off until you zoom in, as in a maps app; the selected stop is always named. Labels stay clear of the header and the list, and are placed again after every zoom and pan.
 
 ### How the map and the list work together
 

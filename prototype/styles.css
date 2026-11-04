@@ -37,3 +37,49 @@ html, body { height: 100%; }
 /* ---------- Prototype-only helper in trip settings ---------- */
 .proto-note { margin-top: var(--wt-space-5); padding: var(--wt-space-3); border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .proto-note a { color: var(--wt-text-link); font-weight: 500; }
+
+/* ---------- Map labels (prototype first; to the design system once settled) ---------- */
+/* Every pin is named next to it, with its time; app.js picks the side (right, left, above, below) that's free. */
+.wt-pin__label { display: flex; flex-direction: column; max-width: 200px; }
+.wt-pin__label--plain { max-width: 150px; }
+.wt-pin__label.is-hidden, .wt-route-chip.is-hidden, .wt-route-arrow.is-hidden { visibility: hidden; }
+.wt-pin__label--right { left: calc(100% + 6px); right: auto; top: 50%; bottom: auto; transform: translateY(-50%); text-align: left; }
+.wt-pin__label--left { right: calc(100% + 6px); left: auto; top: 50%; bottom: auto; transform: translateY(-50%); text-align: right; }
+.wt-pin__label--above { left: 50%; right: auto; bottom: calc(100% + 6px); top: auto; transform: translateX(-50%); text-align: center; }
+.wt-pin__label--below { left: 50%; right: auto; top: calc(100% + 6px); bottom: auto; transform: translateX(-50%); text-align: center; }
+.wt-pin__name { overflow: hidden; text-overflow: ellipsis; }
+.wt-pin__time { font-size: 12px; font-weight: 400; color: var(--wt-text-secondary); font-variant-numeric: tabular-nums; }
+/* An unselected pin's name is plain text with a halo, as map labels are, so twenty of them don't read as twenty cards. */
+.wt-pin__label--plain {
+  padding: 0; background: none; box-shadow: none; border-radius: 0;
+  font-size: 12.5px; font-weight: 600; line-height: 1.25; color: var(--wt-text-primary);
+  text-shadow: 0 0 2px var(--wt-pin-fill), 0 0 2px var(--wt-pin-fill), 0 0 3px var(--wt-pin-fill), 0 0 4px var(--wt-pin-fill);
+}
+.wt-pin__label--plain .wt-pin__time { font-size: 11.5px; font-weight: 500; }
+.wt-pin--muted .wt-pin__label--plain { color: var(--wt-text-secondary); font-weight: 500; }
+
+/* The stop's place in the day, on its pin's top-left corner (labels prefer the right). */
+.wt-pin__num {
+  position: absolute; left: -6px; top: -6px; min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box;
+  display: grid; place-items: center; border-radius: var(--wt-radius-pill);
+  background: var(--wt-text-primary); color: var(--wt-pin-fill); border: 1.5px solid var(--wt-pin-fill);
+  font: 600 10.5px/1 var(--wt-font-sans, system-ui); font-variant-numeric: tabular-nums;
+}
+.wt-pin--muted:not(.wt-pin--selected) .wt-pin__num { opacity: .5; }
+
+/* Which way a drive goes: a small chevron on its route, in the route's blue. */
+.wt-route-arrow {
+  position: absolute; width: 18px; height: 18px; display: grid; place-items: center;
+  transform: translate(-50%, -50%) rotate(var(--wt-arrow-angle, 0deg));
+  border-radius: 50%; background: var(--wt-route); color: var(--wt-pin-fill); box-shadow: 0 0 0 1.5px var(--wt-pin-fill);
+}
+.wt-route-arrow .wt-icon { width: 13px; height: 13px; }
+/* How long a drive takes, on its route. A drive that doesn't fit says by how much, in red. */
+.wt-route-chip {
+  position: absolute; transform: translate(-50%, -50%); padding: 2px 7px; white-space: nowrap;
+  border-radius: var(--wt-radius-pill); background: var(--wt-map-label); color: var(--wt-text-secondary); box-shadow: var(--wt-shadow-float);
+  font: 500 11.5px/1.35 var(--wt-font-sans, system-ui); font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.wt-route-chip.is-late { color: var(--wt-text-danger); }
+/* The stop you're at now: a ring in its type's color, as its marker has in the list. */
+.wt-pin--now .wt-pin__marker { box-shadow: 0 0 0 2.5px var(--wt-kind-color), var(--wt-shadow-pin); }
