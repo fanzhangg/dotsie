@@ -1029,6 +1029,7 @@ function mountTrip(trip) {
   teardownTrip();
   $app.dataset.trip = trip.id;
   $app.dataset.page = 'trip';
+  scrollTo(0, 0); // Home may have been scrolled; the trip screen starts at the top of the window
   // The plan is the page: a header with the trip's name, the map, and a sheet with one day of the plan.
   // On a phone the header spans the top and the sheet is half or all of the screen below it, with Map/List in
   // the header to switch. On a wide screen the header and the sheet are a side panel next to the map.
