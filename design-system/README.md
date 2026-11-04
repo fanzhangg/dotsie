@@ -425,7 +425,8 @@ With a stop selected, the add bar holds Edit stop and a round `+` beside it:
 - **The header** is one row: home, the trip's name, settings. The name is always in view. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
 - **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has three heights, like a maps app's sheet:
   - **Peek** (`.is-peek`): the day bar only, so the map has the screen. The list and the add bar are hidden (the add bar keeps its place, so its bottom padding and the safe area sit under the day bar): Add stop alone under an empty sheet read as if the day had no stops.
-  - **Half** the screen, the default.
+  - **Half** the screen, the default, but tall enough for the list to fit three stops and two drives (never more than about 60% of the screen).
+  - The list (`.wt-sheet__body`) fades out at an edge with more past it: `.is-more-above` and `.is-more-below`, which the app sets from the scroll position.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
   - It never hides.
 - **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it (`touch-action: none` on the list), so dragging up grows the sheet first. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the next height its way; a slower drag settles at the nearest. Add `.is-dragging` while a finger is moving it.

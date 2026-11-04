@@ -836,6 +836,9 @@ function mountTrip(trip) {
       <div class="wt-add-bar"></div>
     </section>
   </div>`;
+  const list = $app.querySelector('.wt-sheet__body');
+  list.addEventListener('scroll', updateFades, { passive: true });
+  new ResizeObserver(updateFades).observe(list); // the sheet changing height
   if (!window.L) return;
   map = L.map($app.querySelector('#map'), { zoomControl: false, attributionControl: false }).setView([32.6, -106.1], 8);
   // A quiet basemap so routes lead. Stadia needs no key on localhost; in production, register the
@@ -972,9 +975,17 @@ function listHTML(trip, day) {
   const sel = (rows.find(it => it.entry.key === state.selRow) || rows[0])?.entry.key;
   return items.map(it => it.html({ key: it.entry?.key, past: it.past, now: it.now, sel: !!it.entry && it.entry.key === sel })).join('');
 }
+// The list fades out at an edge with more of the day past it, so it's clear there are stops to scroll to.
+function updateFades() {
+  const body = $app.querySelector('.wt-sheet__body');
+  if (!body) return;
+  body.classList.toggle('is-more-above', body.scrollTop > 1);
+  body.classList.toggle('is-more-below', body.scrollTop + body.clientHeight < body.scrollHeight - 1);
+}
 function renderList(trip) {
   const body = $app.querySelector('.wt-sheet__body'), day = currentDay(trip);
   body.innerHTML = listHTML(trip, day);
+  updateFades();
   if (body.dataset.day === day) return;
   // a new day starts at the top, or, on today, at what's happening now, a little above center
   body.dataset.day = day;
@@ -1034,12 +1045,18 @@ const isWide = () => ($app.querySelector('.trip')?.clientWidth || 0) >= WIDE;
 // You move it by dragging: the grab handle, the day bar, or the list itself. Dragging the list up grows the sheet
 // before the list scrolls; at full, pulling the list down from its top shrinks the sheet again.
 const SNAPS = ['peek', 'half', 'full'];
+// Half is about half the screen, but tall enough for the list to show a stop with the stops before and after it
+// (three stops and the two drives between them), so a selected stop, centered, has its neighbors in view.
+// On a short screen that's taller than half, though never more than HALF_MAX of it, so the map keeps some room.
+const HALF_LIST = 3 * 45 + 2 * 32 + 16, HALF_MAX = 0.62; // + a little room for the fades at its edges
 function snaps() {
   const H = $app.querySelector('.trip').clientHeight;
+  const chrome = $app.querySelector('.wt-sheet__top').offsetHeight + $app.querySelector('.wt-add-bar').offsetHeight;
   // peeking keeps only the day bar, with the add bar's bottom padding (and the safe area) below it; Add stop alone
   // under an empty sheet looked like a day with no stops
   const pad = parseFloat(getComputedStyle($app.querySelector('.wt-add-bar')).paddingBottom) || 0;
-  return { peek: Math.round($app.querySelector('.wt-sheet__top').offsetHeight + pad), half: Math.round(H * 0.48), full: H - headBottom() };
+  const half = Math.min(Math.max(H * 0.48, chrome + HALF_LIST), H * HALF_MAX, H - headBottom());
+  return { peek: Math.round($app.querySelector('.wt-sheet__top').offsetHeight + pad), half: Math.round(half), full: H - headBottom() };
 }
 const GRAB_LABEL = { peek: "Show the day's plan", half: 'Show the whole day', full: 'Show more of the map' };
 function applySnap() {

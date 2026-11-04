@@ -123,7 +123,7 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 /* ---------- Timeline: rail · stop · time, with drives on the rail ---------- */
 /* Rows touch and have no padding of their own, so the rail is one solid hairline down the day. */
 /* --wt-tl-pad: space above and below a stop's text. The marker sits on the name's first line. */
-.wt-tl { --wt-tl-rail: 48px; --wt-tl-pad: 14px; --wt-tl-mark-y: calc(var(--wt-tl-pad) + 10px); }
+.wt-tl { --wt-tl-rail: 48px; --wt-tl-pad: 12px; --wt-tl-mark-y: calc(var(--wt-tl-pad) + 10px); }
 .wt-tl-rail { position: relative; align-self: stretch; }
 .wt-tl-rail::before { content: ''; position: absolute; left: calc(50% - .75px); top: 0; bottom: 0; width: 1.5px; background: var(--wt-border-rail); }
 .wt-tl > :first-child .wt-tl-rail::before { top: var(--wt-tl-mark-y); }
@@ -153,19 +153,20 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-tl-time__day { display: block; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 
 /* Drive: a small grey car marker on the rail, "1 hr 49 min drive", and a Directions icon where stops have their time.
-   No top or bottom padding: it would leave a gap in the rail. */
+   No top or bottom padding: it would leave a gap in the rail. Compact, about two-thirds of a stop, so a half sheet
+   fits the selected stop with the stops before and after it: the stops are what you read, the drives join them. */
 .wt-tl-drive {
   display: grid; grid-template-columns: var(--wt-tl-rail) 1fr auto; align-items: center;
-  min-height: 44px; padding: 0 var(--wt-space-1) 0 0; border-radius: var(--wt-radius-md); cursor: pointer;
+  min-height: 32px; padding: 0 var(--wt-space-1) 0 0; border-radius: var(--wt-radius-md); cursor: pointer;
   transition: background var(--wt-duration-fast);
 }
 /* The car is a marker like a stop's, smaller and grey, sitting on the rail. */
 .wt-tl-car {
   position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--wt-radius-round);
+  width: 20px; height: 20px; display: grid; place-items: center; border-radius: var(--wt-radius-round);
   background: var(--wt-kind-drive); color: var(--wt-marker-ink);
 }
-.wt-tl-car .wt-icon { width: 14px; height: 14px; }
+.wt-tl-car .wt-icon { width: 13px; height: 13px; }
 /* The row itself takes no hover or press look: only its Directions button reads as a control. */
 .wt-tl-drive__body { min-width: 0; display: grid; gap: 1px; }
 .wt-tl-drive__what, .wt-tl-drive__late { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -174,10 +175,10 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-tl-drive__what b { font-weight: 600; }
 .wt-tl-drive__late { font: var(--wt-type-caption-strong); color: var(--wt-text-danger); }
 .wt-tl-drive.is-late .wt-tl-drive__what b { color: var(--wt-text-danger); }
-/* Directions: a small grey icon in the time column, with a 40px tap area and no fill until hovered or pressed, so it
-   never competes with the stops. On the drive that matters (below) it turns blue. */
+/* Directions: a small grey icon in the time column, with a 32px tap area (the row's height) and no fill until hovered
+   or pressed, so it never competes with the stops. On the drive that matters (below) it turns dark. */
 .wt-tl-drive__go {
-  width: 40px; height: 40px; margin: 2px 0; color: var(--wt-text-secondary); background: none;
+  width: 40px; height: 32px; color: var(--wt-text-secondary); background: none;
   transition: background var(--wt-duration-fast), color var(--wt-duration-fast), transform var(--wt-duration-fast);
 }
 .wt-tl-drive__go .wt-icon { width: 18px; height: 18px; }
@@ -335,6 +336,18 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 }
 .wt-sheet__grab:focus-visible { border-radius: var(--wt-radius-md); }
 .wt-sheet__body { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--wt-space-3) var(--wt-space-3); overscroll-behavior: contain; }
+/* More of the day above or below what's showing: the list fades out at that edge (.is-more-above, .is-more-below,
+   set from the list's scroll position), so it's clear there are stops to scroll to. */
+@property --wt-fade-top { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --wt-fade-bottom { syntax: '<length>'; inherits: false; initial-value: 0px; }
+.wt-sheet__body {
+  --wt-fade-top: 0px; --wt-fade-bottom: 0px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--wt-fade-top), #000 calc(100% - var(--wt-fade-bottom)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--wt-fade-top), #000 calc(100% - var(--wt-fade-bottom)), transparent);
+  transition: --wt-fade-top var(--wt-duration-fast), --wt-fade-bottom var(--wt-duration-fast);
+}
+.wt-sheet__body.is-more-above { --wt-fade-top: 24px; }
+.wt-sheet__body.is-more-below { --wt-fade-bottom: 24px; }
 /* The sheet's main action, below the list: Add stop, or, with a stop selected, Edit stop and a small round + beside it,
    so adding is always one tap away. Static, not sticky: a sticky bar pinned itself to the screen's bottom and covered a pulled-down sheet's top. */
 .wt-add-bar {
