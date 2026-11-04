@@ -1,4 +1,4 @@
-/* Waythread design system — components v6.0.0
+/* Waythread design system — components v6.1.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -154,7 +154,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* The same marker in the list, on the map and in the day list, at different sizes. Set --wt-kind-color. */
 .wt-marker {
   display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: var(--wt-radius-round);
-  background: var(--wt-kind-color, var(--wt-kind-place)); color: var(--wt-marker-ink);
+  background-color: var(--wt-kind-color, var(--wt-kind-place)); background-image: var(--wt-marker-gloss); color: var(--wt-marker-ink);
 }
 .wt-marker .wt-icon { width: 16px; height: 16px; }
 .wt-marker--sm { width: 20px; height: 20px; }
@@ -183,7 +183,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-stop:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
 .wt-tl-stop.is-flash { animation: wt-flash var(--wt-duration-flash) ease-out; }
 @keyframes wt-flash { from { background: var(--wt-highlight); } to { background: transparent; } }
-.wt-tl-marker { position: absolute; z-index: 1; left: 50%; top: var(--wt-tl-mark-y); transform: translate(-50%, -50%); box-shadow: 0 0 0 3px var(--wt-surface-raised); }
+.wt-tl-marker { position: absolute; z-index: 1; left: 50%; top: var(--wt-tl-mark-y); transform: translate(-50%, -50%); box-shadow: 0 0 0 3px var(--wt-tl-row, var(--wt-surface-raised)); }
 .wt-tl-stop > .wt-tl-rail { grid-column: 1; grid-row: 1 / -1; }
 .wt-tl-name {
   grid-column: 2; grid-row: 1; min-width: 0; padding: var(--wt-tl-pad) var(--wt-space-2) 0 0; font: var(--wt-type-name); line-height: 1.3;
@@ -218,7 +218,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-car {
   position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: 20px; height: 20px; display: grid; place-items: center; border-radius: var(--wt-radius-round);
-  background: var(--wt-kind-drive); color: var(--wt-marker-ink);
+  background-color: var(--wt-kind-drive); color: var(--wt-marker-ink);   /* flat: no gloss, so a drive stays quieter than a stop */
 }
 .wt-tl-car .wt-icon { width: 13px; height: 13px; }
 /* The row itself takes no hover or press look: only its Directions button reads as a control. */
@@ -240,30 +240,45 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-drive__go:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
 @media (hover: hover) { .wt-tl-drive__go:hover { background: var(--wt-surface-sunken); color: var(--wt-text-primary); } }
 
-/* One highlighted row at most: the selected row (a stop tapped or picked on the map, or a drive whose route is shown),
-   or, when nothing in the list is selected, the row happening now. With a selection, the row happening now is
-   a plain row; the dimmed rows above it still show where the day is.
-   The highlight is the same for stops and drives: a grey background, no outline, no blue. Its text steps up one ink:
-   a stop's time and a drive's duration turn primary, and tertiary turns secondary (which also keeps it at 4.5:1 on
-   the darker grey). A highlighted drive's car and Directions icon turn dark. The stop happening now also gets a ring
-   in its type color. */
-.wt-tl :is(.is-selected, .is-active),
-.wt-tl:not(:has(.is-selected, .is-active)) .is-now { background: var(--wt-surface-current); --wt-text-tertiary: var(--wt-text-secondary); }
-.wt-tl-stop:active { --wt-text-tertiary: var(--wt-text-secondary); }
-.wt-tl .wt-tl-stop.is-selected .wt-tl-time,
-.wt-tl:not(:has(.is-selected, .is-active)) .wt-tl-stop.is-now .wt-tl-time { color: var(--wt-text-primary); }
-.wt-tl .wt-tl-stop.is-selected .wt-tl-marker { box-shadow: 0 0 0 3px var(--wt-surface-current); }
-.wt-tl:not(:has(.is-selected, .is-active)) .wt-tl-stop.is-now .wt-tl-marker { box-shadow: 0 0 0 3px var(--wt-surface-current), 0 0 0 5px var(--wt-kind-color); }
-.wt-tl .wt-tl-drive.is-active,
-.wt-tl:not(:has(.is-selected, .is-active)) .wt-tl-drive.is-now { --wt-kind-drive: var(--wt-kind-drive-current); }
-.wt-tl .wt-tl-drive.is-active :is(.wt-tl-drive__what b, .wt-tl-drive__go),
-.wt-tl:not(:has(.is-selected, .is-active)) .wt-tl-drive.is-now :is(.wt-tl-drive__what b, .wt-tl-drive__go) { color: var(--wt-text-primary); }
+/* The list ranks what it shows by ink and color, loudest first: what needs fixing (red), where you are now (the
+   blackest ink), what kind of place a stop is (its type color), then the rest by ink, and what's over (grey). No blue:
+   blue is the map's routes, and links. --wt-tl-row is the row's background, which the marker's ring matches so the
+   marker sits cleanly on the rail.
 
-/* Today: what's over dims. Markers and cars keep a solid backing, so the rail doesn't show through them:
-   their color fades, not the whole thing. */
-.wt-tl .is-past :is(.wt-tl-time, .wt-tl-name, .wt-tl-notes, .wt-tl-drive__body, .wt-tl-drive__go) { opacity: .45; }
-.wt-tl .is-past .wt-tl-marker { background: color-mix(in srgb, var(--wt-kind-color) 45%, var(--wt-surface-raised)); }
-.wt-tl .is-past:not(.is-active) .wt-tl-car { background: color-mix(in srgb, var(--wt-kind-drive) 45%, var(--wt-surface-raised)); }
+   One highlighted row at most, a grey background the same for stops and drives: the selected row (a stop tapped or
+   picked on the map, or a drive whose route is shown), or, when nothing is selected, the row happening now. Its text
+   steps up one ink: tertiary turns secondary, which also keeps it at 4.5:1 on the darker grey. */
+.wt-tl :is(.is-selected, .is-active),
+.wt-tl:not(:has(.is-selected, .is-active)) .is-now { --wt-tl-row: var(--wt-surface-current); background: var(--wt-tl-row); --wt-text-tertiary: var(--wt-text-secondary); }
+.wt-tl-stop:active { --wt-text-tertiary: var(--wt-text-secondary); }
+/* Selected: its time or drive time turns primary, and a drive's car a darker grey. */
+.wt-tl .wt-tl-stop.is-selected .wt-tl-time { color: var(--wt-text-primary); }
+.wt-tl .wt-tl-drive.is-active { --wt-kind-drive: var(--wt-kind-drive-current); }
+.wt-tl .wt-tl-drive.is-active :is(.wt-tl-drive__what b, .wt-tl-drive__go) { color: var(--wt-text-primary); }
+
+/* Now: on today, the row you're in takes the blackest ink (--wt-now), whether or not something else is selected, so you
+   can always find where the day is: a black ring around the stop's marker, or a black car on the drive, and its time or
+   drive time in primary ink. */
+.wt-tl .is-now :is(.wt-tl-time, .wt-tl-drive__what b) { color: var(--wt-text-primary); }
+.wt-tl .wt-tl-stop.is-now .wt-tl-marker { box-shadow: 0 0 0 3px var(--wt-tl-row, var(--wt-surface-raised)), 0 0 0 5px var(--wt-now); }
+.wt-tl .wt-tl-drive.is-now { --wt-kind-drive: var(--wt-now); }
+
+/* Doesn't fit: louder than anything else in the list. The car turns red as well as the text, so a drive that won't make
+   it shows on the rail when you run your eye down it. */
+.wt-tl .wt-tl-drive.is-late { --wt-kind-drive: var(--wt-danger); }
+.wt-tl .wt-tl-drive.is-late .wt-tl-drive__what b { color: var(--wt-text-danger); }
+
+/* What's over: the color drains out. Every ink in the row becomes the fourth, --wt-text-past (links too), and markers
+   and cars turn grey (--wt-kind-past), solid so the rail doesn't show through them. Inks from the scale rather than
+   opacity, so a faded row is the same grey on any background. A late drive that's over isn't red any more: there's
+   nothing left to fix. The drive whose route is on show keeps its blue car. */
+.wt-tl .is-past {
+  color: var(--wt-text-past);
+  --wt-text-primary: var(--wt-text-past); --wt-text-secondary: var(--wt-text-past); --wt-text-tertiary: var(--wt-text-past); --wt-text-link: var(--wt-text-past);
+}
+.wt-tl .is-past .wt-tl-marker { background-color: var(--wt-kind-past); }
+.wt-tl .is-past:not(.is-active) .wt-tl-car { background-color: var(--wt-kind-past); }
+.wt-tl .wt-tl-drive.is-past.is-late :is(.wt-tl-drive__what b, .wt-tl-drive__late) { color: var(--wt-text-secondary); }
 
 /* Day heading: the overview (every day on one page) puts each day's stops under the day's name. It's a label, not a
    name: small grey capitals from the list's left edge (where the markers start), so it never reads as a stop.
@@ -280,7 +295,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-day > .wt-icon { width: 16px; height: 16px; }
 .wt-tl-day:active { background: var(--wt-surface-hover); }
 @media (hover: hover) { .wt-tl-day:hover { background: var(--wt-surface-sunken); } }
-.wt-tl .wt-tl-day.is-past .wt-tl-day__name { opacity: .45; }
+.wt-tl .wt-tl-day.is-past { color: var(--wt-text-past); }
 .wt-tl-day + * .wt-tl-rail::before { top: var(--wt-tl-mark-y); }
 .wt-tl > :has(+ .wt-tl-day) .wt-tl-rail::before { bottom: auto; height: var(--wt-tl-mark-y); }
 .wt-tl-day + :is(:last-child, :has(+ .wt-tl-day)) .wt-tl-rail::before { display: none; }
@@ -289,15 +304,16 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* The arrows are centred on the timeline's columns: ‹ on the rail, › on the Directions column (with the sheet top's padding). */
 .wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) 0 var(--wt-space-2); }
 .wt-day-bar[hidden] { display: none; }
-.wt-day-bar__step { color: var(--wt-text-primary); }
+.wt-day-bar__step { color: var(--wt-text-secondary); }
 .wt-day-bar__title {
   font: inherit; color: inherit; background: none; border: 0; margin: 0; cursor: pointer;
   display: grid; justify-items: center; padding: 2px var(--wt-space-3); border-radius: var(--wt-radius-md);
 }
 .wt-day-bar__title:active { background: var(--wt-surface-hover); }
 .wt-day-bar__title:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
-.wt-day-bar__label { display: inline-flex; align-items: center; gap: 2px; font: var(--wt-type-title); }
-.wt-day-bar__label .wt-icon { width: 18px; height: 18px; color: var(--wt-text-tertiary); }
+/* The day says where you are, so it stays below the plan: --wt-type-context in secondary ink, quieter than a stop's name. */
+.wt-day-bar__label { display: inline-flex; align-items: center; gap: 2px; font: var(--wt-type-context); color: var(--wt-text-secondary); }
+.wt-day-bar__label .wt-icon { width: 16px; height: 16px; color: var(--wt-text-tertiary); }
 
 /* ---------- Day list: every day of the trip, in a modal sheet ---------- */
 .wt-day-list { list-style: none; margin: 0; padding: 0; }
@@ -425,7 +441,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-trip-head .wt-icon-btn { color: var(--wt-text-secondary); }
 .wt-trip-head .wt-icon-btn .wt-icon { width: 20px; height: 20px; }
-.wt-trip-head__name { flex: 1; min-width: 0; margin: 0; padding-right: var(--wt-space-1); font: var(--wt-type-name); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-trip-head__name { flex: 1; min-width: 0; margin: 0; padding-right: var(--wt-space-1); font: var(--wt-type-context); color: var(--wt-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Map / List (unused since 4.1.0: the sheet's three heights are reached by dragging it, as in a maps app) */
 .wt-view-toggle {
   display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px 0 11px;
@@ -622,14 +638,15 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* ---------- Map pin ---------- */
 /* A teardrop like a maps app's pin: its tip on the place, in the stop's type color, outlined in --wt-pin-fill, with the
    stop's number in its head (.wt-pin__num) or, for a place that isn't a numbered stop, a dot (.wt-pin__dot). Nothing else:
-   names and times are in the list. Selected: larger. Muted (over, or the day before's last stop): smaller and faded.
+   names and times are in the list. Selected: larger. Muted (over, the day before's last stop, or off the route on show):
+   smaller and grey, as what's over is grey in the list, so the pins still in color are the ones ahead.
    Both grow and shrink from the tip, so it stays on the place. Placed by its tip, at the marker's position on the map. */
 .wt-pin {
   position: absolute; width: 30px; height: 39px; transform: translate(-50%, -100%); transform-origin: 50% 100%;
   transition: transform var(--wt-duration-base), opacity var(--wt-duration-base);
 }
 .wt-pin--selected { transform: translate(-50%, -100%) scale(1.25); }
-.wt-pin--muted:not(.wt-pin--selected) { transform: translate(-50%, -100%) scale(.85); opacity: .5; }
+.wt-pin--muted:not(.wt-pin--selected) { transform: translate(-50%, -100%) scale(.85); opacity: .85; }
 /* Two classes, to beat Leaflet's .leaflet-map-pane svg { z-index: 200 }, which would cover the number */
 .wt-pin .wt-pin__shape {
   position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; overflow: visible;
@@ -637,6 +654,13 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   filter: drop-shadow(var(--wt-shadow-pin));
 }
 .wt-pin--muted .wt-pin__shape { filter: none; }
+/* The gloss, as on a marker: laid over the drop's fill, cut to its shape, under the number. */
+.wt-pin::after {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background-image: var(--wt-marker-gloss);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 39'%3E%3Cpath d='M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 39'%3E%3Cpath d='M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+.wt-pin--muted:not(.wt-pin--selected) .wt-pin__shape { fill: var(--wt-kind-past); }
 /* Centered in the head of the drop, whose circle's center is 14.3px down */
 .wt-pin__num {
   position: absolute; z-index: 1; inset: 0 0 auto; height: 28.6px; display: grid; place-items: center;

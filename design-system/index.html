@@ -175,7 +175,7 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><path id="pin-drop" d="M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z"/></defs></svg>
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v6.0.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v6.1.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -218,7 +218,7 @@
       <p class="lede">The tokens, components and rules behind Waythread, a phone-first trip planner where friends plan one route together. Everything on this page is the real system, so switch the theme above to see it change.</p>
       <div class="principles">
         <div class="principle"><b>Less is more</b><p>Show information only when it's essential, isn't shown elsewhere, and can't be inferred at a glance.</p></div>
-        <div class="principle"><b>The plan and the route lead</b><p>Stop names are the strongest text. Routes are the only blue. Controls stay quiet.</p></div>
+        <div class="principle"><b>The plan and the route lead</b><p>Stop names are the strongest text, and ink and color get quieter as information matters less. Routes are the only blue. Controls stay quiet.</p></div>
         <div class="principle"><b>Built for sharing</b><p>Everyone on a trip can edit. People are always visible, and their changes show up as they happen.</p></div>
         <div class="principle"><b>Hand off what others do best</b><p>Navigation opens in Apple Maps or Google Maps. Waythread never rebuilds it.</p></div>
       </div>
@@ -233,7 +233,19 @@
 
     <section id="color">
       <h2>Color</h2>
-      <p class="intro">Color has a job or it isn't there. Blue means a route or a link. Red means "doesn't fit" or "destructive". A stop's type color marks its marker, on the list and the map. Everything else is a warm neutral. The values below are read live from the current theme.</p>
+      <p class="intro">Color and ink carry information, or they aren't there, and how loud they are says how much it matters. In the plan, loudest first:</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Color</th><th>Means</th><th>Where</th></tr></thead>
+        <tbody>
+          <tr><td><b style="color: var(--wt-text-danger)">Red</b></td><td>Needs fixing</td><td>A drive that doesn't fit: its time, its car, <i>Arrives 13 min late</i>. Destructive buttons.</td></tr>
+          <tr><td><b>Black</b></td><td>Now, and what you read first</td><td>The row happening now: a black ring on its marker or a black car, and its time in primary ink. Stop names. The one primary button.</td></tr>
+          <tr><td><b>Type colors</b></td><td>What kind of place</td><td>Markers and pins only. All the same lightness, so no type outranks another.</td></tr>
+          <tr><td><b style="color: var(--wt-text-secondary)">Greys</b></td><td>Read next, then detail</td><td>Times and notes in secondary ink, drives and detail in tertiary.</td></tr>
+          <tr><td><b style="color: var(--wt-text-past)">Light grey</b></td><td>Over</td><td>Past rows' text, markers and cars, past routes, muted pins. The color drains out of what's done.</td></tr>
+          <tr><td><b style="color: var(--wt-text-link)">Blue</b></td><td>Routes and links</td><td>Route lines on the map, links in notes. Never a highlight.</td></tr>
+        </tbody>
+      </table></div>
+      <p class="intro">The greys are one warm ramp, stepped by lightness: fine steps at both ends for surfaces and lines, wide ones in the middle, where each step is an ink with its own rank (primary 18:1, secondary 7:1, tertiary 5:1, past 2.6:1 on white). A highlighted row is grey, never tinted. The values below are read live from the current theme.</p>
       <div id="swatches"></div>
       <h3>Primitive palette</h3>
       <p class="intro">Raw values that feed the roles. Components never use these directly.</p>
@@ -482,13 +494,13 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       </div>
       <ul class="rules">
         <li><b>Rows touch.</b> Put them straight inside <code>.wt-tl</code>, with nothing between, so the rail is one solid line. It starts at the first row's marker and ends at the last. Put the timeline on <code>--wt-surface-raised</code>: the marker and car are cut out of the rail in that color.</li>
-        <li><b>Stop</b> (<code>.wt-tl-stop</code>): marker, name, optional note, time. Nothing else. Set <code>--wt-kind-color</code> on the row; the marker and the ring on the stop happening now both use it. Notes are shown in full, never cut off.</li>
+        <li><b>Stop</b> (<code>.wt-tl-stop</code>): marker, name, optional note, time. Nothing else. Set <code>--wt-kind-color</code> on the row and the marker. Notes are shown in full, never cut off.</li>
         <li><b>Hotel</b> at the start or end of a day is a stop row with an empty <code>.wt-tl-time</code>. Only check-out morning gets a note: <i>Check out</i>.</li>
         <li><b>Drive</b> (<code>.wt-tl-drive</code>): <i>1 hr 49 min drive</i>, and the Directions button. The first drive of a day with no hotel the night before says where it starts (<code>__from</code>).</li>
-        <li><b>Selected</b> (<code>is-selected</code> on a stop, <code>is-active</code> on a drive) matches a pin or route tapped on the map. It takes the list's one highlight: a grey background, the same for stops and drives, with no outline and no blue. A highlighted drive's car turns darker grey.</li>
+        <li><b>Selected</b> (<code>is-selected</code> on a stop, <code>is-active</code> on a drive) matches a pin or route tapped on the map. It takes the list's one highlight: a grey background, the same for stops and drives, with no outline and no blue. A selected drive's car turns darker grey.</li>
         <li><b>Directions</b> (<code>__go</code>) is a pale grey circle with a grey icon, the only part of a drive row that looks like a control; it darkens on hover and press. The row itself has no hover or press look.</li>
-        <li><b>Today</b>: the row happening now gets <code>is-now</code>: the highlight, but only while nothing is selected, with a ring in the stop's type color. Here Cloudcroft is selected, so the drive in progress is a plain row. Rows before it get <code>is-past</code> and dim. Every row on an earlier day is past.</li>
-        <li><b>Late</b> (<code>is-late</code>) turns the drive time red and adds <code>__late</code>: <i>Arrives 13 min late</i>. That's the only warning.</li>
+        <li><b>Today</b>: the row happening now gets <code>is-now</code> and the blackest ink: a black ring on a stop's marker, a black car on a drive, and its time in primary ink. While nothing is selected it's also the highlighted row. Here Cloudcroft is selected, so the drive in progress keeps its black car on a plain row. Rows before it get <code>is-past</code>: their text turns the past ink and their markers and cars turn grey. Every row on an earlier day is past.</li>
+        <li><b>Late</b> (<code>is-late</code>) turns the drive time and its car red and adds <code>__late</code>: <i>Arrives 13 min late</i>. Red outranks everything, so a late drive happening now is still red. Once it's over it turns grey like the rest.</li>
         <li><b>Flash</b> (<code>is-flash</code>) marks a stop a co-editor just changed, once.</li>
       </ul>
       <div class="dont">
@@ -497,7 +509,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       </div>
 
       <h3>Marker</h3>
-      <p class="intro">A stop's type icon on its type's color. The same marker sits on the rail, on the map pin and in the day list, so a stop reads the same everywhere. One color per group; none is blue or red.</p>
+      <p class="intro">A stop's type icon on its type's color. The same marker sits on the rail, on the map pin and in the day list, so a stop reads the same everywhere. One color per group, all at the same lightness, so a type tells you what a place is and never that it matters more. None is blue (routes) or red (doesn't fit), which are louder.</p>
       <div class="demo">
         <div class="demo__live" id="marker-row"></div>
         <details><summary>Markup</summary><pre><code>&lt;i class="wt-marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"&gt;${icon('utensils')}&lt;/i&gt;
@@ -693,7 +705,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 
     <section id="map">
       <h2>Map pins, routes and buttons</h2>
-      <p class="intro">A pin is a teardrop in the stop's type color with its tip on the place and the stop's number in its head; the hotel at either end of a day has a dot. A selected pin grows. The map carries no text: names and times are in the list. It shows only the open day. Routes are the only blue on screen, and turn grey once they're over. Map libraries draw with script, so they read the route tokens at draw time.</p>
+      <p class="intro">A pin is a teardrop in the stop's type color with its tip on the place and the stop's number in its head; the hotel at either end of a day has a dot. A selected pin grows; a muted one (over, or off the route on show) shrinks and turns grey. The map carries no text: names and times are in the list. It shows only the open day. Routes are the only blue on screen, and turn grey once they're over. Map libraries draw with script, so they read the route tokens at draw time.</p>
       <div class="demo">
         <div class="demo__live demo__live--column">
           <div class="stage" style="height: 300px">
@@ -907,7 +919,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v6.0.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v6.1.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -981,6 +993,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       ['--wt-text-primary', 'Names, titles, running text.'],
       ['--wt-text-secondary', 'Times, notes, labels.'],
       ['--wt-text-tertiary', 'Drives, AM / PM, hints.'],
+      ['--wt-text-past', 'Rows that are over: the fourth ink.'],
       ['--wt-text-placeholder', 'Placeholders only.'],
       ['--wt-text-link', 'Links in running text.'],
       ['--wt-text-danger', 'Late drives, destructive buttons.'],
@@ -1004,7 +1017,6 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       ['--wt-route-done', 'Past routes, on today.'],
       ['--wt-route-casing', 'Outline under route lines.'],
       ['--wt-pin-fill', 'The ring around a pin’s marker.'],
-      ['--wt-map-label', 'Behind a selected pin’s name.'],
     ]],
     ['Stop types', [
       ['--wt-kind-place', 'A plain place.'],
@@ -1015,18 +1027,21 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       ['--wt-kind-nature', 'Parks, trails.'],
       ['--wt-kind-shop', 'Shopping.'],
       ['--wt-kind-drive', 'The car marker on a drive.'],
-      ['--wt-kind-drive-current', 'The car on the highlighted drive.'],
+      ['--wt-kind-drive-current', 'The car on the selected drive.'],
+      ['--wt-kind-past', 'Markers, cars and pins of what’s over.'],
       ['--wt-marker-ink', 'The icon on a marker, the car on a drive.'],
+      ['--wt-marker-gloss', 'The gradient over stop markers and pins (not cars).'],
     ]],
     ['Status', [
-      ['--wt-danger', 'Doesn’t fit, destructive.'],
+      ['--wt-danger', 'Doesn’t fit, destructive; a late drive’s car.'],
+      ['--wt-now', 'The ring on the stop you’re at, the car on the drive you’re on.'],
       ['--wt-danger-surface', 'Behind danger text, rarely.'],
       ['--wt-highlight', 'A co-editor’s change, flashed once.'],
       ['--wt-overlay', 'Backdrop behind modal sheets.'],
     ]],
   ];
   const PRIMITIVES = [
-    ['Gray', ['0', '50', '100', '150', '200', '300', '400', '450', '500', '600', '700', '800', '850', '900', '950', '1000'].map(n => `--wt-color-gray-${n}`)],
+    ['Gray', ['0', '50', '100', '150', '200', '250', '300', '350', '400', '450', '500', '600', '700', '750', '800', '850', '900', '950', '1000'].map(n => `--wt-color-gray-${n}`)],
     ['Blue', ['100', '200', '300', '400', '500', '600', '800'].map(n => `--wt-color-blue-${n}`)],
     ['Red', ['50', '300', '600', '900'].map(n => `--wt-color-red-${n}`)],
     ['Identity', [1, 2, 3, 4, 5, 6].map(n => `--wt-color-identity-${n}`)],
@@ -1035,7 +1050,8 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
   // ---------- Scales ----------
   const TYPE = [
     ['--wt-type-display', 'Waythread', 'App name on Home'],
-    ['--wt-type-title', 'Today, Nov 21', 'The day bar, modal titles'],
+    ['--wt-type-title', 'Edit stop', 'Modal titles'],
+    ['--wt-type-context', 'Today, Nov 21', 'The trip’s name, the day bar'],
     ['--wt-type-heading', 'Keep your trips', 'Section headings in settings'],
     ['--wt-type-name', 'El Paso International Airport', 'Stop and trip names'],
     ['--wt-type-body', 'Anyone with the link can edit this trip.', 'Running text'],
@@ -1071,6 +1087,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ['--wt-text-secondary', '--wt-surface-raised', 4.5],
     ['--wt-text-secondary', '--wt-surface-sheet', 4.5],
     ['--wt-text-secondary', '--wt-surface-current', 4.5],
+    ['--wt-text-danger', '--wt-surface-current', 4.5],
     ['--wt-text-tertiary', '--wt-surface-raised', 4.5],
     ['--wt-text-tertiary', '--wt-surface-sheet', 4.5],
     ['--wt-text-tertiary', '--wt-surface-sunken', 4.5],
@@ -1086,6 +1103,9 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ['--wt-marker-ink', '--wt-kind-drive', 3],
     ['--wt-marker-ink', '--wt-kind-drive-current', 3],
     ['--wt-marker-ink', '--wt-route', 3],
+    ['--wt-marker-ink', '--wt-now', 3],
+    ['--wt-marker-ink', '--wt-danger', 3],
+    ['--wt-now', '--wt-surface-raised', 3],
   ];
 
   function renderStatic() {
