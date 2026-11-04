@@ -1,38 +1,91 @@
-/* Waythread prototype — app layout only.
+/* Waythread prototype — app layout only, the same as app/web/styles.css plus the prototype's note in trip settings.
  * Look and components come from the design system (../design-system/tokens.css, components.css);
  * this file places them on the screen. */
 
 html, body { height: 100%; }
+body { display: flow-root; } /* so the sign-in card's top margin doesn't push the page into scrolling */
 
+/* A phone-width column by default; the trip screen always takes the whole window. */
 #app { max-width: var(--wt-size-column); margin: 0 auto; min-height: 100dvh; background: var(--wt-surface-raised); position: relative; }
-@media (min-width: 520px) { #app { box-shadow: 0 0 0 1px var(--wt-border-default); } }
+#app[data-page="trip"] { max-width: none; }
+@media (min-width: 520px) { #app:not([data-page="trip"]) { box-shadow: 0 0 0 1px var(--wt-border-default); } }
+
+/* ---------- Wide screens: Home is a grid of trips on the page; sign-in is a card ---------- */
+@media (min-width: 768px) {
+  #app[data-page="home"] { max-width: 920px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
+  #app[data-page="home"] .home-head { padding: var(--wt-space-10) 0 var(--wt-space-5); }
+  #app[data-page="home"] .home { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); padding: 0 0 var(--wt-space-10); }
+  #app[data-page="home"] .home > .wt-btn { grid-column: 1 / -1; justify-self: start; width: auto; }
+  #app[data-page="home"] .wt-trip-card { flex-direction: column; gap: var(--wt-space-1); min-height: 96px; justify-content: space-between; align-items: stretch; }
+
+  #app[data-page="signin"] { max-width: 420px; min-height: 0; margin: max(var(--wt-space-10), 12vh) auto var(--wt-space-10); padding: var(--wt-space-3) var(--wt-space-3) 0; border-radius: var(--wt-radius-lg); }
+}
 
 /* ---------- Home ---------- */
-.home-head { padding: var(--wt-space-6) var(--wt-space-4) var(--wt-space-3); }
+.home-head { display: flex; align-items: center; justify-content: space-between; padding: var(--wt-space-6) var(--wt-space-4) var(--wt-space-3); }
 .home-head h1 { margin: 0; font: var(--wt-type-display); letter-spacing: var(--wt-tracking-display); }
 .home { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }
 
+/* ---------- Sign in: one choice per step ---------- */
+.signin { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }
+.wt-modal .signin { padding: 0; }
+.signin form { display: grid; gap: var(--wt-space-3); }
+.signin__text { margin: 0; color: var(--wt-text-secondary); overflow-wrap: anywhere; }
+.signin__head { display: flex; align-items: center; gap: var(--wt-space-1); margin-left: calc(-1 * var(--wt-space-3)); }
+.signin__title { margin: 0; font: var(--wt-type-title); }
+.signin__hint { margin: calc(-1 * var(--wt-space-1)) 0 0; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.signin__hint--center { margin-top: 0; text-align: center; }
+.signin__error { margin: 0; font: var(--wt-type-caption); color: var(--wt-text-danger); }
+.signin__link { font: inherit; color: var(--wt-text-link); background: none; border: 0; padding: 0; cursor: pointer; }
+.signin__pw { position: relative; }
+.signin__pw .wt-input { padding-right: 72px; }
+.signin__show {
+  position: absolute; right: var(--wt-space-1); top: 50%; transform: translateY(-50%);
+  padding: var(--wt-space-2); font: var(--wt-type-label); color: var(--wt-text-secondary);
+  background: none; border: 0; cursor: pointer;
+}
+.account-keep { margin: var(--wt-space-6) 0 var(--wt-space-1); font: var(--wt-type-heading); }
+.home-guest { color: var(--wt-text-secondary); }
+
+/* ---------- Trip settings ---------- */
+.settings-new-link { margin-top: var(--wt-space-2); padding: 0; color: var(--wt-text-secondary); }
+
 /* ---------- Trip: full-screen map with the list sheet on top ---------- */
-.trip { position: relative; height: 100dvh; overflow: hidden; }
-/* The map fills the screen, under the floating header card. */
+/* From 768px wide the sheet is a side panel (see the design system's wt-trip container), and the map sits beside it. */
+/* Pinned to the window, not sized by 100dvh: Chrome on iPhone kept the page scrolled from Home (or sized dvh for
+   collapsed toolbars), which hid the header under the address bar and left a gap under the sheet. The page itself
+   never scrolls while a trip is open. */
+.trip { position: fixed; inset: 0; overflow: hidden; container: wt-trip / inline-size; }
+html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overflow: hidden; overscroll-behavior: none; }
+/* On a phone the map fills the screen, under the floating header card; from 768px wide the header tops the side panel, and the map sits beside it. */
 #map { position: absolute; inset: 0; background: var(--wt-surface-map); }
-/* While a stop is open, its sheet takes the list's place at the bottom, and the map shows above it. */
+@container wt-trip (min-width: 768px) { #map { left: var(--wt-size-panel); } }
+/* While a stop is open on a phone, its sheet takes the list's place at the bottom, and the map shows above it. */
 .trip.is-editing .wt-sheet { visibility: hidden; }
-.trip .leaflet-bottom { bottom: var(--bottom-h, 0); transition: bottom var(--wt-duration-base); }
-/* Whole day sits at the map's bottom right, just above the list, riding up and down with it, and tucked
-   under the sheet when it's dragged over. Not while a stop is open. */
+/* The app moves the sheet itself, frame by frame, so the list's scroll can move with it (sheet motion in app.js):
+   no height transition. */
+.trip .wt-sheet { transition: border-radius var(--wt-duration-base); }
+/* Whole day sits at the map's bottom right: just above the list on a phone, riding up and down with it (the app sets
+   its --bottom-h with each frame of the sheet), and tucked under the sheet when it's dragged over. Not while a stop is open. */
 .trip-fit {
   position: absolute; z-index: calc(var(--wt-z-sheet) - 1); right: var(--wt-space-3); bottom: calc(var(--bottom-h, 0px) + var(--wt-space-3));
-  transition: bottom var(--wt-duration-base) var(--wt-ease-out), background var(--wt-duration-fast);
+  transition: background var(--wt-duration-fast);
 }
-.trip:has(.wt-sheet.is-dragging) .trip-fit { transition: none; }
 .trip.is-editing .trip-fit { display: none; }
-.trip .leaflet-control-attribution { font-size: 10px; }
 /* Only the busier fallback basemap needs quieting. */
 .trip.osm-tiles .leaflet-tile-pane { filter: saturate(.55) brightness(1.03); }
 @media (prefers-color-scheme: dark) {
   .trip.osm-tiles .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) saturate(.4) brightness(.9); }
 }
+/* Routes, drawn by the app over the tiles (see RouteLayer in app.js); their colors and widths come from the route tokens.
+ * A route eases into a new look: shown, muted while another is shown, or over. */
+.wt-routes { overflow: visible; pointer-events: none; }
+.wt-route path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.wt-route__casing { stroke-opacity: .9; }
+.wt-route__casing, .wt-route__line { transition: stroke var(--wt-duration-base), stroke-width var(--wt-duration-base); }
+/* A wide line nobody sees, so a route is easy to tap. */
+.leaflet-pane > svg path.wt-route__hit { stroke: transparent; stroke-width: 24px; pointer-events: stroke; }
+.leaflet-pane > svg .wt-route.is-leaving .wt-route__hit { pointer-events: none; }
 
 /* ---------- Prototype-only helper in trip settings ---------- */
 .proto-note { margin-top: var(--wt-space-5); padding: var(--wt-space-3); border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); font: var(--wt-type-caption); color: var(--wt-text-secondary); }

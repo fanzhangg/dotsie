@@ -280,7 +280,7 @@ Labels are verbs that say exactly what happens.
 - **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
 - **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it, Esc is Cancel. Keep focus in the input while a result is tapped: `preventDefault()` on the results' `mousedown`.
 - **While it searches**, the spinner shows in the field and the last results stay on the page, so the list doesn't flash.
-- `ul.wt-results` with `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet for the prototype. They can go in the next major version.
+- `ul.wt-results` with `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet, though neither the app nor the prototype uses them. They can go in the next major version.
 
 ### Marker `.wt-marker`
 
@@ -341,7 +341,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - **Spacing:** stops get `--wt-tl-pad` (14px) above and below their text; drives are a fixed 44px row. Change `--wt-tl-pad` on `.wt-tl` to tighten or loosen the list; the markers follow.
   - The car (`.wt-tl-car`) is a marker like a stop's: a 22px circle in `--wt-kind-drive` grey with the `car` icon in `--wt-marker-ink`. Smaller and greyer than any stop, so drives never outrank them. On the highlighted drive it turns a darker grey (`--wt-kind-drive-current`). Never blue: blue is for routes on the map.
   - Give the row `role="button"` and `aria-pressed` while its route is shown.
-  - `.wt-tl-drive__go`, a small Directions icon in the time column, is no longer used by the app (since 4.5.0); the prototype still has it. It can go in the next major version.
+  - `.wt-tl-drive__go`, a small Directions icon in the time column, is no longer used by the app (since 4.5.0) or the prototype. It can go in the next major version.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
 - **Day heading** (`.wt-tl-day`): the overview, **All days**, puts every day in one timeline, each day's stops under its name. See [All days](#all-days-wt-tl-day).
