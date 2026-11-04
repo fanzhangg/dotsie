@@ -395,14 +395,15 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 
 ### All days `.wt-tl-day`
 
-The overview: every day of the trip on one page, before the first day. Each day's stops go under a heading with the day's name.
+The overview: every day of the trip on one page, before the first day. Each day's stops, and the drives between them, go under a heading with the day's name.
 
 ```html
 <div class="wt-tl">
   <button class="wt-tl-day" aria-label="Fri, Nov 20. Open this day">
     <span class="wt-tl-day__name">Fri, Nov 20</span>${icon('forward')}
   </button>
-  <button class="wt-tl-stop">…</button>   <!-- the day's stops -->
+  <button class="wt-tl-stop">…</button>   <!-- the day's stops… -->
+  <div class="wt-tl-drive">…</div>       <!-- …and the drives between them -->
   <button class="wt-tl-day" aria-label="Sat, Nov 21. Open this day">…</button>
   <!-- … -->
 </div>
@@ -410,7 +411,7 @@ The overview: every day of the trip on one page, before the first day. Each day'
 
 - **The heading** is a row in the timeline with a `forward` icon on the right: tapping it opens that day. It's a label, not a name: `--wt-type-overline` in grey capitals (`text-transform` and `--wt-tracking-caps`; the text stays "Fri, Nov 20" for screen readers), starting at the list's left edge, where the markers start. Stop names are larger, black and indented past the rail, so a date never reads as a stop. It's at least `--wt-size-touch` tall, with its text at the bottom, next to the day's first stop.
 - **It isn't on the rail.** Each day's rail runs from its first stop's marker to its last; a day with one stop has no rail.
-- **Stops only:** marker, name, time. Drives and notes are left to the day's own page (the map still draws every drive). A hotel keeps its nights on its check-in day, and check-out morning is a row with `Check out`. A day with no stops of its own, in the middle of a stay, shows the hotel you wake up at.
+- **Stops and the drives between them,** as on a day: marker, name, time, and `1 hr 36 min drive`. Notes are left to the day's own page, and so are the hotel you wake up at and go back to, with the drives to and from it (the map still draws every drive). A day's rows start and end with a place, never a drive, so its rail runs from marker to marker. A hotel keeps its nights on its check-in day, and check-out morning is a row with `Check out`. A day with no stops of its own, in the middle of a stay, shows the hotel you wake up at.
 - `is-selected`, `is-now` and `is-past` work as on a day. A past day's heading gets `is-past` and turns `--wt-text-past` with its stops.
 
 ### Day bar `.wt-day-bar` and day list `.wt-day-list`
