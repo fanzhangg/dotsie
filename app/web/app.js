@@ -1181,8 +1181,9 @@ function mapGestures(m, zooming) {
 }
 
 // ---------- Whole day: the map back on the day's route ----------
-// A button over the map, once you've moved the map off the day or are looking at one drive, as a maps app's
-// route overview button does. It isn't there over the whole-day list, which hides the map, or while a stop is open.
+// A button over the map, as a maps app's route overview button is. It's always there with the map, and greyed out while
+// the map already shows the whole day, since then it would do nothing. It isn't there over the whole-day list, which
+// hides the map, or while a stop is open.
 let dayShown = false; // the camera is where dayView puts it for the day on screen
 function dayFramed() {
   const trip = cur?.stops ? cur : null, day = trip && currentDay(trip), v = map && day && dayView(trip, day);
@@ -1193,7 +1194,8 @@ function updateFitBtn() {
   const btn = $app.querySelector('.trip-fit');
   if (!btn) return;
   const trip = cur?.stops ? cur : null, day = trip && currentDay(trip);
-  btn.hidden = !map || !day || !!state.draft || (!isWide() && state.snap === 'full') || (dayShown && !state.leg);
+  btn.hidden = !map || !day || !!state.draft || (!isWide() && state.snap === 'full');
+  btn.disabled = dayShown && !state.leg;
   // on the overview, it's the whole trip
   const label = day === ALL ? ['Whole trip', 'Show the whole trip on the map'] : ['Whole day', 'Show the whole day on the map'];
   if (btn.title !== label[0]) { btn.title = label[0]; btn.setAttribute('aria-label', label[1]); }
