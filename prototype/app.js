@@ -1430,7 +1430,12 @@ function reframe() {
 // --wt-ease-out). A row being centered while the sheet changes height goes straight to the middle and never leaves
 // the list: both are the same blend of where they start and where they end. (The sheet used to slide by a CSS
 // transition and the list scrolled after it, so a row tapped on the whole day slid off the list and came back.)
-// A new target mid-way keeps the timeline: everything goes the rest of the way from where it is.
+// A new target part way (a second tap) starts the movement again from where everything is, with a whole quarter
+// second to get there. (It used to keep the old timeline, so a tap late in a movement had only what was left of it,
+// and the list jumped.) Targets asked for before the first frame, as one tap asks for the height and then the scroll,
+// are one movement, and asking again for where it's already going changes nothing.
+// The clock starts with the first frame, not when the movement is asked for: a tap redraws the list and the map
+// before any frame, and on a slow phone that took up the start of the quarter second, so the first frame jumped.
 // The list's scroll always has a target, even when only the height is changing: a taller list has less room to
 // scroll, so near the end of the day the browser would cut the scroll back part way through the movement, and the
 // list would seem to scroll by itself, its rows riding with the sheet and then stopping short. Instead the scroll goes,
@@ -1445,7 +1450,8 @@ function cubicBezier(x1, y1, x2, y2) {
   };
 }
 const sheetEase = cubicBezier(0.2, 0.8, 0.2, 1); // --wt-ease-out
-const motion = { raf: 0, t0: 0, dur: 0, base: 0, h0: 0, h1: null, s0: 0, s1: null };
+const motion = { raf: 0, t0: null, dur: 0, h0: 0, h1: null, s0: 0, s1: null };
+const FRAME = 1000 / 60;
 // What floats over the map (Whole day) rides with the sheet.
 const setBottom = h => $app.querySelector('.trip-fit')?.style.setProperty('--bottom-h', `${h}px`);
 function setSheetHeight(h) {
@@ -1488,34 +1494,33 @@ function holdScroll(s) {
 function moveSheet({ h, s }) {
   const sheet = $app.querySelector('.wt-sheet'), body = sheet?.querySelector('.wt-sheet__body');
   if (!sheet) return;
-  const now = performance.now();
-  let p = motion.raf && motion.dur ? (now - motion.t0) / motion.dur : 1;
-  if (p >= 1) { // a new movement
-    stopMotion();
-    Object.assign(motion, { t0: now, dur: parseFloat(token('--wt-duration-base')) || 0, h1: null, s1: null });
-    p = 0;
-  }
-  if (h !== undefined) motion.h1 = h;
-  if (s !== undefined) motion.s1 = s;
+  const running = !!motion.raf;
+  let h1 = h !== undefined ? h : running ? motion.h1 : null;
+  let s1 = s !== undefined ? s : running ? motion.s1 : null;
   // where the list's scroll can be at the new height: where it's going, or else where it is, cut back to its room
-  if (motion.h1 != null) motion.s1 = Math.min(motion.s1 ?? body.scrollTop, maxScrollAt(body, motion.h1, snaps().chrome));
-  Object.assign(motion, { base: sheetEase(Math.max(0, p)), h0: sheet.offsetHeight, s0: body.scrollTop });
-  if (!motion.dur) { // reduced motion: straight there
-    if (motion.h1 != null) setSheetHeight(motion.h1);
-    if (motion.s1 != null) body.scrollTop = motion.s1;
-    setRoom(false);
+  if (h1 != null) s1 = Math.min(s1 ?? body.scrollTop, maxScrollAt(body, h1, snaps().chrome));
+  const same = (a, b) => (a == null ? b == null : b != null && Math.abs(a - b) < 0.5);
+  if (running && same(h1, motion.h1) && same(s1, motion.s1)) return; // already on its way there
+  const dur = parseFloat(token('--wt-duration-base')) || 0;
+  if (!dur) { // reduced motion: straight there
+    stopMotion();
+    if (h1 != null) setSheetHeight(h1);
+    if (s1 != null) body.scrollTop = s1;
     return;
   }
-  if (motion.h1 != null) setRoom(true);
-  if (!motion.raf) motion.raf = requestAnimationFrame(motionFrame);
+  // from where everything is now, with the clock to start on the next frame
+  Object.assign(motion, { t0: null, dur, h0: parseFloat(sheet.style.height) || sheet.offsetHeight, s0: body.scrollTop, h1, s1 });
+  setRoom(h1 != null);
+  if (!running) motion.raf = requestAnimationFrame(motionFrame);
 }
 // Timed by performance.now(), as moveSheet is, not by the frame's timestamp: that's when the frame began, which can be
-// before the movement (or a new target part way) was asked for, and the sheet stood still for that frame.
+// before the movement was asked for.
 function motionFrame() {
   const sheet = $app.querySelector('.wt-sheet'), body = sheet?.querySelector('.wt-sheet__body');
   if (!sheet) { motion.raf = 0; return; }
-  const p = Math.max(0, Math.min(1, (performance.now() - motion.t0) / motion.dur));
-  const q = motion.base >= 1 ? 1 : Math.max(0, Math.min(1, (sheetEase(p) - motion.base) / (1 - motion.base)));
+  const now = performance.now();
+  if (motion.t0 == null) motion.t0 = now - FRAME; // the first frame is a frame in
+  const p = Math.max(0, Math.min(1, (now - motion.t0) / motion.dur)), q = sheetEase(p);
   // height first, then the scroll, so the frame is laid out once
   if (motion.h1 != null) setSheetHeight(motion.h0 + (motion.h1 - motion.h0) * q);
   if (motion.s1 != null) body.scrollTop = motion.s0 + (motion.s1 - motion.s0) * q;
