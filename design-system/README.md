@@ -478,7 +478,7 @@ With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 - **Peeking**, the list and the add bar hide `--wt-duration-base` after `.is-peek` goes on, so a sheet sliding down to its peek keeps its list until it's there. Animate the height over that same duration.
 - The top holds the grab handle and the day bar. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
-- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop, then **Maps** (the place in Google Maps), then a round `+`, so adding is always one tap away. Google Maps is how you find out what a place is (its photos, reviews and hours), so it sits beside Edit stop rather than inside the sheet. It says Maps, not Google Maps, so Edit stop fits beside it on a 320px phone: a stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
+- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop, then **Maps** (the place in Google Maps), then a round `+`, so adding is always one tap away. Google Maps is how you find out what a place is (its photos, reviews and hours), so it sits beside Edit stop rather than inside the sheet. In the bar, secondary buttons are pills like the primary, so the row reads as one set. It says Maps, not Google Maps, so Edit stop fits beside it on a 320px phone: a stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
 - Tapping a selected stop or a shown drive again keeps it selected, and at half nothing animates: it's already in the middle.
 - **One row is the half list's focus**, and it sits in the middle of the list: the selected row (`.is-selected` or `.is-active`), or else, on today, the `is-now` row. When the sheet changes height and the list has to scroll, move both together, on one timeline, so the row goes straight to the middle. The app does this frame by frame and turns off the sheet's height transition.
 
@@ -657,6 +657,7 @@ Say what can go here, in the user's words. No illustrations.
 ### Added in 4.8.0
 
 - The add bar with a stop selected gains **Maps** (`a.wt-btn.wt-btn--secondary`) between Edit stop and `+`. No new class.
+- In the add bar a secondary button is a pill, like the primary beside it, instead of the 12px corners it has elsewhere; the `+` stays round.
 - `.wt-tl-note a`: a link in a stop's note, in blue. Stop rows are now a `div` with `role="button"` (a link can't sit in a `<button>`); `.wt-tl-stop` styles either.
 - Nothing was renamed or removed.
 

@@ -435,6 +435,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   padding: var(--wt-space-3) var(--wt-space-3) calc(var(--wt-space-3) + env(safe-area-inset-bottom, 0px)); background: var(--wt-surface-raised);
 }
 .wt-add-bar .wt-btn--block { flex: 1; min-width: 0; }
+/* Beside the pill, a secondary button (Maps) is a pill too, and the round + stays round: one shape along the bar */
+.wt-add-bar .wt-btn--secondary { border-radius: var(--wt-radius-pill); }
 
 /* ---------- Map buttons: round icon buttons floating over the map. Whole day is one; .wt-map-bar (home and settings) is unused since 3.0.1 ---------- */
 .wt-map-bar {
