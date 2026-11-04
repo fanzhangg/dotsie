@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.7.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.8.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -242,7 +242,8 @@ Labels are verbs that say exactly what happens.
   <button class="wt-picker wt-picker--text" aria-describedby="place-label">
     <span class="wt-picker__value"><span class="wt-picker__name">Joshua Tree Inn</span>
       <span class="wt-picker__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span>${icon('forward', 18)}
-  </button></div>
+  </button>
+  <a class="wt-field__link" href="…" target="_blank" rel="noopener">${icon('external')}View in Google Maps</a></div>
 
 <!-- …that opens a search page in place of the form (on .wt-modal, add .is-full) -->
 <div class="wt-search-bar">
@@ -267,6 +268,7 @@ Labels are verbs that say exactly what happens.
 - Placeholders show an example, never the label.
 - Messages say what happened and what to do next, for example "No places match … Try adding the town, or check the spelling".
 - `textarea.wt-input` works the same way.
+- **A link out** (`.wt-field__link`) goes under a field's value: the stop sheet's **View in Google Maps**, so you can see a place's photos and reviews before you keep it. Blue, as links are, with the `external` icon. Show it only once there's a value (hide it with `hidden`).
 - **A field picked by searching works as in Google or Apple Maps**, and their calendars' Location field. The form shows the choice as a row: its name, and under it a detail (a place's address, so two places with the same name can be told apart). Tapping the row opens a search page in place of the form, with the current name in the field and the cursor at its end, so you edit it rather than retype it. Results fill the page. Tapping one fills it in and comes back; **Cancel** (or Esc) comes back with nothing changed. Nothing typed is ever kept: only a picked result is. A choice that's required (a stop's place) can open on this page, and Cancel there closes the sheet.
 - **While the search page is open** the sheet takes the whole screen on a phone (`.wt-modal.is-full`), as a maps app's sheet rises when you search, so the results show above the keyboard. The search bar stays at the top as the results scroll.
 - **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
@@ -303,11 +305,11 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 
 ```html
 <div class="wt-tl">
-  <button class="wt-tl-stop" style="--wt-kind-color: var(--wt-kind-food)">
+  <div class="wt-tl-stop" tabindex="0" role="button" aria-pressed="false" style="--wt-kind-color: var(--wt-kind-food)">
     <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant">${icon('utensils')}</i></span>
     <span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span>
     <span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span>
-  </button>
+  </div>
   <div class="wt-tl-drive is-late">
     <span class="wt-tl-rail"><i class="wt-tl-car">${icon('car', 14)}</i></span>
     <span class="wt-tl-drive__body">
@@ -326,6 +328,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - Notes go in one `.wt-tl-notes`, one `.wt-tl-note` per line of meaning ("2 nights", then the stop's note). They sit under the name and run across the time column too, so a long note wraps to the row's full width and its right edge lines up with the times.
   - Notes are shown in full, never cut off. Line breaks in a note are kept.
   - Leave out `.wt-tl-notes` when there are none.
+  - **Links in a note can be tapped.** Each shows only its site (`booking.com`), in blue, so a long link doesn't fill the row; tapping it opens the page and doesn't select the stop. Since a link can't sit inside a `<button>`, the row is a `div` with `role="button"`, `tabindex="0"` and `aria-pressed`, like a drive, and Enter or Space selects it.
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
 - **The day before's last stop:** with no hotel the night before, a day opens with that stop. In place of a time, `.wt-tl-time__day` says which day it was: "Yesterday", or the weekday ("Sat").
 - **Drive** (`.wt-tl-drive`): a car on the rail and "1 hr 49 min drive". Tapping it shows its route; Directions to the maps app goes in the add bar (see [the add bar](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)), not in the row.
@@ -651,6 +654,12 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 4.8.0
+
+- `.wt-field__link`: a link under a field's value, out of the app. The stop sheet's **View in Google Maps** uses it.
+- `.wt-tl-note a`: a link in a stop's note, in blue. Stop rows are now a `div` with `role="button"` (a link can't sit in a `<button>`); `.wt-tl-stop` styles either.
+- Nothing was renamed or removed.
 
 ### Added in 4.7.0
 

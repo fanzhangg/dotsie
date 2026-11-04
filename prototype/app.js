@@ -270,6 +270,10 @@ function directionsURL(from, to) {
     ? `https://maps.apple.com/?saddr=${from.lat},${from.lng}&daddr=${to.lat},${to.lng}&dirflg=d`
     : `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}&travelmode=driving`;
 }
+// A place in Google Maps, to see that it's the right one and whether it's worth going: photos, reviews, hours.
+// Google on every phone, since that's where the photos and reviews are. Found by name and address, which opens the place
+// itself; its coordinates alone would open only a dropped pin.
+const placeURL = p => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.name, p.address].filter(Boolean).join(', '))}`;
 
 // ---------- Sync between tabs ----------
 const bc = 'BroadcastChannel' in window ? new BroadcastChannel('waythread') : null;
@@ -526,15 +530,30 @@ function driveItem(day, leg) {
     </div>`,
   };
 }
+// Links in a note can be tapped. Each shows only its site (booking.com), so a long link doesn't fill the row;
+// punctuation right after one ("see https://…).") stays text.
+const LINK_RE = /\bhttps?:\/\/[^\s<>"']+/gi;
+function noteHTML(text) {
+  let html = '', at = 0;
+  for (const m of text.matchAll(LINK_RE)) {
+    const url = m[0].replace(/[.,;:!?)\]}，。；：！？）】」』]+$/, '');
+    let site;
+    try { site = new URL(url).hostname.replace(/^www\./, ''); } catch { continue; }
+    html += `${esc(text.slice(at, m.index))}<a href="${esc(url)}" target="_blank" rel="noopener">${esc(site)}</a>`;
+    at = m.index + url.length;
+  }
+  return html + esc(text.slice(at));
+}
 // A stop row: marker · name · time, with its notes below across the name and time. A hotel on its check-in day says how many nights.
 // Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Edit stop. Tapping it again clears that.
+// It's a div acting as a button, like a drive, since a link in its note can't sit inside a <button>.
 function stopRow(s, { key, past, now, sel }, note, time) {
   const notes = note.filter(Boolean);
-  return `<button class="wt-tl-stop${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${s.id}" data-row="${esc(key)}" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
+  return `<div class="wt-tl-stop${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${s.id}" data-row="${esc(key)}" tabindex="0" role="button" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
       <span class="wt-tl-rail">${markerHTML(s, 'wt-tl-marker')}</span>
-      <span class="wt-tl-name">${esc(s.name)}</span>${notes.length ? `<span class="wt-tl-notes">${notes.map(n => `<span class="wt-tl-note">${esc(n)}</span>`).join('')}</span>` : ''}
+      <span class="wt-tl-name">${esc(s.name)}</span>${notes.length ? `<span class="wt-tl-notes">${notes.map(n => `<span class="wt-tl-note">${noteHTML(n)}</span>`).join('')}</span>` : ''}
       <span class="wt-tl-time">${time ? timeHTML(time) : ''}</span>
-    </button>`;
+    </div>`;
 }
 function stopItem(trip, s) {
   const stay = kindOf(s) === 'hotel' && staysOf(trip).find(st => st.s === s);
@@ -747,7 +766,7 @@ for (const t of ['touchend', 'touchcancel']) document.addEventListener(t, () => 
 document.addEventListener('click', e => {
   if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
   // Peeking, the sheet is the day bar: its buttons work, and a tap anywhere else on it opens it to half.
-  if (state.snap === 'peek' && e.target.closest('.wt-sheet') && !e.target.closest('button, a')) { e.stopPropagation(); setSnap('half'); }
+  if (state.snap === 'peek' && e.target.closest('.wt-sheet') && !e.target.closest('button, a, .wt-tl-stop')) { e.stopPropagation(); setSnap('half'); }
 }, true);
 addEventListener('resize', () => {
   if (!$app.dataset.trip) return;
@@ -1069,6 +1088,7 @@ function openSpotSheet(trip, spot) {
     <form>
       <label class="wt-field"><span class="wt-field__label">Place</span><input class="wt-input" name="title" type="search" placeholder="Search a place" autocomplete="off" required></label>
       <ul class="wt-results"></ul>
+      <a class="wt-field__link" data-place-link target="_blank" rel="noopener" hidden>${ICON.external}View in Google Maps</a>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
       <label class="wt-field"><span class="wt-field__label" data-when>When</span><input class="wt-input" name="time" type="datetime-local" required></label>
@@ -1081,10 +1101,13 @@ function openSpotSheet(trip, spot) {
       <ul class="wt-options" role="radiogroup" aria-label="Type">${Object.entries(KINDS).map(option).join('')}</ul>
     </div>`, el => {
     const results = el.querySelector('.wt-results'), f = el.querySelector('form'), F = f.elements;
+    const placeLink = el.querySelector('[data-place-link]');
+    // Once there's a place, a link under the field opens it in Google Maps
+    const showPlaceLink = () => { placeLink.href = placeURL(draft); placeLink.hidden = draft.lat == null; };
     const main = el.querySelector('.stop-main'), kindsPage = el.querySelector('.stop-kinds'), picker = el.querySelector('[data-kind-open]');
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!spot;
-    if (spot) { F.title.value = spot.name; F.time.value = spot.time; F.note.value = spot.note || ''; }
+    if (spot) { F.title.value = spot.name; F.time.value = spot.time; F.note.value = spot.note || ''; showPlaceLink(); }
     else { F.time.value = defaultTime(trip); setTimeout(() => F.title.focus(), 280); }
 
     // ----- Type: the picker row, and its page -----
@@ -1192,6 +1215,7 @@ function openSpotSheet(trip, spot) {
       Object.assign(draft, { lat: +p.lat, lng: +p.lon, address: pl.address, name: pl.name });
       F.title.value = pl.name;
       results.innerHTML = '';
+      showPlaceLink();
       if (!chosen) setKind(guessKind(pl.name, `${p.category}:${p.type}`));
       else drawMap(trip);
       focusSpot(draft);
@@ -1258,7 +1282,7 @@ document.addEventListener('click', e => {
   switch (el.dataset.action) {
     case 'new-trip': openNewTrip(); break;
     case 'add': openSpotSheet(trip); break;
-    case 'select': if (spot) selectSpot(spot, el.dataset.row); break;
+    case 'select': if (spot && !e.target.closest('a')) selectSpot(spot, el.dataset.row); break; // a link in its note opens on its own
     case 'edit': if (spot) openSpotSheet(trip, spot); break;
     case 'settings': openSettings(trip); break;
     case 'prev-day': stepDay(-1); break;
@@ -1287,8 +1311,8 @@ document.addEventListener('keydown', e => {
     }
     closeSheet();
   }
-  // A drive row is focusable: Enter or Space shows its route, like a tap
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.wt-tl-drive')) { e.preventDefault(); e.target.click(); }
+  // Stop and drive rows are focusable: Enter or Space selects the stop or shows the drive's route, like a tap
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.wt-tl-stop, .wt-tl-drive')) { e.preventDefault(); e.target.click(); }
   // ← → change day, unless typing or a sheet is open
   if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !$sheets.innerHTML && !e.target.closest('input, textarea')) stepDay(e.key === 'ArrowRight' ? 1 : -1);
 });

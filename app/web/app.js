@@ -35,7 +35,7 @@ const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(-
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // ---------- Icons (design system) ----------
-const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin']
+const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'edit', 'car', 'external', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin']
   .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
@@ -353,6 +353,10 @@ function directionsURL(from, to) {
     ? `https://maps.apple.com/?saddr=${from.lat},${from.lng}&daddr=${to.lat},${to.lng}&dirflg=d`
     : `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}&travelmode=driving`;
 }
+// A place in Google Maps, to see that it's the right one and whether it's worth going: photos, reviews, hours.
+// Google on every phone, since that's where the photos and reviews are. Found by name and address, which opens the place
+// itself; its coordinates alone would open only a dropped pin.
+const placeURL = p => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.name, p.address].filter(Boolean).join(', '))}`;
 
 // ---------- Trips ----------
 let tripLoad = null; // the id being fetched, so a slow reply for a trip you've left is dropped
@@ -1208,16 +1212,31 @@ function driveItem(day, leg) {
     </div>`,
   };
 }
+// Links in a note can be tapped. Each shows only its site (booking.com), so a long link doesn't fill the row;
+// punctuation right after one ("see https://…).") stays text.
+const LINK_RE = /\bhttps?:\/\/[^\s<>"']+/gi;
+function noteHTML(text) {
+  let html = '', at = 0;
+  for (const m of text.matchAll(LINK_RE)) {
+    const url = m[0].replace(/[.,;:!?)\]}，。；：！？）】」』]+$/, '');
+    let site;
+    try { site = new URL(url).hostname.replace(/^www\./, ''); } catch { continue; }
+    html += `${esc(text.slice(at, m.index))}<a href="${esc(url)}" target="_blank" rel="noopener">${esc(site)}</a>`;
+    at = m.index + url.length;
+  }
+  return html + esc(text.slice(at));
+}
 // A stop row: marker · name · time, with its notes below across the name and time. A hotel on its check-in day says how many nights.
 // A row from another day than the one on screen can say which day in place of the time.
 // Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Edit stop. Tapping it again keeps it selected.
+// It's a div acting as a button, like a drive, since a link in its note can't sit inside a <button>.
 function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
   const notes = note.filter(Boolean);
-  return `<button class="wt-tl-stop${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${esc(s.id)}" data-row="${esc(key)}" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
+  return `<div class="wt-tl-stop${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${esc(s.id)}" data-row="${esc(key)}" tabindex="0" role="button" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
       <span class="wt-tl-rail">${markerHTML(s, 'wt-tl-marker')}</span>
-      <span class="wt-tl-name">${esc(s.name)}</span>${notes.length ? `<span class="wt-tl-notes">${notes.map(n => `<span class="wt-tl-note">${esc(n)}</span>`).join('')}</span>` : ''}
+      <span class="wt-tl-name">${esc(s.name)}</span>${notes.length ? `<span class="wt-tl-notes">${notes.map(n => `<span class="wt-tl-note">${noteHTML(n)}</span>`).join('')}</span>` : ''}
       <span class="wt-tl-time">${time ? timeHTML(time) : ''}${timeDay ? `<span class="wt-tl-time__day">${esc(timeDay)}</span>` : ''}</span>
-    </button>`;
+    </div>`;
 }
 // `note` false leaves out the stop's own note (the overview), keeping a hotel's nights.
 function stopItem(trip, s, { note = true } = {}) {
@@ -1592,7 +1611,7 @@ for (const t of ['touchend', 'touchcancel']) document.addEventListener(t, () => 
 document.addEventListener('click', e => {
   if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
   // Peeking, the sheet is the day bar: its buttons work, and a tap anywhere else on it opens it to half.
-  if (state.snap === 'peek' && !isWide() && e.target.closest('.wt-sheet') && !e.target.closest('button, a')) { e.stopPropagation(); setSnap('half'); }
+  if (state.snap === 'peek' && !isWide() && e.target.closest('.wt-sheet') && !e.target.closest('button, a, .wt-tl-stop')) { e.stopPropagation(); setSnap('half'); }
 }, true);
 addEventListener('resize', () => {
   $sheets.classList.toggle('wt-modal-root--side', isWide());
@@ -2061,7 +2080,8 @@ function openStopSheet(trip, stop) {
   openSheet(`<div class="stop-main">${modalHead(stop ? 'Edit stop' : 'Add stop', true)}
     <form>
       <div class="wt-field"><span class="wt-field__label" id="place-label">Place</span>
-        <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button></div>
+        <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button>
+        <a class="wt-field__link" data-place-link target="_blank" rel="noopener" hidden>${ICON.external}View in Google Maps</a></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
       <label class="wt-field"><span class="wt-field__label" data-when>When</span><input class="wt-input" name="time" type="datetime-local" required></label>
@@ -2175,7 +2195,7 @@ function openStopSheet(trip, stop) {
     // Apple Maps: the field starts with the place's name, suggestions fill the page (each with the marker of the
     // type it would get), and tapping one fills it in and comes back. Cancel (or Esc) comes back unchanged; for a
     // new stop with no place yet, it closes the sheet. A new stop opens on this page. Picking moves the pin there.
-    const placeRow = el.querySelector('[data-place-open]'), placePage = el.querySelector('.stop-place');
+    const placeRow = el.querySelector('[data-place-open]'), placeLink = el.querySelector('[data-place-link]'), placePage = el.querySelector('.stop-place');
     const input = placePage.querySelector('#stop-place'), box = input.closest('.wt-search');
     const spinner = box.querySelector('.wt-spinner'), clear = box.querySelector('.wt-search__clear');
     const list = placePage.querySelector('.wt-results'), status = placePage.querySelector('[data-place-status]');
@@ -2187,6 +2207,8 @@ function openStopSheet(trip, stop) {
 
     const showPlace = () => {
       placeRow.innerHTML = `<span class="wt-picker__value"><span class="wt-picker__name">${esc(draft.name)}</span>${draft.address ? `<span class="wt-picker__detail">${esc(draft.address)}</span>` : ''}</span>${ICON.forward}`;
+      placeLink.href = placeURL(draft);
+      placeLink.hidden = false;
     };
     // The search page takes the sheet's place, and on a phone the whole screen, like a maps app's search
     let placeScroll = 0;
@@ -2365,7 +2387,7 @@ document.addEventListener('click', e => {
   switch (el.dataset.action) {
     case 'new-trip': openNewTrip(); break;
     case 'add': openStopSheet(trip); break;
-    case 'select': if (stop) selectStop(stop, el.dataset.row); break;
+    case 'select': if (stop && !e.target.closest('a')) selectStop(stop, el.dataset.row); break; // a link in its note opens on its own
     case 'edit': if (stop) openStopSheet(trip, stop); break;
     case 'settings': openSettings(trip); break;
     case 'prev-day': stepDay(-1); break;
@@ -2396,8 +2418,8 @@ document.addEventListener('keydown', e => {
     }
     closeSheet();
   }
-  // A drive row is focusable: Enter or Space shows its route, like a tap
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.wt-tl-drive')) { e.preventDefault(); e.target.click(); }
+  // Stop and drive rows are focusable: Enter or Space selects the stop or shows the drive's route, like a tap
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.wt-tl-stop, .wt-tl-drive')) { e.preventDefault(); e.target.click(); }
   // ← → change day on the trip screen, unless typing or a sheet is open
   if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && $app.dataset.trip && !$sheets.innerHTML && !e.target.closest('input, textarea')) stepDay(e.key === 'ArrowRight' ? 1 : -1);
 });
