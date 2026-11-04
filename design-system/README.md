@@ -295,7 +295,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
 - **The day before's last stop:** with no hotel the night before, a day opens with that stop, at its own time. `.wt-tl-time__day` under the time says which day it was: "Yesterday", or the weekday ("Sat").
 - **Drive** (`.wt-tl-drive`): a car on the rail, "1 hr 49 min drive", and a Directions button that opens the phone's maps app.
-  - The Directions button is a filled grey circle, the only part of the row that looks like a control. The row has no hover or press look, so tapping it doesn't seem to press the button.
+  - The Directions button is a pale grey circle with a grey icon, the only part of the row that looks like a control; it darkens on hover and press. The row has no hover or press look, so tapping it doesn't seem to press the button.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
 - **States:**

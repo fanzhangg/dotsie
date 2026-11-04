@@ -94,7 +94,7 @@ A selected stop (tapped, or picked on the map) gets a light grey background and 
 
 A drive is a row between two places: a small grey car on the rail, **`1 hr 49 min drive`**, and a Directions icon (a road-sign arrow) on the right, where stops have their time.
 
-- **The Directions icon** opens the drive in the phone's maps app (see [Handing off navigation](#handing-off-navigation)). It sits in a filled grey circle, so it reads as a button. It's the only part of the row that looks pressable: the row has no hover or press highlight, so tapping the row never looks like tapping Directions.
+- **The Directions icon** opens the drive in the phone's maps app (see [Handing off navigation](#handing-off-navigation)). It sits in a pale grey circle, so it reads as a button without outranking the stops. It's the only part of the row that looks pressable: the row has no hover or press highlight, so tapping the row never looks like tapping Directions.
 - **Tapping the rest of the row** shows that route on the map. On a computer, hovering it previews the route.
 - **When a drive doesn't fit** in the gap between the two stops, its time turns red and a second line says by how much: `Arrives 49 min late`.
 

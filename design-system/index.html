@@ -426,7 +426,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li><b>Hotel</b> at the start or end of a day is a stop row with an empty <code>.wt-tl-time</code>. Only check-out morning gets a note: <i>Check out</i>.</li>
         <li><b>Drive</b> (<code>.wt-tl-drive</code>): <i>1 hr 49 min drive</i>, and the Directions button. The first drive of a day with no hotel the night before says where it starts (<code>__from</code>).</li>
         <li><b>Selected</b> (<code>is-selected</code> on a stop, <code>is-active</code> on a drive) matches a pin or route tapped on the map. A stop is grey with an ink outline, not blue: blue belongs to routes. A drive gets no box; its car turns the selected route's blue.</li>
-        <li><b>Directions</b> (<code>__go</code>) is a filled grey circle, the only part of a drive row that looks like a control. The row itself has no hover or press look.</li>
+        <li><b>Directions</b> (<code>__go</code>) is a pale grey circle with a grey icon, the only part of a drive row that looks like a control; it darkens on hover and press. The row itself has no hover or press look.</li>
         <li><b>Today</b>: the row happening now gets <code>is-now</code>, tinted with its color on the map (a stop's type, a drive's route). Rows before it get <code>is-past</code> and dim. Every row on an earlier day is past.</li>
         <li><b>Late</b> (<code>is-late</code>) turns the drive time red and adds <code>__late</code>: <i>Arrives 13 min late</i>. That's the only warning.</li>
         <li><b>Flash</b> (<code>is-flash</code>) marks a stop a co-editor just changed, once.</li>
