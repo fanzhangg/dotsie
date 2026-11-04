@@ -174,7 +174,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.7.1</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.8.1</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -506,6 +506,41 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li>Set <code>--wt-kind-color</code> to a <code>--wt-kind-*</code> token, on the marker or on a parent. Without one, the marker is grey (<code>place</code>).</li>
         <li><code>--sm</code> (20px) is for the day list. The rail uses the default (30px); pins are 28px, and 36px when selected.</li>
         <li>The marker has <code>role="img"</code> and an <code>aria-label</code> with the type, so color is never the only signal.</li>
+      </ul>
+
+      <h3>All days</h3>
+      <p class="intro">The overview, before the first day: every day under its name (<code>.wt-tl-day</code>), with its stops and their times. Tap a day's name to open it.</p>
+      <div class="demo">
+        <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
+          <div class="wt-tl">
+            <button class="wt-tl-day" type="button" aria-label="Fri, Nov 20. Open this day"><span class="wt-tl-day__name">Fri, Nov 20</span><i data-icon="forward"></i></button>
+            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-travel)">
+              <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Airport"><i data-icon="plane"></i></i></span>
+              <span class="wt-tl-name">El Paso International Airport</span>
+              <span class="wt-tl-time">10:30<span class="wt-tl-meridiem">AM</span></span>
+            </button>
+            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-stay)">
+              <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span>
+              <span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-notes"><span class="wt-tl-note">2 nights</span></span>
+              <span class="wt-tl-time">3:00<span class="wt-tl-meridiem">PM</span></span>
+            </button>
+            <button class="wt-tl-day" type="button" aria-label="Sat, Nov 21. Open this day"><span class="wt-tl-day__name">Sat, Nov 21</span><i data-icon="forward"></i></button>
+            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-sight)">
+              <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span>
+              <span class="wt-tl-name">New Mexico Museum of Space History</span>
+              <span class="wt-tl-time">9:30<span class="wt-tl-meridiem">AM</span></span>
+            </button>
+            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-food)">
+              <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span>
+              <span class="wt-tl-name">Cloudcroft</span>
+              <span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <ul class="rules">
+        <li><b>Day headings</b> sit in the timeline, between the days' stops, with a <code>forward</code> icon: tapping one opens that day. They're a label, not a name: small grey capitals (<code>--wt-type-overline</code>), starting at the list's left edge, where the markers start, so a date never reads as a stop. They're not on the rail, so each day's rail runs from its first stop to its last.</li>
+        <li><b>Stops only.</b> Drives and notes stay on the day's own page; a hotel keeps its nights, and check-out morning its <i>Check out</i>. Selecting, <code>is-now</code> and <code>is-past</code> work as on a day. A past day's heading dims with its stops (<code>is-past</code>).</li>
       </ul>
     </section>
 
@@ -873,7 +908,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v4.5.1 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v4.8.1 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -1009,6 +1044,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ['--wt-type-label', 'Add stop', 'Buttons, pin labels'],
     ['--wt-type-caption', 'UA 1234 lands · rental car at Hertz', 'Notes, drives, field labels'],
     ['--wt-type-caption-strong', 'Arrives 13 min late', 'A late drive'],
+    ['--wt-type-overline', 'Fri, Nov 20', 'Day headings in All days, in capitals'],
     ['--wt-type-micro', 'AM', 'AM / PM, initials'],
     ['--wt-type-input', 'Search a place', 'Form fields'],
   ];
@@ -1056,7 +1092,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
   function renderStatic() {
     document.getElementById('type-specimens').innerHTML = TYPE.map(([t, sample, use]) => `
       <div class="type-row"><div class="type-row__meta"><code>${t.replace('--wt-type-', '')}</code><span>${use}</span><span class="mono" data-font="${t}"></span></div>
-      <div class="type-row__sample" style="font: var(${t});${t.endsWith('display') ? ' letter-spacing: var(--wt-tracking-display);' : ''}${t.endsWith('time') ? ' font-variant-numeric: tabular-nums;' : ''}">${sample}</div></div>`).join('');
+      <div class="type-row__sample" style="font: var(${t});${t.endsWith('display') ? ' letter-spacing: var(--wt-tracking-display);' : ''}${t.endsWith('overline') ? ' letter-spacing: var(--wt-tracking-caps); text-transform: uppercase;' : ''}${t.endsWith('time') ? ' font-variant-numeric: tabular-nums;' : ''}">${sample}</div></div>`).join('');
     document.getElementById('space-scale').innerHTML = SPACE.map(n => `
       <div class="space-row"><code>--wt-space-${n}</code><span class="mono" data-len="--wt-space-${n}"></span><div class="space-row__bar" style="width: calc(var(--wt-space-${n}) * 4)"></div></div>`).join('');
     document.getElementById('radius-scale').innerHTML = RADII.map(([n, use]) => `

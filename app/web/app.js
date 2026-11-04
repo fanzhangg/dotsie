@@ -145,17 +145,17 @@ function daysOf(trip) {
   for (const st of staysOf(trip)) for (let d = st.checkIn; d <= st.checkOut; d = addDays(d, 1)) days.add(d);
   return [...days].sort();
 }
-// Is today one of the trip's days? Then the trip opens on today, with what's happening now highlighted.
-function onTrip(trip) {
-  const days = daysOf(trip), today = nowStamp().slice(0, 10);
-  return days.length > 0 && today >= days[0] && today <= days.at(-1);
-}
-// Today on a trip day, else the first day. If the day's stops are gone (deleted, moved), the next day that has some.
+// The overview: every day of the trip on one page, before the first day. The day bar steps through the pages.
+const ALL = 'all';
+const pagesOf = trip => { const days = daysOf(trip); return days.length ? [ALL, ...days] : []; };
+// Today, when it's one of the trip's days, with what's happening now highlighted; else the overview.
+// If the day's stops are gone (deleted, moved), the next day that has some.
 function currentDay(trip) {
   const days = daysOf(trip);
   if (!days.length) return null;
-  if (!state.day) state.day = onTrip(trip) ? nowStamp().slice(0, 10) : days[0];
-  if (!days.includes(state.day)) state.day = days.find(d => d > state.day) || days.at(-1);
+  const today = nowStamp().slice(0, 10);
+  if (!state.day) state.day = days.includes(today) ? today : ALL;
+  if (state.day !== ALL && !days.includes(state.day)) state.day = days.find(d => d > state.day) || days.at(-1);
   return state.day;
 }
 const dayStops = (trip, day) => stopsOf(trip).filter(s => dayOf(s) === day);
@@ -189,6 +189,11 @@ function dayLegs(trip, day) {
   }
   return legs;
 }
+// A page's places, drives and rows: one day's, or on the overview every day's, in order. Leg and row keys are
+// unique across the trip, so the overview's map works like a day's.
+const planOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayPlan(trip, d)) : dayPlan(trip, day));
+const legsOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayLegs(trip, d)) : dayLegs(trip, day));
+const itemsOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayItems(trip, d)) : dayItems(trip, day));
 
 // ---------- Stop types: an icon each, and a color per group, shared by the list marker and the map pin ----------
 // The colors skip blue (routes) and red (a drive that doesn't fit). Keep the keys in sync with KINDS in src/trip.ts.
@@ -533,6 +538,7 @@ function render() {
   bar.hidden = !trip.stops.length;
   const newDay = renderList(trip);
   renderAddBar(trip);
+  el.querySelector('.wt-sheet__grab').setAttribute('aria-label', grabLabel());
   if (!el.querySelector('.wt-sheet').style.height || topH !== el.querySelector('.wt-sheet__top').offsetHeight) applySnap();
   // the focused row in the middle of the list: at once on a new day, or else moved there if the plan moved it
   centerFocus(newDay ? { force: true, animate: false } : {});
@@ -989,10 +995,12 @@ function preloadTrip() {
   if (!map || !trip || $app.dataset.trip !== trip.id) return;
   const d0 = currentDay(trip);
   if (!d0) return;
-  // the next day, then the one before, then outward
-  const dist = d => Math.abs(daysBetween(d0, d)) * 2 - (d > d0 ? 1 : 0);
-  const days = daysOf(trip).filter(d => d !== d0).sort((a, b) => dist(a) - dist(b));
+  // the next page, then the one before, then outward. The overview is a page too: its drives are every day's.
+  const pages = pagesOf(trip), i0 = pages.indexOf(d0);
+  const dist = d => { const i = pages.indexOf(d); return Math.abs(i - i0) * 2 - (i > i0 ? 1 : 0); };
+  const days = pages.filter(d => d !== d0).sort((a, b) => dist(a) - dist(b));
   for (const d of days) {
+    if (d === ALL) continue;
     const plan = dayPlan(trip, d);
     for (let i = 1; i < plan.length; i++) getRoute(plan[i - 1].place, plan[i].place, { background: true });
   }
@@ -1029,6 +1037,7 @@ function mountTrip(trip) {
   teardownTrip();
   $app.dataset.trip = trip.id;
   $app.dataset.page = 'trip';
+  scrollTo(0, 0); // Home may have been scrolled; the trip screen starts at the top of the window
   // The plan is the page: a header with the trip's name, the map, and a sheet with one day of the plan.
   // On a phone the header spans the top and the sheet is half or all of the screen below it, with Map/List in
   // the header to switch. On a wide screen the header and the sheet are a side panel next to the map.
@@ -1163,8 +1172,11 @@ function dayFramed() {
 function updateFitBtn() {
   const btn = $app.querySelector('.trip-fit');
   if (!btn) return;
-  const trip = cur?.stops ? cur : null;
-  btn.hidden = !map || !trip || !currentDay(trip) || !!state.draft || (!isWide() && state.snap === 'full') || (dayShown && !state.leg);
+  const trip = cur?.stops ? cur : null, day = trip && currentDay(trip);
+  btn.hidden = !map || !day || !!state.draft || (!isWide() && state.snap === 'full') || (dayShown && !state.leg);
+  // on the overview, it's the whole trip
+  const label = day === ALL ? ['Whole trip', 'Show the whole trip on the map'] : ['Whole day', 'Show the whole day on the map'];
+  if (btn.title !== label[0]) { btn.title = label[0]; btn.setAttribute('aria-label', label[1]); }
 }
 function showWholeDay() {
   state.leg = null;
@@ -1207,10 +1219,11 @@ function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
       <span class="wt-tl-time">${time ? timeHTML(time) : ''}${timeDay ? `<span class="wt-tl-time__day">${esc(timeDay)}</span>` : ''}</span>
     </button>`;
 }
-function stopItem(trip, s) {
+// `note` false leaves out the stop's own note (the overview), keeping a hotel's nights.
+function stopItem(trip, s, { note = true } = {}) {
   const stay = kindOf(s) === 'hotel' && staysOf(trip).find(st => st.s === s);
   const nights = stay && `${stay.nights} ${stay.nights === 1 ? 'night' : 'nights'}`;
-  return { start: s.time, html: row => stopRow(s, row, [nights, s.note], s.time) };
+  return { start: s.time, html: row => stopRow(s, row, [nights, note && s.note], s.time) };
 }
 // The hotel at either end of a day: where you wake up, and where you go back to at night. It has no time,
 // except on check-out morning, the one with something to do: `Check out`, at the check-out time. Tapping it selects the hotel.
@@ -1232,7 +1245,7 @@ const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.s
 // to the drive's end in the maps app. Either way a small + beside it keeps adding one tap away.
 function addBarHTML(trip) {
   const s = selectedStop(trip);
-  const leg = !s && state.leg && dayLegs(trip, currentDay(trip)).find(l => l.key === state.leg);
+  const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
   if (leg) return `<a class="wt-btn wt-btn--primary wt-btn--block" href="${directionsURL(leg.from, leg.to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
   return s
     ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${esc(s.id)}">${ICON.edit}Edit stop</button><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
@@ -1263,9 +1276,28 @@ function dayItems(trip, day) {
   items.forEach((it, i) => { it.past = day < today || i < cur; it.now = i === cur; });
   return items;
 }
+// The overview: every day under its name, with its stops and their times, so the whole trip reads at a glance.
+// Drives and notes are left to the day's own page (the map still shows every drive). A day with no stops of its own,
+// in the middle of a stay, shows the hotel you wake up at. Tapping a day's name opens the day; tapping a stop
+// selects it, as on a day. Past and now are worked out as on a day, among the rows shown.
+function overviewItems(trip) {
+  const now = nowStamp(), today = now.slice(0, 10), items = [];
+  for (const d of daysOf(trip)) {
+    const plan = dayPlan(trip, d);
+    let rows = plan.filter(e => e.role === 'stop' || e.role === 'checkout');
+    if (!rows.length) rows = plan.filter(e => e.role === 'wake');
+    const its = rows.map(e => ({ entry: e, ...(e.role === 'stop' ? stopItem(trip, e.place, { note: false }) : hotelItem(d, e)) }));
+    const at = d === today ? its.findLastIndex(it => it.start <= now) : -1;
+    its.forEach((it, i) => { it.past = d < today || i < at; it.now = i === at; });
+    items.push({ html: () => dayHeadHTML(d, d < today) }, ...its);
+  }
+  return items;
+}
+const dayHeadHTML = (d, past) => `<button class="wt-tl-day${past ? ' is-past' : ''}" data-action="pick-day" data-day="${d}" aria-label="${dayName(d)}. Open this day">
+    <span class="wt-tl-day__name">${dayName(d)}</span>${ICON.forward}</button>`;
 function listHTML(trip, day) {
   if (!day) return '<p class="wt-empty">Add a flight, a hotel, or a place to see.</p>';
-  const items = dayItems(trip, day);
+  const items = day === ALL ? overviewItems(trip) : dayItems(trip, day);
   if (!items.length) return '<p class="wt-empty">Nothing planned this day yet.</p>';
   // Only one row is selected: the one tapped, or, from a pin, the stop's first row (a hotel can start and end the day)
   const rows = items.filter(it => it.entry?.place.id === state.sel);
@@ -1292,9 +1324,9 @@ function renderList(trip) {
 // Keep the highlight and the dimming current while the trip is open.
 setInterval(() => { if ($app.dataset.trip) scheduleRender(); }, 60000);
 
-// ---------- Day bar: ‹ day › to step, or tap the day to pick from all of them ----------
+// ---------- Day bar: ‹ day › to step, or tap the day to pick from all of them. All days comes before the first. ----------
 function dayBarHTML(trip) {
-  const days = daysOf(trip), d = currentDay(trip), i = days.indexOf(d);
+  const days = pagesOf(trip), d = currentDay(trip), i = days.indexOf(d);
   if (!d) return '';
   return `<button class="wt-icon-btn wt-day-bar__step" data-action="prev-day" aria-label="Previous day"${i > 0 ? '' : ' disabled'}>${ICON.back}</button>
     <button class="wt-day-bar__title" data-action="days" aria-label="${dayName(d)}. Pick a day">
@@ -1302,15 +1334,15 @@ function dayBarHTML(trip) {
     </button>
     <button class="wt-icon-btn wt-day-bar__step" data-action="next-day" aria-label="Next day"${i < days.length - 1 ? '' : ' disabled'}>${ICON.forward}</button>`;
 }
-// "Today, Nov 21" on today, so it's easy to find your way back to it; otherwise "Sat, Nov 21".
-const dayName = d => (d === nowStamp().slice(0, 10) ? `Today, ${fmtDay(d).split(', ')[1]}` : fmtDay(d));
-// Every day of the trip, with the icons of its stops and the hotel you sleep at, so you can see what each day holds.
+// "Today, Nov 21" on today, so it's easy to find your way back to it; otherwise "Sat, Nov 21". The overview is "All days".
+const dayName = d => (d === ALL ? 'All days' : d === nowStamp().slice(0, 10) ? `Today, ${fmtDay(d).split(', ')[1]}` : fmtDay(d));
+// All days, then every day of the trip, with the icons of its stops and the hotel you sleep at, so you can see what each day holds.
 function openDays(trip) {
   const cur = currentDay(trip);
   openSheet(`${modalHead('Days')}
-    <ul class="wt-day-list">${daysOf(trip).map(d => {
-      const places = [...new Set(dayPlan(trip, d).filter(e => e.role === 'stop' || e.role === 'night').map(e => e.place))];
-      return `<li><button class="wt-day-list__item" data-action="pick-day" data-day="${d}"${d === cur ? ' aria-current="date"' : ''}>
+    <ul class="wt-day-list">${pagesOf(trip).map(d => {
+      const places = d === ALL ? [] : [...new Set(dayPlan(trip, d).filter(e => e.role === 'stop' || e.role === 'night').map(e => e.place))];
+      return `<li><button class="wt-day-list__item" data-action="pick-day" data-day="${d}"${d === cur ? ` aria-current="${d === ALL ? 'page' : 'date'}"` : ''}>
         <span class="wt-day-list__name">${dayName(d)}</span>
         <span class="wt-day-list__kinds">${places.slice(0, 6).map(x => markerHTML(x, 'wt-marker--sm')).join('')}</span>
       </button></li>`;
@@ -1318,7 +1350,7 @@ function openDays(trip) {
 }
 function setDay(d) {
   const trip = cur?.stops ? cur : null;
-  if (!trip || !daysOf(trip).includes(d) || d === state.day) return;
+  if (!trip || !pagesOf(trip).includes(d) || d === state.day) return;
   state.day = d;
   state.sel = state.selRow = state.leg = state.hoverLeg = null;
   render();
@@ -1326,8 +1358,8 @@ function setDay(d) {
 function stepDay(n) {
   const trip = cur?.stops ? cur : null;
   if (!trip) return;
-  const days = daysOf(trip);
-  setDay(days[days.indexOf(currentDay(trip)) + n]);
+  const pages = pagesOf(trip);
+  setDay(pages[pages.indexOf(currentDay(trip)) + n]);
 }
 
 // Wide: the plan is a side panel (the design system's wt-trip container query), so there's nothing to snap or drag.
@@ -1353,6 +1385,8 @@ function snaps() {
   return { peek: Math.round($app.querySelector('.wt-sheet__top').offsetHeight + pad), half: Math.round(half), full: H - headBottom(), chrome };
 }
 const GRAB_LABEL = { peek: "Show the day's plan", half: 'Show the whole day', full: 'Show more of the map' };
+const GRAB_LABEL_ALL = { peek: "Show the trip's plan", half: 'Show the whole trip', full: 'Show more of the map' };
+const grabLabel = () => (state.day === ALL ? GRAB_LABEL_ALL : GRAB_LABEL)[state.snap];
 // `animate`: slide to the new height (a new snap); otherwise it's placed there at once (a first render, a resize).
 function applySnap(animate = false) {
   const trip = $app.querySelector('.trip'), sheet = trip?.querySelector('.wt-sheet');
@@ -1365,7 +1399,7 @@ function applySnap(animate = false) {
   sheet.classList.toggle('is-peek', !wide && state.snap === 'peek');
   // The header floats over the map as a card; with the whole day showing, it docks and joins the list.
   trip.querySelector('.wt-trip-head').classList.toggle('is-docked', !wide && state.snap === 'full');
-  trip.querySelector('.wt-sheet__grab').setAttribute('aria-label', GRAB_LABEL[state.snap]);
+  trip.querySelector('.wt-sheet__grab').setAttribute('aria-label', grabLabel());
   // the day's view depends on the room the list leaves; a re-frame (setSnap) puts the camera there again
   if (map) { dayShown = dayFramed(); updateFitBtn(); }
 }
@@ -1629,18 +1663,19 @@ function drawMap(trip) {
   layer.clearLayers();
   // Only the day on screen, from its plan: the hotel at either end is a pin like any stop.
   // With no hotel last night, the day before's last stop is a quiet pin, so the first drive leads somewhere.
+  // The overview draws every day this way: all the trip's places and drives. Its days' starts are stops of the day before, so none is quiet.
   const day = currentDay(trip);
   if (!day) { routeLayer.setRoutes([]); return drawDraft(); }
-  const plan = dayPlan(trip, day);
-  const start = plan.find(e => e.role === 'from')?.place;
-  const legs = dayLegs(trip, day);
+  const plan = planOn(trip, day);
+  const start = day === ALL ? null : plan.find(e => e.role === 'from')?.place;
+  const legs = legsOn(trip, day);
   const active = legs.find(l => l.key === (state.leg || state.hoverLeg));
   // The stop being edited is drawn where the draft puts it; if it has moved, its drives are out of date until it's saved.
   const draft = state.draft, editing = s => draft?.id && s.id === draft.id;
   const moved = draft?.id && draft.lat != null && plan.some(e => editing(e.place) && !samePlace(e.place, draft));
   const places = plan.map(e => e.place).filter(s => !editing(s));
   // what the list dims, the map dims: past drives go grey, and a place is past once all its rows are
-  const items = dayItems(trip, day);
+  const items = itemsOn(trip, day);
   const pastLeg = new Set(items.filter(it => it.leg && it.past).map(it => it.leg));
   const isPast = s => { const rows = items.filter(it => it.entry?.place === s); return rows.length > 0 && rows.every(it => it.past); };
   const C = { on: token('--wt-route-active'), muted: token('--wt-route-muted'), route: token('--wt-route'), done: token('--wt-route-done'), casing: token('--wt-route-casing') };
@@ -1702,20 +1737,20 @@ function drawMap(trip) {
 function frameMap(trip) {
   const day = currentDay(trip);
   if (!day) return;
-  const key = [trip.id, day, dayPlan(trip, day).length].join('|');
+  const key = [trip.id, day, planOn(trip, day).length].join('|');
   if (key === fitKey || state.draft) return;
   fitKey = key;
   camFree = false;
-  const leg = state.leg && dayLegs(trip, day).find(l => l.key === state.leg);
+  const leg = state.leg && legsOn(trip, day).find(l => l.key === state.leg);
   if (leg) return fitLeg(leg);
   const v = dayView(trip, day);
   if (v) moveCamera(v.center, v.zoom);
   dayShown = true;
 }
-// Where the camera goes for a day: around all its places, clear of the list. Preloading uses it to fetch the
-// tiles a day will land on, so it works the view out without moving the map.
+// Where the camera goes for a day (or the overview): around all its places, clear of the list. Preloading uses it to
+// fetch the tiles a day will land on, so it works the view out without moving the map.
 function dayView(trip, day) {
-  const pts = dayPlan(trip, day).map(e => [e.place.lat, e.place.lng]);
+  const pts = planOn(trip, day).map(e => [e.place.lat, e.place.lng]);
   if (!pts.length) return null;
   if (new Set(pts.map(String)).size === 1) return { center: L.latLng(pts[0]), zoom: 13 };
   // the side panel sits beside the map, not on it; on a phone, the list covers the bottom
@@ -1985,8 +2020,9 @@ function openAccount() {
 }
 
 // Two hours after the day's last stop; 9 AM on a day with none yet (a hotel day), or 9 AM tomorrow for an empty trip.
+// From the overview, the trip's last day: a stop added there most often extends the trip.
 function defaultTime(trip) {
-  const day = currentDay(trip), s = dayStops(trip, day);
+  const day = currentDay(trip) === ALL ? daysOf(trip).at(-1) : currentDay(trip), s = dayStops(trip, day);
   let d;
   if (s.length) { d = toDate(s.at(-1).time); d.setHours(Math.min(d.getHours() + 2, 22), 0, 0, 0); }
   else if (day) { d = toDate(day); d.setHours(9, 0, 0, 0); }
@@ -2283,7 +2319,7 @@ function openStopSheet(trip, stop) {
         name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
         kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? outTime : null,
       };
-      state.day = dayOf(data); // follow the stop to its day
+      if (state.day !== ALL) state.day = dayOf(data); // follow the stop to its day; the overview has every day
       saved = true;
       state.draft = null; // so the list and map show the saved stop, not the draft
       if (stop) editStop(trip, stop, data); else addStop(trip, data);
@@ -2337,7 +2373,7 @@ document.addEventListener('click', e => {
     case 'days': openDays(trip); break;
     case 'pick-day': closeSheet(); setDay(el.dataset.day); break;
     case 'leg': {
-      const l = dayLegs(trip, currentDay(trip)).find(x => x.key === el.dataset.leg);
+      const l = legsOn(trip, currentDay(trip)).find(x => x.key === el.dataset.leg);
       if (l) previewLeg(l);
       break;
     }

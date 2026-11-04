@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.5.0
+/* Waythread design system — tokens v1.6.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -275,7 +275,9 @@
   --wt-type-caption-strong: 500 13px/18px var(--wt-font-sans); /* a late drive's "Arrives 13 min late" */
   --wt-type-micro: 500 11px/14px var(--wt-font-sans);     /* AM / PM, avatar initials */
   --wt-type-input: 400 16px/22px var(--wt-font-sans);     /* 16px stops iOS zooming into fields */
+  --wt-type-overline: 600 12px/16px var(--wt-font-sans);  /* day headings in All days, in capitals */
   --wt-tracking-display: -.02em;
+  --wt-tracking-caps: .06em;                               /* text in capitals */
 
   /* Space: a 4px grid */
   --wt-space-1: 4px;

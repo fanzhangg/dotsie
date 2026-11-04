@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.7.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.8.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -139,6 +139,7 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 | `--wt-type-label` | 14 / 20 | 500 | Buttons and pin labels. A primary button is 600. |
 | `--wt-type-caption` | 13 / 18 | 400 | Notes, drives, field labels, hints. |
 | `--wt-type-caption-strong` | 13 / 18 | 500 | A late drive's "Arrives 13 min late". |
+| `--wt-type-overline` | 12 / 16 | 600 | Day headings in All days. Set in capitals, with `--wt-tracking-caps`. |
 | `--wt-type-micro` | 11 / 14 | 500 | AM/PM (in `--wt-text-tertiary`), avatar initials (600). |
 | `--wt-type-input` | 16 / 22 | 400 | Form fields. 16px stops iPhone zooming in. |
 
@@ -343,6 +344,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - `.wt-tl-drive__go`, a small Directions icon in the time column, is no longer used by the app (since 4.5.0); the prototype still has it. It can go in the next major version.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
+- **Day heading** (`.wt-tl-day`): the overview, **All days**, puts every day in one timeline, each day's stops under its name. See [All days](#all-days-wt-tl-day).
 - **States:**
 
   | State | On | Means |
@@ -356,9 +358,29 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 
   **One highlighted row at most.** A selection takes the highlight; with none, the row happening now has it (the CSS works this out with `:has()`, so scripts set the classes as before). The highlight is the same for stops and drives: `--wt-surface-current` behind the row, no outline, no blue. Text in a highlighted row steps up one ink: a stop's time and a drive's duration turn `--wt-text-primary`, and tertiary text (AM/PM, the rest of the drive) turns secondary, which keeps it at 4.5:1 on the darker grey. A highlighted drive's car turns `--wt-kind-drive-current`, and its Directions icon turns `--wt-text-primary`. Color stays on the rail, where the map's colors already are.
 
+### All days `.wt-tl-day`
+
+The overview: every day of the trip on one page, before the first day. Each day's stops go under a heading with the day's name.
+
+```html
+<div class="wt-tl">
+  <button class="wt-tl-day" aria-label="Fri, Nov 20. Open this day">
+    <span class="wt-tl-day__name">Fri, Nov 20</span>${icon('forward')}
+  </button>
+  <button class="wt-tl-stop">…</button>   <!-- the day's stops -->
+  <button class="wt-tl-day" aria-label="Sat, Nov 21. Open this day">…</button>
+  <!-- … -->
+</div>
+```
+
+- **The heading** is a row in the timeline with a `forward` icon on the right: tapping it opens that day. It's a label, not a name: `--wt-type-overline` in grey capitals (`text-transform` and `--wt-tracking-caps`; the text stays "Fri, Nov 20" for screen readers), starting at the list's left edge, where the markers start. Stop names are larger, black and indented past the rail, so a date never reads as a stop. It's at least `--wt-size-touch` tall, with its text at the bottom, next to the day's first stop.
+- **It isn't on the rail.** Each day's rail runs from its first stop's marker to its last; a day with one stop has no rail.
+- **Stops only:** marker, name, time. Drives and notes are left to the day's own page (the map still draws every drive). A hotel keeps its nights on its check-in day, and check-out morning is a row with `Check out`. A day with no stops of its own, in the middle of a stay, shows the hotel you wake up at.
+- `is-selected`, `is-now` and `is-past` work as on a day. A past day's heading gets `is-past` and dims with its stops.
+
 ### Day bar `.wt-day-bar` and day list `.wt-day-list`
 
-The day bar sits at the top of the sheet and steps through the trip one day at a time. Tapping the day opens the day list in a modal sheet.
+The day bar sits at the top of the sheet and steps through the trip one day at a time, with All days before the first day. Tapping the day opens the day list in a modal sheet.
 
 ```html
 <div class="wt-day-bar">
@@ -377,9 +399,9 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 </ul>
 ```
 
-- The title says "Today, Nov 21" on today, so it's easy to find your way back. Other days are "Sat, Nov 21".
-- Disable the previous arrow on the first day and the next arrow on the last.
-- The day list shows every day, with up to six small markers: the day's stops in order, then the hotel you sleep at. `aria-current="date"` marks the open day.
+- The title says "Today, Nov 21" on today, so it's easy to find your way back. Other days are "Sat, Nov 21", and the overview is "All days".
+- Disable the previous arrow on All days and the next arrow on the last day.
+- The day list shows All days, then every day, with up to six small markers: the day's stops in order, then the hotel you sleep at. `aria-current="date"` marks the open day (`"page"` on All days).
 
 ### Picker `.wt-picker`, options `.wt-options` and check-out
 
@@ -566,7 +588,7 @@ The name and dates only: enough to pick a trip.
   ```
 
   The late part shows only when the drive doesn't fit. Showing a route moves the map to fit it, with room for the labels; from a tap on the route itself, only when an end is out of view.
-- The map shows only the open day.
+- The map shows only the open day, or the whole trip on All days.
 - Stops at the same place, like a hotel in the morning and at night, share one pin.
 
 ### Empty state `.wt-empty`
@@ -582,11 +604,11 @@ Say what can go here, in the user's words. No illustrations.
 - **The trip screen.**
   - On a phone: `.wt-trip-head` across the top, the map under it, and `.wt-sheet` over the map at half height, or the whole day.
   - From 768px wide: the header and the sheet are a side panel on the left, and the map fills the rest. Modal sheets cover the panel. Fit the map with even padding: nothing covers it.
-  - One day at a time. The day bar steps through the days, and the map shows only the open day.
+  - One day at a time, after All days. The day bar steps through them, and the map shows only the open day; on All days, the whole trip.
   - A stop's marker is its pin: same icon, same color. The list and the map read as one without numbers.
   - Tapping a pin selects its stop (`is-selected`). Tapping a route, or its drive in the list, marks the drive `is-active` and shows the route: both ends named, its time on it, the map fitted to it. Tapping the drive again goes back to the whole day.
   - Editing a stop leaves the map in view (a panel), with the stop's pin showing the edit as it happens.
-- **Today.** During the trip, the trip opens on today.
+- **Today.** During the trip, the trip opens on today. On any other day, it opens on All days.
   - The row happening now is highlighted (`is-now`), unless another row is selected.
   - Rows before it dim (`is-past`), their routes turn grey (`--wt-route-done`), and their pins mute (`.wt-pin--muted`).
   - The hotel you go back to tonight stays bright.
@@ -638,7 +660,7 @@ Say what can go here, in the user's words. No illustrations.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
 
-### Fixed in 4.7.1
+### Fixed in 4.8.1
 
 Icons and text line up in columns. Before, the header's home icon, the day bar's ‹ and the timeline's markers sat at three different positions, and on the Type page the back button and title sat left of the markers and names under them.
 
@@ -648,16 +670,23 @@ Icons and text line up in columns. Before, the header's home icon, the day bar's
 - `.wt-picker`: its marker and chevron are on the same columns.
 - `.wt-results` no longer pulls its rows 8px past the field. Markers sit under the search icon, and the search icon's extra space starts the typed text where result names start.
 - `.wt-btn--danger` has a negative left margin of `--wt-space-1`, so its text starts at the content edge.
+- `.wt-tl-day` pads 16px on the right, centring its › on the Directions column.
+- Nothing was renamed or removed.
+
+### Added in 4.8.0
+
+A quieter type hierarchy: fewer weights, and a third ink. Before, the trip name, the day, every stop name, every time, every drive time and the button were all semibold or bold, so nothing led.
+
+- Weights (tokens 1.6.0): `title` and `heading` 700 → 600; `name` 600 → 500; `time` 600 → 400; `label` 600 → 500; `micro` 600 → 500. `display` stays 700. `.wt-btn--primary` and `.wt-avatar` set 600 themselves.
+- `--wt-text-tertiary` is new, for detail you look for rather than read: drives, AM/PM, "Yesterday", the credit line, the day bar's and picker's chevrons. `--wt-text-secondary` is a step darker to make room for it (light `gray-600`, dark the new `gray-350`), which also takes notes on the highlighted row from 4.2:1 to 5.7:1.
+- The highlighted timeline row steps its text up one ink: the stop's time turns primary, as the drive's duration already did, and tertiary turns secondary.
+- `.wt-option__label` is regular (was 500), and its `__match` 600 (was 700). `.wt-toast__action` and a checked `.wt-kinds__item` are 500 (were 600). The drive duration `b` is 500 (was 600). `<b>` and `<strong>` are 600 in `wt-base`.
 - Nothing was renamed or removed.
 
 ### Added in 4.7.0
 
-A quieter type hierarchy: fewer weights, and a third ink. Before, the trip name, the day, every stop name, every time, every drive time and the button were all semibold or bold, so nothing led.
-
-- Weights (tokens 1.5.0): `title` and `heading` 700 → 600; `name` 600 → 500; `time` 600 → 400; `label` 600 → 500; `micro` 600 → 500. `display` stays 700. `.wt-btn--primary` and `.wt-avatar` set 600 themselves.
-- `--wt-text-tertiary` is new, for detail you look for rather than read: drives, AM/PM, "Yesterday", the credit line, the day bar's and picker's chevrons. `--wt-text-secondary` is a step darker to make room for it (light `gray-600`, dark the new `gray-350`), which also takes notes on the highlighted row from 4.2:1 to 5.7:1.
-- The highlighted timeline row steps its text up one ink: the stop's time turns primary, as the drive's duration already did, and tertiary turns secondary.
-- `.wt-option__label` is regular (was 500), and its `__match` 600 (was 700). `.wt-toast__action` and a checked `.wt-kinds__item` are 500 (were 600). The drive duration `b` is 500 (was 600). `<b>` and `<strong>` are 600 in `wt-base`.
+- `.wt-tl-day`, with `__name`: a day's heading in the All days overview, which opens the day. Each day's rail stops at its heading.
+- Tokens (tokens.css 1.5.0): `--wt-type-overline` and `--wt-tracking-caps`, for the day headings.
 - Nothing was renamed or removed.
 
 ### Added in 4.6.0
