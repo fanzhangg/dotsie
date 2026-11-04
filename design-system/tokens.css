@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.3.0
+/* Waythread design system — tokens v1.4.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -22,6 +22,7 @@
   --wt-color-gray-500: #6b6b69;
   --wt-color-gray-600: #575755;
   --wt-color-gray-700: #3d3d3b;
+  --wt-color-gray-750: #333331;
   --wt-color-gray-800: #2a2a29;
   --wt-color-gray-850: #222221;
   --wt-color-gray-900: #1c1c1b;
@@ -60,7 +61,7 @@
   --wt-surface-raised: var(--wt-color-gray-0);      /* stop cards, modal sheets, inputs on focus */
   --wt-surface-sunken: var(--wt-color-gray-50);     /* resting inputs */
   --wt-surface-hover: var(--wt-color-gray-200);     /* pressed / hovered quiet controls */
-  --wt-surface-current: var(--wt-color-gray-100);   /* the timeline rows that matter: now, and selected */
+  --wt-surface-current: var(--wt-color-gray-200);   /* the timeline rows that matter: now, and selected */
   --wt-surface-inverse: #202124;                    /* toasts */
   --wt-surface-map: #e9eef1;                        /* map placeholder before tiles load */
 
@@ -143,7 +144,7 @@
     --wt-surface-raised: var(--wt-color-gray-900);
     --wt-surface-sunken: var(--wt-color-gray-850);
     --wt-surface-hover: var(--wt-color-gray-800);
-    --wt-surface-current: var(--wt-color-gray-850);
+    --wt-surface-current: var(--wt-color-gray-750);
     --wt-surface-inverse: var(--wt-color-gray-100);
     --wt-surface-map: #1d2226;
     --wt-text-primary: var(--wt-color-gray-100);
@@ -198,7 +199,7 @@
   --wt-surface-raised: var(--wt-color-gray-900);
   --wt-surface-sunken: var(--wt-color-gray-850);
   --wt-surface-hover: var(--wt-color-gray-800);
-  --wt-surface-current: var(--wt-color-gray-850);
+  --wt-surface-current: var(--wt-color-gray-750);
   --wt-surface-inverse: var(--wt-color-gray-100);
   --wt-surface-map: #1d2226;
   --wt-text-primary: var(--wt-color-gray-100);

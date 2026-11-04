@@ -89,7 +89,7 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-surface-raised` | The list sheet over the map, modal sheets, cards, focused inputs. The timeline sits on it. |
 | `--wt-surface-sunken` | Inputs at rest, and quiet panels. |
 | `--wt-surface-hover` | Pressed or hovered quiet controls. |
-| `--wt-surface-current` | The one highlighted timeline row: the selected one, or else the one happening now. The same for stops and drives. |
+| `--wt-surface-current` | The one highlighted timeline row: the selected one, or else the one happening now. The same for stops and drives. A clear step darker than `--wt-surface-raised` in both themes, so the highlight is easy to find. |
 | `--wt-surface-inverse` | Toasts. |
 | `--wt-surface-map` | The map before its tiles load. |
 | `--wt-text-primary` | Names, titles and running text. |
@@ -287,8 +287,6 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
       <span class="wt-tl-drive__what"><b>58 min</b> drive</span>
       <span class="wt-tl-drive__late">Arrives 13 min late</span>
     </span>
-    <a class="wt-icon-btn wt-tl-drive__go" href="…maps link…" target="_blank" rel="noopener"
-       aria-label="Directions to Oliver Lee Memorial State Park in your maps app">${icon('directions')}</a>
   </div>
   <!-- more stops and drives -->
 </div>
@@ -303,12 +301,12 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - Leave out `.wt-tl-notes` when there are none.
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
 - **The day before's last stop:** with no hotel the night before, a day opens with that stop. In place of a time, `.wt-tl-time__day` says which day it was: "Yesterday", or the weekday ("Sat").
-- **Drive** (`.wt-tl-drive`): a car on the rail, "1 hr 49 min drive", and a Directions button that opens the phone's maps app.
+- **Drive** (`.wt-tl-drive`): a car on the rail and "1 hr 49 min drive". Tapping it shows its route; Directions to the maps app goes in the add bar (see [the add bar](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)), not in the row.
   - **Hierarchy:** the drive's text is 13px and all grey, its duration semibold. Stop names are the only strong text in the list, so the day reads as its stops, with drives as the links between them. The drive you're on darkens its duration; a late drive turns it red.
   - **Spacing:** stops get `--wt-tl-pad` (14px) above and below their text; drives are a fixed 44px row. Change `--wt-tl-pad` on `.wt-tl` to tighten or loosen the list; the markers follow.
   - The car (`.wt-tl-car`) is a marker like a stop's: a 22px circle in `--wt-kind-drive` grey with the `car` icon in `--wt-marker-ink`. Smaller and greyer than any stop, so drives never outrank them. On the highlighted drive it turns a darker grey (`--wt-kind-drive-current`). Never blue: blue is for routes on the map.
-  - The Directions button is a small grey icon in the time column, with no fill until it's hovered or pressed, so it never competes with the stops. Its tap area is still 40px. The row has no hover or press look, so tapping it doesn't seem to press the button.
-  - On the highlighted drive, the icon turns dark (`--wt-text-primary`), like the duration. It stays the same size, with no label, so the row doesn't shift.
+  - Give the row `role="button"` and `aria-pressed` while its route is shown.
+  - `.wt-tl-drive__go`, a small Directions icon in the time column, is no longer used by the app (since 4.5.0); the prototype still has it. It can go in the next major version.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
 - **States:**
@@ -434,7 +432,8 @@ With a stop selected, the add bar holds Edit stop and a round `+` beside it:
 - **The map:** zooming it (pinch, double-tap, wheel) means you're looking at the map, so a half sheet goes down to peek. A new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin opens the sheet to half; showing a route from the whole day goes to half.
 - The top holds the grab handle and the day bar. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
-- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop with a round `+` beside it, so adding is always one tap away. It's still one primary button.
+- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop with a round `+` beside it, so adding is always one tap away. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
+- Tapping a selected stop or a shown drive again keeps it selected.
 - On today, scroll the list so the `is-now` row sits a little above the middle.
 
 **On a wide screen it's a side panel.** Make the element that holds the header, map and sheet a size container named `wt-trip`:
@@ -608,6 +607,12 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 4.5.0
+
+- The highlighted timeline row is easier to see: `--wt-surface-current` is `gray-200` in light and the new `gray-750` primitive in dark (tokens 1.4.0).
+- Drives lose their Directions icon in the app: tapping a drive puts a Directions button in the add bar instead. `.wt-tl-drive__go` stays for the prototype.
+- Nothing was renamed or removed.
 
 ### Added in 4.4.0
 

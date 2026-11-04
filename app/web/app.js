@@ -971,29 +971,28 @@ const markerHTML = (s, cls) => `<i class="wt-marker ${cls}" role="img" aria-labe
 
 // ---------- Timeline: rail · stop · time. Each stop's marker is its pin on the map: same icon, same color. ----------
 const gapMin = (a, b) => (toDate(b.time) - toDate(a.time)) / 60000;
-// A drive reads as a sentence ("1 hr 49 min drive"), with a small car on the rail, says when it won't make it,
-// and has a Directions icon button. Tapping the row shows the route on the map.
+// A drive reads as a sentence ("1 hr 49 min drive"), with a small car on the rail, and says when it won't make it.
+// Tapping the row shows the route on the map, and the bar below the list offers Directions in the maps app.
 // Rows take `row`: { key, past (over: dimmed), now (happening now: highlighted), sel (the selected row) }.
 const rowState = (past, now) => `${past ? ' is-past' : ''}${now ? ' is-now' : ''}`;
 function driveItem(day, leg) {
-  const { r, from, to, fromEntry, toEntry } = leg, late = lateMin(leg);
+  const { r, to, fromEntry, toEntry } = leg, late = lateMin(leg);
   const cls = ['wt-tl-drive', state.leg === leg.key ? 'is-active' : '', late > 0 ? 'is-late' : ''];
   return {
     // when you set off (until the route is in, no earlier than you arrive); the drive back to the hotel has no time, so it comes last
     start: leg.leave || leg.arrive || (toEntry.role === 'night' ? `${day}T23:58` : fromEntry.place.time),
-    html: ({ past, now }) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="group" aria-label="${r ? fmtDur(r.duration) : ''} drive to ${esc(to.name)}. Show the route on the map">
+    html: ({ past, now }) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="button" aria-pressed="${state.leg === leg.key}" aria-label="${r ? fmtDur(r.duration) : ''} drive to ${esc(to.name)}. Show the route on the map">
       <span class="wt-tl-rail"><i class="wt-tl-car">${ICON.car}</i></span>
       <span class="wt-tl-drive__body">
         <span class="wt-tl-drive__what"><b>${r ? fmtDur(r.duration) : '…'}</b> drive</span>
         ${late > 0 ? `<span class="wt-tl-drive__late">Arrives ${fmtDur(late * 60)} late</span>` : ''}
       </span>
-      <a class="wt-icon-btn wt-tl-drive__go" href="${directionsURL(from, to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(to.name)} in your maps app" title="Directions">${ICON.directions}</a>
     </div>`,
   };
 }
 // A stop row: marker · name · time, with its notes below across the name and time. A hotel on its check-in day says how many nights.
 // A row from another day than the one on screen can say which day in place of the time.
-// Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Edit stop. Tapping it again clears that.
+// Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Edit stop. Tapping it again keeps it selected.
 function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
   const notes = note.filter(Boolean);
   return `<button class="wt-tl-stop${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${esc(s.id)}" data-row="${esc(key)}" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
@@ -1023,9 +1022,12 @@ function fromItem(day, entry) {
 }
 // The selected stop, if it's still in the trip (a co-editor may have deleted it).
 const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.sel)) || null;
-// Below the list, always in reach: Add stop, or, with a stop selected, Edit stop and a small + so adding stays one tap away.
+// Below the list, always in reach: Add stop; with a stop selected, Edit stop; with a drive's route shown, Directions
+// to the drive's end in the maps app. Either way a small + beside it keeps adding one tap away.
 function addBarHTML(trip) {
   const s = selectedStop(trip);
+  const leg = !s && state.leg && dayLegs(trip, currentDay(trip)).find(l => l.key === state.leg);
+  if (leg) return `<a class="wt-btn wt-btn--primary wt-btn--block" href="${directionsURL(leg.from, leg.to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
   return s
     ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${esc(s.id)}">${ICON.edit}Edit stop</button><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
     : `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button>`;
@@ -1428,21 +1430,15 @@ function fitLeg(l, onlyIfHidden = false) {
   moveCamera(v.center, v.zoom);
 }
 // Show a drive's route: highlighted, both ends named, its time on it, and the map moved to fit it.
-// Tapping the same drive in the list again goes back to the whole day.
+// Tapping the same drive again keeps it shown (and frames it again); tapping empty map, changing the day or Esc goes back to the whole day.
 function previewLeg(l, { fromMap = false } = {}) {
-  if (!fromMap && state.leg === l.key) {
-    state.leg = null;
-    fitKey = '';
-    render();
-    return;
-  }
   state.leg = l.key;
   state.sel = state.selRow = null;
-  const shrink = state.snap === 'full';
-  if (shrink) setSnap('half'); // the whole-day list covers the map; peeking, the map already has the screen
+  const resizing = state.snap !== 'half' && !isWide();
+  setSnap('half'); // the whole-day list covers the map; peeking, it's opened so Directions shows below the list
   render();
   fitLeg(l, fromMap);
-  centerRow(`.wt-tl-drive[data-leg="${CSS.escape(l.key)}"]`, shrink);
+  centerRow(`.wt-tl-drive[data-leg="${CSS.escape(l.key)}"]`, resizing);
 }
 // Scroll the list so a row sits in its middle, with what comes before and after it in view on both sides
 // (the list's ends can't scroll past, so a first or last row stays near its end). When the sheet is changing
@@ -1464,13 +1460,9 @@ document.addEventListener('mouseover', e => {
 });
 // Select a stop: its row and its pin are highlighted, and Add stop becomes Edit stop.
 // Tapping a pin or a row scrolls the row to the middle of the list. Tapping a row (`row`, its key) moves the pin into view if it's
-// off the map you can see, keeping the zoom; tapping the selected row again clears the selection.
+// off the map you can see, keeping the zoom. Tapping the selected row again keeps it selected (and centered);
+// tapping empty map, changing the day or Esc clears it.
 function selectStop(s, row = null) {
-  if (row && state.sel === s.id && $app.querySelector('.wt-tl-stop.is-selected')?.dataset.row === row) {
-    state.sel = state.selRow = null;
-    render();
-    return;
-  }
   if (state.leg) fitKey = '';
   state.leg = null;
   state.sel = s.id;
@@ -1875,7 +1867,6 @@ document.addEventListener('click', e => {
     case 'days': openDays(trip); break;
     case 'pick-day': closeSheet(); setDay(el.dataset.day); break;
     case 'leg': {
-      if (e.target.closest('a')) break; // Directions opens the maps app; the rest of the row shows the route
       const l = dayLegs(trip, currentDay(trip)).find(x => x.key === el.dataset.leg);
       if (l) previewLeg(l);
       break;
