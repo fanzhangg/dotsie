@@ -1096,6 +1096,7 @@ function mountTrip(trip) {
     zoomAnim = false;
     if (drawPending && cur?.stops) { drawPending = false; drawMap(cur); }
   });
+  map.on('zoom zoomend', fitPins); // a pin gets its number back as you zoom in, and gives it up as you zoom out
   // A quiet basemap so routes lead. Stadia needs no key on localhost; in production, register the
   // domain with Stadia. Fall back to OpenStreetMap if it's refused.
   const m = map, dark = matchMedia('(prefers-color-scheme: dark)').matches;
@@ -1845,6 +1846,7 @@ function drawMap(trip) {
   // Mid zoom animation, only where the camera is going can change now; the pins and routes are redrawn when it ends
   if (zoomAnim) { drawPending = true; return frameMap(trip); }
   layer.clearLayers();
+  pins = [];
   // Only the day on screen, from its plan: the hotel at either end is a pin like any stop.
   // With no hotel last night, the day before's last stop is a quiet pin, so the first drive leads somewhere.
   // The overview draws every day this way: all the trip's places and drives. Its days' starts are stops of the day before, so none is quiet.
@@ -1903,16 +1905,17 @@ function drawMap(trip) {
     // the selected stop can be the day's start, from the day before's row at the top of the list
     const focus = end || all.find(s => s.id === state.sel);
     const cls = [focus ? 'wt-pin--selected' : '', quiet && !focus ? 'wt-pin--muted' : ''].join(' ');
-    L.marker([all[0].lat, all[0].lng], {
+    addPin(L.marker([all[0].lat, all[0].lng], {
       icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML(focus || g[0] || start, all.map(s => nums.get(s.id)).find(Boolean), cls) }),
       zIndexOffset: focus ? 1000 : quiet ? -1000 : 0, title: all[0].name,
     }).on('click', () => onMapTap(() => {
       if (state.draft) return;
       if (g.length) selectStop(g[0]); else { setDay(dayOf(start)); selectStop(start); }
-    })).addTo(layer);
+    })), focus ? 16 : quiet ? 10 : 12);
   }
   drawDraft();
   frameMap(trip);
+  fitPins();
 }
 // Frame the day on screen, or the drive on show, when either has changed since the map was last framed.
 function frameMap(trip) {
@@ -1935,35 +1938,50 @@ function dayView(trip, day) {
   if (!pts.length) return null;
   if (new Set(pts.map(String)).size === 1) return { center: L.latLng(pts[0]), zoom: 13 };
   // the side panel sits beside the map, not on it; on a phone, the list covers the bottom
-  // a pin stands above its place, so leave its height clear at the top
-  return frameBounds(L.latLngBounds(pts), L.point(32, coveredTop() + 56), L.point(32, coveredBottom() + 16), 15);
+  // a pin is centered on its place, so leave half a selected pin clear around the edges
+  return frameBounds(L.latLngBounds(pts), L.point(32, coveredTop() + 24), L.point(32, coveredBottom() + 24), 15);
 }
-// A map pin: a teardrop in the stop's type color, its tip on the place, with the stop's number in its head.
+// A map pin: a round dot in the stop's type color, centered on the place, with the stop's number inside.
 // A place that isn't one of the numbered stops (the hotel at either end of a day, the day before's last stop) has a dot instead.
-const PIN_PATH = 'M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z';
 const pinHTML = (s, n, cls = '') => `<div class="wt-pin ${cls}" role="img" aria-label="${n ? `${n}. ` : ''}${esc(s.name)}, ${KINDS[kindOf(s)].label}" style="--wt-kind-color: ${kindColor(s)}">`
-  + `<svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><path d="${PIN_PATH}"/></svg>`
   + `${n ? `<b class="wt-pin__num">${n}</b>` : '<i class="wt-pin__dot"></i>'}</div>`;
 let draftNum = null; // the number of the stop being edited, so its pin keeps it
+// Where pins crowd, the map shows where each place is rather than a pile of numbers: a pin too close to another for
+// both to show their numbers becomes a small dot (.wt-pin--dot), and gets its number back once you zoom in far enough.
+// A selected pin always keeps its number. `r` is the pin's radius with its number (selected 16, normal 12, muted 10).
+let pins = []; // { ll, r, el } for each pin on the map
+const PIN_GAP = 4; // px of map between two numbered pins
+function addPin(marker, r) {
+  marker.addTo(layer);
+  pins.push({ ll: marker.getLatLng(), r, el: marker.getElement()?.firstElementChild });
+}
+function fitPins() {
+  if (!map || !pins.length) return;
+  // During a flight, where it's going: the pins settle once instead of flickering through every zoom on the way
+  const z = camTarget && performance.now() < camTarget.until ? camTarget.zoom : map.getZoom();
+  const pts = pins.map(p => map.project(p.ll, z));
+  pins.forEach((p, i) => p.el?.classList.toggle('wt-pin--dot',
+    pins.some((q, j) => j !== i && pts[i].distanceTo(pts[j]) < p.r + q.r + PIN_GAP)));
+}
 // The stop being edited, where it would go: its new place and type.
 function drawDraft() {
   const d = state.draft;
   if (!d || d.lat == null) return;
-  L.marker([d.lat, d.lng], {
+  addPin(L.marker([d.lat, d.lng], {
     interactive: false, keyboard: false, zIndexOffset: 1500,
     icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML(d, draftNum, 'wt-pin--selected') }),
-  }).addTo(layer);
+  }), 16);
 }
 const legCoords = l => (l.r ? l.r.coords : [[l.from.lat, l.from.lng], [l.to.lat, l.to.lng]]);
 // Minutes a drive runs past the next stop's time, between two of the day's stops: from when you leave the first,
 // or, if it doesn't say, from when you get there
 const lateMin = l => (l.r && l.fromEntry.role === 'stop' && l.toEntry.role === 'stop' ? Math.round(l.r.duration / 60 - gapMin(leaveOf(l.from) || l.from.time, l.to.time)) : 0);
-// Fit a route into the part of the map you can see, with room above its ends for their pins.
+// Fit a route into the part of the map you can see, with room around its ends for their pins.
 // From a tap on the map, only when an end is out of view, so the map doesn't jump under your finger.
 function fitLeg(l, onlyIfHidden = false) {
   if (!map || (onlyIfHidden && inView(l.from) && inView(l.to))) return;
   camFree = false;
-  const v = frameBounds(L.latLngBounds(legCoords(l)), L.point(40, coveredTop() + 64), L.point(40, coveredBottom() + 24), 15);
+  const v = frameBounds(L.latLngBounds(legCoords(l)), L.point(40, coveredTop() + 32), L.point(40, coveredBottom() + 32), 15);
   moveCamera(v.center, v.zoom);
 }
 // Show a drive's route: highlighted, with larger pins at its ends, and the map moved to fit it.

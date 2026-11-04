@@ -1,4 +1,4 @@
-/* Waythread design system — components v6.6.0
+/* Waythread design system — components v7.0.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -655,46 +655,45 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-trip-card__dates { font: var(--wt-type-caption); font-size: 14px; color: var(--wt-text-secondary); white-space: nowrap; }
 
 /* ---------- Map pin ---------- */
-/* A teardrop like a maps app's pin: its tip on the place, in the stop's type color, outlined in --wt-pin-fill, with the
-   stop's number in its head (.wt-pin__num) or, for a place that isn't a numbered stop, a dot (.wt-pin__dot). Nothing else:
-   names and times are in the list. Selected: half as large again, with a deeper shadow, and the other pins in the same
-   .wt-pins (the element that holds them) fade, still in their colors, so the selected one stands out among pins of
-   every type. Muted (over, the day before's last stop, or off the route on show): smaller and grey, as what's over is
-   grey in the list, so the pins still in color are the ones ahead.
-   Both grow and shrink from the tip, so it stays on the place. Placed by its tip, at the marker's position on the map. */
+/* A round dot centered on its place, like a stop on a transit map: the stop's type color, shaded like a marker, in a
+   --wt-pin-fill ring that keeps it apart from the route under it, with the stop's number inside (.wt-pin__num) or, for a
+   place that isn't a numbered stop, a smaller dot (.wt-pin__dot). Nothing else: names and times are in the list.
+   Where pins crowd (the map zoomed out, or places close together), each becomes a small dot with no number
+   (.wt-pin--dot), so every place and the routes between them stay visible instead of piling up; zoomed in, the numbers
+   come back. Selected: larger, with a deeper shadow, always numbered, and the other pins in the same .wt-pins (the
+   element that holds them) fade, still in their colors. Muted (over, the day before's last stop, or off the route on
+   show): smaller and grey, as what's over is grey in the list. Placed by its center, at the marker's position on the map.
+   --wt-pin-size is the dot's whole width, ring included. */
 .wt-pin {
-  position: absolute; width: 30px; height: 39px; transform: translate(-50%, -100%); transform-origin: 50% 100%;
-  filter: drop-shadow(var(--wt-shadow-pin));
-  transition: transform var(--wt-duration-base), opacity var(--wt-duration-base), filter var(--wt-duration-base);
+  --wt-pin-size: 24px;
+  position: absolute; box-sizing: border-box; width: var(--wt-pin-size); height: var(--wt-pin-size);
+  display: grid; place-items: center; transform: translate(-50%, -50%);
+  border: 2px solid var(--wt-pin-fill); border-radius: var(--wt-radius-round);
+  background-color: var(--wt-marker-fill); background-image: var(--wt-marker-shade); box-shadow: var(--wt-shadow-pin);
+  transition: width var(--wt-duration-base), height var(--wt-duration-base), opacity var(--wt-duration-base), box-shadow var(--wt-duration-base);
 }
-.wt-pin--selected { transform: translate(-50%, -100%) scale(1.5); filter: drop-shadow(var(--wt-shadow-pin-selected)); }
-.wt-pin--muted:not(.wt-pin--selected) { transform: translate(-50%, -100%) scale(.85); opacity: .85; }
+/* A tap target larger than a small dot, centered on it */
+.wt-pin::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; border-radius: var(--wt-radius-round);
+  transform: translate(-50%, -50%);
+}
+.wt-pin--dot { --wt-pin-size: 14px; }
+.wt-pin--muted { --wt-pin-size: 20px; opacity: .85; box-shadow: none; background: var(--wt-kind-past); }   /* flat grey, as in the list */
+.wt-pin--muted.wt-pin--dot { --wt-pin-size: 10px; border-width: 1.5px; }
+.wt-pin--selected { --wt-pin-size: 32px; box-shadow: var(--wt-shadow-pin-selected); }
 /* Faded, not grey: grey means over */
 .wt-pins:has(.wt-pin--selected) .wt-pin:not(.wt-pin--selected) { opacity: .55; }
-/* Two classes, to beat Leaflet's .leaflet-map-pane svg { z-index: 200 }, which would cover the number */
-/* The drop draws only the outline, on top of the shaded fill below it, so the outline stays clean white. */
-.wt-pin .wt-pin__shape {
-  position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; overflow: visible;
-  fill: none; stroke: var(--wt-pin-fill); stroke-width: 1.5;
-}
-.wt-pin--muted { filter: none; }
-/* The fill: the marker's shading, cut to the drop's shape, under the outline and the number. */
-.wt-pin::before {
-  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background-color: var(--wt-marker-fill); background-image: var(--wt-marker-shade);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 39'%3E%3Cpath d='M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 39'%3E%3Cpath d='M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
-}
-.wt-pin--muted:not(.wt-pin--selected)::before { background: var(--wt-kind-past); }   /* flat grey, as in the list */
-/* Centered in the head of the drop, whose circle's center is 14.3px down */
 .wt-pin__num {
-  position: absolute; z-index: 1; inset: 0 0 auto; height: 28.6px; display: grid; place-items: center;
-  color: var(--wt-marker-ink); font: 700 13px/1 var(--wt-font-sans); font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+  color: var(--wt-marker-ink); font: 700 12px/1 var(--wt-font-sans); font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+  transition: opacity var(--wt-duration-base);
 }
-.wt-pin__dot {
-  position: absolute; z-index: 1; left: 50%; top: 14.3px; width: 9px; height: 9px; border-radius: var(--wt-radius-round);
-  background: var(--wt-marker-ink); transform: translate(-50%, -50%);
-}
+.wt-pin--muted .wt-pin__num { font-size: 11px; }
+.wt-pin--selected .wt-pin__num { font-size: 15px; }
+.wt-pin__dot { width: 8px; height: 8px; border-radius: var(--wt-radius-round); background: var(--wt-marker-ink); transition: opacity var(--wt-duration-base); }
+.wt-pin--muted .wt-pin__dot { width: 6px; height: 6px; }
+.wt-pin--selected .wt-pin__dot { width: 10px; height: 10px; }
+/* A small dot has no room for its number */
+.wt-pin--dot:not(.wt-pin--selected) > * { opacity: 0; }
 
 /* ---------- Empty state ---------- */
 .wt-empty { margin: 0; padding: var(--wt-space-10) var(--wt-space-6); text-align: center; color: var(--wt-text-secondary); }
