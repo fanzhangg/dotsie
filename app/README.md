@@ -29,7 +29,7 @@ To try co-editing locally, use a second browser profile (each needs its own sess
 
 ## Deploy
 
-[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) checks every pull request (typecheck, bundle) and deploys every push to `main`: it applies D1 migrations, then uploads the Worker together with its secrets, then smoke-tests `/api/config`. The production D1 database and KV namespace already exist; their IDs are in `wrangler.jsonc`.
+[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) checks every pull request (typecheck, bundle) and deploys every push to `main`, as long as that commit is still the newest on `main` (two merges close together can start their deploys out of order, and an older commit deployed last would undo the newer one): it applies D1 migrations, then uploads the Worker together with its secrets, then smoke-tests `/api/config`. The production D1 database and KV namespace already exist; their IDs are in `wrangler.jsonc`.
 
 One-time setup, in the GitHub repo under Settings → Secrets and variables → Actions:
 

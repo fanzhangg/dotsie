@@ -8,7 +8,8 @@ on:
   pull_request:
   workflow_dispatch:
 
-# One deploy at a time; a newer push waits rather than racing an older one.
+# One deploy at a time; a newer push waits rather than racing an older one. Runs can still start out of order,
+# so the deploy job also checks it's deploying the newest commit on main (see "Still the newest commit on main?").
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -77,12 +78,27 @@ jobs:
         env:
           APP_URL: ${{ vars.APP_URL }}
 
+      # Two merges close together can start their deploys out of order: #31 and #32 did, and the older commit's
+      # deploy ran last, so production went back to code without #31. Only the newest commit on main goes live;
+      # an older one stops here, since the newer commit's own deploy puts it live (runs queue one at a time).
+      - name: Still the newest commit on main?
+        id: newest
+        run: |
+          head=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$head" = "$GITHUB_SHA" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::main is at $head now, not $GITHUB_SHA. That commit's deploy puts it live; this one stops here."
+            echo "### Skipped: main moved on to $head, which deploys itself" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Apply database migrations
+        if: steps.newest.outputs.go == 'true'
         run: npx wrangler d1 migrations apply waythread --remote
 
       # Secrets go up with the code as one version. Only the ones you've set are sent; unset
       # optional ones (Google, Apple, Stadia) leave that feature off.
       - name: Deploy
+        if: steps.newest.outputs.go == 'true'
         run: |
           jq -n 'env | with_entries(select(.key | IN("BETTER_AUTH_SECRET","GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET","APPLE_CLIENT_ID","APPLE_CLIENT_SECRET","STADIA_API_KEY")) | select(.value != ""))' > "$RUNNER_TEMP/secrets.json"
           npx wrangler deploy --var "BETTER_AUTH_URL:${{ steps.url.outputs.url }}" --secrets-file "$RUNNER_TEMP/secrets.json"
@@ -96,6 +112,7 @@ jobs:
           STADIA_API_KEY: ${{ secrets.STADIA_API_KEY }}
 
       - name: Smoke test
+        if: steps.newest.outputs.go == 'true'
         run: |
           url="${{ steps.url.outputs.url }}"
           for i in 1 2 3 4 5; do
