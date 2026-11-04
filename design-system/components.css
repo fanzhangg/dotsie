@@ -1,4 +1,4 @@
-/* Waythread design system — components v4.7.0
+/* Waythread design system — components v4.7.1
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -42,7 +42,8 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 }
 .wt-btn--secondary:active { background: var(--wt-surface-hover); }
 .wt-btn--ghost:hover, .wt-btn--ghost:active { background: var(--wt-surface-hover); }
-.wt-btn--danger { color: var(--wt-text-danger); padding: 0 var(--wt-space-1); }
+/* A text button: its padding hangs outside the content edge, so its word lines up with the labels above it. */
+.wt-btn--danger { color: var(--wt-text-danger); padding: 0 var(--wt-space-1); margin-left: calc(-1 * var(--wt-space-1)); }
 .wt-btn--block { width: 100%; }
 /* Icon only: a round button as tall as the others, like the + beside Edit stop. Give it an aria-label. */
 .wt-btn--icon { width: var(--wt-size-touch); padding: 0; flex: none; border-radius: var(--wt-radius-round); }
@@ -103,7 +104,9 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 /* ---------- Search field: a search icon, the input, then a spinner while it looks and a clear button ---------- */
 /* An .wt-input-group, so tapping anywhere in it focuses the input. It heads a search page (.wt-search-bar). */
 .wt-search { padding-left: var(--wt-space-3); padding-right: var(--wt-space-1); }
-.wt-search > .wt-icon:first-child { width: 20px; height: 20px; color: var(--wt-text-secondary); }
+/* The icon sits over the results' markers, and the typed text starts where their names do: the icon's centre is the
+   marker's (half a 30px marker in from the row's padding), and 9px more than the group's gap clears it the way a marker's gap does. */
+.wt-search > .wt-icon:first-child { width: 20px; height: 20px; margin-right: 9px; color: var(--wt-text-secondary); }
 .wt-search__clear { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--wt-radius-round); color: var(--wt-text-secondary); }
 .wt-search__clear .wt-icon { width: 18px; height: 18px; }
 @media (hover: hover) { .wt-search__clear:hover { background: var(--wt-surface-hover); color: var(--wt-text-primary); } }
@@ -129,10 +132,9 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 }
 .wt-search-bar > .wt-search { flex: 1; min-width: 0; }
 .wt-search-bar__cancel { flex: none; padding: var(--wt-space-2) 0 var(--wt-space-2) var(--wt-space-1); font: var(--wt-type-label); color: var(--wt-text-primary); }
-/* Results: options (.wt-option), their content lined up with the field's, or one message saying what happened
-   and what to try. */
-.wt-results:not(ul) { margin: 0 calc(-1 * var(--wt-space-2)); }
-.wt-results__msg { padding: var(--wt-space-3) var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+/* Results: options (.wt-option), or one message saying what happened and what to try. The rows share the field's
+   edges, so each marker sits under the search icon and each name starts where the typed text does. */
+.wt-results__msg { padding: var(--wt-space-3) 0; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-results__msg b { display: block; font: var(--wt-type-body); font-weight: 500; color: var(--wt-text-primary); }
 /* Before 4.6.0 results were a list under the field, with their own row. The prototype still uses it. */
 ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
@@ -250,7 +252,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl .is-past:not(.is-active) .wt-tl-car { background: color-mix(in srgb, var(--wt-kind-drive) 45%, var(--wt-surface-raised)); }
 
 /* ---------- Day bar: ‹ day › at the top of the sheet; tap the day for the list of days ---------- */
-.wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) var(--wt-space-2) var(--wt-space-2); }
+/* The arrows are centred on the timeline's columns: ‹ on the rail, › on the Directions column (with the sheet top's padding). */
+.wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) var(--wt-space-2) var(--wt-space-3); }
 .wt-day-bar[hidden] { display: none; }
 .wt-day-bar__step { color: var(--wt-text-primary); }
 .wt-day-bar__title {
@@ -277,7 +280,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* The stop sheet's Type: one row (marker · Hotel · ›) instead of a grid of every type. Tapping it slides the
    sheet to the options, with a back button in the sheet's head (.wt-modal__head--sub); picking one comes back. */
 .wt-picker {
-  display: flex; align-items: center; gap: var(--wt-space-3); width: 100%; min-height: 50px; padding: 9px var(--wt-space-3) 9px 9px;
+  /* 7px + the 1px border puts the marker and the chevron on the options' columns, so the row and the page it opens line up. */
+  display: flex; align-items: center; gap: var(--wt-space-3); width: 100%; min-height: 50px; padding: 9px calc(var(--wt-space-2) - 1px);
   font: var(--wt-type-input); color: var(--wt-text-primary);
   background: var(--wt-surface-sunken); border: 1px solid var(--wt-border-default); border-radius: var(--wt-radius-md);
 }
@@ -346,7 +350,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-trip-head {
   position: absolute; z-index: calc(var(--wt-z-sheet) + 1);
   top: calc(env(safe-area-inset-top, 0px) + var(--wt-space-2)); left: var(--wt-space-3); right: var(--wt-space-3);
-  height: var(--wt-size-trip-head); padding: 0 var(--wt-space-2) 0 var(--wt-space-1);
+  /* Home and settings are centred on the timeline's rail and Directions column, and the name starts where stop names do.
+     Docked or in the side panel, the header loses its inset and gains it back as padding, so nothing in it moves. */
+  height: var(--wt-size-trip-head); padding: 0 var(--wt-space-1);
   display: flex; align-items: center; gap: var(--wt-space-1);
   background: var(--wt-surface-raised); border-radius: var(--wt-radius-lg); box-shadow: var(--wt-shadow-card);
   transition: top var(--wt-duration-base) var(--wt-ease-out), left var(--wt-duration-base) var(--wt-ease-out), right var(--wt-duration-base) var(--wt-ease-out),
@@ -354,9 +360,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-trip-head.is-docked {
   top: 0; left: 0; right: 0; height: calc(var(--wt-size-trip-head) + var(--wt-space-2) + env(safe-area-inset-top, 0px));
-  padding-top: calc(var(--wt-space-2) + env(safe-area-inset-top, 0px)); border-radius: 0; box-shadow: 0 1px 0 var(--wt-border-default);
+  padding: calc(var(--wt-space-2) + env(safe-area-inset-top, 0px)) var(--wt-space-4) 0; border-radius: 0; box-shadow: 0 1px 0 var(--wt-border-default);
 }
-.wt-trip-head__name { flex: 1; min-width: 0; margin: 0 0 0 var(--wt-space-1); font: var(--wt-type-name); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-trip-head__name { flex: 1; min-width: 0; margin: 0; font: var(--wt-type-name); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Map / List (unused since 4.1.0: the sheet's three heights are reached by dragging it, as in a maps app) */
 .wt-view-toggle {
   display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px 0 11px;
@@ -441,7 +447,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 @container wt-trip (min-width: 768px) {
   .wt-trip-head {
     top: 0; left: 0; right: auto; width: var(--wt-size-panel); height: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px));
-    padding-top: env(safe-area-inset-top, 0px); border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
+    padding: env(safe-area-inset-top, 0px) var(--wt-space-4) 0; border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
   }
   .wt-trip-head .wt-icon-btn { color: var(--wt-text-secondary); }
   .wt-view-toggle { display: none; }
@@ -499,9 +505,13 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   .wt-modal-root--side.wt-modal-root--panel .wt-modal { max-height: none; box-shadow: 1px 0 0 var(--wt-border-default); }
   .wt-modal-root--side.wt-modal-root--panel .wt-modal.is-full { height: auto; max-height: none; }
 }
-.wt-modal__head { display: flex; align-items: center; justify-content: space-between; margin: 0 calc(-1 * var(--wt-space-2)) var(--wt-space-1) 0; }
+/* A sheet's icons sit in two columns, measured from the content edge: the left one through the options' markers
+   (8px padding + half a 30px marker = 23px), the right one through their checks (8px + half an 18px icon = 17px).
+   Close sits on the right one, a sub-page's back button on the left one with its title over the options' names. */
+.wt-modal__head { display: flex; align-items: center; justify-content: space-between; margin: 0 calc(17px - var(--wt-size-icon-btn) / 2) var(--wt-space-1) 0; }
 /* A page inside a sheet (a picker's options): back on the left, then the title */
-.wt-modal__head--sub { justify-content: flex-start; gap: var(--wt-space-1); margin-left: calc(-1 * var(--wt-space-2)); }
+.wt-modal__head--sub { justify-content: flex-start; gap: 0; margin-left: calc(23px - var(--wt-size-icon-btn) / 2); }
+.wt-modal__head--sub .wt-modal__title { margin-left: calc(15px + var(--wt-space-3) - var(--wt-size-icon-btn) / 2); }
 .wt-modal__title { margin: 0; font: var(--wt-type-title); }
 .wt-modal__text { margin: 0 0 var(--wt-space-3); color: var(--wt-text-secondary); }
 .wt-modal__actions { display: flex; align-items: center; gap: var(--wt-space-3); margin-top: var(--wt-space-5); }

@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.7.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.7.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -144,6 +144,10 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 
 ### Space, shape, size
 
+- **Columns:** icons and text line up down the screen, the way the timeline's rail does.
+  - **Trip screen:** home, the day bar's ‹, and every marker and car are centred on the rail (36px in from the screen edge on a phone). Settings, the day bar's › and Directions share a column on the right. The trip's name starts where stop names do. The header card, docked header and side panel all keep these positions, so nothing shifts as the sheet docks.
+  - **Sheets:** two icon columns measured from the content edge: the options' markers on the left (23px), and their checks on the right (17px). The search icon, a picker's marker, a sub-page's back button, Close and a picker's chevron all sit on these columns. The typed search, a picker's value and a sub-page's title start where option names do.
+  - **Text buttons** (`--danger`) hang their padding outside the content edge, so their word lines up with the labels above.
 - **Space:** a 4px grid. `--wt-space-1` (4) · `2` (8) · `3` (12) · `4` (16) · `5` (20) · `6` (24) · `8` (32) · `10` (40). The side margin on a phone is `--wt-space-4`; the list's inner margin is `--wt-space-3`.
 - **Radius:** `--wt-radius-sm` (8, pin labels) · `md` (12, cards, inputs, block buttons, timeline rows) · `lg` (18, sheets) · `pill` (buttons, toasts) · `round` (avatars, markers, icon buttons).
 - **Size:** `--wt-size-touch` (44, the minimum for anything tapped often) · `icon-btn` (40) · `avatar` (26) · `check` (26, unused since 2.0.0) · `icon` (22) · `column` (480, the app column on large screens) · `panel` (360–440, 30% of the window: the plan's side panel from 768px wide) · `trip-head` (56, the trip header, below the top safe area).
@@ -633,6 +637,18 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Fixed in 4.7.1
+
+Icons and text line up in columns. Before, the header's home icon, the day bar's ‹ and the timeline's markers sat at three different positions, and on the Type page the back button and title sat left of the markers and names under them.
+
+- `.wt-trip-head`: home and settings are centred on the rail and the Directions column, and `__name` starts with the stop names. Docked and in the side panel it pads by `--wt-space-4`, so its contents stay put as it docks.
+- `.wt-day-bar` pads 12px on the left, centring ‹ on the rail.
+- `.wt-modal__head`: Close is centred on the options' check column; `--sub` centres Back on their markers and starts the title at their names.
+- `.wt-picker`: its marker and chevron are on the same columns.
+- `.wt-results` no longer pulls its rows 8px past the field. Markers sit under the search icon, and the search icon's extra space starts the typed text where result names start.
+- `.wt-btn--danger` has a negative left margin of `--wt-space-1`, so its text starts at the content edge.
+- Nothing was renamed or removed.
 
 ### Added in 4.7.0
 
