@@ -306,7 +306,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       <ul class="rules">
         <li><b>Primary</b> is the one main action: Save, Add, Create. On the trip screen it's Add stop, below the list.</li>
         <li><b>Secondary</b> is a quiet action next to content, like Copy beside the trip link.</li>
-        <li><b>Icon</b> (<code>--icon</code>) is a round button as tall as the others, for an action that sits beside a bigger one, like the + beside Edit stop. Give it an <code>aria-label</code>.</li>
+        <li><b>Icon</b> (<code>--icon</code>) is a round button as tall as the others, for an action that sits beside a bigger one, like Edit stop and the + beside Open in Maps. Give it an <code>aria-label</code>.</li>
         <li><b>Danger</b> always leaves a way back: an Undo toast, or a confirmation when undo isn't possible.</li>
         <li><b>Icon buttons</b> only where the icon is universally understood: back, close, edit, home, settings, the day arrows and Directions. Everything else gets words.</li>
       </ul>
@@ -618,9 +618,10 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
   &lt;/div&gt;
   &lt;div class="wt-sheet__body wt-tl"&gt; … timeline rows … &lt;/div&gt;
   &lt;div class="wt-add-bar"&gt;&lt;button class="wt-btn wt-btn--primary wt-btn--block"&gt;${icon('plus')}Add stop&lt;/button&gt;&lt;/div&gt;
-  &lt;!-- with a stop selected:
+  &lt;!-- with a stop selected (.is-morphing while it changes set):
   &lt;div class="wt-add-bar"&gt;
-    &lt;button class="wt-btn wt-btn--primary wt-btn--block"&gt;${icon('edit')}Edit stop&lt;/button&gt;
+    &lt;a class="wt-btn wt-btn--primary wt-btn--block" href="…" target="_blank" rel="noopener"&gt;${icon('map')}Open in Maps&lt;/a&gt;
+    &lt;button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Edit stop"&gt;${icon('edit')}&lt;/button&gt;
     &lt;button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Add stop"&gt;${icon('plus')}&lt;/button&gt;
   &lt;/div&gt; --&gt;
 &lt;/section&gt;</code></pre></details>
@@ -631,7 +632,8 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li>The sheet's top holds the grab handle and the day bar. People live in trip settings.</li>
         <li><b>Day bar:</b> the arrows step a day; the first and last day disable theirs. The title says <i>Today, Nov 21</i> on today, and <i>Sat, Nov 21</i> otherwise. Tapping it opens the day list.</li>
         <li>The add bar comes after <code>.wt-sheet__body</code>, not inside it. It's static, not sticky.</li>
-        <li><b>The add bar follows the selection:</b> Add stop, or, with a stop selected, Edit stop with a round + (<code>wt-btn--secondary wt-btn--icon</code>) beside it, so adding is always one tap away.</li>
+        <li><b>The add bar follows the selection:</b> Add stop, or, with a stop selected, Open in Maps, then a round white Edit stop and a round + (<code>wt-btn--secondary wt-btn--icon</code>), so adding is always one tap away. A drive's route gives Directions and the +.</li>
+        <li><b>Changing set morphs:</b> Add stop shrinks to the right into the +, Open in Maps grows from the left and Edit stop grows in between; a button's old look fades out over it as it moves (<code>.is-morphing</code>, <code>.is-ghost</code>).</li>
         <li>On today, scroll the list so the <code>is-now</code> row sits a little above the middle.</li>
         <li>Add <code>.is-dragging</code> while a finger is moving the sheet, so it follows without lag.</li>
       </ul>

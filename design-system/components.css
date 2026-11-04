@@ -1,4 +1,4 @@
-/* Waythread design system — components v6.2.0
+/* Waythread design system — components v6.3.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -45,7 +45,7 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 /* A text button: its padding hangs outside the content edge, so its word lines up with the labels above it. */
 .wt-btn--danger { color: var(--wt-text-danger); padding: 0 var(--wt-space-1); margin-left: calc(-1 * var(--wt-space-1)); }
 .wt-btn--block { width: 100%; }
-/* Icon only: a round button as tall as the others, like the + beside Edit stop. Give it an aria-label. */
+/* Icon only: a round button as tall as the others, like Edit stop and the + beside Open in Maps. Give it an aria-label. */
 .wt-btn--icon { width: var(--wt-size-touch); padding: 0; flex: none; border-radius: var(--wt-radius-round); }
 .wt-btn .wt-icon { width: 18px; height: 18px; }
 
@@ -509,15 +509,21 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-sheet__body.is-more-above { --wt-fade-top: 24px; }
 .wt-sheet__body.is-more-below { --wt-fade-bottom: 24px; }
-/* The sheet's main action, below the list: Add stop, or, with a stop selected, Edit stop, Maps and a small round + beside it,
+/* The sheet's main action, below the list: Add stop, or, with a stop selected, Open in Maps, a round Edit stop and a round +,
    so adding is always one tap away. Static, not sticky: a sticky bar pinned itself to the screen's bottom and covered a pulled-down sheet's top. */
 .wt-add-bar {
   flex: none; display: flex; gap: var(--wt-space-2);
   padding: var(--wt-space-2) var(--wt-space-3) max(var(--wt-space-2), env(safe-area-inset-bottom, 0px)); background: var(--wt-surface-raised);
 }
 .wt-add-bar .wt-btn--block { flex: 1; min-width: 0; }
-/* Beside the pill, a secondary button (Maps) is a pill too, and the round + stays round: one shape along the bar */
-.wt-add-bar .wt-btn--secondary { border-radius: var(--wt-radius-pill); }
+/* Every button in the bar is a pill (a round 44px one is a circle either way): one shape along the bar, and one that can
+   stretch from a circle to the whole row while the set changes */
+.wt-add-bar .wt-btn { border-radius: var(--wt-radius-pill); }
+/* Changing set (Add stop, a stop, a drive): while the buttons morph, the app places each one (left, top, width) and keeps
+   the bar's height. .is-ghost is a button's old look fading out, or a button that's gone; it takes no taps. */
+.wt-add-bar.is-morphing { position: relative; }
+.wt-add-bar.is-morphing > .wt-btn { position: absolute; overflow: hidden; }
+.wt-add-bar > .is-ghost { pointer-events: none; }
 
 /* ---------- Map buttons: round icon buttons floating over the map. Whole day is one; .wt-map-bar (home and settings) is unused since 3.0.1 ---------- */
 .wt-map-bar {
