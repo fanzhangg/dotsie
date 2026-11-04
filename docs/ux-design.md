@@ -48,7 +48,7 @@ With a stop selected, the bottom button becomes `[██████ ✎ Edit st
 **The header** is one row: **home** (back to the trip list), the **trip's name**, and **trip settings**. On a phone it's a card floating over the top of the map, like the from/to card in Google Maps' directions, and the map runs under it. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings.
 
 **The sheet** is white and, on a phone, has three heights, following Google Maps' directions sheet:
-- **Peek:** just the day bar, so the map has the screen. The day bar's arrows still step through the days, and the map follows. Add stop isn't shown here: alone under an empty-looking sheet, it read as if the day had no stops.
+- **Peek:** the day bar and **one row of the list**, so the map has the screen and still says what you're looking at. The row is the list's focus: the selected stop or drive, or else, on a trip day, the row happening now, or else the day's first stop. It's the row itself, as in the list: marker, name, time and notes (a long note is cut after a few lines). The sheet is as tall as the day bar and that row. The day bar's arrows still step through the days, and the map follows. Add stop isn't shown here; it belongs with the whole list. (Peek used to be the day bar alone. Once the map lost its names and times, that left nothing on screen to say what a numbered pin was, or what was happening now.)
 - **Half** the screen: the default. On a short screen it grows (up to about 60%) so the list fits three stops and the drives between them: a selected stop, with the stops before and after it. Drive rows are compact for the same reason: the stops are what you read, the drives join them. **The half list is about one row, kept in its middle** (see [The focused row](#the-focused-row)), and you can't scroll it by hand: a finger moves the sheet, and a wheel or trackpad does nothing. To browse the day, pull it up to the whole day, or tap a pin.
 - **The whole day:** the sheet fills the screen up to the header, and the header card docks, flat across the top, so the two read as one page. Home and settings stay in reach.
 - **It never hides.**
@@ -57,12 +57,12 @@ With a stop selected, the bottom button becomes `[██████ ✎ Edit st
 - Dragging the list up grows the sheet; once it's the whole day, the list scrolls. Below the whole day it never scrolls by hand.
 - With the whole day showing, pulling the list down from its top shrinks the sheet.
 - A flick goes on to the next height its way; a slower drag settles at the nearest one.
-- **Taps:** tapping the grab handle goes from half to the whole day, and back to half from the other two. Peeking, a tap anywhere on the sheet but its buttons opens it to half. No other tap resizes the sheet, so a missed day-bar button can't hide the list.
+- **Taps:** tapping the grab handle goes from half to the whole day, and back to half from the other two. Peeking, a tap anywhere on the sheet but its buttons opens it to half; tapping the row selects it, as in the list, and opens the sheet to half. No other tap resizes the sheet, so a missed day-bar button can't hide the list.
 - **Zooming the map** (pinching, double-tapping, a two-finger tap) minimizes a half sheet to peek, as Google Maps does: you're looking at the map.
 
 Why: the sheet used to have three heights reached by taps, and any tap on its top that missed a button pulled it down, so it was easy to hide the list by accident. Then it had two heights and a Map/List button in the header, which felt unlike any maps app. Dragging between three heights, the way Google Maps does it, gives a map view, a half view and the whole day, with nothing to mis-tap.
 
-- Anything that needs the list, like tapping a pin or a route, opens the sheet to half, from a peek or from the whole day.
+- **Tapping a pin or a route while peeking keeps the peek** and shows that stop's or drive's row in it, so you can tap pin after pin and read each one without the sheet moving. From the whole day, it opens the sheet to half.
 
 #### The focused row
 
@@ -71,7 +71,7 @@ The half list is about one row, its **focus**: the selected stop; or else the dr
 - **The focus sits in the middle of the half list,** so the rows before and after it are in view and one tap away. At the ends of the day the list can't scroll past its first or last row, so those stay near the edge. A stop taller than the list (a long note) shows from its top, so its name stays in view.
 - **It's put there whenever it changes or the sheet comes to half:** opening a day, tapping a stop, a pin, a drive or a route, clearing the selection (the focus falls back to the row happening now), saving or adding a stop (the stop you saved is selected, wherever its time put it), the row happening now moving on, a co-editor's change that moves it, coming to half from a peek or the whole day, and turning the phone. The whole day doesn't pull the list back while you scroll it; going back to half does.
 - **It moves once.** When the sheet changes height and the list has to scroll, both move together, in the same quarter second, so the row goes straight to the middle and never leaves the screen. (The list used to scroll after the sheet had settled, so a stop tapped on the whole day slid off the list and back.)
-- **Going down to a peek,** the list stays on the sheet as it slides down, and hides once it's there.
+- **Going down to a peek,** the list scrolls its focus to the top as the sheet slides down, and the other rows hide once it's there.
 - **The list fades out at an edge with more of the day past it,** top or bottom, so it's clear there are stops you can't see.
 - The map zooms to fit the day's stops in what's left above the sheet and below the header. When the sheet changes height, the map re-fits for the new space, unless you've moved the map yourself. Then **Whole day** (see [The map](#the-map)) brings the day back.
 
@@ -193,7 +193,7 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 | Check circles | Checking off stops added a control to every row. The highlight and dimming show what's done without anyone having to tap. |
 | Now line | A line at the exact time added a clock to the list. Highlighting the row you're in says the same thing more plainly. |
 | Day number (`Day 1 of 3`) | The date is enough. |
-| Next card (`Leave in 30 min`, Directions) | Tried at the top of the sheet. It repeated the next drive row, which already has Directions, and took room from the list. The highlight shows where you are. |
+| Next card (`Leave in 30 min`, Directions) | Tried at the top of the sheet. It repeated the next drive row, which already has Directions, and took room from the list. The highlight shows where you are. (A peek now shows the row happening now, but in place of the list, not on top of it.) |
 | Hotel notes (`Start the day here`, `Back for the night`) and outlined hotel markers | Where the hotel sits in the day already says it. Only `Check out` is kept. |
 | Stop counts in the day list | The type icons show the same thing. |
 | Pins fading as you scroll the list | With one day on the map there are few pins, and fading them by scroll position made them look done. Faded pins now mean past only. |
@@ -247,7 +247,7 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 - **Showing a route.** Tapping a route on the map, or its drive in the list, shows it:
   - The route is highlighted, and the other routes and stops fade.
   - **Both ends' pins grow,** as a selected stop's does. The drive's time is in its row in the list, not on the map.
-  - **The map fits the route**, with room above its ends for their pins, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. A peeking or full list goes to half, so the map and the Directions button both show.
+  - **The map fits the route**, with room above its ends for their pins, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. A full list goes to half, so the map and the Directions button both show; a peek stays a peek, with the drive's row in it, and tapping that row opens it to half.
   - **The bottom button becomes Directions**, for that drive, with a round + beside it.
 - **Tapping the same drive again** keeps it on show, and in the half list nothing moves: the map re-fits the route only if you've moved one of its ends out of view. Tapping empty map, Whole day, changing the day or Esc goes back to the whole day.
 - **Hovering a drive** on a computer previews its route, without moving the map.

@@ -419,7 +419,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 @media (hover: hover) { .wt-view-toggle:hover, .wt-trip-head .wt-icon-btn:hover { background: var(--wt-surface-hover); } }
 
 /* ---------- Bottom sheet (the list over the map) ---------- */
-/* Three heights on a phone, like a maps app's sheet: peek (.is-peek: the day bar only), half, and full (.is-full:
+/* Three heights on a phone, like a maps app's sheet: peek (.is-peek: the day bar and one row), half, and full (.is-full:
    docked under the trip header). It never hides. Drag the top or the list to move it; tap the grab handle to step. */
 .wt-sheet {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--wt-z-sheet);
@@ -435,15 +435,16 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
    by hand at all, not by a finger, a wheel or a trackpad: the app scrolls it, to keep the focused row in the middle. */
 .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: none; overflow: hidden; }
 .wt-sheet.is-peek { cursor: pointer; }
-/* Peeking shows only the day bar; the list and the add bar appear as soon as the sheet is dragged up.
-   Add stop isn't shown on its own: under an empty-looking sheet it read as if the day had no stops.
-   The add bar stays in the layout, so its bottom padding (with the safe area) is the peek's margin under the day bar.
-   They hide once the sheet is down (after --wt-duration-base), so it slides down with the list on it, not empty;
-   going up, they show at once. */
-.wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body {
-  visibility: hidden; padding-bottom: 0;
-  transition: --wt-fade-top var(--wt-duration-fast), --wt-fade-bottom var(--wt-duration-fast), visibility 0s var(--wt-duration-base), padding-bottom 0s var(--wt-duration-base);
-}
+/* Peeking shows the day bar and one row of the list (.is-peek-row, set by the app): its focus, which the app scrolls to
+   the list's top and sizes the sheet to: the map has the screen, and the row says what you're looking at. The list has no fades there.
+   The add bar leaves the layout, so the list reaches the sheet's bottom, and hides once the sheet is down
+   (after --wt-duration-base), so the sheet slides down with it on; going up, it shows at once. Add stop isn't shown
+   while peeking: it belongs with the whole list. */
+.wt-sheet.is-peek .wt-sheet__body { --wt-fade-top: 0px; --wt-fade-bottom: 0px; }
+.wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body { padding-bottom: 0; transition: padding-bottom 0s var(--wt-duration-base); }
+/* The other rows hide once the sheet is down, like the add bar, so none shows in the margin under the peek's row. */
+.wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body > :not(.is-peek-row) { visibility: hidden; transition: visibility 0s var(--wt-duration-base); }
+.wt-sheet.is-peek .wt-add-bar { position: absolute; left: 0; right: 0; bottom: 0; }
 .wt-sheet.is-peek:not(.is-dragging) .wt-add-bar { visibility: hidden; transition: visibility 0s var(--wt-duration-base); }
 .wt-sheet__top { flex: none; touch-action: none; padding: 0 var(--wt-space-3) var(--wt-space-1) var(--wt-space-1); }
 /* The grab handle is a button as wide as the sheet, so it's easy to hit and nothing else on the sheet's top resizes it. */
