@@ -173,7 +173,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.1.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.2.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -488,7 +488,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 
     <section id="sheet">
       <h2>Bottom sheet and day bar</h2>
-      <p class="intro">The trip header names the trip at the top of the screen. Under it, the plan lives in a white sheet over the map, one day at a time. On a phone it's half the screen or the whole day, docked under the header; it never hides. The app sets the height and the system animates it. The day bar steps through the days, and the one add button sits below the list. Try <b>List</b>, then <b>Map</b>.</p>
+      <p class="intro">The trip header names the trip, on a card floating over the map. The plan lives in a white sheet over the map, one day at a time. On a phone it's dragged between three heights, like a maps app's sheet: peek, half, and the whole day, with the header docked over it. It never hides. The app sets the height and the system animates it. The day bar steps through the days, and the one add button sits below the list. Try the heights below.</p>
       <div class="demo">
         <div class="demo__live demo__live--column">
           <div class="stage" id="sheet-stage">
@@ -502,7 +502,6 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <header class="wt-trip-head">
               <a class="wt-icon-btn" href="#sheet" aria-label="All trips"><i data-icon="home"></i></a>
               <h1 class="wt-trip-head__name">White Sands, NM</h1>
-              <button class="wt-view-toggle" type="button" id="demo-view-toggle" aria-label="Show the whole day"><i data-icon="list"></i>List</button>
               <button class="wt-icon-btn" type="button" aria-label="Trip settings and sharing"><i data-icon="settings"></i></button>
             </header>
             <section class="wt-sheet" style="height: 58%" aria-label="White Sands, NM (demo)">
@@ -525,11 +524,15 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <div class="wt-add-bar"><button class="wt-btn wt-btn--primary wt-btn--block" type="button"><i data-icon="plus"></i>Add stop</button></div>
             </section>
           </div>
+          <div class="stage-controls" role="group" aria-label="Sheet height">
+            <button class="wt-btn wt-btn--secondary" type="button" data-sheet-height="peek">Peek</button>
+            <button class="wt-btn wt-btn--secondary" type="button" data-sheet-height="half">Half</button>
+            <button class="wt-btn wt-btn--secondary" type="button" data-sheet-height="full">Full</button>
+          </div>
         </div>
-        <details><summary>Markup</summary><pre><code>&lt;header class="wt-trip-head"&gt;
+        <details><summary>Markup</summary><pre><code>&lt;header class="wt-trip-head"&gt;   &lt;!-- add .is-docked when the sheet is full --&gt;
   &lt;a class="wt-icon-btn" href="#/" aria-label="All trips"&gt;${icon('home')}&lt;/a&gt;
   &lt;h1 class="wt-trip-head__name"&gt;White Sands, NM&lt;/h1&gt;
-  &lt;button class="wt-view-toggle" aria-label="Show the whole day"&gt;${icon('list')}List&lt;/button&gt;   &lt;!-- full: ${icon('map')}Map, "Show the map" --&gt;
   &lt;button class="wt-icon-btn" aria-label="Trip settings and sharing"&gt;${icon('settings')}&lt;/button&gt;
 &lt;/header&gt;
 &lt;section class="wt-sheet" aria-label="Plan"&gt;   &lt;!-- add .is-full at full height --&gt;
@@ -553,8 +556,8 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 &lt;/section&gt;</code></pre></details>
       </div>
       <ul class="rules">
-        <li><b>The header</b> is a full row: home, the trip's name, Map/List, settings. On a phone it spans the top and the map starts under it; from 768px wide it tops the side panel and Map/List hides.</li>
-        <li><b>Two heights on a phone:</b> half, and full (up to the header's bottom edge, with <code>.is-full</code>, so header and list read as one page). Map/List names where it goes, so leaving the full list is one obvious tap; tapping the grab handle or dragging the top does the same. Nothing else on the sheet's top resizes it.</li>
+        <li><b>The header</b> is one row: home, the trip's name, settings. On a phone it's a card over the map; at full it docks (<code>.is-docked</code>), flat across the top. From 768px wide it tops the side panel.</li>
+        <li><b>Three heights on a phone:</b> peek (<code>.is-peek</code>: the day bar and Add stop), half, and full (<code>.is-full</code>, up to the header's bottom edge). Drag the handle, the day bar or the list to move it; below full, dragging the list moves the sheet before it scrolls, and at full a pull down from the list's top shrinks it. Zooming the map takes a half sheet down to peek.</li>
         <li>The sheet's top holds the grab handle and the day bar. People live in trip settings.</li>
         <li><b>Day bar:</b> the arrows step a day; the first and last day disable theirs. The title says <i>Today, Nov 21</i> on today, and <i>Sat, Nov 21</i> otherwise. Tapping it opens the day list.</li>
         <li>The add bar comes after <code>.wt-sheet__body</code>, not inside it. It's static, not sticky.</li>
@@ -764,7 +767,6 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
           <header class="wt-trip-head">
             <a class="wt-icon-btn" href="#patterns" aria-label="All trips"><i data-icon="home"></i></a>
             <h1 class="wt-trip-head__name">White Sands, NM</h1>
-            <button class="wt-view-toggle" type="button" aria-label="Show the whole day"><i data-icon="list"></i>List</button>
             <button class="wt-icon-btn" type="button" aria-label="Trip settings and sharing"><i data-icon="settings"></i></button>
           </header>
           <section class="wt-sheet" aria-label="White Sands, NM (example)">
@@ -844,7 +846,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v4.1.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v4.2.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -1091,14 +1093,16 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       day.setAttribute('aria-current', 'date');
       return;
     }
-    // Half and full: Map/List in the header and the grab handle switch between them; full docks under the header.
-    if (e.target.closest('#demo-view-toggle, [data-sheet-toggle]')) {
-      const stage = document.getElementById('sheet-stage'), sheet = stage.querySelector('.wt-sheet');
-      const full = !sheet.classList.contains('is-full'), toggle = document.getElementById('demo-view-toggle');
-      sheet.classList.toggle('is-full', full);
-      sheet.style.height = full ? `${stage.clientHeight - stage.querySelector('.wt-trip-head').offsetHeight}px` : '58%';
-      toggle.innerHTML = full ? `${WaythreadIcons.svg('map')}Map` : `${WaythreadIcons.svg('list')}List`;
-      for (const el of [toggle, stage.querySelector('.wt-sheet__grab')]) el.setAttribute('aria-label', full ? 'Show the map' : 'Show the whole day');
+    // Peek, half and full: the buttons under the stage set the height; at full the header docks.
+    const h = e.target.closest('[data-sheet-height]');
+    if (h) {
+      const stage = document.getElementById('sheet-stage'), sheet = stage.querySelector('.wt-sheet'), head = stage.querySelector('.wt-trip-head');
+      const snap = h.dataset.sheetHeight;
+      sheet.classList.toggle('is-full', snap === 'full');
+      sheet.classList.toggle('is-peek', snap === 'peek');
+      head.classList.toggle('is-docked', snap === 'full');
+      sheet.style.height = snap === 'full' ? `${stage.clientHeight - head.offsetTop - head.offsetHeight}px`
+        : snap === 'peek' ? `${sheet.querySelector('.wt-sheet__top').offsetHeight + sheet.querySelector('.wt-add-bar').offsetHeight}px` : '58%';
       return;
     }
     if (e.target.closest('[data-close-modal]')) { document.getElementById('modal-root').classList.remove('is-open'); return; }

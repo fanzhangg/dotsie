@@ -266,8 +266,14 @@ function socialErrorMessage() {
 
 // ---------- Routes: only the line and drive time; navigation is handed to the maps app ----------
 const routes = (() => { try { return JSON.parse(localStorage.getItem(ROUTE_KEY)) || {}; } catch { return {}; } })();
-const pending = new Set();
-let routeQueue = Promise.resolve();
+// One lookup at a time, so opening a trip doesn't burst the router. Drives the screen needs go first; the other
+// days' drives (preloaded so switching days is instant) wait behind them and go slowly, so a trip opened for the
+// first time can't use up the per-person limit that place search shares with routes.
+const BG_ROUTE_GAP = 1000; // ms between background lookups: at most 60 a minute, half the server's limit
+const pending = new Map(); // key → job
+const routeJobs = [];
+const bgRouteFailed = new Set(); // not retried in the background this visit; retried once its day is on screen
+let routeBusy = false, bgRouteNext = 0, bgRouteTimer = 0;
 const legKey = (a, b) => `${(+a.lng).toFixed(5)},${(+a.lat).toFixed(5)};${(+b.lng).toFixed(5)},${(+b.lat).toFixed(5)}`;
 function haversine(a, b) {
   const R = 6371000, rad = x => x * Math.PI / 180;
@@ -275,28 +281,61 @@ function haversine(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-function getRoute(a, b) {
+function getRoute(a, b, { background = false } = {}) {
   const k = legKey(a, b);
   if (routes[k]) return routes[k];
   if (a.lat === b.lat && a.lng === b.lng) return { ok: true, duration: 0, distance: 0, coords: [[a.lat, a.lng]] };
-  if (!pending.has(k)) {
-    pending.add(k);
-    routeQueue = routeQueue.then(() => fetchRoute(a, b, k)); // one at a time, so opening a trip doesn't burst the router
-  }
+  if (background && bgRouteFailed.has(k)) return null;
+  const job = pending.get(k);
+  if (!job) {
+    const j = { a, b, k, background };
+    pending.set(k, j);
+    routeJobs.push(j);
+  } else if (!background) job.background = false; // queued for later, but it's on screen now: it goes next
+  pumpRoutes();
   return null;
 }
-async function fetchRoute(a, b, k) {
+async function pumpRoutes() {
+  if (routeBusy || !routeJobs.length) return;
+  let i = routeJobs.findIndex(j => !j.background);
+  if (i < 0) {
+    const wait = bgRouteNext - Date.now();
+    if (wait > 0) { bgRouteTimer ||= setTimeout(() => { bgRouteTimer = 0; pumpRoutes(); }, wait); return; }
+    i = 0;
+    bgRouteNext = Date.now() + BG_ROUTE_GAP;
+  }
+  const [job] = routeJobs.splice(i, 1);
+  routeBusy = true;
+  await fetchRoute(job);
+  routeBusy = false;
+  pumpRoutes();
+}
+async function fetchRoute(job) {
+  const { a, b, k } = job;
   try {
     const rt = await api(`/route?from=${a.lat},${a.lng}&to=${b.lat},${b.lng}`);
     routes[k] = { ok: true, ...rt };
     try { localStorage.setItem(ROUTE_KEY, JSON.stringify(Object.fromEntries(Object.entries(routes).filter(([, v]) => v.ok)))); } catch {}
-  } catch {
-    // Offline or unavailable: straight-line estimate so the plan still reads. Not persisted, so it retries next load.
-    const d = haversine(a, b) * 1.3;
-    routes[k] = { ok: false, duration: d / 22, distance: d, coords: [[a.lat, a.lng], [b.lat, b.lng]] };
+  } catch (e) {
+    if (job.background) {
+      // Nobody's looking at it yet: leave it for when its day is on screen, and back off if over the limit
+      bgRouteFailed.add(k);
+      if (e.status === 429) bgRouteNext = Date.now() + 60000;
+    } else {
+      // Offline or unavailable: straight-line estimate so the plan still reads. Not persisted, so it retries next load.
+      const d = haversine(a, b) * 1.3;
+      routes[k] = { ok: false, duration: d / 22, distance: d, coords: [[a.lat, a.lng], [b.lat, b.lng]] };
+    }
   }
   pending.delete(k);
-  scheduleRender();
+  if (!job.background) scheduleRender(); // a preloaded route shows once its day does
+}
+// Leaving a trip drops its preloading; a lookup the screen asked for still finishes.
+function dropBackgroundRoutes() {
+  for (let i = routeJobs.length - 1; i >= 0; i--) {
+    if (routeJobs[i].background) { pending.delete(routeJobs[i].k); routeJobs.splice(i, 1); }
+  }
+  bgRouteFailed.clear();
 }
 // Directions open in the phone's own maps app: Apple Maps on iOS, Google Maps everywhere else.
 const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
@@ -494,6 +533,7 @@ function render() {
   for (const id of state.flash) el.querySelector(`.wt-tl-stop[data-id="${id}"]`)?.classList.add('is-flash');
   state.flash.clear();
   drawMap(trip);
+  schedulePreload();
 }
 
 // ---------- Sign in ----------
@@ -678,8 +718,20 @@ let mapCredit = CREDIT.stadia;
 // This layer also loads a ring of tiles around the view, and once the view's tiles are in, it fetches the
 // next zoom level in (where a zoom-in lands) and the one out (a quarter as many) so the browser has them cached.
 // Stadia tiles only. Skipped when the browser asks to save data. `_getTiledPixelBounds` is Leaflet-internal: check it on upgrade.
+// The trip's other days are preloaded too (see preloadTrip), behind these and a few tiles at a time.
 const EDGE_TILES = 1;
 const PREFETCH_ZOOMS = [1, -1];
+const TILE_PRELOAD_PARALLEL = 4;
+const fetchedTiles = new Set(); // asked for once per visit; after that the browser's cache has them
+let tileQueue = [], tilesInFlight = 0;
+function pumpTiles() {
+  while (tilesInFlight < TILE_PRELOAD_PARALLEL && tileQueue.length) {
+    const img = new Image();
+    tilesInFlight++;
+    img.onload = img.onerror = () => { tilesInFlight--; pumpTiles(); };
+    img.src = tileQueue.shift();
+  }
+}
 function bufferedTileLayer(url, opts) {
   const t = L.tileLayer(url, { keepBuffer: 4, ...opts });
   const inView = t._getTiledPixelBounds;
@@ -687,35 +739,77 @@ function bufferedTileLayer(url, opts) {
     const b = inView.call(this, center), pad = this.getTileSize().multiplyBy(EDGE_TILES);
     return L.bounds(b.min.subtract(pad), b.max.add(pad));
   };
-  const fetched = new Set();
+  // Every tile under pixel bounds `b` at zoom `z`: now, or with `later`, queued behind everything else
+  t.prefetchArea = (b, z, later = false) => {
+    if (z < t.options.minZoom || z > t.options.maxZoom) return;
+    const size = t.getTileSize(), n = 2 ** z;
+    const lo = b.min.unscaleBy(size).floor(), hi = b.max.unscaleBy(size).ceil();
+    for (let y = Math.max(lo.y, 0); y < Math.min(hi.y, n); y++) {
+      for (let x = lo.x; x < hi.x; x++) {
+        const src = L.Util.template(url, { ...t.options, r: L.Browser.retina ? '@2x' : '', x: ((x % n) + n) % n, y, z });
+        if (fetchedTiles.has(src)) continue;
+        fetchedTiles.add(src);
+        if (later) tileQueue.push(src); else new Image().src = src;
+      }
+    }
+    if (later) pumpTiles();
+  };
   t.on('load', () => {
     const m = t._map;
     if (!m || navigator.connection?.saveData) return;
-    const size = t.getTileSize(), z0 = Math.round(m.getZoom()), view = m.getBounds();
+    const z0 = Math.round(m.getZoom()), view = m.getBounds();
     for (const dz of PREFETCH_ZOOMS) {
-      const z = z0 + dz, n = 2 ** z;
-      if (z < t.options.minZoom || z > t.options.maxZoom) continue;
+      const z = z0 + dz;
       // A zoom in centers on the pointer or pinch, so cover the whole view; a zoom out shows a view-sized area around the center
-      const b = dz > 0 ? L.bounds(m.project(view.getNorthWest(), z), m.project(view.getSouthEast(), z)) : m.getPixelBounds(m.getCenter(), z);
-      const lo = b.min.unscaleBy(size).floor(), hi = b.max.unscaleBy(size).ceil();
-      for (let y = Math.max(lo.y, 0); y < Math.min(hi.y, n); y++) {
-        for (let x = lo.x; x < hi.x; x++) {
-          const src = L.Util.template(url, { ...t.options, r: L.Browser.retina ? '@2x' : '', x: ((x % n) + n) % n, y, z });
-          if (fetched.has(src)) continue;
-          fetched.add(src);
-          new Image().src = src;
-        }
-      }
+      t.prefetchArea(dz > 0 ? L.bounds(m.project(view.getNorthWest(), z), m.project(view.getSouthEast(), z)) : m.getPixelBounds(m.getCenter(), z), z);
     }
   });
   return t;
 }
+let tiles = null; // the Stadia layer, when it's the one showing: the OpenStreetMap fallback isn't preloaded
+
+// ---------- Preloading the trip's other days ----------
+// Once the day on screen has settled, load every other day's drives and the map tiles where its camera will land,
+// nearest days first, so stepping to another day shows its routes and map at once.
+// Tiles are only the part of the view you can see (not under the list), at the day's zoom.
+let preloadTimer = 0;
+function schedulePreload() { clearTimeout(preloadTimer); preloadTimer = setTimeout(preloadTrip, 1500); }
+function preloadTrip() {
+  const trip = cur?.stops ? cur : null;
+  if (!map || !trip || $app.dataset.trip !== trip.id) return;
+  const d0 = currentDay(trip);
+  if (!d0) return;
+  // the next day, then the one before, then outward
+  const dist = d => Math.abs(daysBetween(d0, d)) * 2 - (d > d0 ? 1 : 0);
+  const days = daysOf(trip).filter(d => d !== d0).sort((a, b) => dist(a) - dist(b));
+  for (const d of days) {
+    const plan = dayPlan(trip, d);
+    for (let i = 1; i < plan.length; i++) getRoute(plan[i - 1].place, plan[i].place, { background: true });
+  }
+  // the camera depends on how much of the map the open stop covers; wait until it's closed
+  if (!tiles || navigator.connection?.saveData || state.draft) return;
+  if (tiles.isLoading()) { tiles.once('load', schedulePreload); return; } // the day on screen comes first
+  const size = map.getSize(), shown = L.point(size.x, size.y - coveredBottom());
+  if (shown.x <= 0 || shown.y <= 0) return;
+  for (const d of days) {
+    const v = dayView(trip, d);
+    if (!v) continue;
+    const z = Math.round(v.zoom), c = map.project(v.center, z), tl = c.subtract(size.divideBy(2));
+    tiles.prefetchArea(L.bounds(tl, tl.add(shown)), z, true);
+  }
+}
+
 function teardownTrip() {
   if (map) { map.remove(); map = null; layer = null; fitKey = ''; }
+  tiles = null;
+  tileQueue = [];
+  clearTimeout(preloadTimer);
+  dropBackgroundRoutes();
   const left = $app.dataset.trip;
   delete $app.dataset.trip;
   state.sel = state.selRow = state.leg = state.hoverLeg = state.day = state.draft = null;
   state.snap = 'half';
+  camFree = false;
   // the stop sheet leaves the header in reach, so Home can be tapped while it's open
   if (left && $sheets.innerHTML) closeSheet();
 }
@@ -730,7 +824,6 @@ function mountTrip(trip) {
     <header class="wt-trip-head">
       <a class="wt-icon-btn" href="#/" aria-label="All trips">${ICON.home}</a>
       <h1 class="wt-trip-head__name"></h1>
-      <button class="wt-view-toggle" data-action="view"></button>
       <button class="wt-icon-btn" data-action="settings" aria-label="Trip settings and sharing">${ICON.settings}</button>
     </header>
     <div id="map"></div>
@@ -759,9 +852,18 @@ function mountTrip(trip) {
     if (!ok) return osm();
     mapCredit = CREDIT.stadia;
     const quiet = bufferedTileLayer(`https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, { maxZoom: 20 }).addTo(m);
-    quiet.once('tileerror', () => { m.removeLayer(quiet); osm(); });
+    tiles = quiet;
+    quiet.once('tileerror', () => { m.removeLayer(quiet); tiles = null; tileQueue = []; osm(); });
+    schedulePreload();
   });
   layer = L.layerGroup().addTo(map);
+  // once you've touched the map, a new sheet height leaves the camera where you put it
+  map.getContainer().addEventListener('pointerdown', () => { camFree = true; });
+  // Zooming the map is looking at the map: the list gets out of the way, down to its peek.
+  const zooming = () => { if (!state.draft && state.snap === 'half' && !isWide()) setSnap('peek'); };
+  map.getContainer().addEventListener('wheel', zooming, { passive: true });
+  map.getContainer().addEventListener('dblclick', zooming);
+  map.getContainer().addEventListener('touchstart', e => { if (e.touches.length > 1) zooming(); }, { passive: true });
   // Tapping empty map clears the selection; a route's preview goes back to the whole day.
   // While a stop is open, the map is there to look at, so taps leave everything as it is.
   map.on('click', () => {
@@ -927,61 +1029,103 @@ function stepDay(n) {
 // Wide: the plan is a side panel (the design system's wt-trip container query), so there's nothing to snap or drag.
 const WIDE = 768;
 const isWide = () => ($app.querySelector('.trip')?.clientWidth || 0) >= WIDE;
-// On a phone the list is half the screen, or full: the whole day, docked under the header. It never hides.
+// The list has three heights on a phone, like a maps app's sheet: peek (the day bar only, so the map has the
+// screen), half (the default), and full (the whole day, docked under the header). It never hides.
+// You move it by dragging: the grab handle, the day bar, or the list itself. Dragging the list up grows the sheet
+// before the list scrolls; at full, pulling the list down from its top shrinks the sheet again.
+const SNAPS = ['peek', 'half', 'full'];
 function snaps() {
   const H = $app.querySelector('.trip').clientHeight;
-  return { half: Math.round(H * 0.48), full: H - $app.querySelector('.wt-trip-head').offsetHeight };
+  // peeking keeps the day bar and Add stop, as a maps app keeps its route summary and Start
+  return { peek: $app.querySelector('.wt-sheet__top').offsetHeight + $app.querySelector('.wt-add-bar').offsetHeight, half: Math.round(H * 0.48), full: H - headBottom() };
 }
+const GRAB_LABEL = { peek: "Show the day's plan", half: 'Show the whole day', full: 'Show more of the map' };
 function applySnap() {
   const trip = $app.querySelector('.trip'), sheet = trip?.querySelector('.wt-sheet');
   if (!sheet) return;
-  const wide = isWide(), full = !wide && state.snap === 'full', h = wide ? 0 : snaps()[state.snap];
+  const wide = isWide(), h = wide ? 0 : snaps()[state.snap];
   sheet.style.height = h ? `${h}px` : '';
-  sheet.classList.toggle('is-full', full);
+  sheet.classList.toggle('is-full', !wide && state.snap === 'full');
+  sheet.classList.toggle('is-peek', !wide && state.snap === 'peek');
+  // The header floats over the map as a card; with the whole day showing, it docks and joins the list.
+  trip.querySelector('.wt-trip-head').classList.toggle('is-docked', !wide && state.snap === 'full');
   trip.style.setProperty('--bottom-h', `${h}px`);
-  // The header's Map/List and the grab handle say where they go
-  const toggle = trip.querySelector('.wt-view-toggle');
-  toggle.innerHTML = full ? `${ICON.map}Map` : `${ICON.list}List`;
-  toggle.setAttribute('aria-label', full ? 'Show the map' : 'Show the whole day');
-  trip.querySelector('.wt-sheet__grab').setAttribute('aria-label', full ? 'Show the map' : 'Show the whole day');
+  trip.querySelector('.wt-sheet__grab').setAttribute('aria-label', GRAB_LABEL[state.snap]);
 }
+// A new height re-frames the map for what's left of it, unless you've moved the map yourself since.
 function setSnap(snap) {
-  if (state.snap === snap) return;
+  const changed = state.snap !== snap;
   state.snap = snap;
   applySnap();
+  if (changed && snap !== 'full') reframe();
 }
-// Drag the sheet's top between half and full. A tap on the grab handle is a click (data-action="grab"); a tap
-// anywhere else on the top does nothing, so a missed day-bar button can't resize the list.
-const drag = { active: false, moved: false, y0: 0, h0: 0, suppressClick: false };
-document.addEventListener('pointerdown', e => {
-  const top = e.target.closest('.wt-sheet__top');
-  if (!top || isWide()) return;
-  Object.assign(drag, { active: true, moved: false, y0: e.clientY, h0: top.parentElement.offsetHeight });
-});
-document.addEventListener('pointermove', e => {
-  if (!drag.active) return;
-  const dy = drag.y0 - e.clientY;
+let camFree = false; // you've touched the map since it was last framed
+function reframe() {
+  const trip = cur?.stops ? cur : null;
+  if (camFree || state.draft || !trip) return;
+  fitKey = '';
+  drawMap(trip);
+}
+const drag = { active: false, moved: false, list: null, mode: null, y0: 0, h0: 0, lastY: 0, lastT: 0, v: 0, suppressClick: false };
+function dragStart(y, list) {
+  const sheet = $app.querySelector('.wt-sheet');
+  Object.assign(drag, { active: true, moved: false, list, mode: list ? null : 'sheet', y0: y, h0: sheet.offsetHeight, lastY: y, lastT: performance.now(), v: 0 });
+}
+function dragMove(y) {
+  const now = performance.now(), dy = drag.y0 - y;
+  drag.v = (drag.lastY - y) / Math.max(1, now - drag.lastT); // px per ms, up is positive
+  drag.lastY = y;
+  drag.lastT = now;
   if (!drag.moved && Math.abs(dy) < 6) return;
   drag.moved = true;
   const sheet = $app.querySelector('.wt-sheet'), s = snaps();
   sheet.classList.add('is-dragging');
-  sheet.style.height = `${Math.max(s.half, Math.min(s.full, drag.h0 + dy))}px`;
-});
-document.addEventListener('pointerup', e => {
-  if (!drag.active) return;
+  sheet.style.height = `${Math.max(s.peek, Math.min(s.full, drag.h0 + dy))}px`;
+}
+function dragEnd() {
   drag.active = false;
   const sheet = $app.querySelector('.wt-sheet');
   if (!sheet || !drag.moved) return;
   sheet.classList.remove('is-dragging');
-  // a short flick is enough: past a fifth of the way, it goes the rest
-  const s = snaps(), dy = drag.y0 - e.clientY, reach = (s.full - s.half) / 5;
-  state.snap = dy > reach ? 'full' : dy < -reach ? 'half' : state.snap;
-  applySnap();
+  // A flick goes on to the next height its way; a slower drag settles at the nearest one.
+  const s = snaps(), h = sheet.offsetHeight, v = performance.now() - drag.lastT > 100 ? 0 : drag.v;
+  const snap = v > 0.4 ? SNAPS.find(k => s[k] > h + 1) || 'full'
+    : v < -0.4 ? [...SNAPS].reverse().find(k => s[k] < h - 1) || 'peek'
+      : SNAPS.reduce((a, k) => (Math.abs(s[k] - h) < Math.abs(s[a] - h) ? k : a));
+  setSnap(snap);
   drag.suppressClick = true;
   setTimeout(() => { drag.suppressClick = false; }, 50);
+}
+// The sheet's top (grab handle and day bar), with a finger or a mouse
+document.addEventListener('pointerdown', e => {
+  if (!e.target.closest('.wt-sheet__top') || isWide()) return;
+  dragStart(e.clientY, null);
 });
+document.addEventListener('pointermove', e => { if (drag.active && !drag.list) dragMove(e.clientY); });
+document.addEventListener('pointerup', () => { if (drag.active && !drag.list) dragEnd(); });
+// The list, with a finger: below full it moves the sheet; at full, only a pull down from its top does,
+// and otherwise it scrolls as usual.
+document.addEventListener('touchstart', e => {
+  const list = e.target.closest?.('.wt-sheet__body');
+  if (!list || e.touches.length > 1 || isWide()) return;
+  dragStart(e.touches[0].clientY, list);
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  if (!drag.active || !drag.list) return;
+  const y = e.touches[0].clientY, dy = drag.y0 - y;
+  if (!drag.mode) {
+    if (Math.abs(dy) < 6) return;
+    drag.mode = state.snap !== 'full' || (dy < 0 && drag.list.scrollTop <= 0) ? 'sheet' : 'scroll';
+  }
+  if (drag.mode !== 'sheet') return;
+  if (e.cancelable) e.preventDefault();
+  dragMove(y);
+}, { passive: false });
+for (const t of ['touchend', 'touchcancel']) document.addEventListener(t, () => { if (drag.active && drag.list) dragEnd(); });
 document.addEventListener('click', e => {
-  if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); }
+  if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
+  // Peeking, the sheet is the day bar: its buttons work, and a tap anywhere else on it opens it to half.
+  if (state.snap === 'peek' && !isWide() && e.target.closest('.wt-sheet') && !e.target.closest('button, a')) { e.stopPropagation(); setSnap('half'); }
 }, true);
 addEventListener('resize', () => {
   $sheets.classList.toggle('wt-modal-root--side', isWide());
@@ -992,17 +1136,21 @@ addEventListener('resize', () => {
   scheduleRender();
 });
 
-// How much of the map's bottom is covered: by the open stop's sheet, or else by the list. The camera is placed
-// for the list at half, since the map only shows then; nothing covers the map on a wide screen.
+// How much of the map's bottom is covered: by the open stop's sheet, or else by the list. At full the map
+// doesn't show, so the camera is placed for half, where the list goes back to. Nothing covers the map on a wide screen.
 function coveredBottom() {
   if (isWide()) return 0;
   const panel = state.draft && $sheets.querySelector('.wt-modal');
-  return panel ? panel.offsetHeight : snaps().half;
+  return panel ? panel.offsetHeight : snaps()[state.snap === 'peek' ? 'peek' : 'half'];
 }
+// The header card covers the map's top on a phone; on a wide screen it sits in the side panel.
+const headBottom = () => { const h = $app.querySelector('.wt-trip-head'); return h.offsetTop + h.offsetHeight; };
+const coveredTop = () => (isWide() ? 0 : headBottom());
 // Is this point in the part of the map you can see, with room to spare for its label?
 function inView(ll, margin = 40) {
+  const top = coveredTop();
   const p = map.latLngToContainerPoint(ll), size = map.getSize();
-  return p.x > margin && p.x < size.x - margin && p.y > margin && p.y < size.y - coveredBottom() - margin;
+  return p.x > margin && p.x < size.x - margin && p.y > top + margin && p.y < size.y - coveredBottom() - margin;
 }
 
 function drawMap(trip) {
@@ -1073,14 +1221,25 @@ function drawMap(trip) {
   }
   drawDraft();
 
-  const pts = plan.map(e => [e.place.lat, e.place.lng]);
-  const key = [trip.id, day, pts.length].join('|');
+  const key = [trip.id, day, plan.length].join('|');
   if (key === fitKey || state.draft) return;
   fitKey = key;
+  camFree = false;
   if (active && state.leg) return fitLeg(active);
-  if (new Set(pts.map(String)).size === 1) map.setView(pts[0], 13);
+  const v = dayView(trip, day);
+  if (v) map.setView(v.center, v.zoom);
+}
+// Where the camera goes for a day: around all its places, clear of the list. Preloading uses it to fetch the
+// tiles a day will land on, so this is fitBounds worked out by hand (as Leaflet does it), without moving the map.
+function dayView(trip, day) {
+  const pts = dayPlan(trip, day).map(e => [e.place.lat, e.place.lng]);
+  if (!pts.length) return null;
+  if (new Set(pts.map(String)).size === 1) return { center: L.latLng(pts[0]), zoom: 13 };
   // the side panel sits beside the map, not on it; on a phone, the list covers the bottom
-  else if (pts.length) map.fitBounds(pts, { paddingTopLeft: [32, 32], paddingBottomRight: [32, coveredBottom() + 24], maxZoom: 15 });
+  const tl = L.point(32, coveredTop() + 24), br = L.point(32, coveredBottom() + 24), bounds = L.latLngBounds(pts);
+  const zoom = Math.min(map.getBoundsZoom(bounds, false, tl.add(br)), 15);
+  const sw = map.project(bounds.getSouthWest(), zoom), ne = map.project(bounds.getNorthEast(), zoom);
+  return { center: map.unproject(sw.add(ne).divideBy(2).add(br.subtract(tl).divideBy(2)), zoom), zoom };
 }
 // The stop being edited, where it would go: its new place and type, named.
 function drawDraft() {
@@ -1110,7 +1269,8 @@ function midpoint(coords) {
 // From a tap on the map, only when an end is out of view, so the map doesn't jump under your finger.
 function fitLeg(l, onlyIfHidden = false) {
   if (!map || (onlyIfHidden && inView(l.from) && inView(l.to))) return;
-  map.fitBounds(legCoords(l), { paddingTopLeft: [72, 56], paddingBottomRight: [72, coveredBottom() + 48], maxZoom: 15 });
+  camFree = false;
+  map.fitBounds(legCoords(l), { paddingTopLeft: [72, coveredTop() + 48], paddingBottomRight: [72, coveredBottom() + 48], maxZoom: 15 });
 }
 // Show a drive's route: highlighted, both ends named, its time on it, and the map moved to fit it.
 // Tapping the same drive in the list again goes back to the whole day.
@@ -1124,7 +1284,7 @@ function previewLeg(l, { fromMap = false } = {}) {
   state.leg = l.key;
   state.sel = state.selRow = null;
   const shrink = state.snap === 'full';
-  setSnap('half'); // the whole-day list covers the map
+  if (shrink) setSnap('half'); // the whole-day list covers the map; peeking, the map already has the screen
   render();
   fitLeg(l, fromMap);
   // once the list has shrunk, so the row stays in what's left of it
@@ -1151,10 +1311,12 @@ function selectStop(s, row = null) {
   state.sel = s.id;
   state.selRow = row;
   const shrink = state.snap === 'full';
+  // coming down from the whole day re-frames the map for the day, which already shows this stop
+  const framed = shrink && !camFree && !isWide();
   setSnap('half'); // the whole-day list covers the map
   render();
-  if (row && map && s.lat != null && !inView([s.lat, s.lng])) {
-    const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, coveredBottom() / 2]);
+  if (row && !framed && map && s.lat != null && !inView([s.lat, s.lng])) {
+    const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
     map.panTo(map.unproject(p, z), { duration: 0.5 });
   }
   // once the list has shrunk, so the row stays in what's left of it
@@ -1164,7 +1326,7 @@ function selectStop(s, row = null) {
 function focusStop(s) {
   if (!map || s.lat == null) return;
   const z = Math.max(map.getZoom(), 13);
-  const p = map.project([s.lat, s.lng], z).add([0, coveredBottom() / 2]);
+  const p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
   map.flyTo(map.unproject(p, z), z, { duration: 0.5 });
 }
 
@@ -1555,8 +1717,7 @@ document.addEventListener('click', e => {
     case 'social': signInSocial(el.dataset.provider); break;
     case 'sign-out': signOut(); break;
     case 'close-sheet': closeSheet(); break;
-    case 'view': setSnap(state.snap === 'full' ? 'half' : 'full'); break;
-    case 'grab': setSnap(state.snap === 'full' ? 'half' : 'full'); break;
+    case 'grab': setSnap(state.snap === 'half' ? 'full' : 'half'); break; // peek and full go to half; half goes to full
     case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast('Link copied'), () => toast('Copy failed')); break;
   }
 });

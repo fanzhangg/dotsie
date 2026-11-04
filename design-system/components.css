@@ -1,4 +1,4 @@
-/* Waythread design system — components v4.1.0
+/* Waythread design system — components v4.2.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -258,19 +258,25 @@ textarea.wt-input { resize: none; }
 .wt-nights__row { min-height: 50px; }
 input.wt-input[type="time"] { min-height: 50px; }
 
-/* ---------- Trip header: home · trip name · Map/List · settings ---------- */
-/* A full row at the top of the trip screen, so the trip's name is always in view. On a phone it spans the screen,
-   above the map; from 768px wide (the wt-trip container, below) it tops the side panel. */
+/* ---------- Trip header: home · trip name · settings ---------- */
+/* A full row at the top of the trip screen, so the trip's name is always in view. On a phone it's a card floating
+   over the map, like a maps app's from/to card; with the whole day showing (.is-docked) it spans the top, flat, and
+   joins the list. Its bottom edge stays put either way. From 768px wide (the wt-trip container, below) it tops the side panel. */
 .wt-trip-head {
-  position: absolute; z-index: calc(var(--wt-z-sheet) + 1); top: 0; left: 0; right: 0;
-  height: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px));
-  padding: env(safe-area-inset-top, 0px) var(--wt-space-2) 0 var(--wt-space-1);
+  position: absolute; z-index: calc(var(--wt-z-sheet) + 1);
+  top: calc(env(safe-area-inset-top, 0px) + var(--wt-space-2)); left: var(--wt-space-3); right: var(--wt-space-3);
+  height: var(--wt-size-trip-head); padding: 0 var(--wt-space-2) 0 var(--wt-space-1);
   display: flex; align-items: center; gap: var(--wt-space-1);
-  background: var(--wt-surface-raised); box-shadow: 0 1px 0 var(--wt-border-default);
+  background: var(--wt-surface-raised); border-radius: var(--wt-radius-lg); box-shadow: var(--wt-shadow-card);
+  transition: top var(--wt-duration-base) var(--wt-ease-out), left var(--wt-duration-base) var(--wt-ease-out), right var(--wt-duration-base) var(--wt-ease-out),
+    height var(--wt-duration-base) var(--wt-ease-out), padding var(--wt-duration-base) var(--wt-ease-out), border-radius var(--wt-duration-base), box-shadow var(--wt-duration-base);
+}
+.wt-trip-head.is-docked {
+  top: 0; left: 0; right: 0; height: calc(var(--wt-size-trip-head) + var(--wt-space-2) + env(safe-area-inset-top, 0px));
+  padding-top: calc(var(--wt-space-2) + env(safe-area-inset-top, 0px)); border-radius: 0; box-shadow: 0 1px 0 var(--wt-border-default);
 }
 .wt-trip-head__name { flex: 1; min-width: 0; margin: 0 0 0 var(--wt-space-1); font: var(--wt-type-name); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Map / List: on a phone, switches between the map with half the day under it, and the whole day.
-   It names where it goes, so leaving the full list is one obvious tap. */
+/* Map / List (unused since 4.1.0: the sheet's three heights are reached by dragging it, as in a maps app) */
 .wt-view-toggle {
   display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px 0 11px;
   border-radius: var(--wt-radius-pill); background: var(--wt-surface-sunken); font: var(--wt-type-label);
@@ -281,8 +287,8 @@ input.wt-input[type="time"] { min-height: 50px; }
 @media (hover: hover) { .wt-view-toggle:hover, .wt-trip-head .wt-icon-btn:hover { background: var(--wt-surface-hover); } }
 
 /* ---------- Bottom sheet (the list over the map) ---------- */
-/* Two heights on a phone: half the screen, and full, docked under the trip header. It never hides: the day
-   bar and the list are always in reach. Drag the top, or tap the grab handle, to switch. */
+/* Three heights on a phone, like a maps app's sheet: peek (.is-peek: the day bar only), half, and full (.is-full:
+   docked under the trip header). It never hides. Drag the top or the list to move it; tap the grab handle to step. */
 .wt-sheet {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--wt-z-sheet);
   display: flex; flex-direction: column;
@@ -293,6 +299,11 @@ input.wt-input[type="time"] { min-height: 50px; }
 .wt-sheet.is-dragging { transition: none; }
 /* Full: square and flush under the header, so the two read as one page: the trip, then the whole day. */
 .wt-sheet.is-full { border-radius: 0; box-shadow: none; }
+/* Below full, dragging the list moves the sheet (up first, then it scrolls once full), so the list doesn't scroll on its own. */
+.wt-sheet:not(.is-full) .wt-sheet__body { touch-action: none; }
+.wt-sheet.is-peek { cursor: pointer; }
+/* Peeking shows only the day bar and Add stop; the list appears as soon as the sheet is dragged up. */
+.wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body { visibility: hidden; padding-bottom: 0; }
 .wt-sheet__top { flex: none; touch-action: none; padding: 0 var(--wt-space-3) var(--wt-space-1) var(--wt-space-1); }
 /* The grab handle is a button as wide as the sheet, so it's easy to hit and nothing else on the sheet's top resizes it. */
 .wt-sheet__grab { position: relative; display: block; width: 100%; height: 22px; cursor: grab; }
@@ -324,7 +335,10 @@ input.wt-input[type="time"] { min-height: 50px; }
    `container: wt-trip / inline-size`. From 768px wide, the header and the sheet stack into a full-height panel
    on the left, and there's nothing to drag or toggle. Without the container, the sheet stays a bottom sheet at every width. */
 @container wt-trip (min-width: 768px) {
-  .wt-trip-head { right: auto; width: var(--wt-size-panel); box-shadow: 1px 0 0 var(--wt-border-default); }
+  .wt-trip-head {
+    top: 0; left: 0; right: auto; width: var(--wt-size-panel); height: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px); border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
+  }
   .wt-trip-head .wt-icon-btn { color: var(--wt-text-secondary); }
   .wt-view-toggle { display: none; }
   .wt-sheet {
@@ -332,6 +346,7 @@ input.wt-input[type="time"] { min-height: 50px; }
     border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
   }
   .wt-sheet__top { touch-action: auto; padding-top: var(--wt-space-1); }
+  .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: auto; }
   .wt-sheet__grab { display: none; }
   .wt-map-bar { display: none; }
 }

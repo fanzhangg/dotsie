@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -150,6 +150,7 @@ The system font throughout, so the app feels native on every phone. Each token i
   - `--wt-shadow-hairline`: cards.
   - `--wt-shadow-sheet`: the list sheet.
   - `--wt-shadow-float`: labels and buttons over the map.
+  - `--wt-shadow-card`: the trip header, a card floating over the map.
   - `--wt-shadow-pin`: pins.
 
   Nothing else gets a shadow.
@@ -396,10 +397,9 @@ All live in the stop sheet.
 <header class="wt-trip-head">
   <a class="wt-icon-btn" href="#/" aria-label="All trips">${icon('home')}</a>
   <h1 class="wt-trip-head__name">White Sands, NM</h1>
-  <button class="wt-view-toggle" aria-label="Show the whole day">${icon('list')}List</button>
   <button class="wt-icon-btn" aria-label="Trip settings and sharing">${icon('settings')}</button>
 </header>
-<section class="wt-sheet" aria-label="Plan">
+<section class="wt-sheet" aria-label="Plan">   <!-- .is-peek or .is-full; neither is half -->
   <div class="wt-sheet__top">
     <button class="wt-sheet__grab" aria-label="Show the whole day"></button>
     <div class="wt-day-bar">…</div>
@@ -418,27 +418,31 @@ With a stop selected, the add bar holds Edit stop and a round `+` beside it:
 </div>
 ```
 
-- **The header** is a full row at the top of the trip screen: home, the trip's name, Map/List, settings. The name is always in view. On a phone the map starts under the header.
-- **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has two heights, which your code sets:
+- **The header** is one row: home, the trip's name, settings. The name is always in view. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
+- **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has three heights, like a maps app's sheet:
+  - **Peek** (`.is-peek`): the day bar and Add stop only, so the map has the screen. The list is hidden.
   - **Half** the screen, the default.
-  - **Full:** up to the header's bottom edge. Add `.is-full`: the sheet goes square and flat, so the header and the list read as one page.
-  - It never hides. The day bar and Add stop are always in reach.
-- **Switching:** `.wt-view-toggle` names where it goes: `List` (`aria-label` "Show the whole day") at half, `Map` ("Show the map") at full, so leaving the full list is one obvious tap. The grab handle is a button that does the same, and dragging the sheet's top works too. Nothing else on the sheet's top resizes the sheet, so a missed day-bar button does nothing. Add `.is-dragging` while it's being dragged.
-- When something needs the map (showing a route, selecting a pin), go back to half.
+  - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
+  - It never hides.
+- **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it (`touch-action: none` on the list), so dragging up grows the sheet first. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the next height its way; a slower drag settles at the nearest. Add `.is-dragging` while a finger is moving it.
+- **Taps:** the grab handle is a button: half goes to full, peek and full go to half. Peeking, the day bar's buttons still work, and a tap anywhere else on the sheet opens it to half. No other tap resizes the sheet.
+- **The map:** zooming it (pinch, double-tap, wheel) means you're looking at the map, so a half sheet goes down to peek. A new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin opens the sheet to half; showing a route from the whole day goes to half.
 - The top holds the grab handle and the day bar. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
 - **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop with a round `+` beside it, so adding is always one tap away. It's still one primary button.
 - On today, scroll the list so the `is-now` row sits a little above the middle.
 
-**On a wide screen it's a side panel.** Make the element that holds the header, map and sheet a size container named `wt-trip`, and put the map under the header on a phone:
+**On a wide screen it's a side panel.** Make the element that holds the header, map and sheet a size container named `wt-trip`:
 
 ```css
 .trip { position: relative; height: 100dvh; container: wt-trip / inline-size; }
-#map { position: absolute; inset: 0; top: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px)); }
-@container wt-trip (min-width: 768px) { #map { top: 0; left: var(--wt-size-panel); } }   /* the map sits beside the panel */
+#map { position: absolute; inset: 0; }   /* under the header card on a phone */
+@container wt-trip (min-width: 768px) { #map { left: var(--wt-size-panel); } }   /* the map sits beside the panel */
 ```
 
-From 768px wide, the header and the sheet stack into a full-height panel on the left, `--wt-size-panel` wide, and the map fills the rest. Your code clears the sheet's `height` there: no snapping, no dragging. The grab handle and Map/List hide. Without the `wt-trip` container, the header spans the top and the sheet is a bottom sheet at every width.
+Pad the top when you fit the map on a phone, so pins stay clear of the header card. From 768px wide, the header and the sheet stack into a full-height panel on the left, `--wt-size-panel` wide, and the map fills the rest. Your code clears the sheet's `height` there: no snapping, no dragging, and the grab handle hides. Without the `wt-trip` container, the header floats and the sheet is a bottom sheet at every width.
+
+`.wt-view-toggle` (Map/List in the header) is unused since 4.1.0: the three heights are reached by dragging, as in a maps app. It can go in the next major version.
 
 ### Map buttons `.wt-map-bar` and credit `.wt-credit`
 
@@ -589,9 +593,14 @@ Say what can go here, in the user's words. No illustrations.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
 
-### Added in 4.1.0
+### Added in 4.2.0
 
 - `.wt-btn--icon`, a round icon-only button, and a flex `.wt-add-bar` that fits Edit stop and a `+` side by side. Nothing was renamed or removed.
+
+### Added in 4.1.0
+
+- `.wt-sheet.is-peek` (the day bar and Add stop only), `.wt-trip-head.is-docked` (the header card, flat across the top over a full sheet), and `--wt-shadow-card`. The header floats over the map on a phone.
+- `.wt-view-toggle` is now unused.
 
 ### Renamed or removed in 4.0.0
 

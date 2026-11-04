@@ -23,11 +23,11 @@ One more rule came out of the iterations: **don't rebuild what Google Maps and A
 
 ### Trip
 
-The trip is a single screen: a **header** with the trip's name, the **map**, and the **stop list** in a sheet over the map. There are no List/Map tabs; on a phone, one button switches the list between half the screen and the whole day.
+The trip is a single screen: a **header** with the trip's name, the **map**, and the **stop list** in a sheet over the map. There are no List/Map tabs. On a phone the sheet works like the one in Google Maps' directions: you drag it between three heights.
 
 ```
 ┌──────────────────────────────┐
-│ ⌂  White Sands, NM [≡ List] ⚙│  ← header: home · trip · Map/List · settings
+│╭ ⌂  White Sands, NM       ⚙ ╮│  ← header card: home · trip · settings
 │        map: pins + routes    │  ← what's over is grey
 ├──────────────────────────────┤  ← grab handle
 │ ‹       Today, Nov 21 ⌄    › │  ← day bar: step, or tap the day
@@ -45,16 +45,27 @@ The trip is a single screen: a **header** with the trip's name, the **map**, and
 
 With a stop selected, the bottom button becomes `[██████ ✎ Edit stop ██████] (+)`: Edit stop, and a small round + so adding is still one tap away.
 
-**The header** is one row across the top: **home** (back to the trip list), the **trip's name**, **Map/List**, and **trip settings**. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings.
+**The header** is one row: **home** (back to the trip list), the **trip's name**, and **trip settings**. On a phone it's a card floating over the top of the map, like the from/to card in Google Maps' directions, and the map runs under it. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings.
 
-**The sheet** is white and has two heights on a phone: half the screen (the default), and the whole day.
-- **The whole day** fills the screen up to the header and joins it, square and flat, so the header and the list read as one page. The header stays usable: home, settings, and the way back to the map.
-- **Switching:** **List** in the header shows the whole day; it then says **Map**, and tapping it goes back. The button names where it goes, so leaving the full list is one obvious tap. Tapping the grab handle, or dragging the sheet's top, does the same.
-- **It never hides.** It used to pull down to just the day bar, and any tap on the sheet's top that missed a button did that, so it was easy to hide the list by accident. A hidden list was rarely worth having on a phone; the whole day was. Now only the grab handle and Map/List resize the sheet.
-- Anything that needs the map, like showing a route or tapping a pin, brings the list back to half.
-- The map zooms to fit the day's stops above the sheet.
+**The sheet** is white and, on a phone, has three heights, following Google Maps' directions sheet:
+- **Peek:** just the day bar and **Add stop**, so the map has the screen, the way Google keeps the route summary and Start. The day bar's arrows still step through the days, and the map follows.
+- **Half** the screen: the default.
+- **The whole day:** the sheet fills the screen up to the header, and the header card docks, flat across the top, so the two read as one page. Home and settings stay in reach.
+- **It never hides.**
 
-**On a computer or tablet** (768px wide and up), the header and the sheet become a side panel: the plan down the left, about a third of the window (360–440px), and the map filling the rest. There's nothing to drag and no Map/List: the header tops the panel, above the day bar. Opening a stop, a day list or settings covers the panel, so the map stays in view beside it, with the stop being edited in the middle.
+**Moving the sheet is dragging,** as in Google Maps, from anywhere on it: the grab handle, the day bar, or the list.
+- Dragging the list up grows the sheet first; once it's the whole day, the list scrolls.
+- With the whole day showing, pulling the list down from its top shrinks the sheet.
+- A flick goes on to the next height its way; a slower drag settles at the nearest one.
+- **Taps:** tapping the grab handle goes from half to the whole day, and back to half from the other two. Peeking, a tap anywhere on the sheet but its buttons opens it to half. No other tap resizes the sheet, so a missed day-bar button can't hide the list.
+- **Zooming the map** (pinching, double-tapping) minimizes a half sheet to peek, as Google Maps does: you're looking at the map.
+
+Why: the sheet used to have three heights reached by taps, and any tap on its top that missed a button pulled it down, so it was easy to hide the list by accident. Then it had two heights and a Map/List button in the header, which felt unlike any maps app. Dragging between three heights, the way Google Maps does it, gives a map view, a half view and the whole day, with nothing to mis-tap.
+
+- Anything that needs the list, like tapping a pin, opens the sheet to half. Showing a route from the whole day brings it down to half; from a peek, it stays a peek.
+- The map zooms to fit the day's stops in what's left above the sheet and below the header. When the sheet changes height, the map re-fits for the new space, unless you've moved the map yourself.
+
+**On a computer or tablet** (768px wide and up), the header and the sheet become a side panel: the plan down the left, about a third of the window (360–440px), and the map filling the rest. There's nothing to drag: the header tops the panel, above the day bar. Opening a stop, a day list or settings covers the panel, so the map stays in view beside it, with the stop being edited in the middle.
 
 ```
 ┌─────────────────────┬──────────────────────────────────┐
@@ -228,7 +239,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
 
   | Width | Trip | Home and sign-in |
   | --- | --- | --- |
-  | Under 768px | Header, map, plan in a bottom sheet (half or the whole day); modal sheets slide up, and the stop sheet leaves the map in view | A 480px column |
+  | Under 768px | Header card over the map, plan in a bottom sheet (peek, half or the whole day); modal sheets slide up, and the stop sheet leaves the map in view | A 480px column |
   | 768px and up | Header and plan in a side panel beside the map; modal sheets cover the panel | Trips in a grid of cards; sign-in in a card; other sheets are dialogs in the middle |
 
   16px text in form fields (stops iPhone zooming in), and spacing for phone screen edges. The prototype doesn't opt in to the side panel, so it stays phone-shaped at every width.

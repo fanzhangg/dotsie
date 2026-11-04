@@ -362,6 +362,7 @@ function teardownTrip() {
   delete $app.dataset.trip;
   state.sel = state.selRow = state.leg = state.hoverLeg = state.day = state.draft = null;
   state.snap = 'half';
+  camFree = false;
   // the stop sheet leaves the header in reach, so Home can be tapped while it's open
   if (left && $sheets.innerHTML) closeSheet();
 }
@@ -374,7 +375,6 @@ function mountTrip(trip) {
     <header class="wt-trip-head">
       <a class="wt-icon-btn" href="#/" aria-label="All trips">${ICON.home}</a>
       <h1 class="wt-trip-head__name"></h1>
-      <button class="wt-view-toggle" data-action="view"></button>
       <button class="wt-icon-btn" data-action="settings" aria-label="Trip settings and sharing">${ICON.settings}</button>
     </header>
     <div id="map"></div>
@@ -397,6 +397,13 @@ function mountTrip(trip) {
     $app.querySelector('.trip')?.classList.add('osm-tiles');
   });
   layer = L.layerGroup().addTo(map);
+  // once you've touched the map, a new sheet height leaves the camera where you put it
+  map.getContainer().addEventListener('pointerdown', () => { camFree = true; });
+  // Zooming the map is looking at the map: the list gets out of the way, down to its peek.
+  const zooming = () => { if (!state.draft && state.snap === 'half') setSnap('peek'); };
+  map.getContainer().addEventListener('wheel', zooming, { passive: true });
+  map.getContainer().addEventListener('dblclick', zooming);
+  map.getContainer().addEventListener('touchstart', e => { if (e.touches.length > 1) zooming(); }, { passive: true });
   // Tapping empty map clears the selection; a route's preview goes back to the whole day.
   // While a stop is open, the map is there to look at, so taps leave everything as it is.
   map.on('click', () => {
@@ -565,61 +572,103 @@ function stepDay(n) {
   setDay(days[days.indexOf(currentDay(trip)) + n]);
 }
 
-// The list is half the screen, or full: the whole day, docked under the header. It never hides.
+// The list has three heights on a phone, like a maps app's sheet: peek (the day bar only, so the map has the
+// screen), half (the default), and full (the whole day, docked under the header). It never hides.
+// You move it by dragging: the grab handle, the day bar, or the list itself. Dragging the list up grows the sheet
+// before the list scrolls; at full, pulling the list down from its top shrinks the sheet again.
+const SNAPS = ['peek', 'half', 'full'];
 function snaps() {
   const H = $app.querySelector('.trip').clientHeight;
-  return { half: Math.round(H * 0.48), full: H - $app.querySelector('.wt-trip-head').offsetHeight };
+  // peeking keeps the day bar and Add stop, as a maps app keeps its route summary and Start
+  return { peek: $app.querySelector('.wt-sheet__top').offsetHeight + $app.querySelector('.wt-add-bar').offsetHeight, half: Math.round(H * 0.48), full: H - headBottom() };
 }
+const GRAB_LABEL = { peek: "Show the day's plan", half: 'Show the whole day', full: 'Show more of the map' };
 function applySnap() {
   const trip = $app.querySelector('.trip'), sheet = trip?.querySelector('.wt-sheet');
   if (!sheet) return;
-  const full = state.snap === 'full', h = snaps()[state.snap];
-  sheet.style.height = `${h}px`;
-  sheet.classList.toggle('is-full', full);
+  const wide = false, h = wide ? 0 : snaps()[state.snap];
+  sheet.style.height = h ? `${h}px` : '';
+  sheet.classList.toggle('is-full', !wide && state.snap === 'full');
+  sheet.classList.toggle('is-peek', !wide && state.snap === 'peek');
+  // The header floats over the map as a card; with the whole day showing, it docks and joins the list.
+  trip.querySelector('.wt-trip-head').classList.toggle('is-docked', !wide && state.snap === 'full');
   trip.style.setProperty('--bottom-h', `${h}px`);
-  // The header's Map/List and the grab handle say where they go
-  const toggle = trip.querySelector('.wt-view-toggle');
-  toggle.innerHTML = full ? `${ICON.map}Map` : `${ICON.list}List`;
-  toggle.setAttribute('aria-label', full ? 'Show the map' : 'Show the whole day');
-  trip.querySelector('.wt-sheet__grab').setAttribute('aria-label', full ? 'Show the map' : 'Show the whole day');
+  trip.querySelector('.wt-sheet__grab').setAttribute('aria-label', GRAB_LABEL[state.snap]);
 }
+// A new height re-frames the map for what's left of it, unless you've moved the map yourself since.
 function setSnap(snap) {
-  if (state.snap === snap) return;
+  const changed = state.snap !== snap;
   state.snap = snap;
   applySnap();
+  if (changed && snap !== 'full') reframe();
 }
-// Drag the sheet's top between half and full. A tap on the grab handle is a click (data-action="grab"); a tap
-// anywhere else on the top does nothing, so a missed day-bar button can't resize the list.
-const drag = { active: false, moved: false, y0: 0, h0: 0, suppressClick: false };
-document.addEventListener('pointerdown', e => {
-  const top = e.target.closest('.wt-sheet__top');
-  if (!top) return;
-  Object.assign(drag, { active: true, moved: false, y0: e.clientY, h0: top.parentElement.offsetHeight });
-});
-document.addEventListener('pointermove', e => {
-  if (!drag.active) return;
-  const dy = drag.y0 - e.clientY;
+let camFree = false; // you've touched the map since it was last framed
+function reframe() {
+  const trip = db.trips[parseHash().id];
+  if (camFree || state.draft || !trip) return;
+  fitKey = '';
+  drawMap(trip);
+}
+const drag = { active: false, moved: false, list: null, mode: null, y0: 0, h0: 0, lastY: 0, lastT: 0, v: 0, suppressClick: false };
+function dragStart(y, list) {
+  const sheet = $app.querySelector('.wt-sheet');
+  Object.assign(drag, { active: true, moved: false, list, mode: list ? null : 'sheet', y0: y, h0: sheet.offsetHeight, lastY: y, lastT: performance.now(), v: 0 });
+}
+function dragMove(y) {
+  const now = performance.now(), dy = drag.y0 - y;
+  drag.v = (drag.lastY - y) / Math.max(1, now - drag.lastT); // px per ms, up is positive
+  drag.lastY = y;
+  drag.lastT = now;
   if (!drag.moved && Math.abs(dy) < 6) return;
   drag.moved = true;
   const sheet = $app.querySelector('.wt-sheet'), s = snaps();
   sheet.classList.add('is-dragging');
-  sheet.style.height = `${Math.max(s.half, Math.min(s.full, drag.h0 + dy))}px`;
-});
-document.addEventListener('pointerup', e => {
-  if (!drag.active) return;
+  sheet.style.height = `${Math.max(s.peek, Math.min(s.full, drag.h0 + dy))}px`;
+}
+function dragEnd() {
   drag.active = false;
   const sheet = $app.querySelector('.wt-sheet');
   if (!sheet || !drag.moved) return;
   sheet.classList.remove('is-dragging');
-  // a short flick is enough: past a fifth of the way, it goes the rest
-  const s = snaps(), dy = drag.y0 - e.clientY, reach = (s.full - s.half) / 5;
-  state.snap = dy > reach ? 'full' : dy < -reach ? 'half' : state.snap;
-  applySnap();
+  // A flick goes on to the next height its way; a slower drag settles at the nearest one.
+  const s = snaps(), h = sheet.offsetHeight, v = performance.now() - drag.lastT > 100 ? 0 : drag.v;
+  const snap = v > 0.4 ? SNAPS.find(k => s[k] > h + 1) || 'full'
+    : v < -0.4 ? [...SNAPS].reverse().find(k => s[k] < h - 1) || 'peek'
+      : SNAPS.reduce((a, k) => (Math.abs(s[k] - h) < Math.abs(s[a] - h) ? k : a));
+  setSnap(snap);
   drag.suppressClick = true;
   setTimeout(() => { drag.suppressClick = false; }, 50);
+}
+// The sheet's top (grab handle and day bar), with a finger or a mouse
+document.addEventListener('pointerdown', e => {
+  if (!e.target.closest('.wt-sheet__top')) return;
+  dragStart(e.clientY, null);
 });
+document.addEventListener('pointermove', e => { if (drag.active && !drag.list) dragMove(e.clientY); });
+document.addEventListener('pointerup', () => { if (drag.active && !drag.list) dragEnd(); });
+// The list, with a finger: below full it moves the sheet; at full, only a pull down from its top does,
+// and otherwise it scrolls as usual.
+document.addEventListener('touchstart', e => {
+  const list = e.target.closest?.('.wt-sheet__body');
+  if (!list || e.touches.length > 1) return;
+  dragStart(e.touches[0].clientY, list);
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  if (!drag.active || !drag.list) return;
+  const y = e.touches[0].clientY, dy = drag.y0 - y;
+  if (!drag.mode) {
+    if (Math.abs(dy) < 6) return;
+    drag.mode = state.snap !== 'full' || (dy < 0 && drag.list.scrollTop <= 0) ? 'sheet' : 'scroll';
+  }
+  if (drag.mode !== 'sheet') return;
+  if (e.cancelable) e.preventDefault();
+  dragMove(y);
+}, { passive: false });
+for (const t of ['touchend', 'touchcancel']) document.addEventListener(t, () => { if (drag.active && drag.list) dragEnd(); });
 document.addEventListener('click', e => {
-  if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); }
+  if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
+  // Peeking, the sheet is the day bar: its buttons work, and a tap anywhere else on it opens it to half.
+  if (state.snap === 'peek' && e.target.closest('.wt-sheet') && !e.target.closest('button, a')) { e.stopPropagation(); setSnap('half'); }
 }, true);
 addEventListener('resize', () => {
   if (!$app.dataset.trip) return;
@@ -629,16 +678,20 @@ addEventListener('resize', () => {
   scheduleRender();
 });
 
-// How much of the map's bottom is covered: by the open stop's sheet, or else by the list. The camera is placed
-// for the list at half, since the map only shows then.
+// How much of the map's bottom is covered: by the open stop's sheet, or else by the list. At full the map
+// doesn't show, so the camera is placed for half, where the list goes back to.
 function coveredBottom() {
   const panel = state.draft && $sheets.querySelector('.wt-modal');
-  return panel ? panel.offsetHeight : snaps().half;
+  return panel ? panel.offsetHeight : snaps()[state.snap === 'peek' ? 'peek' : 'half'];
 }
+// The header card covers the map's top on a phone.
+const headBottom = () => { const h = $app.querySelector('.wt-trip-head'); return h.offsetTop + h.offsetHeight; };
+const coveredTop = () => (headBottom());
 // Is this point in the part of the map you can see, with room to spare for its label?
 function inView(ll, margin = 40) {
+  const top = coveredTop();
   const p = map.latLngToContainerPoint(ll), size = map.getSize();
-  return p.x > margin && p.x < size.x - margin && p.y > margin && p.y < size.y - coveredBottom() - margin;
+  return p.x > margin && p.x < size.x - margin && p.y > top + margin && p.y < size.y - coveredBottom() - margin;
 }
 
 function drawMap(trip) {
@@ -712,10 +765,11 @@ function drawMap(trip) {
   const key = [trip.id, day, pts.length].join('|');
   if (key === fitKey || state.draft) return;
   fitKey = key;
+  camFree = false;
   if (active && state.leg) return fitLeg(active);
   if (new Set(pts.map(String)).size === 1) map.setView(pts[0], 13);
   // the list covers the map's bottom
-  else if (pts.length) map.fitBounds(pts, { paddingTopLeft: [32, 32], paddingBottomRight: [32, coveredBottom() + 24], maxZoom: 15 });
+  else if (pts.length) map.fitBounds(pts, { paddingTopLeft: [32, coveredTop() + 24], paddingBottomRight: [32, coveredBottom() + 24], maxZoom: 15 });
 }
 // The stop being edited, where it would go: its new place and type, named.
 function drawDraft() {
@@ -745,7 +799,8 @@ function midpoint(coords) {
 // From a tap on the map, only when an end is out of view, so the map doesn't jump under your finger.
 function fitLeg(l, onlyIfHidden = false) {
   if (!map || (onlyIfHidden && inView(l.from) && inView(l.to))) return;
-  map.fitBounds(legCoords(l), { paddingTopLeft: [72, 56], paddingBottomRight: [72, coveredBottom() + 48], maxZoom: 15 });
+  camFree = false;
+  map.fitBounds(legCoords(l), { paddingTopLeft: [72, coveredTop() + 48], paddingBottomRight: [72, coveredBottom() + 48], maxZoom: 15 });
 }
 // Show a drive's route: highlighted, both ends named, its time on it, and the map moved to fit it.
 // Tapping the same drive in the list again goes back to the whole day.
@@ -759,7 +814,7 @@ function previewLeg(l, { fromMap = false } = {}) {
   state.leg = l.key;
   state.sel = state.selRow = null;
   const shrink = state.snap === 'full';
-  setSnap('half'); // the whole-day list covers the map
+  if (shrink) setSnap('half'); // the whole-day list covers the map; peeking, the map already has the screen
   render();
   fitLeg(l, fromMap);
   // once the list has shrunk, so the row stays in what's left of it
@@ -787,10 +842,12 @@ function selectSpot(s, row = null) {
   state.sel = s.id;
   state.selRow = row;
   const shrink = state.snap === 'full';
+  // coming down from the whole day re-frames the map for the day, which already shows this stop
+  const framed = shrink && !camFree;
   setSnap('half'); // the whole-day list covers the map
   render();
-  if (row && map && s.lat != null && !inView([s.lat, s.lng])) {
-    const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, coveredBottom() / 2]);
+  if (row && !framed && map && s.lat != null && !inView([s.lat, s.lng])) {
+    const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
     map.panTo(map.unproject(p, z), { duration: 0.5 });
   }
   // once the list has shrunk, so the row stays in what's left of it
@@ -800,7 +857,7 @@ function selectSpot(s, row = null) {
 function focusSpot(s) {
   if (!map || s.lat == null) return;
   const z = Math.max(map.getZoom(), 13);
-  const p = map.project([s.lat, s.lng], z).add([0, coveredBottom() / 2]);
+  const p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
   map.flyTo(map.unproject(p, z), z, { duration: 0.5 });
 }
 
@@ -1112,7 +1169,7 @@ document.addEventListener('click', e => {
       break;
     }
     case 'close-sheet': closeSheet(); break;
-    case 'view': case 'grab': setSnap(state.snap === 'full' ? 'half' : 'full'); break;
+    case 'grab': setSnap(state.snap === 'half' ? 'full' : 'half'); break; // peek and full go to half; half goes to full
     case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast('Link copied'), () => toast('Copy failed')); break;
   }
 });
