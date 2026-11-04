@@ -114,6 +114,7 @@
     .demo__live { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wt-space-3); padding: var(--wt-space-6) var(--wt-space-5); background: var(--wt-surface-sheet); }
     .demo__live--column { display: block; }
     .demo__live--narrow > * { max-width: 380px; width: 100%; }
+    .demo-search { --wt-modal-pad-top: 0px; --wt-modal-pad-x: 0px; }
     .demo__live--raised { background: var(--wt-surface-raised); }
     .marker-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--wt-space-2); width: 100%; }
     .marker-cell { display: grid; justify-items: center; gap: var(--wt-space-1); padding: var(--wt-space-3) var(--wt-space-1); border-radius: var(--wt-radius-md); background: var(--wt-surface-raised); box-shadow: var(--wt-shadow-hairline); }
@@ -316,22 +317,39 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 
     <section id="forms">
       <h2>Forms</h2>
-      <p class="intro">Every field has a visible label. The Place field is also the search: it shows the stop's name, and typing finds a new place.</p>
+      <p class="intro">Every field has a visible label. The Place field is a row that shows the place's name and address; tapping it opens the search page below.</p>
       <div class="demo">
         <div class="demo__live demo__live--column demo__live--narrow" data-snippet>
-          <label class="wt-field"><span class="wt-field__label">Place</span><input class="wt-input" id="demo-place" type="search" value="White Sands" autocomplete="off"></label>
-          <ul class="wt-results">
-            <li><button class="wt-results__item" type="button"><span class="wt-results__name">White Sands Visitor Center</span><span class="wt-results__detail">US-70, Alamogordo, New Mexico</span></button></li>
-            <li><button class="wt-results__item" type="button"><span class="wt-results__name">White Sands Missile Range Museum</span><span class="wt-results__detail">Owen Road, Doña Ana County, New Mexico</span></button></li>
-          </ul>
+          <div class="wt-field"><span class="wt-field__label" id="demo-place-label">Place</span>
+            <button type="button" class="wt-picker wt-picker--text" aria-describedby="demo-place-label"><span class="wt-picker__value"><span class="wt-picker__name">Joshua Tree Inn</span><span class="wt-picker__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span><i data-icon="forward" data-size="18"></i></button></div>
           <label class="wt-field"><span class="wt-field__label">When</span><input class="wt-input" id="demo-when" type="datetime-local" value="2026-11-20T15:00"></label>
           <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" id="demo-note" rows="2" placeholder="Confirmation #, tickets, tips…"></textarea></label>
         </div>
       </div>
       <ul class="rules">
         <li>Placeholders show an example, never the label.</li>
-        <li>Messages say what to do next: <i>Pick a place from the search results.</i></li>
+        <li>Messages say what happened and what to try: <i>No places match “zzq”. Try adding the town, or check the spelling.</i></li>
         <li>Input text is 16px, so iPhones don't zoom in.</li>
+      </ul>
+
+      <h3>Search page</h3>
+      <p class="intro">As in Google or Apple Maps. Tapping the Place row opens this page in place of the form, with the place's name in the field to edit. Results fill the page, each with the marker of the type it would get; tapping one fills it in and comes back. Cancel changes nothing. On a phone the sheet takes the whole screen while it's open.</p>
+      <div class="demo">
+        <div class="demo__live demo__live--column demo__live--narrow demo__live--raised demo-search" data-snippet>
+          <div class="wt-search-bar">
+            <label class="wt-input wt-input-group wt-search"><i data-icon="search"></i><input type="text" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="demo-results" aria-label="Search a place" value="Joshua" autocomplete="off"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear"><i data-icon="close"></i></button></label>
+            <button type="button" class="wt-search-bar__cancel">Cancel</button>
+          </div>
+          <div class="wt-results" id="demo-results" role="listbox" aria-label="Places">
+            <div class="wt-option" role="option" aria-selected="true"><i class="wt-marker" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-stay)"><i data-icon="bed"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Inn</span><span class="wt-option__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span></div>
+            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Café" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="cup"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Coffee Company</span><span class="wt-option__detail">61738 29 Palms Hwy, Joshua Tree, CA</span></span></div>
+            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree National Park</span><span class="wt-option__detail">Twentynine Palms, CA</span></span></div>
+          </div>
+        </div>
+      </div>
+      <ul class="rules">
+        <li>The field starts with the current name, cursor at the end. Only a picked result is kept; nothing typed is.</li>
+        <li>↑ ↓ move the grey row, Return picks it, Esc is Cancel.</li>
       </ul>
 
       <h3>Type picker, nights and check-out</h3>
@@ -352,17 +370,20 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
           <div class="demo-type-page" hidden>
             <div class="wt-modal__head wt-modal__head--sub"><button class="wt-icon-btn" type="button" id="demo-kind-back" aria-label="Back"><i data-icon="back"></i></button><h2 class="wt-modal__title">Type</h2></div>
             <ul class="wt-options" role="radiogroup" aria-label="Type">
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Place" data-icon-name="pin" style="--wt-kind-color: var(--wt-kind-place)"><i class="wt-marker" role="img" aria-label="Place"><i data-icon="pin"></i></i><span class="wt-option__label">Place</span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Airport" data-icon-name="plane" style="--wt-kind-color: var(--wt-kind-travel)"><i class="wt-marker" role="img" aria-label="Airport"><i data-icon="plane"></i></i><span class="wt-option__label">Airport</span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="true" data-demo-kind="Hotel" data-icon-name="bed" style="--wt-kind-color: var(--wt-kind-stay)"><i class="wt-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i><span class="wt-option__label">Hotel</span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Restaurant" data-icon-name="utensils" style="--wt-kind-color: var(--wt-kind-food)"><i class="wt-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i><span class="wt-option__label">Restaurant</span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Café" data-icon-name="cup" style="--wt-kind-color: var(--wt-kind-food)"><i class="wt-marker" role="img" aria-label="Café"><i data-icon="cup"></i></i><span class="wt-option__label">Café</span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Attraction" data-icon-name="star" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Attraction"><i data-icon="star"></i></i><span class="wt-option__label">Attraction</span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Museum" data-icon-name="museum" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i><span class="wt-option__label">Museum</span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Viewpoint" data-icon-name="camera" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Viewpoint"><i data-icon="camera"></i></i><span class="wt-option__label">Viewpoint</span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Nature" data-icon-name="tree" style="--wt-kind-color: var(--wt-kind-nature)"><i class="wt-marker" role="img" aria-label="Nature"><i data-icon="tree"></i></i><span class="wt-option__label">Nature</span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Shopping" data-icon-name="bag" style="--wt-kind-color: var(--wt-kind-shop)"><i class="wt-marker" role="img" aria-label="Shopping"><i data-icon="bag"></i></i><span class="wt-option__label">Shopping</span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Gas" data-icon-name="fuel" style="--wt-kind-color: var(--wt-kind-travel)"><i class="wt-marker" role="img" aria-label="Gas"><i data-icon="fuel"></i></i><span class="wt-option__label">Gas</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Place" data-icon-name="pin" style="--wt-kind-color: var(--wt-kind-place)"><i class="wt-marker" role="img" aria-label="Place"><i data-icon="pin"></i></i><span class="wt-option__text"><span class="wt-option__label">Place</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li class="wt-options__sep" role="presentation"></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="true" data-demo-kind="Hotel" data-icon-name="bed" style="--wt-kind-color: var(--wt-kind-stay)"><i class="wt-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i><span class="wt-option__text"><span class="wt-option__label">Hotel</span><span class="wt-option__detail">Adds check-out</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Airport" data-icon-name="plane" style="--wt-kind-color: var(--wt-kind-travel)"><i class="wt-marker" role="img" aria-label="Airport"><i data-icon="plane"></i></i><span class="wt-option__text"><span class="wt-option__label">Airport</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Gas" data-icon-name="fuel" style="--wt-kind-color: var(--wt-kind-travel)"><i class="wt-marker" role="img" aria-label="Gas"><i data-icon="fuel"></i></i><span class="wt-option__text"><span class="wt-option__label">Gas</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li class="wt-options__sep" role="presentation"></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Restaurant" data-icon-name="utensils" style="--wt-kind-color: var(--wt-kind-food)"><i class="wt-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i><span class="wt-option__text"><span class="wt-option__label">Restaurant</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Café" data-icon-name="cup" style="--wt-kind-color: var(--wt-kind-food)"><i class="wt-marker" role="img" aria-label="Café"><i data-icon="cup"></i></i><span class="wt-option__text"><span class="wt-option__label">Café</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li class="wt-options__sep" role="presentation"></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Attraction" data-icon-name="star" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Attraction"><i data-icon="star"></i></i><span class="wt-option__text"><span class="wt-option__label">Attraction</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Viewpoint" data-icon-name="camera" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Viewpoint"><i data-icon="camera"></i></i><span class="wt-option__text"><span class="wt-option__label">Viewpoint</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Nature" data-icon-name="tree" style="--wt-kind-color: var(--wt-kind-nature)"><i class="wt-marker" role="img" aria-label="Nature"><i data-icon="tree"></i></i><span class="wt-option__text"><span class="wt-option__label">Nature</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Museum" data-icon-name="museum" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i><span class="wt-option__text"><span class="wt-option__label">Museum</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Shopping" data-icon-name="bag" style="--wt-kind-color: var(--wt-kind-shop)"><i class="wt-marker" role="img" aria-label="Shopping"><i data-icon="bag"></i></i><span class="wt-option__text"><span class="wt-option__label">Shopping</span></span><i data-icon="check" data-size="18"></i></button></li>
             </ul>
           </div>
         </div>

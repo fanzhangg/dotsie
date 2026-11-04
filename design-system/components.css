@@ -1,4 +1,4 @@
-/* Waythread design system — components v4.5.1
+/* Waythread design system — components v4.6.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -14,10 +14,10 @@
 .wt-base *, .wt-base *::before, .wt-base *::after { box-sizing: border-box; }
 .wt-icon { flex: none; display: block; }
 .wt-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option) {
+:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel) {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
 }
-:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option):focus-visible {
+:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
   outline: 2px solid var(--wt-border-focus);
   outline-offset: 2px;
   border-radius: var(--wt-radius-md);
@@ -97,12 +97,46 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 }
 /* On a touch screen, tapping the field opens the picker, so its icon only takes room from the time */
 @media (pointer: coarse) { .wt-input-group > input::-webkit-calendar-picker-indicator { display: none; } }
-.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
+/* ---------- Search field: a search icon, the input, then a spinner while it looks and a clear button ---------- */
+/* An .wt-input-group, so tapping anywhere in it focuses the input. It heads a search page (.wt-search-bar). */
+.wt-search { padding-left: var(--wt-space-3); padding-right: var(--wt-space-1); }
+.wt-search > .wt-icon:first-child { width: 20px; height: 20px; color: var(--wt-text-secondary); }
+.wt-search__clear { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--wt-radius-round); color: var(--wt-text-secondary); }
+.wt-search__clear .wt-icon { width: 18px; height: 18px; }
+@media (hover: hover) { .wt-search__clear:hover { background: var(--wt-surface-hover); color: var(--wt-text-primary); } }
+.wt-search__clear[hidden], .wt-spinner[hidden] { display: none; }
+.wt-spinner {
+  flex: none; display: block; width: 18px; height: 18px; margin: 0 11px; border-radius: var(--wt-radius-round);
+  border: 2px solid var(--wt-border-default); border-top-color: var(--wt-text-secondary); animation: wt-spin .7s linear infinite;
+}
+@keyframes wt-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .wt-spinner { animation-duration: 2.4s; } }
+
+/* ---------- Search page: a field picked by searching, as in a maps app ---------- */
+/* The form shows the choice as a row (.wt-picker--text); tapping it opens a page in the sheet: the search bar
+   (field, then Cancel) stays at the top, and the results fill the page under it. Picking one comes back.
+   While it's open, the sheet takes the whole screen on a phone (.wt-modal.is-full), so the results show above
+   the keyboard. */
+.wt-search-bar {
+  position: sticky; z-index: 1; top: calc(-1 * var(--wt-modal-pad-top));
+  display: flex; align-items: center; gap: var(--wt-space-2);
+  margin: calc(-1 * var(--wt-modal-pad-top)) calc(-1 * var(--wt-modal-pad-x)) 0;
+  padding: calc(var(--wt-modal-pad-top) + var(--wt-space-2)) var(--wt-modal-pad-x) var(--wt-space-2);
+  background: var(--wt-surface-raised);
+}
+.wt-search-bar > .wt-search { flex: 1; min-width: 0; }
+.wt-search-bar__cancel { flex: none; padding: var(--wt-space-2) 0 var(--wt-space-2) var(--wt-space-1); font: var(--wt-type-label); color: var(--wt-text-primary); }
+/* Results: options (.wt-option), their content lined up with the field's, or one message saying what happened
+   and what to try. */
+.wt-results:not(ul) { margin: 0 calc(-1 * var(--wt-space-2)); }
+.wt-results__msg { padding: var(--wt-space-3) var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.wt-results__msg b { display: block; font: var(--wt-type-body); font-weight: 500; color: var(--wt-text-primary); }
+/* Before 4.6.0 results were a list under the field, with their own row. The prototype still uses it. */
+ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-results__item { display: block; width: 100%; padding: 10px var(--wt-space-1); border-bottom: 1px solid var(--wt-border-default); }
 .wt-results__item:hover { background: var(--wt-surface-sunken); }
 .wt-results__name { display: block; font: var(--wt-type-name); font-size: 15px; }
 .wt-results__detail { display: block; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-.wt-results__msg { padding: var(--wt-space-3) var(--wt-space-1); font: var(--wt-type-caption); font-size: 14px; color: var(--wt-text-secondary); }
 .wt-copy-row { display: flex; gap: var(--wt-space-2); }
 .wt-copy-row .wt-input { font-size: 14px; color: var(--wt-text-secondary); min-width: 0; }
 
@@ -241,17 +275,34 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 }
 .wt-picker:active { background: var(--wt-surface-hover); }
 .wt-picker__value { flex: 1; min-width: 0; }
+/* A picker with no marker, whose value can have a second line: the place's name over its address */
+.wt-picker--text { padding-left: var(--wt-space-3); }
+.wt-picker--text .wt-picker__value { display: grid; }
+.wt-picker__name, .wt-picker__detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-picker__detail { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-picker > .wt-icon:last-child { width: 18px; height: 18px; color: var(--wt-text-secondary); }
+
+/* ---------- Option: one row for every choice in a list, a place to go as much as a type to be ---------- */
+/* marker · label over detail · check. Search results and the type list are both made of it, so a place and its
+   type read the same everywhere: a result's marker is the type it will get. The grey row is "this one", as in
+   the timeline: the one Return picks in a listbox (aria-selected), the one that's set in a radiogroup
+   (aria-checked, with its check). Rows are at least a touch target tall. */
 .wt-options { list-style: none; margin: 0; padding: 0; }
+.wt-options__sep { height: 1px; margin: var(--wt-space-1) var(--wt-space-2); background: var(--wt-border-default); }
 .wt-option {
-  display: flex; align-items: center; gap: var(--wt-space-3); width: 100%; min-height: 48px;
-  padding: var(--wt-space-1) var(--wt-space-2); border-radius: var(--wt-radius-md); font: var(--wt-type-body);
+  display: flex; align-items: center; gap: var(--wt-space-3); width: 100%; min-height: var(--wt-size-touch);
+  padding: 6px var(--wt-space-2); border-radius: var(--wt-radius-md); font: var(--wt-type-body); color: var(--wt-text-primary);
+  cursor: pointer; text-align: left; transition: background var(--wt-duration-fast);
 }
 .wt-option:active { background: var(--wt-surface-hover); }
 @media (hover: hover) { .wt-option:hover { background: var(--wt-surface-sunken); } }
-.wt-option__label { flex: 1; min-width: 0; }
+.wt-option__text { flex: 1; min-width: 0; display: grid; }
+.wt-option__label { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-option__detail { font: var(--wt-type-caption); color: var(--wt-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The part of a result's name that matches what was typed */
+.wt-option__match { background: none; color: inherit; font-weight: 700; }
+.wt-option[aria-selected="true"], .wt-option[aria-checked="true"] { background: var(--wt-surface-current); }
 .wt-option > .wt-icon:last-child { width: 18px; height: 18px; visibility: hidden; }
-.wt-option[aria-checked="true"] { font-weight: 600; }
 .wt-option[aria-checked="true"] > .wt-icon:last-child { visibility: visible; }
 
 /* ---------- Type grid (unused since 3.0.1: the picker above replaced it) and nights stepper ---------- */
@@ -417,6 +468,8 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
    watch the place on the map as you edit it. On a phone it's a shorter bottom sheet; from 768px it covers
    the trip's side panel (with --side), and the map beside it stays clear. */
 .wt-modal-root--panel .wt-modal { max-height: 62dvh; box-shadow: var(--wt-shadow-sheet); }
+/* .is-full: the whole screen, for a search page in the sheet, as a maps app's sheet rises when you search */
+.wt-modal-root--panel .wt-modal.is-full { height: 92dvh; max-height: 92dvh; }
 /* From 768px wide: a dialog in the middle of the screen. With --side (set by script when the trip's side
    panel is showing), it covers the panel instead, so the map stays in view beside it. */
 @media (min-width: 768px) {
@@ -436,6 +489,7 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   }
   .wt-modal-root--side.is-open .wt-modal { transform: none; }
   .wt-modal-root--side.wt-modal-root--panel .wt-modal { max-height: none; box-shadow: 1px 0 0 var(--wt-border-default); }
+  .wt-modal-root--side.wt-modal-root--panel .wt-modal.is-full { height: auto; max-height: none; }
 }
 .wt-modal__head { display: flex; align-items: center; justify-content: space-between; margin: 0 calc(-1 * var(--wt-space-2)) var(--wt-space-1) 0; }
 /* A page inside a sheet (a picker's options): back on the left, then the title */

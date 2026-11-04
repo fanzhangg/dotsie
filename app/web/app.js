@@ -35,7 +35,7 @@ const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(-
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // ---------- Icons (design system) ----------
-const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit']
+const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin']
   .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
@@ -205,6 +205,10 @@ const KINDS = {
   shopping: { label: 'Shopping', icon: 'bag', group: 'shop' },
   gas: { label: 'Gas', icon: 'fuel', group: 'travel' },
 };
+// The type list, in sections a traveler thinks in: anywhere; staying and getting there; eating; seeing and doing
+const KIND_SECTIONS = [['place'], ['hotel', 'airport', 'gas'], ['restaurant', 'cafe'], ['attraction', 'viewpoint', 'nature', 'museum', 'shopping']];
+// Said only where a type changes the form
+const KIND_HINTS = { hotel: 'Adds check-out' };
 // A first guess from the place's name, and from its category when it came from search
 // (OpenStreetMap's "tourism:museum" in local dev, Stadia's "accommodation" or "food" in production).
 function guessKind(name = '', cat = '') {
@@ -1985,7 +1989,7 @@ const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
 
 // The stop sheet is a panel: the map stays in view (above it on a phone, beside it on a wide screen) and shows
 // the stop as you edit it, at the place you picked, with the type you chose.
-// The first line is the place: it shows the stop's name (as in the list) and searching it changes the place.
+// The first line is the place, a row like a calendar's Location: tapping it opens a search page, as in a maps app.
 // Type is one row that opens the types on a page of their own; it starts as a guess from the place you pick,
 // until you choose one yourself.
 function openStopSheet(trip, stop) {
@@ -1999,11 +2003,11 @@ function openStopSheet(trip, stop) {
   state.draft = draft;
   $app.querySelector('.trip')?.classList.add('is-editing');
   render();
-  const option = ([k, v]) => `<li><button type="button" class="wt-option" role="radio" data-kind="${k}">${markerHTML({ kind: k }, '')}<span class="wt-option__label">${v.label}</span>${ICON.check}</button></li>`;
+  const option = k => `<li><button type="button" class="wt-option" role="radio" data-kind="${k}">${markerHTML({ kind: k }, '')}<span class="wt-option__text"><span class="wt-option__label">${KINDS[k].label}</span>${KIND_HINTS[k] ? `<span class="wt-option__detail">${KIND_HINTS[k]}</span>` : ''}</span>${ICON.check}</button></li>`;
   openSheet(`<div class="stop-main">${modalHead(stop ? 'Edit stop' : 'Add stop', true)}
     <form>
-      <label class="wt-field"><span class="wt-field__label">Place</span><input class="wt-input" name="title" type="search" placeholder="Search a place" autocomplete="off" required maxlength="200"></label>
-      <ul class="wt-results"></ul>
+      <div class="wt-field"><span class="wt-field__label" id="place-label">Place</span>
+        <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
       <label class="wt-field"><span class="wt-field__label" data-when>When</span><input class="wt-input" name="time" type="datetime-local" required></label>
@@ -2013,14 +2017,22 @@ function openStopSheet(trip, stop) {
     </form></div>
     <div class="stop-kinds" hidden>
       <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-kind-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">Type</h2></div>
-      <ul class="wt-options" role="radiogroup" aria-label="Type">${Object.entries(KINDS).map(option).join('')}</ul>
+      <ul class="wt-options" role="radiogroup" aria-label="Type">${KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>')}</ul>
+    </div>
+    <div class="stop-place" hidden>
+      <div class="wt-search-bar">
+        <label class="wt-input wt-input-group wt-search">${ICON.search}<input id="stop-place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="place-results" aria-label="Search a place" placeholder="Search a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="200"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden>${ICON.close}</button></label>
+        <button type="button" class="wt-search-bar__cancel" data-place-cancel>Cancel</button>
+      </div>
+      <div class="wt-results" id="place-results" role="listbox" aria-label="Places"></div>
+      <span class="wt-visually-hidden" role="status" data-place-status></span>
     </div>`, el => {
-    const results = el.querySelector('.wt-results'), f = el.querySelector('form'), F = f.elements;
+    const f = el.querySelector('form'), F = f.elements;
     const main = el.querySelector('.stop-main'), kindsPage = el.querySelector('.stop-kinds'), picker = el.querySelector('[data-kind-open]');
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!stop;
-    if (stop) { F.title.value = stop.name; F.time.value = stop.time; F.note.value = stop.note || ''; }
-    else { F.time.value = defaultTime(trip); setTimeout(() => F.title.focus(), 280); }
+    if (stop) { F.time.value = stop.time; F.note.value = stop.note || ''; }
+    else F.time.value = defaultTime(trip);
 
     // ----- Type: the picker row, and its page -----
     const showKind = () => {
@@ -2036,6 +2048,14 @@ function openStopSheet(trip, stop) {
       (open ? kindsPage.querySelector('[aria-checked="true"]') : picker).focus();
     };
     picker.addEventListener('click', () => showKinds(true));
+    // ↑ ↓ move between types, as in any radio group
+    kindsPage.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      const all = [...kindsPage.querySelectorAll('[data-kind]')], i = all.indexOf(document.activeElement);
+      if (i < 0) return;
+      e.preventDefault();
+      all[(i + (e.key === 'ArrowDown' ? 1 : all.length - 1)) % all.length].focus();
+    });
     kindsPage.addEventListener('click', e => {
       if (e.target.closest('[data-kind-back]')) return showKinds(false);
       const b = e.target.closest('[data-kind]');
@@ -2097,45 +2117,152 @@ function openStopSheet(trip, stop) {
     showKind();
     showNights();
 
-    // ----- Place search: picking a place moves the pin there, on the map you can see -----
-    let timer, ctrl, list = [];
-    F.title.addEventListener('input', () => {
+    // ----- Place: the row shows the place's name and address. Tapping it opens the search page, as in Google or
+    // Apple Maps: the field starts with the place's name, suggestions fill the page (each with the marker of the
+    // type it would get), and tapping one fills it in and comes back. Cancel (or Esc) comes back unchanged; for a
+    // new stop with no place yet, it closes the sheet. A new stop opens on this page. Picking moves the pin there.
+    const placeRow = el.querySelector('[data-place-open]'), placePage = el.querySelector('.stop-place');
+    const input = placePage.querySelector('#stop-place'), box = input.closest('.wt-search');
+    const spinner = box.querySelector('.wt-spinner'), clear = box.querySelector('.wt-search__clear');
+    const list = placePage.querySelector('.wt-results'), status = placePage.querySelector('[data-place-status]');
+
+    const placeKey = p => `${(+p.lat).toFixed(4)},${(+p.lng).toFixed(4)}`;
+    const cache = new Map(); // query → places, so backspacing doesn't search again
+    let timer, ctrl, found = { q: '', list: [] }, phase = 'idle', failText = '';
+    let opts = [], active = -1;
+
+    const showPlace = () => {
+      placeRow.innerHTML = `<span class="wt-picker__value"><span class="wt-picker__name">${esc(draft.name)}</span>${draft.address ? `<span class="wt-picker__detail">${esc(draft.address)}</span>` : ''}</span>${ICON.forward}`;
+    };
+    // The search page takes the sheet's place, and on a phone the whole screen, like a maps app's search
+    let placeScroll = 0;
+    function showPlacePage(open) {
+      if (open) placeScroll = el.scrollTop;
+      main.hidden = open;
+      placePage.hidden = !open;
+      el.classList.toggle('is-full', open);
+      el.scrollTop = open ? 0 : placeScroll;
+      if (!open) { clearTimeout(timer); ctrl?.abort(); spinner.hidden = true; placeRow.focus(); return; }
+      input.value = draft.name || '';
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      onType();
+    }
+    function cancelPlace() {
+      if (draft.lat == null) closeSheet(); // a new stop, with nowhere to go yet
+      else showPlacePage(false);
+    }
+    placeRow.addEventListener('click', () => showPlacePage(true));
+    placePage.querySelector('[data-place-cancel]').addEventListener('click', cancelPlace);
+
+    function highlight(text, q) {
+      const words = q.trim().split(/\s+/).filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      if (!words.length) return esc(text);
+      let out = '', last = 0;
+      for (const m of text.matchAll(new RegExp(`(?<![\\p{L}\\p{N}])(?:${words.join('|')})`, 'giu'))) {
+        out += `${esc(text.slice(last, m.index))}<mark class="wt-option__match">${esc(m[0])}</mark>`;
+        last = m.index + m[0].length;
+      }
+      return out + esc(text.slice(last));
+    }
+    const optionHTML = (p, i, q) => `<div class="wt-option" role="option" id="place-opt-${i}" data-i="${i}" aria-selected="false">${markerHTML(p, '')}<span class="wt-option__text"><span class="wt-option__label">${highlight(p.name, q)}</span>${p.address ? `<span class="wt-option__detail">${esc(p.address)}</span>` : ''}</span></div>`;
+
+    // Draw the suggestions for what's typed now: the latest search results (kept on screen while the next search
+    // runs, so the list doesn't flash), or a message that says what happened and what to try.
+    function paint() {
+      const q = input.value.trim();
+      const results = q.length >= 3 ? found.list.map(p => ({ ...p, kind: guessKind(p.name, p.category) })) : [];
+      let msg = '';
+      if (q.length >= 3 && phase === 'error') msg = failText;
+      else if (q.length >= 3 && phase === 'done' && !results.length) msg = `<b>No places match “${esc(q)}”</b>Try adding the town, or check the spelling.`;
+      const prev = opts[active];
+      opts = results;
+      list.innerHTML = opts.map((p, i) => optionHTML(p, i, q)).join('') + (msg ? `<div class="wt-results__msg" role="presentation">${msg}</div>` : '');
+      input.setAttribute('aria-expanded', String(!!opts.length));
+      // Return picks the top match, or the one moved to with the arrows, which stays put as results arrive
+      const kept = prev ? opts.findIndex(p => placeKey(p) === placeKey(prev) && p.name === prev.name) : -1;
+      setActive(kept >= 0 ? kept : opts.length ? 0 : -1, false);
+      status.textContent = msg ? list.querySelector('.wt-results__msg').textContent : opts.length ? `${opts.length} ${opts.length === 1 ? 'place' : 'places'}` : '';
+    }
+    function setActive(i, scroll = true) {
+      active = i;
+      list.querySelectorAll('[aria-selected="true"]').forEach(o => o.setAttribute('aria-selected', 'false'));
+      const o = i >= 0 && list.querySelector(`#place-opt-${i}`);
+      if (o) { o.setAttribute('aria-selected', 'true'); if (scroll) o.scrollIntoView({ block: 'nearest' }); input.setAttribute('aria-activedescendant', o.id); }
+      else input.removeAttribute('aria-activedescendant');
+    }
+
+    function onType() {
+      clear.hidden = !input.value;
+      const q = input.value.trim();
       clearTimeout(timer);
-      const v = F.title.value.trim();
-      if (v.length < 3) { results.innerHTML = ''; return; }
-      timer = setTimeout(() => search(v), 350);
-    });
-    async function search(v) {
+      if (q.length < 3) { ctrl?.abort(); spinner.hidden = true; phase = 'idle'; found = { q: '', list: [] }; return paint(); }
+      if (cache.has(q.toLowerCase())) { found = { q, list: cache.get(q.toLowerCase()) }; phase = 'done'; spinner.hidden = true; return paint(); }
+      phase = 'loading';
+      spinner.hidden = false;
+      paint();
+      timer = setTimeout(() => search(q), 250);
+    }
+    async function search(q) {
       ctrl?.abort();
       ctrl = new AbortController();
-      results.innerHTML = '<li class="wt-results__msg">Searching…</li>';
       try {
-        list = await api(`/places?q=${encodeURIComponent(v)}${nearParam(trip)}`, { signal: ctrl.signal });
-        results.innerHTML = list.length ? list.map((p, i) =>
-          `<li><button type="button" class="wt-results__item" data-i="${i}"><span class="wt-results__name">${esc(p.name)}</span><span class="wt-results__detail">${esc(p.address)}</span></button></li>`,
-        ).join('') : '<li class="wt-results__msg">No places found</li>';
+        const list = await api(`/places?q=${encodeURIComponent(q)}${nearParam(trip)}`, { signal: ctrl.signal });
+        cache.set(q.toLowerCase(), list);
+        found = { q, list };
+        phase = 'done';
       } catch (e) {
-        if (e.name !== 'AbortError') results.innerHTML = `<li class="wt-results__msg">${e.code === 'rate_limited' ? 'Too many searches. Wait a moment.' : 'Search is unavailable right now'}</li>`;
+        if (e.name === 'AbortError') return;
+        phase = 'error';
+        failText = e.code === 'rate_limited' ? '<b>Too many searches at once</b>Wait a moment, then keep typing.'
+          : e.code === 'offline' ? '<b>Can’t search right now</b>Check your connection, then keep typing.' : '<b>Search isn’t working right now</b>Try again in a moment.';
       }
+      spinner.hidden = true;
+      if (input.value.trim() === q && !placePage.hidden) paint();
     }
-    results.addEventListener('click', e => {
-      const b = e.target.closest('button[data-i]');
-      if (!b) return;
-      const p = list[+b.dataset.i];
+    function pick(p) {
       Object.assign(draft, { lat: p.lat, lng: p.lng, address: p.address, name: p.name });
-      F.title.value = p.name;
-      results.innerHTML = '';
-      if (!chosen) setKind(guessKind(p.name, p.category));
-      else if (cur?.stops) drawMap(cur);
+      showPlace();
+      status.textContent = `${p.name} picked`;
+      if (!chosen) setKind(p.kind);
+      showPlacePage(false); // first, so the map centers the place above the sheet's real height
+      if (cur?.stops) drawMap(cur);
       focusStop(draft);
+    }
+
+    input.addEventListener('input', onType);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (opts.length) setActive(e.key === 'ArrowDown' ? (active + 1) % opts.length : active <= 0 ? opts.length - 1 : active - 1);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (active >= 0) pick(opts[active]);
+      } else if (e.key === 'Escape') {
+        e.stopPropagation(); // Esc is Cancel here; on the form it closes the sheet
+        cancelPlace();
+      }
     });
+    list.addEventListener('mousedown', e => e.preventDefault()); // keep the keyboard up until a place is picked
+    list.addEventListener('click', e => {
+      const o = e.target.closest('[data-i]');
+      if (o) pick(opts[+o.dataset.i]);
+    });
+    clear.addEventListener('mousedown', e => e.preventDefault());
+    clear.addEventListener('click', () => {
+      input.value = '';
+      input.focus();
+      onType();
+    });
+    if (draft.lat != null) showPlace();
+    else showPlacePage(true); // a new stop starts by finding its place
 
     f.onsubmit = e => {
       e.preventDefault();
-      if (draft.lat == null) { results.innerHTML = '<li class="wt-results__msg">Pick a place from the search results</li>'; return; }
+      if (draft.lat == null) return showPlacePage(true);
       const hotel = draft.kind === 'hotel';
       const data = {
-        name: F.title.value.trim(), address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
+        name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
         kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? outTime : null,
       };
       state.day = dayOf(data); // follow the stop to its day

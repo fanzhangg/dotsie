@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.5.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.6.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -228,24 +228,50 @@ Labels are verbs that say exactly what happens.
 - With only one person on the trip, show the `person-add` icon instead.
 - Set `--wt-avatar-ring` to the surface behind the stack.
 
-### Field `.wt-field`, input `.wt-input`, search results `.wt-results`
+### Field `.wt-field`, input `.wt-input`, search page `.wt-search-bar`, `.wt-search`, results `.wt-results`
 
 ```html
 <label class="wt-field">
-  <span class="wt-field__label">Place</span>
-  <input class="wt-input" type="search" placeholder="Search a place">
+  <span class="wt-field__label">Note</span>
+  <textarea class="wt-input" rows="2" placeholder="Confirmation #, tickets, tips…"></textarea>
 </label>
-<ul class="wt-results">
-  <li><button class="wt-results__item"><span class="wt-results__name">White Sands Visitor Center</span>
-      <span class="wt-results__detail">US-70, Alamogordo, New Mexico</span></button></li>
-  <li class="wt-results__msg">No places found</li>
-</ul>
+
+<!-- A field picked by searching: a row in the form… -->
+<div class="wt-field"><span class="wt-field__label" id="place-label">Place</span>
+  <button class="wt-picker wt-picker--text" aria-describedby="place-label">
+    <span class="wt-picker__value"><span class="wt-picker__name">Joshua Tree Inn</span>
+      <span class="wt-picker__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span>${icon('forward', 18)}
+  </button></div>
+
+<!-- …that opens a search page in place of the form (on .wt-modal, add .is-full) -->
+<div class="wt-search-bar">
+  <label class="wt-input wt-input-group wt-search">${icon('search')}
+    <input type="text" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="place-results"
+           aria-activedescendant="opt-0" aria-label="Search a place" placeholder="Search a place">
+    <span class="wt-spinner" hidden></span>
+    <button type="button" class="wt-search__clear" aria-label="Clear">${icon('close')}</button></label>
+  <button type="button" class="wt-search-bar__cancel">Cancel</button>
+</div>
+<div class="wt-results" id="place-results" role="listbox" aria-label="Places">
+  <div class="wt-option" role="option" id="opt-0" aria-selected="true">
+    <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
+    <span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Inn</span>
+      <span class="wt-option__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span></div>
+  <!-- one per result; or, when there's nothing to pick -->
+  <div class="wt-results__msg"><b>No places match “zzq”</b>Try adding the town, or check the spelling.</div>
+</div>
 ```
 
 - Every field has a visible label.
 - Placeholders show an example, never the label.
-- Messages say what happened and what to do next, for example "Pick a place from the search results".
+- Messages say what happened and what to do next, for example "No places match … Try adding the town, or check the spelling".
 - `textarea.wt-input` works the same way.
+- **A field picked by searching works as in Google or Apple Maps**, and their calendars' Location field. The form shows the choice as a row: its name, and under it a detail (a place's address, so two places with the same name can be told apart). Tapping the row opens a search page in place of the form, with the current name in the field and the cursor at its end, so you edit it rather than retype it. Results fill the page. Tapping one fills it in and comes back; **Cancel** (or Esc) comes back with nothing changed. Nothing typed is ever kept: only a picked result is. A choice that's required (a stop's place) can open on this page, and Cancel there closes the sheet.
+- **While the search page is open** the sheet takes the whole screen on a phone (`.wt-modal.is-full`), as a maps app's sheet rises when you search, so the results show above the keyboard. The search bar stays at the top as the results scroll.
+- **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
+- **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it, Esc is Cancel. Keep focus in the input while a result is tapped: `preventDefault()` on the results' `mousedown`.
+- **While it searches**, the spinner shows in the field and the last results stay on the page, so the list doesn't flash.
+- `ul.wt-results` with `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet for the prototype. They can go in the next major version.
 
 ### Marker `.wt-marker`
 
@@ -367,7 +393,9 @@ All live in the stop sheet.
 <ul class="wt-options" role="radiogroup" aria-label="Type">
   <li><button class="wt-option" role="radio" aria-checked="true">
     <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
-    <span class="wt-option__label">Hotel</span>${icon('check', 18)}</button></li>
+    <span class="wt-option__text"><span class="wt-option__label">Hotel</span>
+      <span class="wt-option__detail">Adds check-out</span></span>${icon('check', 18)}</button></li>
+  <li class="wt-options__sep" role="presentation"></li>   <!-- between sections -->
   <!-- one per type -->
 </ul>
 
@@ -378,6 +406,8 @@ All live in the stop sheet.
 
 - **Type** is one row that shows the current type. Tapping it slides the sheet to the types; picking one, or Back, slides back. It keeps the sheet short, so the map stays in view above it. Focus the checked option when the page opens, and the picker when it closes.
 - Type starts as a guess from the place's name and category, until someone picks one.
+- **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
+- **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Adds check-out". ↑ ↓ move between types.
 - **Check-out** shows only for a hotel, under Check-in, and is a day and time like it. When becomes check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. Check-out is at least a night after check-in and at most 30 (`min` and `max`); a day outside that, or an empty field, goes back to the last good one when you leave the field. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 1–30 nights.
 - **Date and time fields** (`.wt-input` on `date`, `time` and `datetime-local`) are drawn like any other field on iPhone, so they read from the left and stay inside the sheet, rather than Safari's centred control, which is wider than the sheet.
 - **`.wt-input-group`** is a `.wt-input` box with a fixed `__prefix` and a bare `<input>` after it. Make the box a `<label>` so a tap anywhere opens the input, and label the input with `aria-labelledby`.
@@ -599,6 +629,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 4.6.0
+
+Place search and the type list, redesigned as one system.
+
+- `.wt-option` is now the row for every choice: `__text`, `__detail` and `__match` are new, and `aria-selected` and `aria-checked` share the grey "this one" row (the checked type is no longer bold). `.wt-options__sep` splits a list into sections.
+- A search page, as in Google or Apple Maps: `.wt-search-bar` (with `__cancel`), `.wt-search` (with `__clear`), `.wt-spinner`, and `.wt-results` of options or a `__msg`. It replaces the list under the field, which pushed the form down.
+- `.wt-picker--text`, with `__name` and `__detail`: a picker row with no marker and a second line, for the place.
+- `.wt-modal.is-full`: the sheet at full height, while a search page is open.
+- Nothing was renamed or removed. `.wt-results__item`, `__name` and `__detail` stay for the prototype.
 
 ### Fixed in 4.5.1
 
