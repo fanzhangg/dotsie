@@ -2083,10 +2083,12 @@ function nearParam(trip) {
 const HOTEL_CHECK_IN = '15:00', HOTEL_CHECK_OUT = '11:00';
 const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
 
-// ---------- Choices: every pick from a list is a picker row that opens its options on a page of the sheet ----------
-// The row shows the current choice; tapping it slides the sheet to the options, with Back in the head. Picking one
-// applies it and slides back; so does Back, with nothing changed. A stop's Type and Account's Maps app both work
-// this way, however few the options. See "Picker" in the design system.
+// ---------- Choices: every pick from a list is a picker row that opens its options ----------
+// The row shows the current choice. On a phone, tapping it slides the sheet to the options, with Back in the head;
+// picking one applies it and slides back, and Back slides back with nothing changed. On a computer (768px and up)
+// the same options drop down under the row as a menu: one click to open, one to pick, Esc or a click outside to
+// close. A stop's Type and Account's Maps app both work this way, however few the options. See "Picker" in the
+// design system.
 const optionHTML = (value, label, { marker = '', detail = '' } = {}) =>
   `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${ICON.check}</button></li>`;
 // `intro` is one line on what the choice affects, when the label alone doesn't say
@@ -2095,19 +2097,44 @@ const choicePageHTML = (cls, title, options, intro = '') => `<div class="${cls}"
       ${intro ? `<p class="wt-modal__text">${esc(intro)}</p>` : ''}
       <ul class="wt-options" role="radiogroup" aria-label="${esc(title)}">${options}</ul>
     </div>`;
-// Wires a picker to its page, inside `sheet`: the page takes `main`'s place while it's open, and the sheet's scroll
-// comes back on return. Focus goes to the checked option on the way in, and to the picker on the way out.
-// Returns mark(value), which checks the current option.
+// Wires a picker to its options, inside `sheet`. On a phone the page takes `main`'s place while it's open, and the
+// sheet's scroll comes back on return. On a computer the page moves under the picker and shows as a menu (.wt-menu),
+// with the rest of the sheet still there. Focus goes to the checked option on the way in, and to the picker on the
+// way out. Returns mark(value), which checks the current option.
+const wideScreen = matchMedia(`(min-width: ${WIDE}px)`);
 function choicePage(sheet, { main, page, picker, onPick }) {
-  let scrollBack = 0;
-  const open = on => {
-    if (on) scrollBack = sheet.scrollTop;
-    main.hidden = on;
+  const home = page.parentElement, field = picker.parentElement;
+  let scrollBack = 0, menu = false;
+  picker.setAttribute('aria-haspopup', 'true');
+  picker.setAttribute('aria-expanded', 'false');
+  const outside = e => { if (!page.contains(e.target) && !picker.contains(e.target)) open(false, false); };
+  const open = (on, refocus = true) => {
+    if (on) {
+      menu = wideScreen.matches;
+      // The page lives beside `main` for a phone, and inside the field, under the picker, for a menu
+      if (menu) field.append(page); else home.append(page);
+      page.classList.toggle('wt-menu', menu);
+      if (menu) document.addEventListener('pointerdown', outside, true);
+      else { scrollBack = sheet.scrollTop; main.hidden = true; }
+    } else {
+      if (page.hidden) return;
+      if (menu) document.removeEventListener('pointerdown', outside, true);
+      else main.hidden = false;
+    }
     page.hidden = !on;
-    sheet.scrollTop = on ? 0 : scrollBack;
-    (on ? page.querySelector('[aria-checked="true"]') || page.querySelector('[data-value]') : picker).focus();
+    picker.setAttribute('aria-expanded', on);
+    if (!menu) sheet.scrollTop = on ? 0 : scrollBack;
+    if (on) (page.querySelector('[aria-checked="true"]') || page.querySelector('[data-value]')).focus();
+    else if (refocus) picker.focus();
   };
-  picker.addEventListener('click', () => open(true));
+  picker.addEventListener('click', () => open(page.hidden));
+  // A menu closes on Esc (without closing the sheet), or when focus leaves it
+  page.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && menu && !page.hidden) { e.stopPropagation(); open(false); }
+  });
+  page.addEventListener('focusout', e => {
+    if (menu && !page.hidden && e.relatedTarget && !page.contains(e.relatedTarget) && e.relatedTarget !== picker) open(false, false);
+  });
   // ↑ ↓ move between options, as in any radio group
   page.addEventListener('keydown', e => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;

@@ -288,8 +288,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 
 /* ---------- Picker: a field that shows the current choice and opens the options on a page of their own ---------- */
 /* Every choice from a list is one: a stop's Type (marker · Hotel · ›), Account's Maps app (--text: Google Maps · ›).
-   Tapping it slides the sheet to the options, with a back button in the sheet's head (.wt-modal__head--sub); picking
-   one applies it and comes back. Never inline radios, selects or segmented controls between named choices. */
+   On a phone, tapping it slides the sheet to the options, with a back button in the sheet's head (.wt-modal__head--sub);
+   picking one applies it and comes back. On a computer the options drop down as a menu (.wt-menu, below).
+   Never inline radios, selects or segmented controls between named choices. */
 .wt-picker {
   display: flex; align-items: center; gap: var(--wt-space-3); width: 100%; min-height: 50px; padding: 9px var(--wt-space-3) 9px 9px;
   font: var(--wt-type-input); color: var(--wt-text-primary);
@@ -303,6 +304,26 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-picker__name, .wt-picker__detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wt-picker__detail { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-picker > .wt-icon:last-child { width: 18px; height: 18px; color: var(--wt-text-secondary); }
+
+/* Menu: on a computer (768px and up), a picker's options drop down under it instead of taking over the sheet.
+   The options page itself becomes the menu: it moves into the field, under the picker, and gets .wt-menu. Its
+   Back head goes; a one-line intro stays, smaller. Rows are 36px, a mouse's size, not a finger's. */
+.wt-field:has(> .wt-menu) { position: relative; }
+.wt-menu {
+  position: absolute; z-index: 2; top: calc(100% + var(--wt-space-1)); left: 0; right: 0;
+  max-height: 360px; overflow-y: auto; padding: var(--wt-space-1);
+  background: var(--wt-surface-raised); border-radius: var(--wt-radius-md);
+  box-shadow: var(--wt-shadow-hairline), var(--wt-shadow-card);
+}
+.wt-menu[hidden] { display: none; }
+.wt-menu > .wt-modal__head { display: none; }
+.wt-menu > .wt-modal__text { margin: 0; padding: var(--wt-space-1) var(--wt-space-2) var(--wt-space-2); font: var(--wt-type-caption); }
+.wt-menu .wt-option { min-height: 36px; padding-top: 4px; padding-bottom: 4px; }
+.wt-menu .wt-option .wt-marker { transform: scale(.85); }
+/* A picker that drops a menu down points down there: its › turns to ⌄ (the Place row, which opens a search page, keeps ›) */
+@media (min-width: 768px) {
+  .wt-picker[aria-haspopup] > .wt-icon:last-child { transform: rotate(90deg); }
+}
 
 /* ---------- Option: one row for every choice in a list, a place to go as much as a type to be ---------- */
 /* marker · label over detail · check. Search results and the type list are both made of it, so a place and its
