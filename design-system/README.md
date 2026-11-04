@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -381,14 +381,18 @@ All live in the stop sheet.
       <button class="wt-icon-btn wt-nights__step" aria-label="One more night">+</button>
     </div>
   </div>
-  <label class="wt-field"><span class="wt-field__label">Check-out · Sun, Nov 22</span>
-    <input class="wt-input" type="time" value="11:00"></label>
+  <div class="wt-field"><span class="wt-field__label" id="checkout-label">Check-out</span>
+    <label class="wt-input wt-input-group">
+      <span class="wt-input-group__prefix">Sun, Nov 22</span>
+      <input type="time" value="11:00" aria-labelledby="checkout-label"></label></div>
 </div>
 ```
 
 - **Type** is one row that shows the current type. Tapping it slides the sheet to the types; picking one, or Back, slides back. It keeps the sheet short, so the map stays in view above it. Focus the checked option when the page opens, and the picker when it closes.
 - Type starts as a guess from the place's name and category, until someone picks one.
-- **Nights and Check-out** show only for a hotel. When becomes check-in: 3:00 PM for a new hotel. Nights is at least 1, so disable the minus at 1. Check-out's day comes from the nights, so only its time is a field: 11:00 AM unless someone sets another.
+- **Nights and Check-out** show only for a hotel. When becomes check-in: 3:00 PM for a new hotel. Nights is at least 1, so disable the minus at 1. Check-out's day comes from the nights, so only its time is an input, but the day shows inside the field, before the time (`.wt-input-group`), so it reads as one value: `Sun, Nov 22  11:00 AM`. 11:00 AM unless someone sets another. The two sit side by side with their labels level; on a very narrow screen Check-out wraps below Nights.
+- **Date and time fields** (`.wt-input` on `date`, `time` and `datetime-local`) are drawn like any other field on iPhone, so they read from the left and stay inside the sheet, rather than Safari's centred control, which is wider than the sheet.
+- **`.wt-input-group`** is a `.wt-input` box with a fixed `__prefix` and a bare `<input>` after it. Make the box a `<label>` so a tap anywhere opens the input, and label the input with `aria-labelledby`.
 - `.wt-kinds`, a grid of every type, is no longer used: the app and the prototype both use the picker. It can go in the next major version.
 
 ### Trip header `.wt-trip-head`, bottom sheet `.wt-sheet` and add bar `.wt-add-bar`
@@ -467,7 +471,7 @@ Pad the top when you fit the map on a phone, so pins stay clear of the header ca
     <div class="wt-modal__head"><h2 class="wt-modal__title">Edit stop</h2>
       <button class="wt-icon-btn" aria-label="Close">${icon('close')}</button></div>
     <!-- fields -->
-    <div class="wt-modal__actions">
+    <div class="wt-modal__actions">   <!-- add wt-modal__actions--sticky for a long form -->
       <button class="wt-btn wt-btn--danger">Delete</button>
       <button class="wt-btn wt-btn--primary">Save</button>
     </div>
@@ -479,6 +483,7 @@ Pad the top when you fit the map on a phone, so pins stay clear of the header ca
 - **From 768px wide** it's a dialog in the middle of the screen. On the trip screen, while the side panel shows, add `.wt-modal-root--side`: the sheet then covers the panel, so the map stays in view beside it (center the stop being edited).
 - **Panel:** add `.wt-modal-root--panel` and leave out the backdrop, for a sheet you work on with the map in view: the stop sheet. Nothing dims or blocks the map. On a phone it's at most 62% of the screen, so the map shows above it; with `--side` it covers the side panel. Use `aria-modal="false"`, and show what's being edited on the map as it changes (the stop's pin at the place picked, with the type chosen). Taps on the map don't change the selection while it's open.
 - **Actions:** destructive on the left, the main action on the right.
+- **Long forms** (the stop sheet, in a panel only 62% of the screen tall): add `.wt-modal__head--sticky` to the head and `.wt-modal__actions--sticky` to the actions. The fields scroll between them, so Close and Save are always on screen, not below the fold. The sticky actions get a hairline above them and take over the sheet's bottom padding, including the home-indicator inset.
 - **Closing:** a tap on the backdrop, the close button or the Escape key closes it. A panel has no backdrop.
 
 ### Toast `.wt-toast`
@@ -592,6 +597,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 4.3.0
+
+The stop sheet's fixes: Save was below the fold, and on iPhone the date and time fields ran off the sheet.
+
+- `.wt-modal__head--sticky` and `.wt-modal__actions--sticky`, a head and actions that stay put while a long form scrolls between them.
+- `.wt-input-group` and `__prefix`: a field with a fixed part before its input. Check-out uses it for its day, which used to be in the label.
+- `.wt-input` on date and time inputs is drawn like any other field on iPhone, left-aligned and no wider than the sheet.
+- `.wt-field-row` lines up its labels and wraps on a very narrow screen; `.wt-nights__step` is 44px, the touch size.
+- Nothing was renamed or removed.
 
 ### Added in 4.2.0
 

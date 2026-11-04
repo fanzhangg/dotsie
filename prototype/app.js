@@ -863,7 +863,8 @@ function focusSpot(s) {
 
 // ---------- Sheets ----------
 const closeBtn = `<button class="wt-icon-btn" data-action="close-sheet" aria-label="Close">${ICON.close}</button>`;
-const modalHead = title => `<div class="wt-modal__head"><h2 class="wt-modal__title">${title}</h2>${closeBtn}</div>`;
+// A long form's head can stay put while its fields scroll (sticky), so Close is always in reach
+const modalHead = (title, sticky) => `<div class="wt-modal__head${sticky ? ' wt-modal__head--sticky' : ''}"><h2 class="wt-modal__title">${title}</h2>${closeBtn}</div>`;
 // A panel (the stop sheet) has no backdrop, so the map stays in view and usable above it.
 // onClose runs however the sheet goes away: closed, replaced by another sheet, or left with the trip.
 let onSheetClose = null;
@@ -975,7 +976,7 @@ function openSpotSheet(trip, spot) {
   $app.querySelector('.trip')?.classList.add('is-editing');
   render();
   const option = ([k, v]) => `<li><button type="button" class="wt-option" role="radio" data-kind="${k}">${markerHTML({ kind: k }, '')}<span class="wt-option__label">${v.label}</span>${ICON.check}</button></li>`;
-  openSheet(`<div class="stop-main">${modalHead(spot ? 'Edit stop' : 'Add stop')}
+  openSheet(`<div class="stop-main">${modalHead(spot ? 'Edit stop' : 'Add stop', true)}
     <form>
       <label class="wt-field"><span class="wt-field__label">Place</span><input class="wt-input" name="title" type="search" placeholder="Search a place" autocomplete="off" required></label>
       <ul class="wt-results"></ul>
@@ -986,13 +987,14 @@ function openSpotSheet(trip, spot) {
         <div class="wt-field wt-nights"><span class="wt-field__label">Nights</span>
           <div class="wt-nights__row"><button type="button" class="wt-icon-btn wt-nights__step" data-nights="-1" aria-label="One night fewer">−</button><output class="wt-nights__n" aria-live="polite"></output><button type="button" class="wt-icon-btn wt-nights__step" data-nights="1" aria-label="One more night">+</button></div>
         </div>
-        <label class="wt-field"><span class="wt-field__label">Check-out<span data-checkout-day></span></span><input class="wt-input" name="checkout" type="time"></label>
+        <div class="wt-field"><span class="wt-field__label" id="checkout-label">Check-out</span>
+          <label class="wt-input wt-input-group"><span class="wt-input-group__prefix" data-checkout-day></span><input name="checkout" type="time" aria-labelledby="checkout-label"></label></div>
       </div>
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" placeholder="Confirmation #, tickets, tips…"></textarea></label>
-      <div class="wt-modal__actions">${spot ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${spot ? 'Save' : 'Add'}</button></div>
+      <div class="wt-modal__actions wt-modal__actions--sticky">${spot ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${spot ? 'Save' : 'Add'}</button></div>
     </form></div>
     <div class="stop-kinds" hidden>
-      <div class="wt-modal__head wt-modal__head--sub"><button type="button" class="wt-icon-btn" data-kind-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">Type</h2></div>
+      <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-kind-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">Type</h2></div>
       <ul class="wt-options" role="radiogroup" aria-label="Type">${Object.entries(KINDS).map(option).join('')}</ul>
     </div>`, el => {
     const results = el.querySelector('.wt-results'), f = el.querySelector('form'), F = f.elements;
@@ -1048,7 +1050,7 @@ function openSpotSheet(trip, spot) {
       stay.hidden = !hotel;
       el.querySelector('[data-when]').textContent = hotel ? 'Check-in' : 'When';
       el.querySelector('.wt-nights__n').textContent = n;
-      el.querySelector('[data-checkout-day]').textContent = F.time.value ? ` · ${fmtDay(addDays(F.time.value.slice(0, 10), n))}` : '';
+      el.querySelector('[data-checkout-day]').textContent = F.time.value ? fmtDay(addDays(F.time.value.slice(0, 10), n)) : '';
       el.querySelector('[data-nights="-1"]').disabled = n <= 1;
     }
     stay.addEventListener('click', e => {

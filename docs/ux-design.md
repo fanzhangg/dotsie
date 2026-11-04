@@ -123,7 +123,7 @@ A hotel isn't just a stop: you sleep there, and the next morning starts there. B
 
 - **A hotel has nights.** On its check-in day it shows as a normal stop at its check-in time, with `2 nights` under the name.
 - **Every day of the stay starts and ends there.** The day opens with the hotel and, after the day's last stop, a drive back to it. These rows look like any stop, with the same solid marker, and no time. Only the last morning has a note, `Check out`, with the check-out time where the time goes, since that's the one with something to do. Tapping one selects the hotel.
-- **Nights, by default, follow the trip:** until the next hotel, or the trip's last day. In the stop sheet, a hotel's **When** becomes **Check-in**, followed by **Nights** (a stepper) and **Check-out** (a time, labeled with the day the nights end on: `Check-out · Sun, Nov 22`).
+- **Nights, by default, follow the trip:** until the next hotel, or the trip's last day. In the stop sheet, a hotel's **When** becomes **Check-in**, followed by **Nights** (a stepper) and **Check-out** (a time, with the day the nights end on shown in the field before it: `Sun, Nov 22  11:00 AM`). The day used to be in the label, where it read as part of the heading rather than the value.
 - **Usual times:** a new hotel's check-in starts at **3:00 PM**, and check-out is **11:00 AM** until someone sets another time. Hotels saved before check-out times existed show 11:00 AM too.
 - The drive back to the hotel has no times, because the day's last stop has no end.
 
@@ -191,7 +191,8 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
   2. **Type.** One row that opens the [stop types](#stop-types).
   3. **When.** Date and time. For a hotel it's **Check-in**, followed by **Nights** and **Check-out** side by side.
   4. **Note.**
-- **Delete.** In the edit sheet. Deleting shows a notice with **Undo**.
+- **Save is always in reach.** The sheet's title and close button stay at the top and Delete and Save at the bottom, with the fields scrolling between them. On a phone the sheet is only about 60% of the screen, and a hotel's six fields don't fit, so Save used to sit below the fold.
+- **Delete.** In the edit sheet, on the left of Save. Deleting shows a notice with **Undo**.
 
 ## The map
 
