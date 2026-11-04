@@ -417,7 +417,7 @@ function mountTrip(trip) {
     state.sel = state.selRow = state.leg = null;
     render();
   }));
-  map.on('moveend', () => { dayShown = dayFramed(); updateFitBtn(); layoutMapLabels(); });
+  map.on('moveend', () => { dayShown = dayFramed(); updateFitBtn(); });
 }
 
 // ---------- Map gestures, as in a maps app ----------
@@ -776,7 +776,6 @@ function inView(ll, margin = 40) {
 function drawMap(trip) {
   if (!map) return;
   layer.clearLayers();
-  mapLabels = [];
   // Only the day on screen, from its plan: the hotel at either end is a pin like any stop.
   // With no hotel last night, the day before's last stop is a quiet pin, so the first drive leads somewhere.
   const day = currentDay(trip);
@@ -793,8 +792,6 @@ function drawMap(trip) {
   const items = dayItems(trip, day);
   const pastLeg = new Set(items.filter(it => it.leg && it.past).map(it => it.leg));
   const isPast = s => { const rows = items.filter(it => it.entry?.place === s); return rows.length > 0 && rows.every(it => it.past); };
-  // the stop you're at now gets a ring on its pin, as its marker has in the list
-  const nowPlace = items.find(it => it.now)?.entry?.place;
   const C = { on: token('--wt-route-active'), muted: token('--wt-route-muted'), route: token('--wt-route'), done: token('--wt-route-done'), casing: token('--wt-route-casing') };
   // past routes first, so they sit under the rest; the active route last, on top
   const order = l => (l === active ? 2 : pastLeg.has(l.key) ? 0 : 1);
@@ -808,31 +805,13 @@ function drawMap(trip) {
     L.polyline(coords, { opacity: 0, weight: 24, bubblingMouseEvents: false })
       .on('click', () => onMapTap(() => { if (!state.draft) previewLeg(l, { fromMap: true }); })).addTo(layer);
   }
-  // Every drive still to come shows which way it goes, with an arrow on the route, and how long it takes, in a chip on it.
-  // With a route on show, only that route keeps its arrow; its time is in the tag below.
-  for (const l of legs) {
-    if (pastLeg.has(l.key) || (active && l !== active) || !l.r?.duration) continue;
-    const at = legCoords(l)[0], late = lateMin(l);
-    const pin = (cls, html, z) => L.marker(at, { interactive: false, keyboard: false, zIndexOffset: z, icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="${cls} is-hidden">${html}</div>` }) }).addTo(layer);
-    mapLabels.push({
-      type: 'leg', coords: legCoords(l), prio: 30,
-      arrow: pin('wt-route-arrow', WaythreadIcons.svg('forward', 12, 3), 400),
-      chip: active ? null : pin(`wt-route-chip${late > 0 ? ' is-late' : ''}`, `${fmtDur(l.r.duration)}${late > 0 ? ` · ${fmtDur(late * 60)} late` : ''}`, 500),
-    });
-  }
-  // Stops are numbered in the day's order; the hotel you wake up in, or come back to, isn't one of them.
-  const nums = new Map();
-  plan.filter(e => e.role === 'stop').forEach((e, i) => nums.set(e.place, [...(nums.get(e.place) || []), i + 1]));
-  // A route on show names both its ends, and its time sits on the route.
+  // The map has only the routes and the pins: names, times and drive times are in the list, so the map doesn't repeat them.
+  // A route on show enlarges the pins at its ends.
   const ends = active ? [active.from, active.to] : [];
-  const lower = active && (map.latLngToContainerPoint(active.to).y > map.latLngToContainerPoint(active.from).y ? active.to : active.from);
-  if (active) {
-    const late = lateMin(active);
-    L.marker(midpoint(legCoords(active)), {
-      interactive: false, keyboard: false, zIndexOffset: 2000,
-      icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="wt-route-tag"><i class="wt-route-tag__car">${WaythreadIcons.svg('car', 14)}</i>${active.r ? fmtDur(active.r.duration) : '…'}${late > 0 ? `<span class="wt-route-tag__late">· ${fmtDur(late * 60)} late</span>` : ''}</div>` }),
-    }).addTo(layer);
-  }
+  // The day's stops are numbered in order; the hotel you wake up in, or come back to, isn't one of them.
+  const nums = new Map();
+  plan.filter(e => e.role === 'stop').forEach((e, i) => { if (!nums.has(e.place.id)) nums.set(e.place.id, i + 1); });
+  draftNum = draft?.id ? nums.get(draft.id) : null;
   // places at the same spot (fly in and out of one airport, a hotel morning and night) share one pin
   const groups = new Map();
   for (const s of places) {
@@ -844,31 +823,18 @@ function drawMap(trip) {
     // quiet: only the start, which belongs to the day before, or a place you're done with,
     // or, while a route is on show, any place it doesn't start or end at
     const g = all.filter(s => s !== start), end = all.find(s => ends.includes(s));
-    const offRouteOf = () => !!active && !end;
     const quiet = !g.length || g.every(isPast) || (active && !end);
     const focus = end || g.find(s => s.id === state.sel);
-    const cls = [focus ? 'wt-pin--selected' : '', quiet && !focus ? 'wt-pin--muted' : '', !offRouteOf(all) && all.includes(nowPlace) ? 'wt-pin--now' : ''].join(' ');
-    // Every pin is named, with its time; a route on show names only its ends. Where names would collide, the
-    // less important one is left off (see layoutMapLabels).
-    const who = focus || g[0] || start, offRoute = offRouteOf(all);
-    const time = !offRoute && g.find(s => nums.has(s))?.time;
-    const n = offRoute ? [] : all.flatMap(s => nums.get(s) || []);
-    const label = offRoute ? '' : `<span class="wt-pin__label${focus ? '' : ' wt-pin__label--plain'} is-hidden"><span class="wt-pin__name">${esc(who.name)}</span>${time ? `<span class="wt-pin__time">${fmtTime(time)}</span>` : ''}</span>`;
-    const marker = L.marker([all[0].lat, all[0].lng], {
-      icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="wt-pin ${cls}">${markerHTML(who, 'wt-pin__marker')}${n.length ? `<b class="wt-pin__num">${n.join(',')}</b>` : ''}${label}</div>` }),
+    const cls = [focus ? 'wt-pin--selected' : '', quiet && !focus ? 'wt-pin--muted' : ''].join(' ');
+    const n = all.map(s => nums.get(s.id)).find(Boolean);
+    L.marker([all[0].lat, all[0].lng], {
+      icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML(focus || g[0] || start, n, cls) }),
       zIndexOffset: focus ? 1000 : quiet ? -1000 : 0, title: all[0].name,
     }).on('click', () => onMapTap(() => {
       if (state.draft) return;
       if (g.length) selectSpot(g[0]); else { setDay(dayOf(start)); selectSpot(start); }
     })).addTo(layer);
-    mapLabels.push({
-      type: 'pin', marker, size: focus ? 36 : 28, label: marker.getElement().querySelector('.wt-pin__label'),
-      // the selected stop and a shown route's ends first, then where you are now, then what's still to come in the day's order, the hotel, then what's over
-      prio: focus ? 100 : all.includes(nowPlace) ? 80 : quiet ? 10 : n.length ? 60 - Math.min(n[0], 20) : 40,
-      prefer: end && end === lower ? 'below' : focus ? 'above' : 'right',
-    });
   }
-  layoutMapLabels();
   drawDraft();
 
   const key = [trip.id, day, plan.length].join('|');
@@ -886,111 +852,39 @@ function dayView(trip, day) {
   const pts = dayPlan(trip, day).map(e => [e.place.lat, e.place.lng]);
   if (!pts.length) return null;
   if (new Set(pts.map(String)).size === 1) return { center: L.latLng(pts[0]), zoom: 13 };
-  const tl = L.point(32, coveredTop() + 24), br = L.point(32, coveredBottom() + 24), bounds = L.latLngBounds(pts);
+  // a pin stands above its place, so leave its height clear at the top
+  const tl = L.point(32, coveredTop() + 56), br = L.point(32, coveredBottom() + 16), bounds = L.latLngBounds(pts);
   const zoom = Math.min(map.getBoundsZoom(bounds, false, tl.add(br)), 15);
   const sw = map.project(bounds.getSouthWest(), zoom), ne = map.project(bounds.getNorthEast(), zoom);
   return { center: map.unproject(sw.add(ne).divideBy(2).add(br.subtract(tl).divideBy(2)), zoom), zoom };
 }
-// ---------- Map labels: names, order and drive times, placed so none covers another ----------
-// Each pin's name goes to its right, left, above or below, whichever is free first; drive chips sit on their route,
-// at its middle or a little either side. Most important first; whatever has no free spot is left off until you zoom in.
-// Run after every draw and every move, since how close things are depends on the zoom.
-let mapLabels = [];
-const LABEL_GAP = 6, ARROW_AT = 0.3, CHIP_AT = [0.5, 0.45, 0.55, 0.4, 0.6, 0.35, 0.65, 0.3, 0.7, 0.25, 0.75, 0.2, 0.8], MIN_ROUTE_PX = 72;
-// The point a distance along a line of screen points, and which way the line runs there
-function alongLine(pts, dist) {
-  for (let i = 1; i < pts.length; i++) {
-    const d = pts[i - 1].distanceTo(pts[i]);
-    if (dist <= d || i === pts.length - 1) {
-      const t = d ? Math.min(dist / d, 1) : 0, a = pts[i - 1], b = pts[i];
-      return { p: L.point(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t), angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI };
-    }
-    dist -= d;
-  }
-  return { p: pts[0], angle: 0 };
-}
-function layoutMapLabels() {
-  if (!map || !mapLabels.length) return;
-  // only the part of the map you can see: not under the header or the list
-  const size = map.getSize(), top = coveredTop(), bottom = size.y - coveredBottom(), taken = [];
-  const free = b => b.x >= 0 && b.y >= top && b.x + b.w <= size.x && b.y + b.h <= bottom
-    && !taken.some(o => b.x < o.x + o.w && o.x < b.x + b.w && b.y < o.y + o.h && o.y < b.y + b.h);
-  const show = (el, on) => el.classList.toggle('is-hidden', !on);
-  const pins = mapLabels.filter(m => m.type === 'pin'), legs = mapLabels.filter(m => m.type === 'leg');
-  // Pins are in every label's way, with a margin.
-  for (const m of pins) {
-    const c = map.latLngToContainerPoint(m.marker.getLatLng()), r = m.size / 2 + 2;
-    m.at = c;
-    taken.push({ x: c.x - r, y: c.y - r, w: 2 * r, h: 2 * r });
-  }
-  // Arrows next: they're small and their place is fixed by the route.
-  for (const m of legs) {
-    const pts = m.coords.map(c => map.latLngToContainerPoint(c));
-    m.pts = pts;
-    m.len = pts.slice(1).reduce((sum, p, i) => sum + pts[i].distanceTo(p), 0);
-    const long = m.len >= MIN_ROUTE_PX;
-    show(m.arrow.getElement().firstChild, long);
-    if (m.chip && !long) show(m.chip.getElement().firstChild, false);
-    if (!long) continue;
-    const a = alongLine(pts, m.len * ARROW_AT);
-    m.arrow.setLatLng(map.containerPointToLatLng(a.p));
-    m.arrow.getElement().firstChild.style.setProperty('--wt-arrow-angle', `${a.angle}deg`);
-    taken.push({ x: a.p.x - 10, y: a.p.y - 10, w: 20, h: 20 });
-  }
-  const queue = [...pins.filter(m => m.label), ...legs.filter(m => m.chip && m.len >= MIN_ROUTE_PX)].sort((a, b) => b.prio - a.prio);
-  for (const m of queue) {
-    if (m.type === 'pin') {
-      const el = m.label, w = el.offsetWidth, h = el.offsetHeight, r = m.size / 2 + LABEL_GAP, c = m.at;
-      const spot = {
-        right: { x: c.x + r, y: c.y - h / 2 }, left: { x: c.x - r - w, y: c.y - h / 2 },
-        above: { x: c.x - w / 2, y: c.y - r - h }, below: { x: c.x - w / 2, y: c.y + r },
-      };
-      const order = { right: ['right', 'left', 'above', 'below'], above: ['above', 'right', 'left', 'below'], below: ['below', 'right', 'left', 'above'] }[m.prefer];
-      // a selected stop is always named, even where it covers something
-      const side = order.find(k => free({ ...spot[k], w, h })) || (m.prio >= 100 ? order[0] : null);
-      for (const k of order) el.classList.toggle(`wt-pin__label--${k}`, k === side);
-      show(el, !!side);
-      if (side) taken.push({ ...spot[side], w, h });
-    } else {
-      const el = m.chip.getElement().firstChild, w = el.offsetWidth + 2, h = el.offsetHeight + 2;
-      const box = CHIP_AT.map(t => alongLine(m.pts, m.len * t).p).map(p => ({ p, x: p.x - w / 2, y: p.y - h / 2, w, h })).find(free);
-      show(el, !!box);
-      if (box) { m.chip.setLatLng(map.containerPointToLatLng(box.p)); taken.push(box); }
-    }
-  }
-}
-// The stop being edited, where it would go: its new place and type, named.
+// A map pin: a teardrop in the stop's type color, its tip on the place, with the stop's number in the day in its head.
+// A place that isn't one of the day's numbered stops (the hotel at either end, the day before's last stop) has a dot instead.
+const PIN_PATH = 'M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z';
+const pinHTML = (s, n, cls = '') => `<div class="wt-pin ${cls}" role="img" aria-label="${n ? `${n}. ` : ''}${esc(s.name)}" style="--wt-kind-color: ${kindColor(s)}">`
+  + `<svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><path d="${PIN_PATH}"/></svg>`
+  + `${n ? `<b class="wt-pin__num">${n}</b>` : '<i class="wt-pin__dot"></i>'}</div>`;
+let draftNum = null; // the number of the stop being edited, so its pin keeps it
+// The stop being edited, where it would go: its new place and type.
 function drawDraft() {
   const d = state.draft;
   if (!d || d.lat == null) return;
   L.marker([d.lat, d.lng], {
     interactive: false, keyboard: false, zIndexOffset: 1500,
-    icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="wt-pin wt-pin--selected">${markerHTML(d, 'wt-pin__marker')}${d.name ? `<span class="wt-pin__label">${esc(d.name)}</span>` : ''}</div>` }),
+    icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML(d, draftNum, 'wt-pin--selected') }),
   }).addTo(layer);
 }
 const legCoords = l => (l.r ? l.r.coords : [[l.from.lat, l.from.lng], [l.to.lat, l.to.lng]]);
 // Minutes a drive runs past the next stop's time, between two of the day's stops
 const lateMin = l => (l.r && l.fromEntry.role === 'stop' && l.toEntry.role === 'stop' ? Math.round(l.r.duration / 60 - gapMin(l.from, l.to)) : 0);
-// Halfway along a route, by distance
-function midpoint(coords) {
-  const pts = coords.map(c => L.latLng(c));
-  if (pts.length < 2) return pts[0];
-  const seg = pts.slice(1).map((p, i) => pts[i].distanceTo(p));
-  let half = seg.reduce((a, b) => a + b, 0) / 2;
-  for (let i = 0; i < seg.length; i++) {
-    if (half <= seg[i]) { const t = seg[i] ? half / seg[i] : 0; return L.latLng(pts[i].lat + (pts[i + 1].lat - pts[i].lat) * t, pts[i].lng + (pts[i + 1].lng - pts[i].lng) * t); }
-    half -= seg[i];
-  }
-  return pts.at(-1);
-}
-// Fit a route into the part of the map you can see, with room for its end labels.
+// Fit a route into the part of the map you can see, with room above its ends for their pins.
 // From a tap on the map, only when an end is out of view, so the map doesn't jump under your finger.
 function fitLeg(l, onlyIfHidden = false) {
   if (!map || (onlyIfHidden && inView(l.from) && inView(l.to))) return;
   camFree = false;
-  map.fitBounds(legCoords(l), { paddingTopLeft: [72, coveredTop() + 48], paddingBottomRight: [72, coveredBottom() + 48], maxZoom: 15 });
+  map.fitBounds(legCoords(l), { paddingTopLeft: [40, coveredTop() + 64], paddingBottomRight: [40, coveredBottom() + 24], maxZoom: 15 });
 }
-// Show a drive's route: highlighted, both ends named, its time on it, and the map moved to fit it.
+// Show a drive's route: highlighted, with larger pins at its ends, and the map moved to fit it.
 // Tapping the same drive in the list again goes back to the whole day.
 function previewLeg(l, { fromMap = false } = {}) {
   if (!fromMap && state.leg === l.key) {

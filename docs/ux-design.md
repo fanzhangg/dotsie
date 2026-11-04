@@ -124,7 +124,7 @@ The list is a timeline with three columns: a **rail**, the **stop**, and its **t
       2 nights
 ```
 
-- **Rail:** a thin, light grey line down the day, unbroken from the first stop to the last. It's quiet so the markers and names stand out. Each stop sits on it as a **type marker**: the stop's [type](#stop-types) icon on its type's color. The marker is the same as the stop's pin on the map, so you can match the list to the map at a glance. Drives sit on it as a smaller grey marker with a car, so stops and drives read as one family of icons.
+- **Rail:** a thin, light grey line down the day, unbroken from the first stop to the last. It's quiet so the markers and names stand out. Each stop sits on it as a **type marker**: the stop's [type](#stop-types) icon on its type's color. Its color is the stop's pin's color on the map, so you can match the list to the map at a glance. Drives sit on it as a smaller grey marker with a car, so stops and drives read as one family of icons.
 - **Stop:** the name in medium weight, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. A note runs across the time column too, so a long one wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop selects it and shows it on the map (see [Adding and editing a stop](#adding-and-editing-a-stop)); it doesn't open it.
 - **Time:** on the right, in grey, with a small AM/PM. The name leads the row, and the time is where a glance down the right edge finds it. Hotel rows at either end of the day have no time, so the right edge stays empty instead of leaving a gap before the name.
 
@@ -164,7 +164,7 @@ On trip days, today's page shows where you are without a clock in the list:
 
 ### Stop types
 
-Every stop has a type, shown as its icon in the list, on its map pin, and in the day list:
+Every stop has a type, shown as its icon in the list and the day list, and as its pin's color on the map:
 
 | Group (color) | Types |
 | --- | --- |
@@ -184,7 +184,7 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 
 | Removed | Why |
 | --- | --- |
-| Stop numbers in the list | The order is clear from the times. (On the map they're back, in the prototype: there the times aren't, so the map lost the order. See [Labels, order and drive times](#labels-order-and-drive-times).) |
+| Stop numbers in the list | The order is clear from the times. The map has no times, so its pins carry the numbers instead (see [The map](#the-map)). |
 | Addresses | The map already shows where each stop is. In a plan, the place name is what matters. |
 | "Last edited by" avatars | This is history, not the plan. Live edits show up as a short notice instead. |
 | Driving distance | The duration is what you plan around. The distance adds little and is one tap away in the maps app. |
@@ -205,10 +205,10 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 ### Adding and editing a stop
 
 - **Add stop.** One black button pinned to the bottom of the sheet, always reachable: it's the main action on the screen. A new stop starts two hours after the last stop of the day on screen.
-- **Selecting.** Tapping a stop in the list selects it instead of opening it, like tapping a drive shows its route: the row turns grey and its pin grows and is named on the map. If the pin is off the part of the map you can see, the map pans to it, keeping the zoom; a full-screen list goes back to half. Tapping the same row again keeps it selected, so a second tap never undoes the first, and in the half list nothing moves: the row is already in the middle, and the map pans only if you've moved the pin out of view. Tapping empty map, changing the day or pressing Esc clears it. (Tapping a stop used to open it straight away, so seeing where a stop is meant opening a form.)
+- **Selecting.** Tapping a stop in the list selects it instead of opening it, like tapping a drive shows its route: the row turns grey and its pin grows on the map. If the pin is off the part of the map you can see, the map pans to it, keeping the zoom; a full-screen list goes back to half. Tapping the same row again keeps it selected, so a second tap never undoes the first, and in the half list nothing moves: the row is already in the middle, and the map pans only if you've moved the pin out of view. Tapping empty map, changing the day or pressing Esc clears it. (Tapping a stop used to open it straight away, so seeing where a stop is meant opening a form.)
 - **Edit stop.** While a stop is selected, the black button says **Edit stop**, and a small round **+** beside it still adds a stop, so adding is always one tap away. There's still only one black button.
 - **Editing.** Tap Edit stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
-- **The map follows the edit.** The stop's pin shows the draft: picking a place from search moves the pin there, and the map goes with it; choosing a type changes the pin's icon. A new stop's pin appears once a place is picked. If the stop moves, its two drives fade until it's saved. You can pan and zoom the map while the sheet is open, and taps on the map don't change anything. Closing without saving puts the map back where it was.
+- **The map follows the edit.** The stop's pin shows the draft: picking a place from search moves the pin there, and the map goes with it; choosing a type changes the pin's color. A new stop's pin appears once a place is picked. If the stop moves, its two drives fade until it's saved. You can pan and zoom the map while the sheet is open, and taps on the map don't change anything. Closing without saving puts the map back where it was.
 - **The stop sheet** has four fields (six for a hotel), in this order:
   1. **Place.** The first line, like in the list: the place's name and address. Tapping it opens a search page, as in a maps app. A stop's name is its place's name. See [Place search](#place-search).
   2. **Type.** One row that opens the [stop types](#stop-types).
@@ -229,19 +229,11 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 
 ## The map
 
-- **Pins** are the stop's type marker (its icon on its type's color) ringed in white, with no numbers. A selected stop gets a larger pin and its name in a label above it. Stops at the same place share one pin; for example, flying in and out of the same airport.
+**The map shows only the routes and the pins.** Names, times, drive times and notes are in the list, so the map doesn't repeat them: no labels, no time tags. (*In the prototype; the app still names a selected pin and puts a drive's time on its route.*)
+
+- **Pins** are teardrops, like a maps app's: the tip is on the place, so it points at it exactly, and the head carries the rest. The pin is the stop's [type](#stop-types) color, outlined in white, and its head holds one thing, the stop's **number in the day**: 1, 2, 3 in the day's order. A place that isn't one of the day's stops (the hotel you wake up in or come back to, or the day before's last stop) has a white dot instead; the hotel you check in to that day is a stop, so it's numbered. A selected stop's pin, and both ends of a route on show, grow from the tip; a stop that's over shrinks and fades. Stops at the same place share one pin, with the first one's number; for example, flying in and out of the same airport. (Pins used to be round, with the type's icon and no numbers: the icon repeated the list's marker, and the map couldn't show the order. A round pin's center is also harder to place exactly than a tip.)
 - **Routes** are drawn as driving routes in blue; on a trip day, past ones are grey. **Blue means routes and nothing else**: a selected stop is grey, no stop type is blue, and the list uses no blue at all: the drive you're on or have selected gets a darker grey car.
 - **The background map** is a light, low-contrast style (Stadia "Alidade Smooth"), so the routes stand out. Its credits are at the bottom of trip settings, not over the map.
-
-### Labels, order and drive times
-
-*In the prototype; not yet in the app.* The map used to show only the stops' type markers and blue lines, so it couldn't be read without the list: which pin is which, in what order, and how long each drive is were all in the list only. With the list down to its peek, the map had the screen and said almost nothing. Maps apps do it the other way round: the map can be read on its own, and the list adds the detail.
-
-- **Every pin is named,** with its time under the name, as plain text with a halo the color of the pin's ring, the way a maps app labels places. A selected stop and a shown route's ends keep their white card. Names longer than about 150px are cut short.
-- **The day's stops are numbered** in a small dark badge on the pin's top-left corner: 1, 2, 3 in the day's order. The hotel you wake up in or come back to isn't numbered; the hotel you check in to that day is, since it's one of the day's stops.
-- **Every drive still to come says which way it goes,** with a small blue chevron on its route, a third of the way along, and **how long it takes,** in a chip on it, near the middle. A drive that doesn't fit says by how much, in red. Past drives have neither. With a route on show, only that route keeps its arrow, and its time is in its tag.
-- **The stop you're at now** gets a ring in its type's color, as its marker has in the list.
-- **Nothing covers anything else.** Each name goes to its pin's right, left, top or bottom, whichever is free first; each chip slides along its route to a free spot. The most important go first: the selected stop, then where you are now, then the day's stops in order, then the hotel, then what's over. Whatever finds no free spot is left off until you zoom in, as in a maps app; the selected stop is always named. Labels stay clear of the header and the list, and are placed again after every zoom and pan.
 
 ### How the map and the list work together
 
@@ -249,12 +241,11 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 - **Tapping a stop in the list** selects it and highlights its pin, panning the map to it if it's out of view. The bottom button becomes Edit stop.
 - **Showing a route.** Tapping a route on the map, or its drive in the list, shows it:
   - The route is highlighted, and the other routes and stops fade.
-  - **Both ends are named** on the map, with the same label a selected pin has. The lower end's name goes under its pin, so the two don't meet.
-  - **Its drive time** sits halfway along it, with a small car in the route's blue: `🚗 34 min`. A drive that doesn't fit adds, in red, `· 12 min late`.
-  - **The map fits the route**, with room for the names, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. A peeking or full list goes to half, so the map and the Directions button both show.
+  - **Both ends' pins grow,** as a selected stop's does. The drive's time is in its row in the list, not on the map.
+  - **The map fits the route**, with room above its ends for their pins, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. A peeking or full list goes to half, so the map and the Directions button both show.
   - **The bottom button becomes Directions**, for that drive, with a round + beside it.
 - **Tapping the same drive again** keeps it on show, and in the half list nothing moves: the map re-fits the route only if you've moved one of its ends out of view. Tapping empty map, Whole day, changing the day or Esc goes back to the whole day.
-- **Hovering a drive** on a computer previews its route, with its names and time, without moving the map.
+- **Hovering a drive** on a computer previews its route, without moving the map.
 - **Tapping empty map** clears the selection.
 - **A tap waits out a double-tap.** A tap on a pin, a route or empty map acts after a moment (300 ms), once it's clear no second tap is coming, as in a maps app. Selecting a pin or showing a route can move the map, and a double-tap's second tap would then zoom somewhere you didn't tap.
 
