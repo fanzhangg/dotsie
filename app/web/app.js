@@ -1733,7 +1733,6 @@ const modalHead = (title, sticky) => `<div class="wt-modal__head${sticky ? ' wt-
 // A panel (the stop sheet) has no backdrop, so the map stays in view and usable beside or above it.
 // onClose runs however the sheet goes away: closed, replaced by another sheet, or left with the trip.
 let onSheetClose = null;
-let sheetCleanup = null; // the stop sheet's listeners outside the sheet (its suggestions pop-up), removed when it closes
 function openSheet(html, mount, { panel = false, onClose = null } = {}) {
   runSheetClose();
   // over the trip's side panel on a wide screen; a dialog in the middle elsewhere, a bottom sheet on a phone
@@ -1882,7 +1881,7 @@ const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
 
 // The stop sheet is a panel: the map stays in view (above it on a phone, beside it on a wide screen) and shows
 // the stop as you edit it, at the place you picked, with the type you chose.
-// The first line is the place: it shows the stop's name (as in the list) and searching it changes the place.
+// The first line is the place, a row like a calendar's Location: tapping it opens a search page, as in a maps app.
 // Type is one row that opens the types on a page of their own; it starts as a guess from the place you pick,
 // until you choose one yourself.
 function openStopSheet(trip, stop) {
@@ -1899,11 +1898,8 @@ function openStopSheet(trip, stop) {
   const option = k => `<li><button type="button" class="wt-option" role="radio" data-kind="${k}">${markerHTML({ kind: k }, '')}<span class="wt-option__text"><span class="wt-option__label">${KINDS[k].label}</span>${KIND_HINTS[k] ? `<span class="wt-option__detail">${KIND_HINTS[k]}</span>` : ''}</span>${ICON.check}</button></li>`;
   openSheet(`<div class="stop-main">${modalHead(stop ? 'Edit stop' : 'Add stop', true)}
     <form>
-      <div class="wt-field"><label class="wt-field__label" for="stop-place">Place</label>
-        <label class="wt-input wt-input-group wt-search">${ICON.search}<input id="stop-place" name="title" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="place-results" placeholder="Search a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" required maxlength="200"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden>${ICON.close}</button></label>
-        <p class="wt-field__hint" data-place-at hidden>${WaythreadIcons.svg('pin', 14)}<span></span></p>
-        <p class="wt-field__error" id="place-error" hidden></p>
-        <span class="wt-visually-hidden" role="status" data-place-status></span></div>
+      <div class="wt-field"><span class="wt-field__label" id="place-label">Place</span>
+        <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
       <label class="wt-field"><span class="wt-field__label" data-when>When</span><input class="wt-input" name="time" type="datetime-local" required></label>
@@ -1920,13 +1916,21 @@ function openStopSheet(trip, stop) {
     <div class="stop-kinds" hidden>
       <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-kind-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">Type</h2></div>
       <ul class="wt-options" role="radiogroup" aria-label="Type">${KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>')}</ul>
+    </div>
+    <div class="stop-place" hidden>
+      <div class="wt-search-bar">
+        <label class="wt-input wt-input-group wt-search">${ICON.search}<input id="stop-place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="place-results" aria-label="Search a place" placeholder="Search a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="200"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden>${ICON.close}</button></label>
+        <button type="button" class="wt-search-bar__cancel" data-place-cancel>Cancel</button>
+      </div>
+      <div class="wt-results" id="place-results" role="listbox" aria-label="Places"></div>
+      <span class="wt-visually-hidden" role="status" data-place-status></span>
     </div>`, el => {
     const f = el.querySelector('form'), F = f.elements;
     const main = el.querySelector('.stop-main'), kindsPage = el.querySelector('.stop-kinds'), picker = el.querySelector('[data-kind-open]');
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!stop;
-    if (stop) { F.title.value = stop.name; F.time.value = stop.time; F.note.value = stop.note || ''; }
-    else { F.time.value = defaultTime(trip); setTimeout(() => F.title.focus(), 280); }
+    if (stop) { F.time.value = stop.time; F.note.value = stop.note || ''; }
+    else F.time.value = defaultTime(trip);
     F.checkout.value = stop ? checkoutOf(stop) : HOTEL_CHECK_OUT;
 
     // ----- Type: the picker row, and its page -----
@@ -1936,7 +1940,7 @@ function openStopSheet(trip, stop) {
     };
     let scrollBack = 0;
     const showKinds = open => {
-      if (open) { scrollBack = el.scrollTop; closeSuggestions(); }
+      if (open) scrollBack = el.scrollTop;
       main.hidden = open;
       kindsPage.hidden = !open;
       el.scrollTop = open ? 0 : scrollBack;
@@ -1993,45 +1997,44 @@ function openStopSheet(trip, stop) {
     showKind();
     showNights();
 
-    // ----- Place: one field, holding the place's name. Editing the text searches, starting from what's there;
-    // suggestions open in a pop-up over the form, each with the marker of the type it would get. ↑ ↓ and Return
-    // pick one, Esc closes the pop-up. Only picking changes the place (and with it the name): the pin moves there,
-    // on the map you can see. Leave the field without picking, and it goes back to the place's name.
-    // The place's address shows under the field, so you can tell which of two same-named places it is. -----
-    const input = F.title, box = input.closest('.wt-search'), spinner = box.querySelector('.wt-spinner'), clear = box.querySelector('.wt-search__clear');
-    const placeAt = el.querySelector('[data-place-at]'), placeErr = el.querySelector('#place-error'), status = el.querySelector('[data-place-status]');
-    // In the modal root, not the sheet, so the sheet's scrolling can't clip it; the sheet's close removes it
-    const pop = Object.assign(document.createElement('div'), { className: 'wt-popover wt-results', id: 'place-results', hidden: true });
-    pop.setAttribute('role', 'listbox');
-    pop.setAttribute('aria-label', 'Places');
-    $sheets.append(pop);
-    const life = new AbortController(), on = { signal: life.signal };
-    sheetCleanup = () => life.abort();
+    // ----- Place: the row shows the place's name and address. Tapping it opens the search page, as in Google or
+    // Apple Maps: the field starts with the place's name, suggestions fill the page (each with the marker of the
+    // type it would get), and tapping one fills it in and comes back. Cancel (or Esc) comes back unchanged; for a
+    // new stop with no place yet, it closes the sheet. A new stop opens on this page. Picking moves the pin there.
+    const placeRow = el.querySelector('[data-place-open]'), placePage = el.querySelector('.stop-place');
+    const input = placePage.querySelector('#stop-place'), box = input.closest('.wt-search');
+    const spinner = box.querySelector('.wt-spinner'), clear = box.querySelector('.wt-search__clear');
+    const list = placePage.querySelector('.wt-results'), status = placePage.querySelector('[data-place-status]');
 
     const placeKey = p => `${(+p.lat).toFixed(4)},${(+p.lng).toFixed(4)}`;
     const cache = new Map(); // query → places, so backspacing doesn't search again
     let timer, ctrl, found = { q: '', list: [] }, phase = 'idle', failText = '';
-    let opts = [], active = -1, pressing = false;
+    let opts = [], active = -1;
 
-    function showPlaceAt() {
-      placeAt.hidden = draft.lat == null;
-      placeAt.querySelector('span').textContent = draft.address || 'Pinned on the map';
+    const showPlace = () => {
+      placeRow.innerHTML = `<span class="wt-picker__value"><span class="wt-picker__name">${esc(draft.name)}</span>${draft.address ? `<span class="wt-picker__detail">${esc(draft.address)}</span>` : ''}</span>${ICON.forward}`;
+    };
+    // The search page takes the sheet's place, and on a phone the whole screen, like a maps app's search
+    let placeScroll = 0;
+    function showPlacePage(open) {
+      if (open) placeScroll = el.scrollTop;
+      main.hidden = open;
+      placePage.hidden = !open;
+      el.classList.toggle('is-full', open);
+      el.scrollTop = open ? 0 : placeScroll;
+      if (!open) { clearTimeout(timer); ctrl?.abort(); spinner.hidden = true; placeRow.focus(); return; }
+      input.value = draft.name || '';
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      onType();
     }
-    // Whether the text is still the place's name (nothing being searched)
-    const unchanged = () => draft.lat != null && input.value === draft.name;
-    // Back to the place's name, when the field is left without picking
-    function restoreName() {
-      if (draft.lat == null || unchanged()) return;
-      input.value = draft.name;
-      clear.hidden = !input.value;
-      closeSuggestions();
+    function cancelPlace() {
+      if (draft.lat == null) closeSheet(); // a new stop, with nowhere to go yet
+      else showPlacePage(false);
     }
-    function showError(msg) {
-      placeErr.textContent = msg || '';
-      placeErr.hidden = !msg;
-      input.toggleAttribute('aria-invalid', !!msg);
-      if (msg) input.setAttribute('aria-describedby', 'place-error'); else input.removeAttribute('aria-describedby');
-    }
+    placeRow.addEventListener('click', () => showPlacePage(true));
+    placePage.querySelector('[data-place-cancel]').addEventListener('click', cancelPlace);
+
     function highlight(text, q) {
       const words = q.trim().split(/\s+/).filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
       if (!words.length) return esc(text);
@@ -2044,79 +2047,45 @@ function openStopSheet(trip, stop) {
     }
     const optionHTML = (p, i, q) => `<div class="wt-option" role="option" id="place-opt-${i}" data-i="${i}" aria-selected="false">${markerHTML(p, '')}<span class="wt-option__text"><span class="wt-option__label">${highlight(p.name, q)}</span>${p.address ? `<span class="wt-option__detail">${esc(p.address)}</span>` : ''}</span></div>`;
 
-    // Draw the pop-up for what's typed now: the latest search results (kept on screen while the next search runs,
-    // so the list doesn't flash), or a message that says what happened and what to try.
+    // Draw the suggestions for what's typed now: the latest search results (kept on screen while the next search
+    // runs, so the list doesn't flash), or a message that says what happened and what to try.
     function paint() {
       const q = input.value.trim();
-      if (q.length < 3) return closeSuggestions();
-      const results = found.list.map(p => ({ ...p, kind: guessKind(p.name, p.category) }));
+      const results = q.length >= 3 ? found.list.map(p => ({ ...p, kind: guessKind(p.name, p.category) })) : [];
       let msg = '';
-      if (phase === 'error') msg = failText;
-      else if (phase === 'done' && !results.length) msg = `<b>No places match “${esc(q)}”</b>Try adding the town, or check the spelling.`;
-      else if (phase === 'loading' && !results.length) msg = 'Searching…';
+      if (q.length >= 3 && phase === 'error') msg = failText;
+      else if (q.length >= 3 && phase === 'done' && !results.length) msg = `<b>No places match “${esc(q)}”</b>Try adding the town, or check the spelling.`;
       const prev = opts[active];
       opts = results;
-      if (!opts.length && !msg) return closeSuggestions();
-      pop.innerHTML = opts.map((p, i) => optionHTML(p, i, q)).join('')
-        + (msg ? `<div class="wt-results__msg" role="presentation">${msg}</div>` : '');
+      list.innerHTML = opts.map((p, i) => optionHTML(p, i, q)).join('') + (msg ? `<div class="wt-results__msg" role="presentation">${msg}</div>` : '');
+      input.setAttribute('aria-expanded', String(!!opts.length));
       // Return picks the top match, or the one moved to with the arrows, which stays put as results arrive
       const kept = prev ? opts.findIndex(p => placeKey(p) === placeKey(prev) && p.name === prev.name) : -1;
-      setActive(kept >= 0 ? kept : opts.length ? 0 : -1);
-      status.textContent = msg ? pop.querySelector('.wt-results__msg').textContent : `${opts.length} ${opts.length === 1 ? 'place' : 'places'}`;
-      openSuggestions();
+      setActive(kept >= 0 ? kept : opts.length ? 0 : -1, false);
+      status.textContent = msg ? list.querySelector('.wt-results__msg').textContent : opts.length ? `${opts.length} ${opts.length === 1 ? 'place' : 'places'}` : '';
     }
-    function setActive(i) {
+    function setActive(i, scroll = true) {
       active = i;
-      pop.querySelectorAll('[aria-selected="true"]').forEach(o => o.setAttribute('aria-selected', 'false'));
-      const o = i >= 0 && pop.querySelector(`#place-opt-${i}`);
-      if (o) { o.setAttribute('aria-selected', 'true'); o.scrollIntoView({ block: 'nearest' }); input.setAttribute('aria-activedescendant', o.id); }
+      list.querySelectorAll('[aria-selected="true"]').forEach(o => o.setAttribute('aria-selected', 'false'));
+      const o = i >= 0 && list.querySelector(`#place-opt-${i}`);
+      if (o) { o.setAttribute('aria-selected', 'true'); if (scroll) o.scrollIntoView({ block: 'nearest' }); input.setAttribute('aria-activedescendant', o.id); }
       else input.removeAttribute('aria-activedescendant');
     }
-    function openSuggestions() {
-      pop.hidden = false;
-      input.setAttribute('aria-expanded', 'true');
-      positionSuggestions();
-    }
-    function closeSuggestions() {
-      pop.hidden = true;
-      opts = []; active = -1;
-      input.setAttribute('aria-expanded', 'false');
-      input.removeAttribute('aria-activedescendant');
-    }
-    // Below the field, or above it when there's more room there (a phone's keyboard can leave little below);
-    // never past the visible screen.
-    function positionSuggestions() {
-      if (pop.hidden) return;
-      const r = box.getBoundingClientRect(), vv = window.visualViewport;
-      const top = vv ? vv.offsetTop : 0, bottom = vv ? vv.offsetTop + vv.height : innerHeight, gap = 6, edge = 8;
-      const below = bottom - r.bottom - gap - edge, above = r.top - top - gap - edge, up = below < 220 && above > below;
-      Object.assign(pop.style, {
-        left: `${r.left}px`, width: `${r.width}px`, maxHeight: `${Math.max(120, Math.min(420, up ? above : below))}px`,
-        top: up ? '' : `${r.bottom + gap}px`, bottom: up ? `${innerHeight - r.top + gap}px` : '',
-      });
-    }
-    el.addEventListener('scroll', positionSuggestions, on);
-    addEventListener('resize', positionSuggestions, on);
-    window.visualViewport?.addEventListener('resize', positionSuggestions, on);
-    window.visualViewport?.addEventListener('scroll', positionSuggestions, on);
-    // A tap anywhere else closes it: on the map too, which doesn't always take focus from the field
-    document.addEventListener('pointerdown', e => { if (!pop.hidden && !box.contains(e.target) && !pop.contains(e.target)) closeSuggestions(); }, on);
 
     function onType() {
-      showError('');
       clear.hidden = !input.value;
       const q = input.value.trim();
       clearTimeout(timer);
       if (q.length < 3) { ctrl?.abort(); spinner.hidden = true; phase = 'idle'; found = { q: '', list: [] }; return paint(); }
       if (cache.has(q.toLowerCase())) { found = { q, list: cache.get(q.toLowerCase()) }; phase = 'done'; spinner.hidden = true; return paint(); }
       phase = 'loading';
+      spinner.hidden = false;
       paint();
       timer = setTimeout(() => search(q), 250);
     }
     async function search(q) {
       ctrl?.abort();
       ctrl = new AbortController();
-      spinner.hidden = false;
       try {
         const list = await api(`/places?q=${encodeURIComponent(q)}${nearParam(trip)}`, { signal: ctrl.signal });
         cache.set(q.toLowerCase(), list);
@@ -2129,76 +2098,51 @@ function openStopSheet(trip, stop) {
           : e.code === 'offline' ? '<b>Can’t search right now</b>Check your connection, then keep typing.' : '<b>Search isn’t working right now</b>Try again in a moment.';
       }
       spinner.hidden = true;
-      if (input.value.trim() === q && document.activeElement === input) paint();
+      if (input.value.trim() === q && !placePage.hidden) paint();
     }
-    function pick(p, { byPointer = false } = {}) {
+    function pick(p) {
       Object.assign(draft, { lat: p.lat, lng: p.lng, address: p.address, name: p.name });
-      input.value = p.name;
-      clear.hidden = false;
-      closeSuggestions();
-      showError('');
-      showPlaceAt();
+      showPlace();
       status.textContent = `${p.name} picked`;
       if (!chosen) setKind(p.kind);
-      else if (cur?.stops) drawMap(cur);
+      showPlacePage(false); // first, so the map centers the place above the sheet's real height
+      if (cur?.stops) drawMap(cur);
       focusStop(draft);
-      // On a phone, put the keyboard away, so the form and the map show
-      if (byPointer && matchMedia('(pointer: coarse)').matches) input.blur();
     }
 
     input.addEventListener('input', onType);
-    input.addEventListener('blur', () => {
-      if (pressing) return;
-      closeSuggestions();
-      restoreName();
-    });
     input.addEventListener('keydown', e => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
-        if (pop.hidden) return paint();
         if (opts.length) setActive(e.key === 'ArrowDown' ? (active + 1) % opts.length : active <= 0 ? opts.length - 1 : active - 1);
       } else if (e.key === 'Enter') {
-        // Return picks a suggestion. With the place's name untouched, it saves, like Return in any field; mid-search
-        // with nothing to pick, it waits. A new stop with no place yet still submits, so it says to pick one.
-        if (!pop.hidden && active >= 0) { e.preventDefault(); pick(opts[active]); }
-        else if (!unchanged() && draft.lat != null) e.preventDefault();
-      } else if (e.key === 'Escape' && (!pop.hidden || !unchanged() && draft.lat != null)) {
-        // Esc closes the suggestions, then puts the place's name back; only then does it close the sheet
-        e.stopPropagation();
-        if (!pop.hidden) closeSuggestions(); else restoreName();
+        e.preventDefault();
+        if (active >= 0) pick(opts[active]);
+      } else if (e.key === 'Escape') {
+        e.stopPropagation(); // Esc is Cancel here; on the form it closes the sheet
+        cancelPlace();
       }
     });
-    // Keep focus in the field while an option is tapped or clicked
-    pop.addEventListener('pointerdown', () => { pressing = true; });
-    addEventListener('pointerup', () => setTimeout(() => { pressing = false; }, 300), on);
-    pop.addEventListener('mousedown', e => e.preventDefault());
-    pop.addEventListener('click', e => {
-      pressing = false;
+    list.addEventListener('mousedown', e => e.preventDefault()); // keep the keyboard up until a place is picked
+    list.addEventListener('click', e => {
       const o = e.target.closest('[data-i]');
-      if (o) pick(opts[+o.dataset.i], { byPointer: true });
+      if (o) pick(opts[+o.dataset.i]);
     });
-    clear.addEventListener('mousedown', e => e.preventDefault()); // so the field keeps focus, and its name isn't put back
+    clear.addEventListener('mousedown', e => e.preventDefault());
     clear.addEventListener('click', () => {
       input.value = '';
       input.focus();
       onType();
     });
-    clear.hidden = !input.value;
-    showPlaceAt();
+    if (draft.lat != null) showPlace();
+    else showPlacePage(true); // a new stop starts by finding its place
 
     f.onsubmit = e => {
       e.preventDefault();
-      restoreName(); // saved mid-search: the stop keeps its place, and its name
-      if (draft.lat == null) {
-        // Said under the field, with the suggestions closed so they don't cover it; typing or ↓ brings them back
-        closeSuggestions();
-        showError('Pick a place from the suggestions, so the stop can go on the map.');
-        input.focus();
-        return;
-      }
+      if (draft.lat == null) return showPlacePage(true);
       const hotel = draft.kind === 'hotel';
       const data = {
-        name: draft.name.trim() || F.title.value.trim(), address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
+        name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
         kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? F.checkout.value || null : null,
       };
       state.day = dayOf(data); // follow the stop to its day
@@ -2216,8 +2160,6 @@ function openStopSheet(trip, stop) {
     panel: true,
     // Closed without saving: the map goes back to where it was.
     onClose: () => {
-      sheetCleanup?.();
-      sheetCleanup = null;
       state.draft = null;
       $app.querySelector('.trip')?.classList.remove('is-editing');
       if (!saved && map && camera) moveCamera(camera.center, camera.zoom);

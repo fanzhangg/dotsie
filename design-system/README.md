@@ -151,7 +151,6 @@ The system font throughout, so the app feels native on every phone. Each token i
   - `--wt-shadow-sheet`: the list sheet.
   - `--wt-shadow-float`: labels and buttons over the map.
   - `--wt-shadow-card`: the trip header, a card floating over the map.
-  - `--wt-shadow-popover`: a popover (search suggestions) over a sheet. It carries a hairline too, since in dark the popover and the sheet are the same surface.
   - `--wt-shadow-pin`: pins.
 
   Nothing else gets a shadow.
@@ -229,22 +228,31 @@ Labels are verbs that say exactly what happens.
 - With only one person on the trip, show the `person-add` icon instead.
 - Set `--wt-avatar-ring` to the surface behind the stack.
 
-### Field `.wt-field`, input `.wt-input`, search `.wt-search`, popover `.wt-popover`, results `.wt-results`
+### Field `.wt-field`, input `.wt-input`, search page `.wt-search-bar`, `.wt-search`, results `.wt-results`
 
 ```html
-<div class="wt-field">
-  <label class="wt-field__label" for="place">Place</label>
+<label class="wt-field">
+  <span class="wt-field__label">Note</span>
+  <textarea class="wt-input" rows="2" placeholder="Confirmation #, tickets, tips…"></textarea>
+</label>
+
+<!-- A field picked by searching: a row in the form… -->
+<div class="wt-field"><span class="wt-field__label" id="place-label">Place</span>
+  <button class="wt-picker wt-picker--text" aria-describedby="place-label">
+    <span class="wt-picker__value"><span class="wt-picker__name">Joshua Tree Inn</span>
+      <span class="wt-picker__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span>${icon('forward', 18)}
+  </button></div>
+
+<!-- …that opens a search page in place of the form (on .wt-modal, add .is-full) -->
+<div class="wt-search-bar">
   <label class="wt-input wt-input-group wt-search">${icon('search')}
-    <input id="place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="true"
-           aria-controls="place-results" aria-activedescendant="opt-0" placeholder="Search a place">
+    <input type="text" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="place-results"
+           aria-activedescendant="opt-0" aria-label="Search a place" placeholder="Search a place">
     <span class="wt-spinner" hidden></span>
     <button type="button" class="wt-search__clear" aria-label="Clear">${icon('close')}</button></label>
-  <p class="wt-field__hint">${icon('pin', 14)}<span>6554 Park Blvd, Joshua Tree, CA</span></p>   <!-- what it's set to -->
-  <p class="wt-field__error" id="place-error" hidden></p>                                      <!-- what to fix -->
+  <button type="button" class="wt-search-bar__cancel">Cancel</button>
 </div>
-
-<!-- A child of the modal root, not of the sheet, placed by script with position: fixed -->
-<div class="wt-popover wt-results" id="place-results" role="listbox" aria-label="Places">
+<div class="wt-results" id="place-results" role="listbox" aria-label="Places">
   <div class="wt-option" role="option" id="opt-0" aria-selected="true">
     <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
     <span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Inn</span>
@@ -256,14 +264,14 @@ Labels are verbs that say exactly what happens.
 
 - Every field has a visible label.
 - Placeholders show an example, never the label.
-- Messages say what happened and what to do next, for example "Pick a place from the suggestions, so the stop can go on the map". A field's error goes under it in `.wt-field__error`, with `aria-invalid` on the input (its box turns red) and `aria-describedby` pointing at the message.
+- Messages say what happened and what to do next, for example "No places match … Try adding the town, or check the spelling".
 - `textarea.wt-input` works the same way.
-- **The search field holds what was picked.** Its text is the picked place's name, and editing that text is how you search again, starting from what's there. Only picking a suggestion changes what's picked; leave the field without picking (Esc, tapping away, saving) and its text goes back to the name. There's no separate name to keep in step. The hint line under it gives the address, to tell two places with the same name apart.
-- **Search** suggestions open in a `.wt-popover` over the form, not in the form, so nothing below the field moves while you type. The popover is a child of the modal root, placed with `position: fixed` under the field, so the sheet's scrolling can't clip it. It opens above the field when there's more room there, and its `max-height` keeps it on the visible screen (`visualViewport`, so a phone's keyboard counts).
+- **A field picked by searching works as in Google or Apple Maps**, and their calendars' Location field. The form shows the choice as a row: its name, and under it a detail (a place's address, so two places with the same name can be told apart). Tapping the row opens a search page in place of the form, with the current name in the field and the cursor at its end, so you edit it rather than retype it. Results fill the page. Tapping one fills it in and comes back; **Cancel** (or Esc) comes back with nothing changed. Nothing typed is ever kept: only a picked result is. A choice that's required (a stop's place) can open on this page, and Cancel there closes the sheet.
+- **While the search page is open** the sheet takes the whole screen on a phone (`.wt-modal.is-full`), as a maps app's sheet rises when you search, so the results show above the keyboard. The search bar stays at the top as the results scroll.
 - **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
-- **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it (with the text untouched it submits the form; mid-search with nothing to pick, it waits), Esc closes the popover, then puts the name back. Only then does Esc close the sheet. Keep focus in the input while an option is tapped: `preventDefault()` on the popover's `mousedown`.
-- **While it searches**, the spinner shows in the field and the last results stay in the popover, so the list doesn't flash.
-- `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet for the prototype. They can go in the next major version.
+- **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it, Esc is Cancel. Keep focus in the input while a result is tapped: `preventDefault()` on the results' `mousedown`.
+- **While it searches**, the spinner shows in the field and the last results stay on the page, so the list doesn't flash.
+- `ul.wt-results` with `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet for the prototype. They can go in the next major version.
 
 ### Marker `.wt-marker`
 
@@ -635,10 +643,9 @@ Say what can go here, in the user's words. No illustrations.
 Place search and the type list, redesigned as one system.
 
 - `.wt-option` is now the row for every choice: `__text`, `__detail` and `__match` are new, and `aria-selected` and `aria-checked` share the grey "this one" row (the checked type is no longer bold). `.wt-options__sep` splits a list into sections.
-- `.wt-popover`: a floating card anchored to a field. Search results open in one (`.wt-results` of options, or a `__msg`) instead of a list that pushed the form down.
-- `.wt-search` (a search field, with `__clear`) and `.wt-spinner`.
-- `.wt-field__hint` and `.wt-field__error`, the line under a field. A `.wt-input-group` whose input has `aria-invalid` gets a red border.
-- `--wt-shadow-popover` (tokens 1.5.0).
+- A search page, as in Google or Apple Maps: `.wt-search-bar` (with `__cancel`), `.wt-search` (with `__clear`), `.wt-spinner`, and `.wt-results` of options or a `__msg`. It replaces the list under the field, which pushed the form down.
+- `.wt-picker--text`, with `__name` and `__detail`: a picker row with no marker and a second line, for the place.
+- `.wt-modal.is-full`: the sheet at full height, while a search page is open.
 - Nothing was renamed or removed. `.wt-results__item`, `__name` and `__detail` stay for the prototype.
 
 ### Added in 4.5.0

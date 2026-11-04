@@ -114,7 +114,7 @@
     .demo__live { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wt-space-3); padding: var(--wt-space-6) var(--wt-space-5); background: var(--wt-surface-sheet); }
     .demo__live--column { display: block; }
     .demo__live--narrow > * { max-width: 380px; width: 100%; }
-    .demo-popover { position: static; margin-top: 6px; animation: none; }
+    .demo-search { --wt-modal-pad-top: 0px; --wt-modal-pad-x: 0px; }
     .demo__live--raised { background: var(--wt-surface-raised); }
     .marker-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--wt-space-2); width: 100%; }
     .marker-cell { display: grid; justify-items: center; gap: var(--wt-space-1); padding: var(--wt-space-3) var(--wt-space-1); border-radius: var(--wt-radius-md); background: var(--wt-surface-raised); box-shadow: var(--wt-shadow-hairline); }
@@ -317,34 +317,39 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 
     <section id="forms">
       <h2>Forms</h2>
-      <p class="intro">Every field has a visible label. The Place field is also the search: it shows the stop's name, and typing finds a new place.</p>
+      <p class="intro">Every field has a visible label. The Place field is a row that shows the place's name and address; tapping it opens the search page below.</p>
       <div class="demo">
         <div class="demo__live demo__live--column demo__live--narrow" data-snippet>
-          <div class="wt-field"><label class="wt-field__label" for="demo-place">Place</label>
-            <label class="wt-input wt-input-group wt-search"><i data-icon="search"></i><input id="demo-place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="demo-results" value="Joshua" autocomplete="off"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear"><i data-icon="close"></i></button></label></div>
-          <!-- In the app the popover is fixed under the field; here it sits in the flow -->
-          <div class="wt-popover wt-results demo-popover" id="demo-results" role="listbox" aria-label="Places">
-            <div class="wt-option" role="option" aria-selected="true"><i class="wt-marker" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-stay)"><i data-icon="bed"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Inn</span><span class="wt-option__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span></div>
-            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Café" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="cup"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Coffee Company</span><span class="wt-option__detail">61738 29 Palms Hwy, Joshua Tree, CA</span></span></div>
-            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree National Park</span><span class="wt-option__detail">Twentynine Palms, CA</span></span></div>
-          </div>
-          <div class="wt-field"><span class="wt-field__label">Place, once picked</span>
-            <label class="wt-input wt-input-group wt-search"><i data-icon="search"></i><input type="text" value="Joshua Tree Inn" autocomplete="off" aria-label="Place, once picked"><button type="button" class="wt-search__clear" aria-label="Clear"><i data-icon="close"></i></button></label>
-            <p class="wt-field__hint"><i data-icon="pin" data-size="14"></i><span>61259 29 Palms Hwy, Joshua Tree, CA</span></p></div>
-          <div class="wt-field"><span class="wt-field__label">Place, with nothing picked</span>
-            <label class="wt-input wt-input-group wt-search"><i data-icon="search"></i><input type="text" value="zzq" autocomplete="off" aria-invalid="true" aria-label="Place, with nothing picked" aria-describedby="demo-place-error"><button type="button" class="wt-search__clear" aria-label="Clear"><i data-icon="close"></i></button></label>
-            <p class="wt-field__error" id="demo-place-error">Pick a place from the suggestions, so the stop can go on the map.</p></div>
+          <div class="wt-field"><span class="wt-field__label" id="demo-place-label">Place</span>
+            <button type="button" class="wt-picker wt-picker--text" aria-describedby="demo-place-label"><span class="wt-picker__value"><span class="wt-picker__name">Joshua Tree Inn</span><span class="wt-picker__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span><i data-icon="forward" data-size="18"></i></button></div>
           <label class="wt-field"><span class="wt-field__label">When</span><input class="wt-input" id="demo-when" type="datetime-local" value="2026-11-20T15:00"></label>
           <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" id="demo-note" rows="2" placeholder="Confirmation #, tickets, tips…"></textarea></label>
         </div>
       </div>
       <ul class="rules">
         <li>Placeholders show an example, never the label.</li>
-        <li>Messages say what to do next: <i>Pick a place from the suggestions, so the stop can go on the map.</i></li>
-        <li>Suggestions open in a popover over the form, so nothing below the field moves while you type. Results are the same rows as the type list, each with the marker of the type it would get.</li>
-        <li>↑ ↓ move the grey row, Return picks it, Esc closes the popover.</li>
-        <li>Once a place is picked, the field holds its name; editing it searches from there. Only picking changes the place. Leave the field without picking and the name comes back.</li>
+        <li>Messages say what happened and what to try: <i>No places match “zzq”. Try adding the town, or check the spelling.</i></li>
         <li>Input text is 16px, so iPhones don't zoom in.</li>
+      </ul>
+
+      <h3>Search page</h3>
+      <p class="intro">As in Google or Apple Maps. Tapping the Place row opens this page in place of the form, with the place's name in the field to edit. Results fill the page, each with the marker of the type it would get; tapping one fills it in and comes back. Cancel changes nothing. On a phone the sheet takes the whole screen while it's open.</p>
+      <div class="demo">
+        <div class="demo__live demo__live--column demo__live--narrow demo__live--raised demo-search" data-snippet>
+          <div class="wt-search-bar">
+            <label class="wt-input wt-input-group wt-search"><i data-icon="search"></i><input type="text" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="demo-results" aria-label="Search a place" value="Joshua" autocomplete="off"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear"><i data-icon="close"></i></button></label>
+            <button type="button" class="wt-search-bar__cancel">Cancel</button>
+          </div>
+          <div class="wt-results" id="demo-results" role="listbox" aria-label="Places">
+            <div class="wt-option" role="option" aria-selected="true"><i class="wt-marker" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-stay)"><i data-icon="bed"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Inn</span><span class="wt-option__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span></div>
+            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Café" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="cup"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Coffee Company</span><span class="wt-option__detail">61738 29 Palms Hwy, Joshua Tree, CA</span></span></div>
+            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree National Park</span><span class="wt-option__detail">Twentynine Palms, CA</span></span></div>
+          </div>
+        </div>
+      </div>
+      <ul class="rules">
+        <li>The field starts with the current name, cursor at the end. Only a picked result is kept; nothing typed is.</li>
+        <li>↑ ↓ move the grey row, Return picks it, Esc is Cancel.</li>
       </ul>
 
       <h3>Type picker, nights and check-out</h3>
