@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 5.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 6.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -482,7 +482,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
   <h1 class="wt-trip-head__name">White Sands, NM</h1>
   <button class="wt-icon-btn" aria-label="Trip settings and sharing">${icon('settings')}</button>
 </header>
-<section class="wt-sheet" aria-label="Plan">   <!-- .is-peek (compact) or .is-full -->
+<section class="wt-sheet" aria-label="Plan">   <!-- .is-full, or half with no class -->
   <div class="wt-sheet__top">
     <button class="wt-sheet__grab" aria-label="Show the whole day"></button>
     <div class="wt-day-bar">…</div>
@@ -504,19 +504,18 @@ With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 
 - **The header** is one row: home, the trip's name, settings. The name is always in view. It stays quiet next to the list: `--wt-size-trip-head` (44px) tall, the name at 15px, the icons 20px in `--wt-text-secondary`. Floating, it's frosted (`--wt-surface-raised` at 80% with a backdrop blur) with `--wt-shadow-float`; docked and in the side panel it's solid. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
 - **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has two heights:
-  - **Compact** (`.is-peek`), the default: the day bar, one row of the list and the add bar, so the map has most of the screen and still says what you're looking at. The app marks that row `.is-peek-row` (the selected stop or drive, or else the row happening now, or else the first stop), scrolls it to the list's top, and makes the sheet as tall as the day bar, the row (at most 120px) and the add bar. **A drive comes with its two stops:** the rows before and after it are `.is-peek-row` too, so the sheet says where the drive goes from and to (at most 240px for the three). The other rows hide.
+  - **Half** the screen, the default, but tall enough for the list to fit three stops and two drives, measured from the list's real rows (never more than about 60% of the screen).
+  - The list (`.wt-sheet__body`) fades out at an edge with more past it: `.is-more-above` and `.is-more-below`, which the app sets from the scroll position.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
-  - The list (`.wt-sheet__body`) fades out at an edge with more past it: `.is-more-above` and `.is-more-below`, which the app sets from the scroll position. Compact, it has no fades.
   - It never hides.
-- **Moving it is dragging:** the grab handle, the day bar, or the list itself. Compact, dragging the list moves the sheet rather than scrolling it, and the list can't be scrolled by hand at all (`touch-action: none` and `overflow: hidden`): your code scrolls it, to keep the focus at its top. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the other height; a slower drag settles at the nearer. Add `.is-dragging` while a finger is moving it.
-- **Taps:** the grab handle is a button that switches between the two. Compact, a tap on the sheet's top that misses its buttons opens the whole day. Choosing a stop or a drive on the whole day brings the sheet down to compact. No other tap resizes the sheet.
-- **The map:** a new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route puts its row in compact without moving the sheet. Zooming doesn't move the sheet.
-- **Going down to compact**, the rows other than `.is-peek-row` hide `--wt-duration-base` after `.is-peek` goes on, so a sheet sliding down keeps its list until it's there. Animate the height and the list's scroll over that same duration.
+- **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it, and the list can't be scrolled by hand at all (`touch-action: none` and `overflow: hidden`): your code scrolls it, to keep the focused row in its middle. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the other height; a slower drag settles at the nearer. Add `.is-dragging` while a finger is moving it.
+- **Taps:** the grab handle is a button that switches between half and full. Choosing a stop or a drive on the whole day brings the sheet down to half. No other tap resizes the sheet.
+- **The map:** a new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route opens the sheet to half. Zooming doesn't move the sheet.
 - The top holds the grab handle and the day bar, with a 1px `--wt-border-default` line under it that divides the day bar from the list (left out when the day bar is hidden, on an empty trip). The handle is laid over the day bar's top edge rather than taking a row of its own; the day bar's buttons sit above it and take their own taps, and a tap anywhere else on that strip is the handle's. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
 - **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop, then **Maps** (the place in the maps app picked in Account, the same one Directions opens), then a round `+`, so adding is always one tap away. The maps app is how you find out what a place is (its photos, reviews and hours), so it sits beside Edit stop rather than inside the sheet. In the bar, secondary buttons are pills like the primary, so the row reads as one set. Its short label lets Edit stop fit beside it on a 320px phone. A stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
-- Tapping a selected stop or a shown drive again keeps it selected, and in compact nothing animates: it's already there.
-- **One row is the compact list's focus**, at the list's top: the selected row (`.is-selected` or `.is-active`), or else, on today, the `is-now` row, or else the first stop. When the sheet changes height and the list has to scroll, move both together, on one timeline, so the row goes straight to its place. The app does this frame by frame and turns off the sheet's height transition.
+- Tapping a selected stop or a shown drive again keeps it selected, and at half nothing animates: it's already in the middle.
+- **One row is the half list's focus**, and it sits in the middle of the list: the selected row (`.is-selected` or `.is-active`), or else, on today, the `is-now` row. When the sheet changes height and the list has to scroll, move both together, on one timeline, so the row goes straight to the middle. The app does this frame by frame and turns off the sheet's height transition.
 
 **On a wide screen it's a side panel.** Make the element that holds the header, map and sheet a size container named `wt-trip`:
 
@@ -633,11 +632,11 @@ Say what can go here, in the user's words. No illustrations.
 ## Patterns
 
 - **The trip screen.**
-  - On a phone: `.wt-trip-head` across the top, the map under it, and `.wt-sheet` over the map, compact or the whole day.
+  - On a phone: `.wt-trip-head` across the top, the map under it, and `.wt-sheet` over the map, at half height or the whole day.
   - From 768px wide: the header and the sheet are a side panel on the left, and the map fills the rest. Modal sheets cover the panel. Fit the map with even padding: nothing covers it.
   - One day at a time, after All days. The day bar steps through them, and the map shows only the open day; on All days, the whole trip.
-  - A stop's pin has its marker's color and its number in the day; the map has no text. The list says what each pin is, and compact always shows the row in focus.
-  - Tapping a pin selects its stop (`is-selected`). Tapping a route, or its drive in the list, marks the drive `is-active` and shows the route: both ends' pins larger, the map fitted to it, and the drive with its two stops in compact. Tapping the drive again goes back to the whole day.
+  - A stop's pin has its marker's color and its number in the day; the map has no text. The list says what each pin is: the half list keeps the row in focus in its middle.
+  - Tapping a pin selects its stop (`is-selected`). Tapping a route, or its drive in the list, marks the drive `is-active` and shows the route: both ends' pins larger, the map fitted to it, and the drive in the middle of the half list, between its two stops. Tapping the drive again goes back to the whole day.
   - Editing a stop leaves the map in view (a panel), with the stop's pin showing the edit as it happens.
 - **Today.** During the trip, the trip opens on today. On any other day, it opens on All days.
   - The row happening now is highlighted (`is-now`), unless another row is selected.
@@ -691,6 +690,11 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 6.0.0
+
+- **The sheet is back to half and full on a phone.** Compact (5.2.0) is gone: half, with the focus's neighbors in view and the add bar, was preferred. Half is the default again and is sized from the list's rows, as in 5.1.0.
+- Removed: `.wt-sheet.is-peek` and `.is-peek-row`. A sheet is half (no class) or `.is-full`.
 
 ### Changed in 5.2.0
 
