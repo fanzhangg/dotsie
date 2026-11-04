@@ -537,7 +537,7 @@ With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 
 - **The header** is one row: home, the trip's name, settings. The name is always in view. It stays quiet next to the list: `--wt-size-trip-head` (44px) tall, the name in `--wt-type-context` and `--wt-text-secondary`, the icons 20px in `--wt-text-secondary`. Floating, it's frosted (`--wt-surface-raised` at 80% with a backdrop blur) with `--wt-shadow-float`; docked and in the side panel it's solid. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
 - **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has two heights:
-  - **Half** the screen, the default, but tall enough for the list to fit three stops and two drives, measured from the list's real rows (never more than about 60% of the screen).
+  - **Half**, the default: one fixed height, the same on every day, for the list to fit exactly three stops (each with one line of notes) and the two drives between them (never more than about 60% of the screen).
   - The list (`.wt-sheet__body`) fades out at an edge with more past it: `.is-more-above` and `.is-more-below`, which the app sets from the scroll position.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
   - It never hides.
