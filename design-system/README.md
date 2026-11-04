@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.8.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.9.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -27,6 +27,7 @@ Each principle comes with a rule you can check:
 
 - Color has a job. Blue means a route or link, and red means "doesn't fit" or "destructive". A stop's type color marks its marker, in the list and on the map. Nothing else is colored.
 - Use one way to show emphasis at a time. A card is set apart by its surface, not by surface and shadow and border together.
+- Weight is for the few things that lead. Stop names are medium (500); the day bar and modal titles are semibold (600); only the app name on Home is bold. Everything else is regular, and steps down by size and ink (`--wt-text-secondary`, then `--wt-text-tertiary`), never by adding weight.
 - Show state with what's already there. A late drive is the same row in red; a past row dims. Don't add a badge.
 
 ## Getting started
@@ -92,8 +93,9 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-surface-current` | The one highlighted timeline row: the selected one, or else the one happening now. The same for stops and drives. A clear step darker than `--wt-surface-raised` in both themes, so the highlight is easy to find. |
 | `--wt-surface-inverse` | Toasts. |
 | `--wt-surface-map` | The map before its tiles load. |
-| `--wt-text-primary` | Names, titles and running text. |
-| `--wt-text-secondary` | Times, notes, drive times, labels. |
+| `--wt-text-primary` | Names, titles, running text and what you typed. The first thing you read. |
+| `--wt-text-secondary` | Times, notes, field labels, addresses, dates on a trip card. Read right after the name. |
+| `--wt-text-tertiary` | Drives, AM/PM, "Yesterday" in the time column, the credit line, chevrons. Detail that's there when you look for it. It passes 4.5:1 on raised, sheet and sunken surfaces, not on `--wt-surface-current`: a highlighted timeline row steps it up to secondary. |
 | `--wt-text-placeholder` | Placeholder text only. |
 | `--wt-text-inverse`, `--wt-text-inverse-action` | Text and the action on a toast. |
 | `--wt-text-link` | Links in running text. |
@@ -124,23 +126,29 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 
 The system font throughout, so the app feels native on every phone. Each token is a full `font` shorthand. Use it as `font: var(--wt-type-name);`.
 
+Four weights, each with a job: **700** the app name only; **600** headings and the one primary button; **500** names, the strongest text in a list, and other buttons; **400** everything else. A screen with lots of semibold tires the eye and makes nothing stand out, so below the names, hierarchy comes from size and ink, not weight. `<b>` and `<strong>` inside `wt-base` are 600, never 700.
+
 | Token | Size / line | Weight | Use for |
 | --- | --- | --- | --- |
 | `--wt-type-display` | 28 / 34 | 700 | The app name on Home. Pair it with `--wt-tracking-display`. |
-| `--wt-type-title` | 18 / 24 | 700 | The day bar, modal titles. |
-| `--wt-type-heading` | 15 / 20 | 700 | Unused since 2.0.0, when day headings became the day bar. |
-| `--wt-type-name` | 16 / 21 | 600 | Stop and trip names: the strongest text in a list. |
+| `--wt-type-title` | 18 / 24 | 600 | The day bar, modal titles. |
+| `--wt-type-heading` | 15 / 20 | 600 | Section headings in settings ("Keep your trips"). |
+| `--wt-type-name` | 16 / 21 | 500 | Stop and trip names: the strongest text in a list. |
 | `--wt-type-body` | 15 / 21 | 400 | Running text. |
-| `--wt-type-time` | 15 / 21 | 600 | Stop times. Always use `tabular-nums`. |
-| `--wt-type-label` | 14 / 20 | 600 | Buttons and pin labels. |
+| `--wt-type-time` | 15 / 21 | 400 | Stop times, in `--wt-text-secondary`. Always use `tabular-nums`. |
+| `--wt-type-label` | 14 / 20 | 500 | Buttons and pin labels. A primary button is 600. |
 | `--wt-type-caption` | 13 / 18 | 400 | Notes, drives, field labels, hints. |
 | `--wt-type-caption-strong` | 13 / 18 | 500 | A late drive's "Arrives 13 min late". |
 | `--wt-type-overline` | 12 / 16 | 600 | Day headings in All days. Set in capitals, with `--wt-tracking-caps`. |
-| `--wt-type-micro` | 11 / 14 | 600 | AM/PM, avatar initials. |
+| `--wt-type-micro` | 11 / 14 | 500 | AM/PM (in `--wt-text-tertiary`), avatar initials (600). |
 | `--wt-type-input` | 16 / 22 | 400 | Form fields. 16px stops iPhone zooming in. |
 
 ### Space, shape, size
 
+- **Columns:** icons and text line up down the screen, the way the timeline's rail does.
+  - **Trip screen:** home, the day bar's ‹, and every marker and car are centred on the rail (36px in from the screen edge on a phone). Settings, the day bar's › and Directions share a column on the right. The trip's name starts where stop names do. The header card, docked header and side panel all keep these positions, so nothing shifts as the sheet docks.
+  - **Sheets:** two icon columns measured from the content edge: the options' markers on the left (23px), and their checks on the right (17px). The search icon, a picker's marker, a sub-page's back button, Close and a picker's chevron all sit on these columns. The typed search, a picker's value and a sub-page's title start where option names do.
+  - **Text buttons** (`--danger`) hang their padding outside the content edge, so their word lines up with the labels above.
 - **Space:** a 4px grid. `--wt-space-1` (4) · `2` (8) · `3` (12) · `4` (16) · `5` (20) · `6` (24) · `8` (32) · `10` (40). The side margin on a phone is `--wt-space-4`; the list's inner margin is `--wt-space-3`.
 - **Radius:** `--wt-radius-sm` (8, pin labels) · `md` (12, cards, inputs, block buttons, timeline rows) · `lg` (18, sheets) · `pill` (buttons, toasts) · `round` (avatars, markers, icon buttons).
 - **Size:** `--wt-size-touch` (44, the minimum for anything tapped often) · `icon-btn` (40) · `avatar` (26) · `check` (26, unused since 2.0.0) · `icon` (22) · `column` (480, the app column on large screens) · `panel` (360–440, 30% of the window: the plan's side panel from 768px wide) · `trip-head` (56, the trip header, below the top safe area).
@@ -272,7 +280,7 @@ Labels are verbs that say exactly what happens.
 - **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
 - **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it, Esc is Cancel. Keep focus in the input while a result is tapped: `preventDefault()` on the results' `mousedown`.
 - **While it searches**, the spinner shows in the field and the last results stay on the page, so the list doesn't flash.
-- `ul.wt-results` with `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet for the prototype. They can go in the next major version.
+- `ul.wt-results` with `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet, though neither the app nor the prototype uses them. They can go in the next major version.
 
 ### Marker `.wt-marker`
 
@@ -330,11 +338,11 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
 - **The day before's last stop:** with no hotel the night before, a day opens with that stop. In place of a time, `.wt-tl-time__day` says which day it was: "Yesterday", or the weekday ("Sat").
 - **Drive** (`.wt-tl-drive`): a car on the rail and "1 hr 49 min drive". Tapping it shows its route; Directions to the maps app goes in the add bar (see [the add bar](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)), not in the row.
-  - **Hierarchy:** the drive's text is 13px and all grey, its duration semibold. Stop names are the only strong text in the list, so the day reads as its stops, with drives as the links between them. The drive you're on darkens its duration; a late drive turns it red.
+  - **Hierarchy:** the drive's text is 13px in `--wt-text-tertiary`, its duration medium in `--wt-text-secondary`. Stop names are the only strong text in the list, so the day reads as its stops, with drives as the links between them. The drive you're on darkens its duration to primary; a late drive turns it red.
   - **Spacing:** stops get `--wt-tl-pad` (14px) above and below their text; drives are a fixed 44px row. Change `--wt-tl-pad` on `.wt-tl` to tighten or loosen the list; the markers follow.
   - The car (`.wt-tl-car`) is a marker like a stop's: a 22px circle in `--wt-kind-drive` grey with the `car` icon in `--wt-marker-ink`. Smaller and greyer than any stop, so drives never outrank them. On the highlighted drive it turns a darker grey (`--wt-kind-drive-current`). Never blue: blue is for routes on the map.
   - Give the row `role="button"` and `aria-pressed` while its route is shown.
-  - `.wt-tl-drive__go`, a small Directions icon in the time column, is no longer used by the app (since 4.5.0); the prototype still has it. It can go in the next major version.
+  - `.wt-tl-drive__go`, a small Directions icon in the time column, is no longer used by the app (since 4.5.0) or the prototype. It can go in the next major version.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
 - **Day heading** (`.wt-tl-day`): the overview, **All days**, puts every day in one timeline, each day's stops under its name. See [All days](#all-days-wt-tl-day).
@@ -349,7 +357,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   | `is-late` | a drive | The drive is longer than the gap between its two stops. The drive time turns red. |
   | `is-flash` | a stop | A co-editor just changed it. Flashes once. |
 
-  **One highlighted row at most.** A selection takes the highlight; with none, the row happening now has it (the CSS works this out with `:has()`, so scripts set the classes as before). The highlight is the same for stops and drives: `--wt-surface-current` behind the row, no outline, no blue. A highlighted drive's car turns `--wt-kind-drive-current`, and its duration and Directions icon turn `--wt-text-primary`. Color stays on the rail, where the map's colors already are.
+  **One highlighted row at most.** A selection takes the highlight; with none, the row happening now has it (the CSS works this out with `:has()`, so scripts set the classes as before). The highlight is the same for stops and drives: `--wt-surface-current` behind the row, no outline, no blue. Text in a highlighted row steps up one ink: a stop's time and a drive's duration turn `--wt-text-primary`, and tertiary text (AM/PM, the rest of the drive) turns secondary, which keeps it at 4.5:1 on the darker grey. A highlighted drive's car turns `--wt-kind-drive-current`, and its Directions icon turns `--wt-text-primary`. Color stays on the rail, where the map's colors already are.
 
 ### All days `.wt-tl-day`
 
@@ -682,13 +690,36 @@ Say what can go here, in the user's words. No illustrations.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
 
-### Added in 4.8.0
+### Added in 4.9.0
 
 - The add bar with a stop selected gains **Maps** (`a.wt-btn.wt-btn--secondary`) between Edit stop and `+`. No new class.
 - `.wt-menu`: on a computer, a picker's options drop down under it as a menu instead of taking over the sheet. A picker with `aria-haspopup` turns its chevron down there.
 - **Every choice from a list is a picker** ([Picker](#picker-wt-picker-options-wt-options-and-check-out)): a row showing the current choice that opens the options on a page of the sheet. Account's Maps app, first a list in the sheet, became one, like a stop's Type. No new class.
 - In the add bar a secondary button is a pill, like the primary beside it, instead of the 12px corners it has elsewhere; the `+` stays round.
 - `.wt-tl-note a`: a link in a stop's note, in blue. Stop rows are now a `div` with `role="button"` (a link can't sit in a `<button>`); `.wt-tl-stop` styles either.
+- Nothing was renamed or removed.
+
+### Fixed in 4.8.1
+
+Icons and text line up in columns. Before, the header's home icon, the day bar's ‹ and the timeline's markers sat at three different positions, and on the Type page the back button and title sat left of the markers and names under them.
+
+- `.wt-trip-head`: home and settings are centred on the rail and the Directions column, and `__name` starts with the stop names. Docked and in the side panel it pads by `--wt-space-4`, so its contents stay put as it docks.
+- `.wt-day-bar` pads 12px on the left, centring ‹ on the rail.
+- `.wt-modal__head`: Close is centred on the options' check column; `--sub` centres Back on their markers and starts the title at their names.
+- `.wt-picker`: its marker and chevron are on the same columns.
+- `.wt-results` no longer pulls its rows 8px past the field. Markers sit under the search icon, and the search icon's extra space starts the typed text where result names start.
+- `.wt-btn--danger` has a negative left margin of `--wt-space-1`, so its text starts at the content edge.
+- `.wt-tl-day` pads 16px on the right, centring its › on the Directions column.
+- Nothing was renamed or removed.
+
+### Added in 4.8.0
+
+A quieter type hierarchy: fewer weights, and a third ink. Before, the trip name, the day, every stop name, every time, every drive time and the button were all semibold or bold, so nothing led.
+
+- Weights (tokens 1.6.0): `title` and `heading` 700 → 600; `name` 600 → 500; `time` 600 → 400; `label` 600 → 500; `micro` 600 → 500. `display` stays 700. `.wt-btn--primary` and `.wt-avatar` set 600 themselves.
+- `--wt-text-tertiary` is new, for detail you look for rather than read: drives, AM/PM, "Yesterday", the credit line, the day bar's and picker's chevrons. `--wt-text-secondary` is a step darker to make room for it (light `gray-600`, dark the new `gray-350`), which also takes notes on the highlighted row from 4.2:1 to 5.7:1.
+- The highlighted timeline row steps its text up one ink: the stop's time turns primary, as the drive's duration already did, and tertiary turns secondary.
+- `.wt-option__label` is regular (was 500), and its `__match` 600 (was 700). `.wt-toast__action` and a checked `.wt-kinds__item` are 500 (were 600). The drive duration `b` is 500 (was 600). `<b>` and `<strong>` are 600 in `wt-base`.
 - Nothing was renamed or removed.
 
 ### Added in 4.7.0

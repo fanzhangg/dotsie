@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.5.0
+/* Waythread design system — tokens v1.6.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -17,6 +17,7 @@
   --wt-color-gray-150: #ebebea;
   --wt-color-gray-200: #e4e4e2;
   --wt-color-gray-300: #c8c8c6;
+  --wt-color-gray-350: #b4b4b1;
   --wt-color-gray-400: #9a9a98;
   --wt-color-gray-450: #8a8a88;
   --wt-color-gray-500: #6b6b69;
@@ -66,8 +67,11 @@
   --wt-surface-map: #e9eef1;                        /* map placeholder before tiles load */
 
   /* Text */
-  --wt-text-primary: var(--wt-color-gray-950);
-  --wt-text-secondary: var(--wt-color-gray-500);
+  /* Three steps of ink. Each passes 4.5:1 on raised, sheet and sunken surfaces; on the highlighted row
+     (--wt-surface-current) tertiary steps up to secondary. */
+  --wt-text-primary: var(--wt-color-gray-950);     /* names, titles, what you typed */
+  --wt-text-secondary: var(--wt-color-gray-600);   /* times, notes, labels: read, but after the name */
+  --wt-text-tertiary: var(--wt-color-gray-500);    /* drives, AM / PM, hints: there when you look for it */
   --wt-text-placeholder: var(--wt-color-gray-400);
   --wt-text-inverse: var(--wt-color-gray-0);
   --wt-text-inverse-action: var(--wt-color-blue-400);
@@ -148,7 +152,8 @@
     --wt-surface-inverse: var(--wt-color-gray-100);
     --wt-surface-map: #1d2226;
     --wt-text-primary: var(--wt-color-gray-100);
-    --wt-text-secondary: #a3a3a0;
+    --wt-text-secondary: var(--wt-color-gray-350);
+    --wt-text-tertiary: var(--wt-color-gray-450);
     --wt-text-placeholder: var(--wt-color-gray-500);
     --wt-text-inverse: var(--wt-color-gray-950);
     --wt-text-inverse-action: var(--wt-color-blue-600);
@@ -203,7 +208,8 @@
   --wt-surface-inverse: var(--wt-color-gray-100);
   --wt-surface-map: #1d2226;
   --wt-text-primary: var(--wt-color-gray-100);
-  --wt-text-secondary: #a3a3a0;
+  --wt-text-secondary: var(--wt-color-gray-350);
+  --wt-text-tertiary: var(--wt-color-gray-450);
   --wt-text-placeholder: var(--wt-color-gray-500);
   --wt-text-inverse: var(--wt-color-gray-950);
   --wt-text-inverse-action: var(--wt-color-blue-600);
@@ -254,17 +260,20 @@
   --wt-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --wt-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 
-  /* font shorthands: weight size/line-height family */
+  /* font shorthands: weight size/line-height family
+   * Four weights, each with a job, so emphasis stays rare: 700 the app name only; 600 headings and the one
+   * primary action; 500 names, the strongest text in a list; 400 everything else. Below the names, hierarchy
+   * comes from size and ink (--wt-text-secondary, --wt-text-tertiary), not from more weight. */
   --wt-type-display: 700 28px/34px var(--wt-font-sans);   /* app name on Home */
-  --wt-type-title: 700 18px/24px var(--wt-font-sans);     /* trip name, modal titles */
-  --wt-type-heading: 700 15px/20px var(--wt-font-sans);   /* unused since 2.0.0 */
-  --wt-type-name: 600 16px/21px var(--wt-font-sans);      /* stop and trip names */
+  --wt-type-title: 600 18px/24px var(--wt-font-sans);     /* the day bar, modal titles */
+  --wt-type-heading: 600 15px/20px var(--wt-font-sans);   /* section headings */
+  --wt-type-name: 500 16px/21px var(--wt-font-sans);      /* stop and trip names */
   --wt-type-body: 400 15px/21px var(--wt-font-sans);      /* running text */
-  --wt-type-time: 600 15px/21px var(--wt-font-sans);      /* stop times (use tabular-nums) */
-  --wt-type-label: 600 14px/20px var(--wt-font-sans);     /* buttons */
+  --wt-type-time: 400 15px/21px var(--wt-font-sans);      /* stop times (use tabular-nums) */
+  --wt-type-label: 500 14px/20px var(--wt-font-sans);     /* buttons, pin labels */
   --wt-type-caption: 400 13px/18px var(--wt-font-sans);   /* notes, field labels, hints */
-  --wt-type-caption-strong: 500 13px/18px var(--wt-font-sans); /* drive times */
-  --wt-type-micro: 600 11px/14px var(--wt-font-sans);     /* AM / PM, avatar initials */
+  --wt-type-caption-strong: 500 13px/18px var(--wt-font-sans); /* a late drive's "Arrives 13 min late" */
+  --wt-type-micro: 500 11px/14px var(--wt-font-sans);     /* AM / PM, avatar initials */
   --wt-type-input: 400 16px/22px var(--wt-font-sans);     /* 16px stops iOS zooming into fields */
   --wt-type-overline: 600 12px/16px var(--wt-font-sans);  /* day headings in All days, in capitals */
   --wt-tracking-display: -.02em;
