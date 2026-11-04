@@ -35,7 +35,7 @@ const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(-
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // ---------- Icons (design system) ----------
-const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check']
+const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit']
   .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
@@ -533,6 +533,7 @@ function render() {
   for (const id of state.flash) el.querySelector(`.wt-tl-stop[data-id="${id}"]`)?.classList.add('is-flash');
   state.flash.clear();
   drawMap(trip);
+  updateFitBtn();
   schedulePreload();
 }
 
@@ -1007,6 +1008,8 @@ function teardownTrip() {
   tiles = null;
   tileQueue = [];
   clearTimeout(preloadTimer);
+  clearTimeout(mapTapTimer);
+  dayShown = false;
   dropBackgroundRoutes();
   const left = $app.dataset.trip;
   delete $app.dataset.trip;
@@ -1030,6 +1033,7 @@ function mountTrip(trip) {
       <button class="wt-icon-btn" data-action="settings" aria-label="Trip settings and sharing">${ICON.settings}</button>
     </header>
     <div id="map"></div>
+    <button class="wt-icon-btn wt-map-btn trip-fit" data-action="fit-day" aria-label="Show the whole day on the map" title="Whole day" hidden>${ICON.fit}</button>
     <section class="wt-sheet" aria-label="Plan">
       <div class="wt-sheet__top">
         <button class="wt-sheet__grab" data-action="grab"></button>
@@ -1043,7 +1047,8 @@ function mountTrip(trip) {
   list.addEventListener('scroll', updateFades, { passive: true });
   new ResizeObserver(updateFades).observe(list); // the sheet changing height
   if (!window.L) return;
-  map = L.map($app.querySelector('#map'), { zoomControl: false, attributionControl: false }).setView([32.6, -106.1], 8);
+  // double-tap zoom is our own (see mapGestures), so it works over routes and pins too
+  map = L.map($app.querySelector('#map'), { zoomControl: false, attributionControl: false, doubleClickZoom: false }).setView([32.6, -106.1], 8);
   camPlaced = false;
   camTarget = null;
   zoomAnim = drawPending = false;
@@ -1081,16 +1086,84 @@ function mountTrip(trip) {
   // A wheel doesn't fire pointerdown; without this, the re-frame for the new height would fight the zoom you asked for.
   const zooming = () => { camFree = true; if (!state.draft && state.snap === 'half' && !isWide()) setSnap('peek'); };
   map.getContainer().addEventListener('wheel', zooming, { passive: true });
-  map.getContainer().addEventListener('dblclick', zooming);
   map.getContainer().addEventListener('touchstart', e => { if (e.touches.length > 1) zooming(); }, { passive: true });
+  mapGestures(map, zooming);
   // Tapping empty map clears the selection; a route's preview goes back to the whole day.
   // While a stop is open, the map is there to look at, so taps leave everything as it is.
-  map.on('click', () => {
+  map.on('click', () => onMapTap(() => {
     if (state.draft || (!state.sel && !state.leg)) return;
     if (state.leg) fitKey = '';
     state.sel = state.selRow = state.leg = null;
     render();
+  }));
+  map.on('moveend', () => { dayShown = dayFramed(); updateFitBtn(); });
+}
+
+// ---------- Map gestures, as in a maps app ----------
+// Double-tap (or double-click) zooms in a step around that spot, anywhere on the map. Leaflet's own double-click zoom
+// misses routes and pins, which keep their taps to themselves, and they're what you'd want a closer look at.
+// The first tap still does what a tap does; the second only zooms. Shift-double-click zooms out.
+// A two-finger tap zooms out a step, around the fingers.
+const DOUBLE_TAP_MS = 300, DOUBLE_TAP_PX = 32, TAP_SLOP_PX = 10;
+let mapTapTimer = 0;
+// A tap on the map, a pin or a route waits out a double-tap's second tap before it acts, as in a maps app: picking a pin
+// or a route, or clearing one, can move the camera, and the second tap would then zoom somewhere else.
+function onMapTap(fn) {
+  clearTimeout(mapTapTimer);
+  const m = map;
+  mapTapTimer = setTimeout(() => { if (map === m) fn(); }, DOUBLE_TAP_MS);
+}
+function mapGestures(m, zooming) {
+  const el = m.getContainer();
+  let down = null, last = null, two = null;
+  el.addEventListener('pointerdown', e => { if (e.isPrimary) down = { x: e.clientX, y: e.clientY }; }, true);
+  // In the capture phase, so the second tap can be kept from the pin, route or map under it
+  el.addEventListener('click', e => {
+    if (!e.detail) return; // a keyboard "click"
+    // the end of a pan isn't a tap
+    if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > TAP_SLOP_PX) { last = null; return; }
+    const p = m.mouseEventToContainerPoint(e), now = performance.now();
+    if (!last || now - last.t > DOUBLE_TAP_MS || p.distanceTo(last.p) > DOUBLE_TAP_PX) { last = { t: now, p }; return; }
+    last = null;
+    e.stopImmediatePropagation();
+    clearTimeout(mapTapTimer);
+    m.setZoomAround(p, m.getZoom() + (e.shiftKey ? -1 : 1));
+    zooming();
+  }, true);
+  el.addEventListener('touchstart', e => {
+    two = e.touches.length === 2 ? { t: performance.now(), z: m.getZoom(), at: [...e.touches].map(t => ({ id: t.identifier, x: t.clientX, y: t.clientY })) } : null;
+  }, { passive: true });
+  el.addEventListener('touchmove', e => {
+    if (two && [...e.touches].some(t => { const a = two.at.find(a => a.id === t.identifier); return a && Math.hypot(t.clientX - a.x, t.clientY - a.y) > TAP_SLOP_PX; })) two = null;
+  }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (!two || e.touches.length) return;
+    const [a, b] = two.at;
+    if (performance.now() - two.t < DOUBLE_TAP_MS && m.getZoom() === two.z) m.setZoomAround(m.mouseEventToContainerPoint({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }), two.z - 1);
+    two = null;
   });
+  el.addEventListener('touchcancel', () => { two = null; });
+}
+
+// ---------- Whole day: the map back on the day's route ----------
+// A button over the map, once you've moved the map off the day or are looking at one drive, as a maps app's
+// route overview button does. It isn't there over the whole-day list, which hides the map, or while a stop is open.
+let dayShown = false; // the camera is where dayView puts it for the day on screen
+function dayFramed() {
+  const trip = cur?.stops ? cur : null, day = trip && currentDay(trip), v = map && day && dayView(trip, day);
+  if (!v) return true;
+  return Math.abs(map.getZoom() - v.zoom) < 0.01 && map.latLngToContainerPoint(v.center).distanceTo(map.getSize().divideBy(2)) < 3;
+}
+function updateFitBtn() {
+  const btn = $app.querySelector('.trip-fit');
+  if (!btn) return;
+  const trip = cur?.stops ? cur : null;
+  btn.hidden = !map || !trip || !currentDay(trip) || !!state.draft || (!isWide() && state.snap === 'full') || (dayShown && !state.leg);
+}
+function showWholeDay() {
+  state.leg = null;
+  fitKey = '';
+  render();
 }
 
 const timeHTML = t => fmtTime(t).replace(/ (AM|PM)$/, '<span class="wt-tl-meridiem">$1</span>');
@@ -1286,6 +1359,8 @@ function applySnap() {
   trip.querySelector('.wt-trip-head').classList.toggle('is-docked', !wide && state.snap === 'full');
   trip.style.setProperty('--bottom-h', `${h}px`);
   trip.querySelector('.wt-sheet__grab').setAttribute('aria-label', GRAB_LABEL[state.snap]);
+  // the day's view depends on the room the list leaves; a re-frame (setSnap) puts the camera there again
+  if (map) { dayShown = dayFramed(); updateFitBtn(); }
 }
 // A new height re-frames the map for what's left of it, unless you've moved the map yourself since.
 function setSnap(snap) {
@@ -1315,7 +1390,9 @@ function dragMove(y) {
   drag.moved = true;
   const sheet = $app.querySelector('.wt-sheet'), s = snaps();
   sheet.classList.add('is-dragging');
-  sheet.style.height = `${Math.max(s.peek, Math.min(s.full, drag.h0 + dy))}px`;
+  const h = Math.max(s.peek, Math.min(s.full, drag.h0 + dy));
+  sheet.style.height = `${h}px`;
+  $app.querySelector('.trip').style.setProperty('--bottom-h', `${h}px`); // what floats over the map rides with the sheet
 }
 function dragEnd() {
   drag.active = false;
@@ -1458,7 +1535,7 @@ function drawMap(trip) {
   const order = l => (pastLeg.has(l.key) ? 0 : 1);
   const drawn = [...legs].sort((a, b) => order(a) - order(b)).map(l => ({
     key: l.key, ...style(l, l === active),
-    onClick: () => { if (!state.draft) previewLeg(l, { fromMap: true }); },
+    onClick: () => onMapTap(() => { if (!state.draft) previewLeg(l, { fromMap: true }); }),
   }));
   if (active) drawn.push({ key: `on:${active.key}`, top: true, ...style(active, true) });
   routeLayer.setRoutes(drawn);
@@ -1491,10 +1568,10 @@ function drawMap(trip) {
     L.marker([all[0].lat, all[0].lng], {
       icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="wt-pin ${cls}">${markerHTML(focus || g[0] || start, 'wt-pin__marker')}${label}</div>` }),
       zIndexOffset: focus ? 1000 : quiet ? -1000 : 0, title: all[0].name,
-    }).on('click', () => {
+    }).on('click', () => onMapTap(() => {
       if (state.draft) return;
       if (g.length) selectStop(g[0]); else { setDay(dayOf(start)); selectStop(start); }
-    }).addTo(layer);
+    })).addTo(layer);
   }
   drawDraft();
   frameMap(trip);
@@ -1511,6 +1588,7 @@ function frameMap(trip) {
   if (leg) return fitLeg(leg);
   const v = dayView(trip, day);
   if (v) moveCamera(v.center, v.zoom);
+  dayShown = true;
 }
 // Where the camera goes for a day: around all its places, clear of the list. Preloading uses it to fetch the
 // tiles a day will land on, so it works the view out without moving the map.
@@ -2010,6 +2088,7 @@ document.addEventListener('click', e => {
     case 'social': signInSocial(el.dataset.provider); break;
     case 'sign-out': signOut(); break;
     case 'close-sheet': closeSheet(); break;
+    case 'fit-day': showWholeDay(); break;
     case 'grab': setSnap(state.snap === 'half' ? 'full' : 'half'); break; // peek and full go to half; half goes to full
     case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast('Link copied'), () => toast('Copy failed')); break;
   }
