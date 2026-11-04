@@ -1,4 +1,4 @@
-/* Waythread design system — components v6.1.0
+/* Waythread design system — components v6.2.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -151,10 +151,20 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-people__item { display: flex; align-items: center; gap: var(--wt-space-3); padding: 6px 0; }
 
 /* ---------- Marker: a stop's type icon on its type's color ---------- */
+/* A stop's marker and pin are shaded from their own color (--wt-marker-fill), as a maps app's are: lighter and a touch
+   richer at the top, darker at the bottom, one hue throughout (OKLCH relative colors). No white or black overlay, which
+   greys the color. Where relative colors aren't supported, the marker is its flat color. */
+.wt-marker, .wt-pin {
+  --wt-marker-fill: var(--wt-kind-color, var(--wt-kind-place));
+  --wt-marker-shade: linear-gradient(to bottom in oklab,
+    oklch(from var(--wt-marker-fill) calc(l + var(--wt-marker-lift)) calc(c * var(--wt-marker-boost)) h),
+    var(--wt-marker-fill) 50%,
+    oklch(from var(--wt-marker-fill) calc(l - var(--wt-marker-sink)) c h));
+}
 /* The same marker in the list, on the map and in the day list, at different sizes. Set --wt-kind-color. */
 .wt-marker {
   display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: var(--wt-radius-round);
-  background-color: var(--wt-kind-color, var(--wt-kind-place)); background-image: var(--wt-marker-gloss); color: var(--wt-marker-ink);
+  background-color: var(--wt-marker-fill); background-image: var(--wt-marker-shade); color: var(--wt-marker-ink);
 }
 .wt-marker .wt-icon { width: 16px; height: 16px; }
 .wt-marker--sm { width: 20px; height: 20px; }
@@ -276,7 +286,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   color: var(--wt-text-past);
   --wt-text-primary: var(--wt-text-past); --wt-text-secondary: var(--wt-text-past); --wt-text-tertiary: var(--wt-text-past); --wt-text-link: var(--wt-text-past);
 }
-.wt-tl .is-past .wt-tl-marker { background-color: var(--wt-kind-past); }
+.wt-tl .is-past .wt-tl-marker { background: var(--wt-kind-past); }   /* flat: what's over isn't shaded */
 .wt-tl .is-past:not(.is-active) .wt-tl-car { background-color: var(--wt-kind-past); }
 .wt-tl .wt-tl-drive.is-past.is-late :is(.wt-tl-drive__what b, .wt-tl-drive__late) { color: var(--wt-text-secondary); }
 
@@ -643,24 +653,26 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
    Both grow and shrink from the tip, so it stays on the place. Placed by its tip, at the marker's position on the map. */
 .wt-pin {
   position: absolute; width: 30px; height: 39px; transform: translate(-50%, -100%); transform-origin: 50% 100%;
+  filter: drop-shadow(var(--wt-shadow-pin));
   transition: transform var(--wt-duration-base), opacity var(--wt-duration-base);
 }
 .wt-pin--selected { transform: translate(-50%, -100%) scale(1.25); }
 .wt-pin--muted:not(.wt-pin--selected) { transform: translate(-50%, -100%) scale(.85); opacity: .85; }
 /* Two classes, to beat Leaflet's .leaflet-map-pane svg { z-index: 200 }, which would cover the number */
+/* The drop draws only the outline, on top of the shaded fill below it, so the outline stays clean white. */
 .wt-pin .wt-pin__shape {
   position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; overflow: visible;
-  fill: var(--wt-kind-color, var(--wt-kind-place)); stroke: var(--wt-pin-fill); stroke-width: 1.5;
-  filter: drop-shadow(var(--wt-shadow-pin));
+  fill: none; stroke: var(--wt-pin-fill); stroke-width: 1.5;
 }
-.wt-pin--muted .wt-pin__shape { filter: none; }
-/* The gloss, as on a marker: laid over the drop's fill, cut to its shape, under the number. */
-.wt-pin::after {
-  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background-image: var(--wt-marker-gloss);
+.wt-pin--muted { filter: none; }
+/* The fill: the marker's shading, cut to the drop's shape, under the outline and the number. */
+.wt-pin::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-color: var(--wt-marker-fill); background-image: var(--wt-marker-shade);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 39'%3E%3Cpath d='M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 39'%3E%3Cpath d='M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
 }
-.wt-pin--muted:not(.wt-pin--selected) .wt-pin__shape { fill: var(--wt-kind-past); }
+.wt-pin--muted:not(.wt-pin--selected)::before { background: var(--wt-kind-past); }   /* flat grey, as in the list */
 /* Centered in the head of the drop, whose circle's center is 14.3px down */
 .wt-pin__num {
   position: absolute; z-index: 1; inset: 0 0 auto; height: 28.6px; display: grid; place-items: center;
