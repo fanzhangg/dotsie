@@ -32,18 +32,18 @@ The trip is a single screen: a **header** with the trip's name, the **map**, and
 ├──────────────────────────────┤  ← grab handle
 │ ‹       Today, Nov 21 ⌄    › │  ← day bar: step, or tap the day
 │ (🛏) Holiday Inn              │  ← last night's hotel
-│  ⊖   10 min drive          ◇ │  ← car on the rail · Directions
+│  ⊖   10 min drive            │  ← car on the rail; tap it for the route
 │ (🏛) Museum of Space   9:30 AM│  ← marker · stop · time
-│  ⊖   34 min drive          ◇ │  ← highlighted: you're on it now
+│  ⊖   34 min drive            │  ← highlighted: you're on it now
 │ (🍴) Cloudcroft       12:30 PM│
 │      Lunch                   │
-│  ⊖   35 min drive          ◇ │
+│  ⊖   35 min drive            │
 │ (🛏) Holiday Inn              │  ← tonight's hotel
 │ [████████ + Add stop ███████]│  ← black, pinned to bottom
 └──────────────────────────────┘
 ```
 
-With a stop selected, the bottom button becomes `[██████ ✎ Edit stop ██████] (+)`: Edit stop, and a small round + so adding is still one tap away.
+With a stop selected, the bottom button becomes `[██████ ✎ Edit stop ██████] (+)`: Edit stop, and a small round + so adding is still one tap away. With a drive's route on show, it becomes `[██████ ◇ Directions ██████] (+)`.
 
 **The header** is one row: **home** (back to the trip list), the **trip's name**, and **trip settings**. On a phone it's a card floating over the top of the map, like the from/to card in Google Maps' directions, and the map runs under it. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings.
 
@@ -108,15 +108,15 @@ The list is a timeline with three columns: a **rail**, the **stop**, and its **t
 - **Stop:** the name in bold, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. A note runs across the time column too, so a long one wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop selects it and shows it on the map (see [Adding and editing a stop](#adding-and-editing-a-stop)); it doesn't open it.
 - **Time:** on the right, in grey, with a small AM/PM. The name leads the row, and the time is where a glance down the right edge finds it. Hotel rows at either end of the day have no time, so the right edge stays empty instead of leaving a gap before the name.
 
-A selected row (a stop or a drive, tapped or picked on the map) gets a light grey background, with no border. A selected drive's car turns a darker grey. **Only one row is ever highlighted:** while something is selected, the row happening now is a plain row. A hotel that starts and ends the day highlights only the row you tapped; picked on the map, it's the first one.
+A selected row (a stop or a drive, tapped or picked on the map) gets a grey background, with no border. It's a clear step darker than the sheet (`gray-200` on white; a lighter grey on the dark sheet): the first, paler grey was hard to see, above all in dark mode. A selected drive's car turns a darker grey. **Only one row is ever highlighted:** while something is selected, the row happening now is a plain row. A hotel that starts and ends the day highlights only the row you tapped; picked on the map, it's the first one.
 
 ### Drives
 
-A drive is a row between two places: a small grey car marker on the rail, **`1 hr 49 min drive`**, and a Directions icon (a turn arrow in a rounded road sign, drawn like the app's other line icons) on the right, where stops have their time.
+A drive is a row between two places: a small grey car marker on the rail and **`1 hr 49 min drive`**. The right edge, where stops have their time, is empty.
 
-- **The Directions icon** opens the drive in the phone's maps app (see [Handing off navigation](#handing-off-navigation)). On most drives it's just a small grey icon, with no circle around it, so a day of drives doesn't fill the right edge with buttons. It's the only part of the row that reacts to hover and press: the row itself has no highlight, so tapping the row never looks like tapping Directions.
-- **The highlighted drive has a dark icon.** On the drive you're on, or the one you tapped to see on the map, the icon turns dark, like the duration. It keeps its size and has no label, so the row doesn't shift. (An earlier version gave every drive a pale grey circle; seven of them down the list drew more attention than the stops. A `Directions` label on the drive that matters was tried next and dropped: the icon is the same on every drive, and the label made the row jump.)
-- **Tapping the rest of the row** shows that route on the map (see [How the map and the list work together](#how-the-map-and-the-list-work-together)). Tapping it again goes back to the whole day. On a computer, hovering it previews the route without moving the map.
+- **Tapping the row** shows that route on the map (see [How the map and the list work together](#how-the-map-and-the-list-work-together)) and turns the bottom button into **Directions** (a turn arrow in a rounded road sign), which opens the drive in the phone's maps app (see [Handing off navigation](#handing-off-navigation)). A small round **+** beside it still adds a stop. Tapping the row again keeps the route on show; tapping empty map, changing the day or pressing Esc goes back to the whole day. On a computer, hovering it previews the route without moving the map.
+- **No Directions icon in the row.** Every drive used to carry a small grey Directions icon on the right. Seven of them down a day's right edge competed with the stop times, and the icon was a small target right next to the row's own tap. Now navigation is one tap further away (tap the drive, then Directions), with the route on the map first to confirm it's the right one, and Directions is a full-width button. (Before that, every drive had a pale grey circle; then a `Directions` label on the drive that matters, dropped because it made the row jump.)
+- **The highlighted drive** (the one you're on, or the one you tapped) gets the grey row background, a darker car and a dark duration.
 - **When a drive doesn't fit** in the gap between the two stops, its time turns red and a second line says by how much: `Arrives 49 min late`.
 
 ### Hotel stays
@@ -184,7 +184,7 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 ### Adding and editing a stop
 
 - **Add stop.** One black button pinned to the bottom of the sheet, always reachable: it's the main action on the screen. A new stop starts two hours after the last stop of the day on screen.
-- **Selecting.** Tapping a stop in the list selects it instead of opening it, like tapping a drive shows its route: the row turns grey and its pin grows and is named on the map. If the pin is off the part of the map you can see, the map pans to it, keeping the zoom; a full-screen list goes back to half. Tapping the same row again, tapping empty map, changing the day or pressing Esc clears it. (Tapping a stop used to open it straight away, so seeing where a stop is meant opening a form.)
+- **Selecting.** Tapping a stop in the list selects it instead of opening it, like tapping a drive shows its route: the row turns grey and its pin grows and is named on the map. If the pin is off the part of the map you can see, the map pans to it, keeping the zoom; a full-screen list goes back to half. Tapping the same row again keeps it selected, so a second tap never undoes the first; tapping empty map, changing the day or pressing Esc clears it. (Tapping a stop used to open it straight away, so seeing where a stop is meant opening a form.)
 - **Edit stop.** While a stop is selected, the black button says **Edit stop**, and a small round **+** beside it still adds a stop, so adding is always one tap away. There's still only one black button.
 - **Editing.** Tap Edit stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
 - **The map follows the edit.** The stop's pin shows the draft: picking a place from search moves the pin there, and the map goes with it; choosing a type changes the pin's icon. A new stop's pin appears once a place is picked. If the stop moves, its two drives fade until it's saved. You can pan and zoom the map while the sheet is open, and taps on the map don't change anything. Closing without saving puts the map back where it was.
@@ -210,9 +210,9 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
   - The route is highlighted, and the other routes and stops fade.
   - **Both ends are named** on the map, with the same label a selected pin has. The lower end's name goes under its pin, so the two don't meet.
   - **Its drive time** sits halfway along it, with a small car in the route's blue: `🚗 34 min`. A drive that doesn't fit adds, in red, `· 12 min late`.
-  - **The map fits the route**, with room for the names, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. If the whole day was showing, the list goes back to half so the map shows.
-  - The Directions link stays in the list.
-- **Tapping the same drive again**, or tapping empty map, goes back to the whole day.
+  - **The map fits the route**, with room for the names, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. A peeking or full list goes to half, so the map and the Directions button both show.
+  - **The bottom button becomes Directions**, for that drive, with a round + beside it.
+- **Tapping the same drive again** keeps it on show. Tapping empty map, Whole day, changing the day or Esc goes back to the whole day.
 - **Hovering a drive** on a computer previews its route, with its names and time, without moving the map.
 - **Tapping empty map** clears the selection.
 - **A tap waits out a double-tap.** A tap on a pin, a route or empty map acts after a moment (300 ms), once it's clear no second tap is coming, as in a maps app. Selecting a pin or showing a route can move the map, and a double-tap's second tap would then zoom somewhere you didn't tap.
@@ -228,7 +228,7 @@ The map zooms the way a phone's maps app does:
 
 ### Handing off navigation
 
-Every drive's Directions icon opens directions from one stop to the next in the phone's own maps app: **Apple Maps** on iPhone and iPad, **Google Maps** everywhere else. Waythread has no turn-by-turn directions, step lists, or navigation mode. Those are what the maps apps do best.
+Tapping a drive turns the bottom button into Directions, which opens directions from one stop to the next in the phone's own maps app: **Apple Maps** on iPhone and iPad, **Google Maps** everywhere else. Waythread has no turn-by-turn directions, step lists, or navigation mode. Those are what the maps apps do best.
 
 ## Collaboration
 
