@@ -132,10 +132,7 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 }
 @keyframes wt-pop-in { from { opacity: 0; transform: translateY(-4px); } }
 
-/* Search results, in a popover: options (.wt-option), in groups with a small heading when there's more than one
-   kind of result, or one message saying what happened and what to try. */
-.wt-results__head { padding: var(--wt-space-2) var(--wt-space-2) var(--wt-space-1); font: var(--wt-type-caption-strong); color: var(--wt-text-secondary); }
-.wt-results__group + .wt-results__group { margin-top: var(--wt-space-1); padding-top: var(--wt-space-1); box-shadow: 0 -1px 0 var(--wt-border-default); }
+/* Search results, in a popover: options (.wt-option), or one message saying what happened and what to try. */
 .wt-results__msg { padding: var(--wt-space-3) var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-results__msg b { display: block; font: var(--wt-type-body); font-weight: 500; color: var(--wt-text-primary); }
 /* Before 4.6.0 results were a list under the field, with their own row. The prototype still uses it. */

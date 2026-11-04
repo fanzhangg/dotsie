@@ -245,15 +245,11 @@ Labels are verbs that say exactly what happens.
 
 <!-- A child of the modal root, not of the sheet, placed by script with position: fixed -->
 <div class="wt-popover wt-results" id="place-results" role="listbox" aria-label="Places">
-  <div class="wt-results__group" role="group" aria-label="In this trip">
-    <div class="wt-results__head" aria-hidden="true">In this trip</div>
-    <div class="wt-option" role="option" id="opt-0" aria-selected="true">
-      <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
-      <span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Ace</mark> Hotel</span>
-        <span class="wt-option__detail">701 E Palm Canyon Dr, Palm Springs, CA</span></span></div>
-  </div>
-  <div class="wt-results__group" role="group" aria-label="Places">…</div>
-  <!-- or, when there's nothing to pick -->
+  <div class="wt-option" role="option" id="opt-0" aria-selected="true">
+    <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
+    <span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Inn</span>
+      <span class="wt-option__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span></div>
+  <!-- one per result; or, when there's nothing to pick -->
   <div class="wt-results__msg"><b>No places match “zzq”</b>Try adding the town, or check the spelling.</div>
 </div>
 ```
@@ -264,7 +260,6 @@ Labels are verbs that say exactly what happens.
 - `textarea.wt-input` works the same way.
 - **Search** suggestions open in a `.wt-popover` over the form, not in the form, so nothing below the field moves while you type. The popover is a child of the modal root, placed with `position: fixed` under the field, so the sheet's scrolling can't clip it. It opens above the field when there's more room there, and its `max-height` keeps it on the visible screen (`visualViewport`, so a phone's keyboard counts).
 - **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
-- **Groups** get a heading only when there's more than one kind of result: the trip's own places first, then search.
 - **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it, Esc closes the popover (a second Esc closes the sheet). Keep focus in the input while an option is tapped: `preventDefault()` on the popover's `mousedown`.
 - **While it searches**, the spinner shows in the field and the last results stay in the popover, so the list doesn't flash.
 - `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet for the prototype. They can go in the next major version.
@@ -639,7 +634,7 @@ Say what can go here, in the user's words. No illustrations.
 Place search and the type list, redesigned as one system.
 
 - `.wt-option` is now the row for every choice: `__text`, `__detail` and `__match` are new, and `aria-selected` and `aria-checked` share the grey "this one" row (the checked type is no longer bold). `.wt-options__sep` splits a list into sections.
-- `.wt-popover`: a floating card anchored to a field. Search results open in one (`.wt-results` with `__group`, `__head` and `__msg`) instead of a list that pushed the form down.
+- `.wt-popover`: a floating card anchored to a field. Search results open in one (`.wt-results` of options, or a `__msg`) instead of a list that pushed the form down.
 - `.wt-search` (a search field, with `__clear`) and `.wt-spinner`.
 - `.wt-field__hint` and `.wt-field__error`, the line under a field. A `.wt-input-group` whose input has `aria-invalid` gets a red border.
 - `--wt-shadow-popover` (tokens 1.5.0).

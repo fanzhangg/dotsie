@@ -1994,9 +1994,8 @@ function openStopSheet(trip, stop) {
     showNights();
 
     // ----- Place: the field shows the stop's name, and typing in it searches. Suggestions open in a pop-up over
-    // the form: places already in this trip first (back to the hotel is the most common stop there is), found as
-    // you type, then places from search. Each shows the marker of the type it would get. ↑ ↓ and Return pick one,
-    // Esc closes the pop-up. Picking moves the pin there, on the map you can see. -----
+    // the form, each with the marker of the type it would get. ↑ ↓ and Return pick one, Esc closes the pop-up.
+    // Picking moves the pin there, on the map you can see. -----
     const input = F.title, box = input.closest('.wt-search'), spinner = box.querySelector('.wt-spinner'), clear = box.querySelector('.wt-search__clear');
     const placeAt = el.querySelector('[data-place-at]'), placeErr = el.querySelector('#place-error'), status = el.querySelector('[data-place-status]');
     // In the modal root, not the sheet, so the sheet's scrolling can't clip it; the sheet's close removes it
@@ -2022,24 +2021,6 @@ function openStopSheet(trip, stop) {
       input.toggleAttribute('aria-invalid', !!msg);
       if (msg) input.setAttribute('aria-describedby', 'place-error'); else input.removeAttribute('aria-describedby');
     }
-    // This trip's places that match every word typed (any of them, with nothing typed): hotels first, then the latest
-    function tripPlaces(q) {
-      const words = q.toLowerCase().split(/\s+/).filter(Boolean), seen = new Set([draft.lat != null ? placeKey(draft) : '']);
-      const hits = stopsOf(trip).filter(s => s.id !== stop?.id).reverse()
-        .sort((a, b) => (kindOf(b) === 'hotel') - (kindOf(a) === 'hotel'))
-        .filter(s => {
-          const hay = ` ${s.name} ${s.address || ''}`.toLowerCase();
-          return words.every(w => hay.includes(` ${w}`));
-        });
-      const out = [];
-      for (const s of hits) {
-        if (seen.has(placeKey(s))) continue;
-        seen.add(placeKey(s));
-        out.push({ name: s.name, address: s.address, lat: s.lat, lng: s.lng, kind: kindOf(s) });
-        if (out.length === 3) break;
-      }
-      return out;
-    }
     function highlight(text, q) {
       const words = q.trim().split(/\s+/).filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
       if (!words.length) return esc(text);
@@ -2052,22 +2033,20 @@ function openStopSheet(trip, stop) {
     }
     const optionHTML = (p, i, q) => `<div class="wt-option" role="option" id="place-opt-${i}" data-i="${i}" aria-selected="false">${markerHTML(p, '')}<span class="wt-option__text"><span class="wt-option__label">${highlight(p.name, q)}</span>${p.address ? `<span class="wt-option__detail">${esc(p.address)}</span>` : ''}</span></div>`;
 
-    // Draw the pop-up for what's typed now: this trip's matches, the latest search results (kept on screen while
-    // the next search runs, so the list doesn't flash), or a message that says what happened and what to try.
+    // Draw the pop-up for what's typed now: the latest search results (kept on screen while the next search runs,
+    // so the list doesn't flash), or a message that says what happened and what to try.
     function paint() {
-      const q = input.value.trim(), remote = q.length >= 3;
-      const local = tripPlaces(q), seen = new Set(local.map(placeKey));
-      const results = remote ? found.list.filter(p => !seen.has(placeKey(p))).map(p => ({ ...p, kind: guessKind(p.name, p.category) })) : [];
+      const q = input.value.trim();
+      if (q.length < 3) return closeSuggestions();
+      const results = found.list.map(p => ({ ...p, kind: guessKind(p.name, p.category) }));
       let msg = '';
-      if (remote && phase === 'error') msg = failText;
-      else if (remote && phase === 'done' && !results.length && !local.length) msg = `<b>No places match “${esc(q)}”</b>Try adding the town, or check the spelling.`;
-      else if (remote && phase === 'loading' && !results.length && !local.length) msg = 'Searching…';
+      if (phase === 'error') msg = failText;
+      else if (phase === 'done' && !results.length) msg = `<b>No places match “${esc(q)}”</b>Try adding the town, or check the spelling.`;
+      else if (phase === 'loading' && !results.length) msg = 'Searching…';
       const prev = opts[active];
-      opts = [...local, ...results];
+      opts = results;
       if (!opts.length && !msg) return closeSuggestions();
-      const group = (head, list, from) => `<div class="wt-results__group" role="group"${head ? ` aria-label="${head}"><div class="wt-results__head" aria-hidden="true">${head}</div>` : '>'}${list.map((p, i) => optionHTML(p, from + i, q)).join('')}</div>`;
-      pop.innerHTML = (local.length ? group('In this trip', local, 0) : '')
-        + (results.length ? group(local.length ? 'Places' : '', results, local.length) : '')
+      pop.innerHTML = opts.map((p, i) => optionHTML(p, i, q)).join('')
         + (msg ? `<div class="wt-results__msg" role="presentation">${msg}</div>` : '');
       // Return picks the top match while there's no place yet; once there is one, Return saves, so a rename
       // never moves the stop. An option moved to with the arrows stays put as results arrive.
@@ -2118,7 +2097,7 @@ function openStopSheet(trip, stop) {
       clear.hidden = !input.value;
       const q = input.value.trim();
       clearTimeout(timer);
-      if (q.length < 3) { ctrl?.abort(); spinner.hidden = true; phase = 'idle'; return paint(); }
+      if (q.length < 3) { ctrl?.abort(); spinner.hidden = true; phase = 'idle'; found = { q: '', list: [] }; return paint(); }
       if (cache.has(q.toLowerCase())) { found = { q, list: cache.get(q.toLowerCase()) }; phase = 'done'; spinner.hidden = true; return paint(); }
       phase = 'loading';
       paint();
@@ -2158,8 +2137,6 @@ function openStopSheet(trip, stop) {
     }
 
     input.addEventListener('input', onType);
-    // An empty field offers this trip's places straight away
-    input.addEventListener('focus', () => { if (!input.value.trim() && placeErr.hidden) paint(); });
     input.addEventListener('blur', () => { if (!pressing) closeSuggestions(); });
     input.addEventListener('keydown', e => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {

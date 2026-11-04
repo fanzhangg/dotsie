@@ -195,7 +195,7 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
   4. **Note.**
 - **Place search.** <a id="place-search"></a>
   - **Suggestions open in a pop-up over the form**, under the field, so nothing below it jumps while you type. When there's more room above the field than below (a phone's keyboard can leave little), it opens above. Tapping elsewhere, or Esc, closes it; a second Esc closes the sheet.
-  - **This trip's places come first**, under *In this trip*: they show as soon as the empty field is focused (hotels first, then the latest stops), and match from the first letter typed, with no search. Going back to the hotel is the most common stop there is. Search results follow under *Places*, from the third letter.
+  - **Suggestions start at the third letter.** (Offering the trip's own places first, as soon as the field was focused, was tried and dropped: it covered the form before you'd typed anything.)
   - **Each suggestion shows the marker of the type it would get**, so the type's guess is visible before you pick, not a surprise after. The words you typed are bold in the name; the address is under it.
   - **Return picks the top suggestion** while the stop has no place yet, and ↑ ↓ choose another (the grey row is the one Return picks). Once the stop has a place, Return saves instead, so renaming it never moves it.
   - **The picked place shows under the field**: a pin and its address. Typing a new name keeps the place, and the address line shows that it did; only picking a suggestion moves the stop.
