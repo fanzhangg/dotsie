@@ -756,7 +756,7 @@ function driveItem(day, leg) {
   };
 }
 // A stop row: marker · name and note · time. A hotel on its check-in day says how many nights.
-// A time on another day than the one on screen says which day, under it.
+// A row from another day than the one on screen can say which day in place of the time.
 function stopRow(s, past, now, note, time, timeDay) {
   return `<button class="wt-tl-stop${s.id === state.sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="edit" data-id="${esc(s.id)}" style="--wt-kind-color: ${kindColor(s)}">
       <span class="wt-tl-rail">${markerHTML(s, 'wt-tl-marker')}</span>
@@ -777,11 +777,11 @@ function hotelItem(day, entry) {
     html: (past, now) => stopRow(entry.place, past, now, [entry.role === 'checkout' && 'Check out'], null),
   };
 }
-// With no hotel last night, the day opens where the day before ended: that stop, at the time you got there,
-// marked `Yesterday` (or the weekday, when there's a day with no stops in between).
+// With no hotel last night, the day opens where the day before ended: that stop, with `Yesterday` where the time goes
+// (or the weekday, when there's a day with no stops in between).
 function fromItem(day, entry) {
   const d = dayOf(entry.place), when = d === addDays(day, -1) ? 'Yesterday' : DAYS[toDate(d).getDay()];
-  return { start: `${day}T00:00`, html: (past, now) => stopRow(entry.place, past, now, [], entry.place.time, when) };
+  return { start: `${day}T00:00`, html: (past, now) => stopRow(entry.place, past, now, [], null, when) };
 }
 // One "Add stop", below the list so it's always in reach.
 const addBarHTML = `<div class="wt-add-bar"><button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button></div>`;

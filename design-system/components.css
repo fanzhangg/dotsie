@@ -126,7 +126,7 @@ textarea.wt-input { resize: none; }
 .wt-tl-note { display: block; margin-top: 2px; font: var(--wt-type-caption); color: var(--wt-text-secondary); white-space: pre-line; }
 .wt-tl-time { padding: 13px var(--wt-space-3) 0 0; text-align: right; white-space: nowrap; font: var(--wt-type-time); font-variant-numeric: tabular-nums; color: var(--wt-text-secondary); }
 .wt-tl-meridiem { font: var(--wt-type-micro); margin-left: 2px; }
-.wt-tl-time__day { display: block; margin-top: 1px; font: var(--wt-type-micro); font-weight: 500; color: var(--wt-text-secondary); }
+.wt-tl-time__day { display: block; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 
 /* Drive: a small grey car on the rail, "1 hr 49 min drive", and a Directions icon where stops have their time. */
 .wt-tl-drive {

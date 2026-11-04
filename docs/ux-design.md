@@ -109,7 +109,7 @@ A hotel isn't just a stop: you sleep there, and the next morning starts there. B
 
 ### Where the day starts without a hotel
 
-With no hotel the night before, the day opens with the day before's last stop, so you can see where you're driving from before the first drive. It looks like any stop, with its arrival time, and under the time, the day it was: `Yesterday`, or the weekday (`Sat`) when there's a day with no stops in between. Without that, a `3:00 PM` above a `10:00 AM` reads as a mistake. Tapping it opens that stop. It's left out when the day's first stop is the same place. This replaces a second line on the first drive (`from Interdune Boardwalk`), which was easy to miss and couldn't be tapped.
+With no hotel the night before, the day opens with the day before's last stop, so you can see where you're driving from before the first drive. It looks like any stop, with `Yesterday` where the time goes, or the weekday (`Sat`) when there's a day with no stops in between. Its time isn't shown: a `3:00 PM` above a `10:00 AM` reads as a mistake, and what matters this morning is where you are, not when you got there. Tapping it opens that stop. It's left out when the day's first stop is the same place. This replaces a second line on the first drive (`from Interdune Boardwalk`), which was easy to miss and couldn't be tapped.
 
 ### Today
 
