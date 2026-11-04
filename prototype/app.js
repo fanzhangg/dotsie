@@ -1072,13 +1072,7 @@ function openSpotSheet(trip, spot) {
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
       <label class="wt-field"><span class="wt-field__label" data-when>When</span><input class="wt-input" name="time" type="datetime-local" required></label>
-      <div class="wt-field-row wt-stay" hidden>
-        <div class="wt-field wt-nights"><span class="wt-field__label">Nights</span>
-          <div class="wt-nights__row"><button type="button" class="wt-icon-btn wt-nights__step" data-nights="-1" aria-label="One night fewer">−</button><output class="wt-nights__n" aria-live="polite"></output><button type="button" class="wt-icon-btn wt-nights__step" data-nights="1" aria-label="One more night">+</button></div>
-        </div>
-        <div class="wt-field"><span class="wt-field__label" id="checkout-label">Check-out</span>
-          <label class="wt-input wt-input-group"><span class="wt-input-group__prefix" data-checkout-day></span><input name="checkout" type="time" aria-labelledby="checkout-label"></label></div>
-      </div>
+      <label class="wt-field wt-stay" hidden><span class="wt-field__label">Check-out</span><input class="wt-input" name="checkout" type="datetime-local"></label>
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" placeholder="Confirmation #, tickets, tips…"></textarea></label>
       <div class="wt-modal__actions wt-modal__actions--sticky">${spot ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${spot ? 'Save' : 'Add'}</button></div>
     </form></div>
@@ -1092,7 +1086,6 @@ function openSpotSheet(trip, spot) {
     let timeTouched = !!spot;
     if (spot) { F.title.value = spot.name; F.time.value = spot.time; F.note.value = spot.note || ''; }
     else { F.time.value = defaultTime(trip); setTimeout(() => F.title.focus(), 280); }
-    F.checkout.value = spot ? checkoutOf(spot) : HOTEL_CHECK_OUT;
 
     // ----- Type: the picker row, and its page -----
     const showKind = () => {
@@ -1125,28 +1118,47 @@ function openSpotSheet(trip, spot) {
       drawMap(trip);
     }
 
-    // ----- A hotel is a stay: When becomes check-in, then Nights and Check-out. Left alone, nights follow the trip
-    // (until the next hotel, or the last day), and the number shown is that. -----
-    let nights = spot?.nights >= 1 ? spot.nights : null;
-    const stay = el.querySelector('.wt-stay');
+    // ----- A hotel is a stay: When becomes check-in, then Check-out, a day and time. The nights are the days
+    // between them. Left alone, check-out follows the trip (the next hotel, or the last day). -----
+    let nights = spot?.nights >= 1 ? spot.nights : null, outTime = spot ? checkoutOf(spot) : HOTEL_CHECK_OUT;
+    const stay = el.querySelector('.wt-stay'), inDay = () => F.time.value.slice(0, 10);
+    let shownIn = inDay();
     function autoNights() {
-      const day = F.time.value.slice(0, 10), later = spotsOf(trip).filter(s => s.id !== spot?.id && dayOf(s) > day);
+      const day = inDay(), later = spotsOf(trip).filter(s => s.id !== spot?.id && dayOf(s) > day);
       const nextHotel = later.find(s => kindOf(s) === 'hotel');
       return Math.max(1, daysBetween(day, nextHotel ? dayOf(nextHotel) : later.length ? dayOf(later.at(-1)) : addDays(day, 1)));
     }
     function showNights() {
-      const hotel = draft.kind === 'hotel', n = nights ?? autoNights();
+      const hotel = draft.kind === 'hotel', day = inDay();
       stay.hidden = !hotel;
+      F.checkout.disabled = !hotel; // so a hidden field can't block saving
       el.querySelector('[data-when]').textContent = hotel ? 'Check-in' : 'When';
-      el.querySelector('.wt-nights__n').textContent = n;
-      el.querySelector('[data-checkout-day]').textContent = F.time.value ? fmtDay(addDays(F.time.value.slice(0, 10), n)) : '';
-      el.querySelector('[data-nights="-1"]').disabled = n <= 1;
+      if (!day) return;
+      // Check-out is at least a night after check-in, and at most 30.
+      F.checkout.min = `${addDays(day, 1)}T00:00`;
+      F.checkout.max = `${addDays(day, 30)}T23:59`;
+      F.checkout.value = `${addDays(day, nights ?? autoNights())}T${outTime}`;
     }
-    stay.addEventListener('click', e => {
-      const b = e.target.closest('[data-nights]');
-      if (b) { nights = Math.min(30, Math.max(1, (nights ?? autoNights()) + +b.dataset.nights)); showNights(); }
+    F.checkout.addEventListener('input', () => {
+      const v = F.checkout.value, day = inDay();
+      if (!v || !day) return;
+      outTime = v.slice(11, 16);
+      const n = daysBetween(day, v.slice(0, 10));
+      // Changing only the time keeps nights following the trip.
+      if (nights != null || n !== autoNights()) nights = Math.min(30, Math.max(1, n));
     });
-    F.time.addEventListener('input', () => { timeTouched = true; showNights(); });
+    F.checkout.addEventListener('blur', showNights); // an empty or out-of-range day snaps back when you leave it
+    F.time.addEventListener('input', () => {
+      timeTouched = true;
+      // Moving check-in keeps the check-out day, unless that would leave no nights (or too many): then the nights move with it.
+      const day = inDay();
+      if (nights != null && day && shownIn) {
+        const n = daysBetween(day, addDays(shownIn, nights));
+        if (n >= 1 && n <= 30) nights = n;
+      }
+      if (day) shownIn = day;
+      showNights();
+    });
     showKind();
     showNights();
 
@@ -1191,7 +1203,7 @@ function openSpotSheet(trip, spot) {
       const hotel = draft.kind === 'hotel';
       const data = {
         kind: draft.kind, name: F.title.value.trim(), address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
-        nights: hotel ? nights : null, checkout: hotel ? F.checkout.value || null : null,
+        nights: hotel ? nights : null, checkout: hotel ? outTime : null,
       };
       state.day = dayOf(data); // follow the stop to its day
       saved = true;

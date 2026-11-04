@@ -373,7 +373,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 - Disable the previous arrow on the first day and the next arrow on the last.
 - The day list shows every day, with up to six small markers: the day's stops in order, then the hotel you sleep at. `aria-current="date"` marks the open day.
 
-### Picker `.wt-picker`, options `.wt-options`, nights `.wt-nights` and check-out
+### Picker `.wt-picker`, options `.wt-options` and check-out
 
 All live in the stop sheet.
 
@@ -394,33 +394,24 @@ All live in the stop sheet.
   <li><button class="wt-option" role="radio" aria-checked="true">
     <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
     <span class="wt-option__text"><span class="wt-option__label">Hotel</span>
-      <span class="wt-option__detail">Adds nights and check-out</span></span>${icon('check', 18)}</button></li>
+      <span class="wt-option__detail">Adds check-out</span></span>${icon('check', 18)}</button></li>
   <li class="wt-options__sep" role="presentation"></li>   <!-- between sections -->
   <!-- one per type -->
 </ul>
 
-<div class="wt-field-row">   <!-- hidden unless it's a hotel -->
-  <div class="wt-field wt-nights"><span class="wt-field__label">Nights</span>
-    <div class="wt-nights__row">
-      <button class="wt-icon-btn wt-nights__step" aria-label="One night fewer">−</button>
-      <output class="wt-nights__n" aria-live="polite">2</output>
-      <button class="wt-icon-btn wt-nights__step" aria-label="One more night">+</button>
-    </div>
-  </div>
-  <div class="wt-field"><span class="wt-field__label" id="checkout-label">Check-out</span>
-    <label class="wt-input wt-input-group">
-      <span class="wt-input-group__prefix">Sun, Nov 22</span>
-      <input type="time" value="11:00" aria-labelledby="checkout-label"></label></div>
-</div>
+<label class="wt-field">   <!-- hidden unless it's a hotel -->
+  <span class="wt-field__label">Check-out</span>
+  <input class="wt-input" type="datetime-local" value="2026-11-22T11:00" min="2026-11-21T00:00" max="2026-12-20T23:59"></label>
 ```
 
 - **Type** is one row that shows the current type. Tapping it slides the sheet to the types; picking one, or Back, slides back. It keeps the sheet short, so the map stays in view above it. Focus the checked option when the page opens, and the picker when it closes.
 - Type starts as a guess from the place's name and category, until someone picks one.
 - **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
-- **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Adds nights and check-out". ↑ ↓ move between types.
-- **Nights and Check-out** show only for a hotel. When becomes check-in: 3:00 PM for a new hotel. Nights is at least 1, so disable the minus at 1. Check-out's day comes from the nights, so only its time is an input, but the day shows inside the field, before the time (`.wt-input-group`), so it reads as one value: `Sun, Nov 22  11:00 AM`. 11:00 AM unless someone sets another. The two sit side by side with their labels level; on a very narrow screen Check-out wraps below Nights.
+- **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Adds check-out". ↑ ↓ move between types.
+- **Check-out** shows only for a hotel, under Check-in, and is a day and time like it. When becomes check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. Check-out is at least a night after check-in and at most 30 (`min` and `max`); a day outside that, or an empty field, goes back to the last good one when you leave the field. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 1–30 nights.
 - **Date and time fields** (`.wt-input` on `date`, `time` and `datetime-local`) are drawn like any other field on iPhone, so they read from the left and stay inside the sheet, rather than Safari's centred control, which is wider than the sheet.
 - **`.wt-input-group`** is a `.wt-input` box with a fixed `__prefix` and a bare `<input>` after it. Make the box a `<label>` so a tap anywhere opens the input, and label the input with `aria-labelledby`.
+- `.wt-nights` (the stepper), `.wt-field-row` and `.wt-input-group` are no longer used: Check-out became a day and time, which replaced the stepper and the day shown before the time. They can go in the next major version.
 - `.wt-kinds`, a grid of every type, is no longer used: the app and the prototype both use the picker. It can go in the next major version.
 
 ### Trip header `.wt-trip-head`, bottom sheet `.wt-sheet` and add bar `.wt-add-bar`
@@ -457,14 +448,15 @@ With a stop selected, the add bar holds Edit stop and a round `+` beside it:
   - The list (`.wt-sheet__body`) fades out at an edge with more past it: `.is-more-above` and `.is-more-below`, which the app sets from the scroll position.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
   - It never hides.
-- **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it (`touch-action: none` on the list), so dragging up grows the sheet first. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the next height its way; a slower drag settles at the nearest. Add `.is-dragging` while a finger is moving it.
+- **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it, and the list can't be scrolled by hand at all (`touch-action: none` and `overflow: hidden`): your code scrolls it, to keep the focused row in its middle. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the next height its way; a slower drag settles at the nearest. Add `.is-dragging` while a finger is moving it.
 - **Taps:** the grab handle is a button: half goes to full, peek and full go to half. Peeking, the day bar's buttons still work, and a tap anywhere else on the sheet opens it to half. No other tap resizes the sheet.
-- **The map:** zooming it (pinch, double-tap, wheel) means you're looking at the map, so a half sheet goes down to peek. A new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin opens the sheet to half; showing a route from the whole day goes to half.
+- **The map:** zooming it (pinch, double-tap, wheel) means you're looking at the map, so a half sheet goes down to peek. A new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route opens the sheet to half.
+- **Peeking**, the list and the add bar hide `--wt-duration-base` after `.is-peek` goes on, so a sheet sliding down to its peek keeps its list until it's there. Animate the height over that same duration.
 - The top holds the grab handle and the day bar. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
 - **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop with a round `+` beside it, so adding is always one tap away. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
 - Tapping a selected stop or a shown drive again keeps it selected.
-- On today, scroll the list so the `is-now` row sits a little above the middle.
+- **One row is the half list's focus**, and it sits in the middle of the list: the selected row (`.is-selected` or `.is-active`), or else, on today, the `is-now` row. When the sheet changes height and the list has to scroll, move both together, on one timeline, so the row goes straight to the middle. The app does this frame by frame and turns off the sheet's height transition.
 
 **On a wide screen it's a side panel.** Make the element that holds the header, map and sheet a size container named `wt-trip`:
 
@@ -647,6 +639,12 @@ Place search and the type list, redesigned as one system.
 - `.wt-picker--text`, with `__name` and `__detail`: a picker row with no marker and a second line, for the place.
 - `.wt-modal.is-full`: the sheet at full height, while a search page is open.
 - Nothing was renamed or removed. `.wt-results__item`, `__name` and `__detail` stay for the prototype.
+
+### Fixed in 4.5.1
+
+- Below full, `.wt-sheet__body` is `overflow: hidden`, so a wheel or trackpad can't scroll the half list either; the app scrolls it. From 768px wide it scrolls as before.
+- Peeking, the list and the add bar hide once the sheet has slid down, instead of as it starts.
+- Nothing was renamed or removed.
 
 ### Added in 4.5.0
 

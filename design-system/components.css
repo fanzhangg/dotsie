@@ -323,7 +323,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-nights__n { min-width: 24px; text-align: center; font: var(--wt-type-name); font-variant-numeric: tabular-nums; }
 .wt-nights__out { margin-left: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 /* A hotel's Nights and Check-out side by side, labels level; on a very narrow screen Check-out wraps below.
-   The check-out day is worked out from the nights, and shows in the field before the time (.wt-input-group). */
+   Unused since Check-out became a day and time (datetime-local) in the stop sheet: .wt-nights, .wt-field-row and
+   .wt-input-group can go in the next major version. */
 .wt-field-row { display: flex; flex-wrap: wrap; column-gap: var(--wt-space-4); align-items: flex-start; }
 .wt-field-row > .wt-field { flex: none; min-width: 0; }
 .wt-field-row > .wt-field:last-child { flex: 1 1 180px; }
@@ -371,14 +372,20 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-sheet.is-dragging { transition: none; }
 /* Full: square and flush under the header, so the two read as one page: the trip, then the whole day. */
 .wt-sheet.is-full { border-radius: 0; box-shadow: none; }
-/* Below full, dragging the list moves the sheet (up first, then it scrolls once full), so the list doesn't scroll on its own. */
-.wt-sheet:not(.is-full) .wt-sheet__body { touch-action: none; }
+/* Below full, dragging the list moves the sheet (up first, then it scrolls once full), and the list can't be scrolled
+   by hand at all, not by a finger, a wheel or a trackpad: the app scrolls it, to keep the focused row in the middle. */
+.wt-sheet:not(.is-full) .wt-sheet__body { touch-action: none; overflow: hidden; }
 .wt-sheet.is-peek { cursor: pointer; }
 /* Peeking shows only the day bar; the list and the add bar appear as soon as the sheet is dragged up.
    Add stop isn't shown on its own: under an empty-looking sheet it read as if the day had no stops.
-   The add bar stays in the layout, so its bottom padding (with the safe area) is the peek's margin under the day bar. */
-.wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body { visibility: hidden; padding-bottom: 0; }
-.wt-sheet.is-peek:not(.is-dragging) .wt-add-bar { visibility: hidden; }
+   The add bar stays in the layout, so its bottom padding (with the safe area) is the peek's margin under the day bar.
+   They hide once the sheet is down (after --wt-duration-base), so it slides down with the list on it, not empty;
+   going up, they show at once. */
+.wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body {
+  visibility: hidden; padding-bottom: 0;
+  transition: --wt-fade-top var(--wt-duration-fast), --wt-fade-bottom var(--wt-duration-fast), visibility 0s var(--wt-duration-base), padding-bottom 0s var(--wt-duration-base);
+}
+.wt-sheet.is-peek:not(.is-dragging) .wt-add-bar { visibility: hidden; transition: visibility 0s var(--wt-duration-base); }
 .wt-sheet__top { flex: none; touch-action: none; padding: 0 var(--wt-space-3) var(--wt-space-1) var(--wt-space-1); }
 /* The grab handle is a button as wide as the sheet, so it's easy to hit and nothing else on the sheet's top resizes it. */
 .wt-sheet__grab { position: relative; display: block; width: 100%; height: 22px; cursor: grab; }
@@ -435,7 +442,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
     border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
   }
   .wt-sheet__top { touch-action: auto; padding-top: var(--wt-space-1); }
-  .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: auto; }
+  .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: auto; overflow: auto; }
   .wt-sheet__grab { display: none; }
   .wt-map-bar { display: none; }
 }

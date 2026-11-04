@@ -58,14 +58,15 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 @container wt-trip (min-width: 768px) { #map { left: var(--wt-size-panel); } }
 /* While a stop is open on a phone, its sheet takes the list's place at the bottom, and the map shows above it. */
 .trip.is-editing .wt-sheet { visibility: hidden; }
-.trip .leaflet-bottom { bottom: var(--bottom-h, 0); transition: bottom var(--wt-duration-base); }
-/* Whole day sits at the map's bottom right: just above the list on a phone, riding up and down with it, and tucked
-   under the sheet when it's dragged over. Not while a stop is open. */
+/* The app moves the sheet itself, frame by frame, so the list's scroll can move with it (sheet motion in app.js):
+   no height transition. */
+.trip .wt-sheet { transition: border-radius var(--wt-duration-base); }
+/* Whole day sits at the map's bottom right: just above the list on a phone, riding up and down with it (the app sets
+   its --bottom-h with each frame of the sheet), and tucked under the sheet when it's dragged over. Not while a stop is open. */
 .trip-fit {
   position: absolute; z-index: calc(var(--wt-z-sheet) - 1); right: var(--wt-space-3); bottom: calc(var(--bottom-h, 0px) + var(--wt-space-3));
-  transition: bottom var(--wt-duration-base) var(--wt-ease-out), background var(--wt-duration-fast);
+  transition: background var(--wt-duration-fast);
 }
-.trip:has(.wt-sheet.is-dragging) .trip-fit { transition: none; }
 .trip.is-editing .trip-fit { display: none; }
 /* Only the busier fallback basemap needs quieting. */
 .trip.osm-tiles .leaflet-tile-pane { filter: saturate(.55) brightness(1.03); }
