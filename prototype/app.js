@@ -1249,7 +1249,8 @@ function renderAddBar(trip) {
 // One day's rows, from the day's plan, each marked `past` or `now`. On today, the row you're in now
 // (the latest thing that has started) is now, and everything before it is past; earlier days are past throughout.
 // The map dims the same drives and stops.
-function dayItems(trip, day) {
+// `note` false leaves out the stops' own notes, as on the overview.
+function dayItems(trip, day, { note = true } = {}) {
   const now = nowStamp(), today = now.slice(0, 10);
   const legs = new Map(dayLegs(trip, day).map(l => [l.key, l]));
   const items = [];
@@ -1257,7 +1258,7 @@ function dayItems(trip, day) {
   plan.forEach((e, i) => {
     const leg = legs.get(e.key);
     if (leg && !(leg.r && leg.r.distance === 0)) items.push({ leg: leg.key, ...driveItem(day, leg) });
-    if (e.role === 'stop') items.push({ entry: e, ...stopItem(trip, e.place) });
+    if (e.role === 'stop') items.push({ entry: e, ...stopItem(trip, e.place, { note }) });
     // where you start, unless the day's first stop is the same place
     else if (e.role === 'from') { if (!samePlace(e.place, plan[i + 1].place)) items.push({ entry: e, ...fromItem(day, e) }); }
     else items.push({ entry: e, ...hotelItem(day, e, leg) });
@@ -1266,17 +1267,19 @@ function dayItems(trip, day) {
   items.forEach((it, i) => { it.past = day < today || i < cur; it.now = i === cur; });
   return items;
 }
-// The overview: every day under its name, with its stops and their times, so the whole trip reads at a glance.
-// Drives and notes are left to the day's own page (the map still shows every drive). A day with no stops of its own,
+// The overview: every day under its name, with its stops and their times, and the drives between them, as on a day,
+// so the whole trip reads at a glance. Notes are left to the day's own page, and so are the hotel you wake up at and
+// go back to, with the drives to and from it (the map still shows every drive). A day with no stops of its own,
 // in the middle of a stay, shows the hotel you wake up at. Tapping a day's name opens the day; tapping a stop
-// selects it, as on a day. Past and now are worked out as on a day, among the rows shown.
+// selects it, and tapping a drive shows its route, as on a day. Past and now are worked out as on a day, among the rows shown.
 function overviewItems(trip) {
   const now = nowStamp(), today = now.slice(0, 10), items = [];
   for (const d of daysOf(trip)) {
-    const plan = dayPlan(trip, d);
-    let rows = plan.filter(e => e.role === 'stop' || e.role === 'checkout');
-    if (!rows.length) rows = plan.filter(e => e.role === 'wake');
-    const its = rows.map(e => ({ entry: e, ...(e.role === 'stop' ? stopItem(trip, e.place, { note: false }) : hotelItem(d, e)) }));
+    const all = dayItems(trip, d, { note: false }), legs = new Map(dayLegs(trip, d).map(l => [l.key, l]));
+    let rows = all.filter(it => it.entry && (it.entry.role === 'stop' || it.entry.role === 'checkout'));
+    if (!rows.length) rows = all.filter(it => it.entry?.role === 'wake');
+    const shown = new Set(rows.map(it => it.entry.key));
+    const its = all.filter(it => (it.leg ? shown.has(legs.get(it.leg).fromEntry.key) && shown.has(it.leg) : shown.has(it.entry.key)));
     const at = d === today ? its.findLastIndex(it => it.start <= now) : -1;
     its.forEach((it, i) => { it.past = d < today || i < at; it.now = i === at; });
     items.push({ html: () => dayHeadHTML(d, d < today) }, ...its);
