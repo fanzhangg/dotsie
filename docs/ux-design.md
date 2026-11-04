@@ -177,17 +177,21 @@ On trip days, today's page shows where you are without a clock in the list:
 
 Every stop has a type, shown as its icon in the list and the day list, and as its pin's color on the map:
 
-| Group (color) | Types |
+| Type | Color |
 | --- | --- |
-| Travel (teal) | Airport, Gas |
-| Stay (violet) | Hotel |
-| Food (burnt orange; amber in dark) | Restaurant, Café |
-| Sights (raspberry) | Attraction, Museum, Viewpoint |
-| Nature (green) | Nature |
-| Shopping (olive gold) | Shopping |
-| Place (grey) | Place: anything else |
+| Hotel | Purple |
+| Airport | Indigo |
+| Gas | Petrol |
+| Restaurant | Orange |
+| Café | Coffee brown |
+| Attraction | Teal |
+| Viewpoint | Lime |
+| Nature | Green |
+| Museum | Pink |
+| Shopping | Yellow |
+| Place: anything else | Grey |
 
-- Colors go by group, so a day's meals or sights read alike. They all have the same lightness, so a type says what a place is and never that it matters more: a magenta sight used to outshine a grey place. The colors leave out blue (routes) and red (a drive that doesn't fit), and they have light and dark versions.
+- Every type has its own bright color, so no two look alike: a café no longer looks like a restaurant, nor a museum like a viewpoint. The colors follow maps apps (food orange, hotels purple, parks green, shopping yellow), so they read at a glance. They're about as light as each other, so a type says what a place is and never that it matters more: a magenta sight used to outshine a grey place. The colors leave out blue (routes) and red (a drive that doesn't fit), so airports and gas, blue in maps apps, are indigo and petrol. Each has a light and a dark version.
 - **Choosing a type:** the stop sheet has one **Type** row under the place, showing the type's marker and name. Tapping it slides the sheet to a page with every type, one per row; picking one slides back. The types come in sections a traveler thinks in: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. Hotel says *Check-in and check-out*, the one type that changes the form. The rows are the same as place search's suggestions, and the set type is a grey row with a check, as a selected stop is grey in the list. (It used to be a grid of all eleven types, the tallest thing in the stop sheet; on a phone the sheet now has to stay short enough to leave the map in view.) When you pick a place from search, the type starts as a guess from the place's category and its name (an "Inn" is a hotel, a "Visitor Center" an attraction). Choose a type yourself and the guess leaves it alone after that.
 - Stops saved before types existed get the guess from their name, or are a restaurant when the note says breakfast, brunch, lunch or dinner ("Cloudcroft", note "Lunch").
 

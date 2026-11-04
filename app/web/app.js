@@ -196,20 +196,20 @@ const planOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayPlan(t
 const legsOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayLegs(trip, d)) : dayLegs(trip, day));
 const itemsOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayItems(trip, d)) : dayItems(trip, day));
 
-// ---------- Stop types: an icon each, and a color per group, shared by the list marker and the map pin ----------
+// ---------- Stop types: an icon and a color each (--wt-kind-<key>), shared by the list marker and the map pin ----------
 // The colors skip blue (routes) and red (a drive that doesn't fit). Keep the keys in sync with KINDS in src/trip.ts.
 const KINDS = {
-  place: { label: 'Place', icon: 'pin', group: 'place' },
-  airport: { label: 'Airport', icon: 'plane', group: 'travel' },
-  hotel: { label: 'Hotel', icon: 'bed', group: 'stay' },
-  restaurant: { label: 'Restaurant', icon: 'utensils', group: 'food' },
-  cafe: { label: 'Café', icon: 'cup', group: 'food' },
-  attraction: { label: 'Attraction', icon: 'star', group: 'sight' },
-  museum: { label: 'Museum', icon: 'museum', group: 'sight' },
-  viewpoint: { label: 'Viewpoint', icon: 'camera', group: 'sight' },
-  nature: { label: 'Nature', icon: 'tree', group: 'nature' },
-  shopping: { label: 'Shopping', icon: 'bag', group: 'shop' },
-  gas: { label: 'Gas', icon: 'fuel', group: 'travel' },
+  place: { label: 'Place', icon: 'pin' },
+  airport: { label: 'Airport', icon: 'plane' },
+  hotel: { label: 'Hotel', icon: 'bed' },
+  restaurant: { label: 'Restaurant', icon: 'utensils' },
+  cafe: { label: 'Café', icon: 'cup' },
+  attraction: { label: 'Attraction', icon: 'star' },
+  museum: { label: 'Museum', icon: 'museum' },
+  viewpoint: { label: 'Viewpoint', icon: 'camera' },
+  nature: { label: 'Nature', icon: 'tree' },
+  shopping: { label: 'Shopping', icon: 'bag' },
+  gas: { label: 'Gas', icon: 'fuel' },
 };
 // The type list, in sections a traveler thinks in: anywhere; staying and getting there; eating; seeing and doing
 const KIND_SECTIONS = [['place'], ['hotel', 'airport', 'gas'], ['restaurant', 'cafe'], ['attraction', 'viewpoint', 'nature', 'museum', 'shopping']];
@@ -233,7 +233,7 @@ function guessKind(name = '', cat = '') {
 }
 // Untyped stops are guessed from the name; a bare town with "Lunch" in its note is a meal.
 const kindOf = s => (KINDS[s.kind] ? s.kind : guessKind(s.name) !== 'place' ? guessKind(s.name) : /\b(breakfast|brunch|lunch|dinner)\b/i.test(s.note || '') ? 'restaurant' : 'place');
-const kindColor = s => `var(--wt-kind-${KINDS[kindOf(s)].group})`;
+const kindColor = s => `var(--wt-kind-${kindOf(s)})`;
 const kindIcon = (s, size = 16) => WaythreadIcons.svg(KINDS[kindOf(s)].icon, size);
 
 // ---------- Session ----------
