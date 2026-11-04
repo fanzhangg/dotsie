@@ -1181,8 +1181,9 @@ function mapGestures(m, zooming) {
 }
 
 // ---------- Whole day: the map back on the day's route ----------
-// A button over the map, once you've moved the map off the day or are looking at one drive, as a maps app's
-// route overview button does. It isn't there over the whole-day list, which hides the map, or while a stop is open.
+// A button over the map, as a maps app's route overview button is. It's always there with the map, and greyed out while
+// the map already shows the whole day, since then it would do nothing. It isn't there over the whole-day list, which
+// hides the map, or while a stop is open.
 let dayShown = false; // the camera is where dayView puts it for the day on screen
 function dayFramed() {
   const trip = cur?.stops ? cur : null, day = trip && currentDay(trip), v = map && day && dayView(trip, day);
@@ -1193,7 +1194,8 @@ function updateFitBtn() {
   const btn = $app.querySelector('.trip-fit');
   if (!btn) return;
   const trip = cur?.stops ? cur : null, day = trip && currentDay(trip);
-  btn.hidden = !map || !day || !!state.draft || (!isWide() && state.snap === 'full') || (dayShown && !state.leg);
+  btn.hidden = !map || !day || !!state.draft || (!isWide() && state.snap === 'full');
+  btn.disabled = dayShown && !state.leg;
   // on the overview, it's the whole trip
   const label = day === ALL ? ['Whole trip', 'Show the whole trip on the map'] : ['Whole day', 'Show the whole day on the map'];
   if (btn.title !== label[0]) { btn.title = label[0]; btn.setAttribute('aria-label', label[1]); }
@@ -1976,7 +1978,7 @@ document.addEventListener('pointerover', e => {
 });
 // Select a stop: its row and its pin are highlighted, and Add stop becomes Open in Maps and Edit stop.
 // Tapping a pin or a row scrolls the row to the middle of the list. Tapping a row (`row`, its key) moves the pin into view if it's
-// off the map you can see, keeping the zoom. Tapping the selected row (or its pin) again keeps it selected;
+// off the map you can see, keeping the zoom; the map is never zoomed for it. Tapping the selected row (or its pin) again keeps it selected;
 // tapping empty map, changing the day or Esc clears it.
 function selectStop(s, row = null) {
   // Again, at half: it's already the focus, so nothing animates. A row still brings its pin back if it's out of view.
@@ -1986,15 +1988,16 @@ function selectStop(s, row = null) {
     centerFocus({ animate: false });
     return;
   }
-  if (state.leg) fitKey = '';
   state.leg = null;
   state.sel = s.id;
   state.selRow = row;
-  // coming down from the whole day re-frames the map for the day, which already shows this stop
-  const framed = state.snap === 'full' && !camFree && !isWide();
+  // The map keeps its zoom: leaving a drive's preview or the whole-day list doesn't re-frame it for the day.
+  // Only the pin is panned into view (Whole day brings the day back).
+  const key = fitKey;
   setSnap('half', false); // the whole-day list covers the map
+  fitKey = key;
   render();
-  if (row && !framed) panTo(s);
+  if (row) panTo(s);
   // in the middle of the list, so the stops before and after it show too
   centerFocus({ force: true });
 }

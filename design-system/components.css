@@ -1,4 +1,4 @@
-/* Waythread design system — components v6.3.0
+/* Waythread design system — components v6.4.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -532,9 +532,12 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   display: flex; justify-content: space-between; pointer-events: none;
 }
 .wt-map-btn { pointer-events: auto; width: var(--wt-size-touch); height: var(--wt-size-touch); background: var(--wt-surface-raised); color: var(--wt-text-primary); box-shadow: var(--wt-shadow-float); }
-.wt-map-btn:active { background: var(--wt-surface-hover); }
+.wt-map-btn:active:not(:disabled) { background: var(--wt-surface-hover); }
 .wt-map-btn[hidden] { display: none; }
-@media (hover: hover) { .wt-map-btn:hover { background: var(--wt-surface-hover); } }
+/* Disabled, it stays solid over the map; only the icon greys out. */
+.wt-map-btn:disabled { opacity: 1; color: var(--wt-text-tertiary); }
+.wt-map-btn:disabled svg { opacity: .45; }
+@media (hover: hover) { .wt-map-btn:hover:not(:disabled) { background: var(--wt-surface-hover); } }
 
 /* ---------- Wide screens: the sheet becomes a side panel ---------- */
 /* Opt in by making the element that holds the map and the sheet a size container named wt-trip:

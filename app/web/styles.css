@@ -71,7 +71,7 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
 /* The app keeps the list's scroll (listTop in app.js): no scroll anchoring moving it when its rows change. */
 .trip .wt-sheet__body { overflow-anchor: none; }
 /* Whole day sits at the map's bottom right: just above the list on a phone, riding up and down with it (the app sets
-   its --bottom-h with each frame of the sheet), and tucked under the sheet when it's dragged over. Not while a stop is open. */
+   its --bottom-h with each frame of the sheet), and tucked under the sheet when it's dragged over. Disabled, not hidden, while the map shows the whole day; not there while a stop is open. */
 .trip-fit {
   position: absolute; z-index: calc(var(--wt-z-sheet) - 1); right: var(--wt-space-3); bottom: calc(var(--bottom-h, 0px) + var(--wt-space-3));
   transition: background var(--wt-duration-fast);
