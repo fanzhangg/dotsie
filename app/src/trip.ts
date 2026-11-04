@@ -9,10 +9,11 @@ import { DurableObject } from 'cloudflare:workers';
 export type Member = { id: string; name: string; image: string | null; identity: number };
 // kind is the stop's type ('' until someone picks one; the app guesses from the name). nights is for a
 // hotel: how many nights from its check-in, or null to last until the next hotel or the trip's last day.
+// checkout is a hotel's check-out time ("HH:MM"; the day comes from nights), or null for the app's default.
 // done is no longer shown; it's kept so older clients' writes still validate.
 export type Stop = {
   id: string; name: string; address: string; lat: number; lng: number;
-  time: string; note: string; kind: Kind | ''; nights: number | null; done: boolean; by: string; updatedAt: number;
+  time: string; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; done: boolean; by: string; updatedAt: number;
 };
 export type StopFields = Omit<Stop, 'id' | 'by' | 'updatedAt'>;
 export type TripEvent =
@@ -28,6 +29,7 @@ export const ERR = { notFound: 'not_found', notMember: 'not_member', gone: 'gone
 
 const IDENTITIES = 6;
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 // Stop types; the app gives each an icon and color. Keep in sync with KINDS in web/app.js.
 export const KINDS = ['place', 'airport', 'hotel', 'restaurant', 'cafe', 'attraction', 'museum', 'viewpoint', 'nature', 'shopping', 'gas'] as const;
 type Kind = typeof KINDS[number];
@@ -65,11 +67,15 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
     if (i.nights !== null && !(Number.isInteger(i.nights) && (i.nights as number) >= 1 && (i.nights as number) <= MAX_NIGHTS)) throw new Error(ERR.invalid);
     out.nights = i.nights as number | null;
   }
+  if (i.checkout !== undefined) {
+    if (i.checkout !== null && !(typeof i.checkout === 'string' && CLOCK.test(i.checkout))) throw new Error(ERR.invalid);
+    out.checkout = i.checkout as string | null;
+  }
   if (i.done !== undefined) {
     if (typeof i.done !== 'boolean') throw new Error(ERR.invalid);
     out.done = i.done;
   }
-  if (!partial) out = { address: '', note: '', kind: '', nights: null, done: false, ...out };
+  if (!partial) out = { address: '', note: '', kind: '', nights: null, checkout: null, done: false, ...out };
   return out;
 }
 
@@ -88,10 +94,11 @@ export class TripRoom extends DurableObject<Env> {
         id text primary key, name text not null, address text not null, lat real not null, lng real not null,
         time text not null, note text not null, done integer not null, by text not null, updated_at integer not null
       );`);
-    // Added after launch: stop types and hotel nights
+    // Added after launch: stop types, hotel nights and check-out time
     const cols = new Set(this.sql.exec<{ name: string }>('pragma table_info(stops)').toArray().map(c => c.name));
     if (!cols.has('kind')) this.sql.exec("alter table stops add column kind text not null default ''");
     if (!cols.has('nights')) this.sql.exec('alter table stops add column nights integer');
+    if (!cols.has('checkout')) this.sql.exec('alter table stops add column checkout text');
     // Answer keep-alive pings without waking the object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
@@ -149,8 +156,8 @@ export class TripRoom extends DurableObject<Env> {
     this.check(userId);
     const f = cleanStop(input, false) as StopFields;
     this.sql.exec(
-      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, +f.done, userId, Date.now());
+      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, checkout, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, f.checkout, +f.done, userId, Date.now());
     return this.afterStopWrite(stopId);
   }
 

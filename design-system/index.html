@@ -36,7 +36,7 @@
     .demo-nav .group { margin: var(--wt-space-4) 10px var(--wt-space-1); font: var(--wt-type-micro); letter-spacing: .06em; text-transform: uppercase; color: var(--wt-text-secondary); }
     .demo-main { min-width: 0; padding-block: var(--wt-space-8) 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
     .demo-main > section { max-width: 880px; margin-bottom: 72px; }
-    .demo-main h1 { margin: 0 0 var(--wt-space-3); font: var(--wt-type-display); font-size: 36px; line-height: 42px; letter-spacing: var(--wt-tracking-display); text-wrap: balance; }
+    .demo-main h1:not([class]) { margin: 0 0 var(--wt-space-3); font: var(--wt-type-display); font-size: 36px; line-height: 42px; letter-spacing: var(--wt-tracking-display); text-wrap: balance; }
     .demo-main > section > h2 { margin: 0 0 var(--wt-space-2); font: var(--wt-type-display); letter-spacing: var(--wt-tracking-display); text-wrap: balance; }
     .demo-main > section > h3, .demo-h3 { margin: var(--wt-space-8) 0 var(--wt-space-2); font: var(--wt-type-title); }
     .demo-main p, .demo-main li { max-width: 65ch; }
@@ -173,7 +173,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v2.1.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v3.0.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -332,34 +332,68 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li>Input text is 16px, so iPhones don't zoom in.</li>
       </ul>
 
-      <h3>Type picker and nights</h3>
-      <p class="intro">Both live in the stop sheet. <b>Type</b> sets the stop's marker; it starts as a guess from the place, until someone picks one. <b>Nights</b> shows only for a hotel: When becomes check-in, and the stepper sets check-out. Tap to try them.</p>
+      <h3>Type picker, nights and check-out</h3>
+      <p class="intro">All live in the stop sheet. <b>Type</b> is one row that shows the stop's type; tapping it slides the sheet to the list of types, and picking one comes back. It starts as a guess from the place, until someone picks one. <b>Nights</b> and <b>Check-out</b> show only for a hotel: When becomes check-in (3:00 PM for a new hotel), and check-out is 11:00 AM unless set. Tap to try them.</p>
       <div class="demo">
-        <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
-          <div class="wt-field"><span class="wt-field__label" id="demo-kind-label">Type</span>
-            <div class="wt-kinds" role="radiogroup" aria-labelledby="demo-kind-label">
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="false" style="--wt-kind-color: var(--wt-kind-place)"><i class="wt-kinds__icon"><i data-icon="pin" data-size="18"></i></i>Place</button>
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="false" style="--wt-kind-color: var(--wt-kind-travel)"><i class="wt-kinds__icon"><i data-icon="plane" data-size="18"></i></i>Airport</button>
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="true" style="--wt-kind-color: var(--wt-kind-stay)"><i class="wt-kinds__icon"><i data-icon="bed" data-size="18"></i></i>Hotel</button>
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="false" style="--wt-kind-color: var(--wt-kind-food)"><i class="wt-kinds__icon"><i data-icon="utensils" data-size="18"></i></i>Restaurant</button>
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="false" style="--wt-kind-color: var(--wt-kind-food)"><i class="wt-kinds__icon"><i data-icon="cup" data-size="18"></i></i>Café</button>
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="false" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-kinds__icon"><i data-icon="star" data-size="18"></i></i>Attraction</button>
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="false" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-kinds__icon"><i data-icon="museum" data-size="18"></i></i>Museum</button>
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="false" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-kinds__icon"><i data-icon="camera" data-size="18"></i></i>Viewpoint</button>
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="false" style="--wt-kind-color: var(--wt-kind-nature)"><i class="wt-kinds__icon"><i data-icon="tree" data-size="18"></i></i>Nature</button>
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="false" style="--wt-kind-color: var(--wt-kind-shop)"><i class="wt-kinds__icon"><i data-icon="bag" data-size="18"></i></i>Shopping</button>
-              <button class="wt-kinds__item" type="button" role="radio" aria-checked="false" style="--wt-kind-color: var(--wt-kind-travel)"><i class="wt-kinds__icon"><i data-icon="fuel" data-size="18"></i></i>Gas</button>
+        <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet id="demo-type">
+          <div class="demo-type-main">
+            <div class="wt-field"><span class="wt-field__label" id="demo-kind-label">Type</span>
+              <button class="wt-picker" type="button" id="demo-picker" aria-describedby="demo-kind-label" style="--wt-kind-color: var(--wt-kind-stay)"><i class="wt-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i><span class="wt-picker__value">Hotel</span><i data-icon="forward" data-size="18"></i></button></div>
+            <label class="wt-field"><span class="wt-field__label">Check-in</span><input class="wt-input" id="demo-checkin" type="datetime-local" value="2026-11-20T15:00"></label>
+            <div class="wt-field-row">
+              <div class="wt-field wt-nights" id="demo-nights"><span class="wt-field__label">Nights</span>
+                <div class="wt-nights__row"><button class="wt-icon-btn wt-nights__step" type="button" data-nights="-1" aria-label="One night fewer">−</button><output class="wt-nights__n" aria-live="polite">2</output><button class="wt-icon-btn wt-nights__step" type="button" data-nights="1" aria-label="One more night">+</button></div>
+              </div>
+              <label class="wt-field"><span class="wt-field__label">Check-out<span id="demo-checkout-day"> · Sun, Nov 22</span></span><input class="wt-input" type="time" value="11:00"></label>
             </div>
           </div>
-          <label class="wt-field"><span class="wt-field__label">Check in</span><input class="wt-input" id="demo-checkin" type="datetime-local" value="2026-11-20T15:00"></label>
-          <div class="wt-field wt-nights" id="demo-nights"><span class="wt-field__label">Nights</span>
-            <div class="wt-nights__row"><button class="wt-icon-btn wt-nights__step" type="button" data-nights="-1" aria-label="One night fewer">−</button><output class="wt-nights__n" aria-live="polite">2</output><button class="wt-icon-btn wt-nights__step" type="button" data-nights="1" aria-label="One more night">+</button><span class="wt-nights__out">check out Sun, Nov 22</span></div>
+          <div class="demo-type-page" hidden>
+            <div class="wt-modal__head wt-modal__head--sub"><button class="wt-icon-btn" type="button" id="demo-kind-back" aria-label="Back"><i data-icon="back"></i></button><h2 class="wt-modal__title">Type</h2></div>
+            <ul class="wt-options" role="radiogroup" aria-label="Type">
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Place" data-icon-name="pin" style="--wt-kind-color: var(--wt-kind-place)"><i class="wt-marker" role="img" aria-label="Place"><i data-icon="pin"></i></i><span class="wt-option__label">Place</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Airport" data-icon-name="plane" style="--wt-kind-color: var(--wt-kind-travel)"><i class="wt-marker" role="img" aria-label="Airport"><i data-icon="plane"></i></i><span class="wt-option__label">Airport</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="true" data-demo-kind="Hotel" data-icon-name="bed" style="--wt-kind-color: var(--wt-kind-stay)"><i class="wt-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i><span class="wt-option__label">Hotel</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Restaurant" data-icon-name="utensils" style="--wt-kind-color: var(--wt-kind-food)"><i class="wt-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i><span class="wt-option__label">Restaurant</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Café" data-icon-name="cup" style="--wt-kind-color: var(--wt-kind-food)"><i class="wt-marker" role="img" aria-label="Café"><i data-icon="cup"></i></i><span class="wt-option__label">Café</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Attraction" data-icon-name="star" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Attraction"><i data-icon="star"></i></i><span class="wt-option__label">Attraction</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Museum" data-icon-name="museum" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i><span class="wt-option__label">Museum</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Viewpoint" data-icon-name="camera" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Viewpoint"><i data-icon="camera"></i></i><span class="wt-option__label">Viewpoint</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Nature" data-icon-name="tree" style="--wt-kind-color: var(--wt-kind-nature)"><i class="wt-marker" role="img" aria-label="Nature"><i data-icon="tree"></i></i><span class="wt-option__label">Nature</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Shopping" data-icon-name="bag" style="--wt-kind-color: var(--wt-kind-shop)"><i class="wt-marker" role="img" aria-label="Shopping"><i data-icon="bag"></i></i><span class="wt-option__label">Shopping</span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Gas" data-icon-name="fuel" style="--wt-kind-color: var(--wt-kind-travel)"><i class="wt-marker" role="img" aria-label="Gas"><i data-icon="fuel"></i></i><span class="wt-option__label">Gas</span><i data-icon="check" data-size="18"></i></button></li>
+            </ul>
           </div>
         </div>
+        <details><summary>Markup</summary><pre><code>&lt;div class="wt-field"&gt;&lt;span class="wt-field__label" id="kind-label"&gt;Type&lt;/span&gt;
+  &lt;button class="wt-picker" aria-describedby="kind-label"&gt;
+    &lt;i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)"&gt;${icon('bed')}&lt;/i&gt;
+    &lt;span class="wt-picker__value"&gt;Hotel&lt;/span&gt;${icon('forward', 18)}
+  &lt;/button&gt;&lt;/div&gt;
+
+&lt;!-- the types, in place of the form; the form is hidden, not removed, so nothing typed is lost --&gt;
+&lt;div class="wt-modal__head wt-modal__head--sub"&gt;
+  &lt;button class="wt-icon-btn" aria-label="Back"&gt;${icon('back')}&lt;/button&gt;&lt;h2 class="wt-modal__title"&gt;Type&lt;/h2&gt;&lt;/div&gt;
+&lt;ul class="wt-options" role="radiogroup" aria-label="Type"&gt;
+  &lt;li&gt;&lt;button class="wt-option" role="radio" aria-checked="true"&gt;
+    &lt;i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)"&gt;${icon('bed')}&lt;/i&gt;
+    &lt;span class="wt-option__label"&gt;Hotel&lt;/span&gt;${icon('check', 18)}&lt;/button&gt;&lt;/li&gt;
+  &lt;!-- one per type --&gt;
+&lt;/ul&gt;
+
+&lt;div class="wt-field-row"&gt;   &lt;!-- hidden unless it's a hotel --&gt;
+  &lt;div class="wt-field wt-nights"&gt;&lt;span class="wt-field__label"&gt;Nights&lt;/span&gt;
+    &lt;div class="wt-nights__row"&gt;
+      &lt;button class="wt-icon-btn wt-nights__step" aria-label="One night fewer"&gt;−&lt;/button&gt;
+      &lt;output class="wt-nights__n" aria-live="polite"&gt;2&lt;/output&gt;
+      &lt;button class="wt-icon-btn wt-nights__step" aria-label="One more night"&gt;+&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;label class="wt-field"&gt;&lt;span class="wt-field__label"&gt;Check-out · Sun, Nov 22&lt;/span&gt;
+    &lt;input class="wt-input" type="time" value="11:00"&gt;&lt;/label&gt;
+&lt;/div&gt;</code></pre></details>
       </div>
       <ul class="rules">
-        <li><b>Type</b> is a radio group: <code>role="radio"</code> and <code>aria-checked</code> on each item. Set <code>--wt-kind-color</code> on each, so the checked one fills with its color.</li>
-        <li><b>Nights</b> is at least 1. Hide it (<code>hidden</code>) for anything that isn't a hotel.</li>
+        <li><b>Type</b> takes one row, not a grid of every type, so the stop sheet stays short enough to leave the map in view. The options are a radio group: <code>role="radio"</code> and <code>aria-checked</code> on each; the checked one is bold with a check.</li>
+        <li>On the types page, focus the checked option; coming back, focus the picker.</li>
+        <li><b>Nights</b> is at least 1. Hide the row (<code>hidden</code>) for anything that isn't a hotel. Check-out's day comes from the nights, so only its time is a field.</li>
       </ul>
     </section>
 
@@ -452,7 +486,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 
     <section id="sheet">
       <h2>Bottom sheet and day bar</h2>
-      <p class="intro">The plan lives in a white sheet over the full-screen map, one day at a time. It stops at three heights; the app sets the height and the system animates it. The day bar steps through the days, and the one add button sits below the list.</p>
+      <p class="intro">The trip header names the trip at the top of the screen. Under it, the plan lives in a white sheet over the map, one day at a time. On a phone it's half the screen or the whole day, docked under the header; it never hides. The app sets the height and the system animates it. The day bar steps through the days, and the one add button sits below the list. Try <b>List</b>, then <b>Map</b>.</p>
       <div class="demo">
         <div class="demo__live demo__live--column">
           <div class="stage" id="sheet-stage">
@@ -463,12 +497,14 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <path class="casing" d="M70 330 C100 280 120 240 150 210"/><path class="route route--done" d="M70 330 C100 280 120 240 150 210"/>
               <path class="casing" d="M150 210 C190 170 220 140 250 120 S330 70 360 60"/><path class="route" d="M150 210 C190 170 220 140 250 120 S330 70 360 60"/>
             </svg>
-            <nav class="wt-map-bar">
-              <a class="wt-icon-btn wt-map-btn" href="#sheet" aria-label="All trips"><i data-icon="home"></i></a>
-              <button class="wt-icon-btn wt-map-btn" type="button" aria-label="Trip settings and sharing"><i data-icon="settings"></i></button>
-            </nav>
-            <section class="wt-sheet" style="height: 62%" aria-label="White Sands, NM (demo)">
-              <div class="wt-sheet__top"><div class="wt-sheet__grab"></div>
+            <header class="wt-trip-head">
+              <a class="wt-icon-btn" href="#sheet" aria-label="All trips"><i data-icon="home"></i></a>
+              <h1 class="wt-trip-head__name">White Sands, NM</h1>
+              <button class="wt-view-toggle" type="button" id="demo-view-toggle" aria-label="Show the whole day"><i data-icon="list"></i>List</button>
+              <button class="wt-icon-btn" type="button" aria-label="Trip settings and sharing"><i data-icon="settings"></i></button>
+            </header>
+            <section class="wt-sheet" style="height: 58%" aria-label="White Sands, NM (demo)">
+              <div class="wt-sheet__top"><button class="wt-sheet__grab" type="button" data-sheet-toggle aria-label="Show the whole day"></button>
                 <div class="wt-day-bar">
                   <button class="wt-icon-btn wt-day-bar__step" type="button" aria-label="Previous day"><i data-icon="back"></i></button>
                   <button class="wt-day-bar__title" type="button" aria-label="Today, Nov 21. Pick a day"><span class="wt-day-bar__label">Today, Nov 21<i data-icon="chevron-down"></i></span></button>
@@ -487,15 +523,16 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <div class="wt-add-bar"><button class="wt-btn wt-btn--primary wt-btn--block" type="button"><i data-icon="plus"></i>Add stop</button></div>
             </section>
           </div>
-          <div class="stage-controls" role="group" aria-label="Sheet height">
-            <button class="wt-btn wt-btn--secondary" type="button" data-sheet-height="peek">Top only</button>
-            <button class="wt-btn wt-btn--secondary" type="button" data-sheet-height="62%">Half</button>
-            <button class="wt-btn wt-btn--secondary" type="button" data-sheet-height="calc(100% - 32px)">Full</button>
-          </div>
         </div>
-        <details><summary>Markup</summary><pre><code>&lt;section class="wt-sheet" aria-label="White Sands, NM"&gt;
+        <details><summary>Markup</summary><pre><code>&lt;header class="wt-trip-head"&gt;
+  &lt;a class="wt-icon-btn" href="#/" aria-label="All trips"&gt;${icon('home')}&lt;/a&gt;
+  &lt;h1 class="wt-trip-head__name"&gt;White Sands, NM&lt;/h1&gt;
+  &lt;button class="wt-view-toggle" aria-label="Show the whole day"&gt;${icon('list')}List&lt;/button&gt;   &lt;!-- full: ${icon('map')}Map, "Show the map" --&gt;
+  &lt;button class="wt-icon-btn" aria-label="Trip settings and sharing"&gt;${icon('settings')}&lt;/button&gt;
+&lt;/header&gt;
+&lt;section class="wt-sheet" aria-label="Plan"&gt;   &lt;!-- add .is-full at full height --&gt;
   &lt;div class="wt-sheet__top"&gt;
-    &lt;div class="wt-sheet__grab"&gt;&lt;/div&gt;
+    &lt;button class="wt-sheet__grab" aria-label="Show the whole day"&gt;&lt;/button&gt;
     &lt;div class="wt-day-bar"&gt;
       &lt;button class="wt-icon-btn wt-day-bar__step" aria-label="Previous day"&gt;${icon('back')}&lt;/button&gt;
       &lt;button class="wt-day-bar__title" aria-label="Today, Nov 21. Pick a day"&gt;
@@ -509,9 +546,11 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 &lt;/section&gt;</code></pre></details>
       </div>
       <ul class="rules">
-        <li>The top holds the grab handle and the day bar. Nothing else: home and settings float over the map (<code>.wt-map-bar</code>), and people live in trip settings.</li>
+        <li><b>The header</b> is a full row: home, the trip's name, Map/List, settings. On a phone it spans the top and the map starts under it; from 768px wide it tops the side panel and Map/List hides.</li>
+        <li><b>Two heights on a phone:</b> half, and full (up to the header's bottom edge, with <code>.is-full</code>, so header and list read as one page). Map/List names where it goes, so leaving the full list is one obvious tap; tapping the grab handle or dragging the top does the same. Nothing else on the sheet's top resizes it.</li>
+        <li>The sheet's top holds the grab handle and the day bar. People live in trip settings.</li>
         <li><b>Day bar:</b> the arrows step a day; the first and last day disable theirs. The title says <i>Today, Nov 21</i> on today, and <i>Sat, Nov 21</i> otherwise. Tapping it opens the day list.</li>
-        <li>The add bar comes after <code>.wt-sheet__body</code>, not inside it. It's static, not sticky, so a pulled-down sheet shows only its top.</li>
+        <li>The add bar comes after <code>.wt-sheet__body</code>, not inside it. It's static, not sticky.</li>
         <li>On today, scroll the list so the <code>is-now</code> row sits a little above the middle.</li>
         <li>Add <code>.is-dragging</code> while a finger is moving the sheet, so it follows without lag.</li>
       </ul>
@@ -605,11 +644,30 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <div class="wt-pin wt-pin--selected" style="left:90%; top:23.3%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="utensils"></i></i><span class="wt-pin__label">Cloudcroft</span></div>
             </div>
           </div>
+          <div class="stage" style="height: 300px; margin-top: var(--wt-space-3)">
+            <svg class="map-art" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <path class="road" d="M-10 240 C160 200 360 260 610 210"/>
+              <path class="casing" d="M60 250 C120 200 140 160 210 140"/><path class="route route--muted" d="M60 250 C120 200 140 160 210 140"/>
+              <path class="casing" d="M210 140 C290 120 330 170 400 150"/><path class="route route--active" d="M210 140 C290 120 330 170 400 150"/>
+              <path class="casing" d="M400 150 C450 130 480 90 540 70"/><path class="route route--muted" d="M400 150 C450 130 480 90 540 70"/>
+            </svg>
+            <div class="pin-layer">
+              <div class="wt-pin wt-pin--muted" style="left:10%; top:83.3%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-stay)"><i data-icon="bed"></i></i></div>
+              <div class="wt-pin wt-pin--selected" style="left:35%; top:46.7%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Museum" style="--wt-kind-color: var(--wt-kind-sight)"><i data-icon="museum"></i></i><span class="wt-pin__label">Museum of Space History</span></div>
+              <div class="wt-route-tag" style="left:51%; top:48%"><i class="wt-route-tag__car"><i data-icon="car" data-size="14"></i></i>34 min<span class="wt-route-tag__late">· 12 min late</span></div>
+              <div class="wt-pin wt-pin--selected" style="left:66.7%; top:50%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><span class="wt-pin__label wt-pin__label--below">Oliver Lee State Park</span></div>
+              <div class="wt-pin wt-pin--muted" style="left:90%; top:23.3%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="utensils"></i></i></div>
+            </div>
+          </div>
         </div>
         <details><summary>Markup and script</summary><pre><code>&lt;div class="wt-pin wt-pin--selected"&gt;
   &lt;i class="wt-marker wt-pin__marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"&gt;${icon('utensils')}&lt;/i&gt;
   &lt;span class="wt-pin__label"&gt;Cloudcroft&lt;/span&gt;
 &lt;/div&gt;
+
+&lt;!-- a route on show: its time halfway along it, and both ends named --&gt;
+&lt;div class="wt-route-tag"&gt;&lt;i class="wt-route-tag__car"&gt;${icon('car', 14)}&lt;/i&gt;34 min&lt;span class="wt-route-tag__late"&gt;· 12 min late&lt;/span&gt;&lt;/div&gt;
+&lt;span class="wt-pin__label wt-pin__label--below"&gt;Oliver Lee State Park&lt;/span&gt;   &lt;!-- the lower end --&gt;
 
 const token = n =&gt; getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const color = active ? '--wt-route-active' : anotherActive ? '--wt-route-muted' : past ? '--wt-route-done' : '--wt-route';
@@ -620,18 +678,19 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
         <thead><tr><th>State</th><th>Pin</th><th>Route</th><th>When</th></tr></thead>
         <tbody>
           <tr><td>Normal</td><td><code>.wt-pin</code></td><td><code>--wt-route</code></td><td>Nothing selected.</td></tr>
-          <tr><td>Selected</td><td><code>--selected</code></td><td><code>--wt-route-active</code></td><td>A pin, a route, or its row in the list was tapped.</td></tr>
-          <tr><td>Others</td><td></td><td><code>--wt-route-muted</code></td><td>Another route is selected.</td></tr>
+          <tr><td>Selected</td><td><code>--selected</code></td><td><code>--wt-route-active</code></td><td>A pin, a route, or its row in the list was tapped. A selected route also names both its ends and carries a <code>.wt-route-tag</code> with its time.</td></tr>
+          <tr><td>Others</td><td><code>--muted</code></td><td><code>--wt-route-muted</code></td><td>Another route is selected. A stop that's being moved in the stop sheet mutes its two routes too, until it's saved.</td></tr>
           <tr><td>Past</td><td><code>--muted</code></td><td><code>--wt-route-done</code></td><td>On today, the stop or drive is over. The day before's last stop, where a day with no hotel starts, is muted too.</td></tr>
         </tbody>
       </table></div>
       <ul class="rules">
         <li>Draw past routes first and the selected route last, so it sits on top.</li>
         <li>Stops at the same place, like a hotel in the morning and at night, share one pin.</li>
+        <li>Showing a route moves the map to fit it, with room for its end labels; from a tap on the route itself, only when an end is out of view. The lower end's label goes under its pin.</li>
       </ul>
 
       <h3>Map buttons and credit</h3>
-      <p class="intro">Home and trip settings float over the top corners of the map, clear of the sheet. The map's credits go at the bottom of trip settings, not on the map.</p>
+      <p class="intro">The app puts home and trip settings in the trip header (see the sheet, above). The phone-only prototype still floats them over the map's top corners. The map's credits go at the bottom of trip settings, not on the map.</p>
       <div class="demo">
         <div class="demo__live demo__live--column">
           <div class="stage" style="height: 120px">
@@ -694,12 +753,14 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
             <div class="wt-pin" style="left:77.3%; top:18.1%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="utensils"></i></i></div>
             <div class="wt-pin" style="left:61.3%; top:31.9%"><i class="wt-marker wt-pin__marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i></div>
           </div>
-          <nav class="wt-map-bar">
-            <a class="wt-icon-btn wt-map-btn" href="#patterns" aria-label="All trips"><i data-icon="home"></i></a>
-            <button class="wt-icon-btn wt-map-btn" type="button" aria-label="Trip settings and sharing"><i data-icon="settings"></i></button>
-          </nav>
+          <header class="wt-trip-head">
+            <a class="wt-icon-btn" href="#patterns" aria-label="All trips"><i data-icon="home"></i></a>
+            <h1 class="wt-trip-head__name">White Sands, NM</h1>
+            <button class="wt-view-toggle" type="button" aria-label="Show the whole day"><i data-icon="list"></i>List</button>
+            <button class="wt-icon-btn" type="button" aria-label="Trip settings and sharing"><i data-icon="settings"></i></button>
+          </header>
           <section class="wt-sheet" aria-label="White Sands, NM (example)">
-            <div class="wt-sheet__top"><div class="wt-sheet__grab"></div>
+            <div class="wt-sheet__top"><button class="wt-sheet__grab" type="button" aria-label="Show the whole day"></button>
               <div class="wt-day-bar">
                 <button class="wt-icon-btn wt-day-bar__step" type="button" aria-label="Previous day"><i data-icon="back"></i></button>
                 <button class="wt-day-bar__title" type="button" aria-label="Today, Nov 21. Pick a day"><span class="wt-day-bar__label">Today, Nov 21<i data-icon="chevron-down"></i></span></button>
@@ -775,7 +836,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v2.1.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v3.0.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -991,8 +1052,23 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       row.classList.add(row.matches('.wt-tl-stop') ? 'is-selected' : 'is-active');
       return;
     }
-    const kind = e.target.closest('.wt-kinds__item');
-    if (kind) { for (const b of kind.parentElement.children) b.setAttribute('aria-checked', String(b === kind)); return; }
+    // Type: the picker opens the types page; picking one (or Back) returns with it shown on the picker.
+    const box = document.getElementById('demo-type');
+    const showTypes = open => { box.querySelector('.demo-type-main').hidden = open; box.querySelector('.demo-type-page').hidden = !open; };
+    if (e.target.closest('#demo-picker')) { showTypes(true); return; }
+    if (e.target.closest('#demo-kind-back')) { showTypes(false); return; }
+    const kind = e.target.closest('[data-demo-kind]');
+    if (kind) {
+      box.querySelectorAll('[data-demo-kind]').forEach(b => b.setAttribute('aria-checked', String(b === kind)));
+      const picker = document.getElementById('demo-picker');
+      picker.querySelector('.wt-marker').replaceWith(kind.querySelector('.wt-marker').cloneNode(true));
+      picker.style.setProperty('--wt-kind-color', kind.style.getPropertyValue('--wt-kind-color'));
+      picker.querySelector('.wt-picker__value').textContent = kind.dataset.demoKind;
+      box.querySelector('.wt-field-row').hidden = kind.dataset.demoKind !== 'Hotel';
+      document.getElementById('demo-checkin').previousElementSibling.textContent = kind.dataset.demoKind === 'Hotel' ? 'Check-in' : 'When';
+      showTypes(false);
+      return;
+    }
     const step = e.target.closest('[data-nights]');
     if (step) { setNights(nights + +step.dataset.nights); return; }
     const day = e.target.closest('.wt-day-list__item');
@@ -1001,11 +1077,14 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       day.setAttribute('aria-current', 'date');
       return;
     }
-    const h = e.target.closest('[data-sheet-height]');
-    if (h) {
-      const sheet = document.querySelector('#sheet-stage .wt-sheet');
-      // "Top only" is the height of the sheet's top, as the app measures it.
-      sheet.style.height = h.dataset.sheetHeight === 'peek' ? `${sheet.querySelector('.wt-sheet__top').offsetHeight}px` : h.dataset.sheetHeight;
+    // Half and full: Map/List in the header and the grab handle switch between them; full docks under the header.
+    if (e.target.closest('#demo-view-toggle, [data-sheet-toggle]')) {
+      const stage = document.getElementById('sheet-stage'), sheet = stage.querySelector('.wt-sheet');
+      const full = !sheet.classList.contains('is-full'), toggle = document.getElementById('demo-view-toggle');
+      sheet.classList.toggle('is-full', full);
+      sheet.style.height = full ? `${stage.clientHeight - stage.querySelector('.wt-trip-head').offsetHeight}px` : '58%';
+      toggle.innerHTML = full ? `${WaythreadIcons.svg('map')}Map` : `${WaythreadIcons.svg('list')}List`;
+      for (const el of [toggle, stage.querySelector('.wt-sheet__grab')]) el.setAttribute('aria-label', full ? 'Show the map' : 'Show the whole day');
       return;
     }
     if (e.target.closest('[data-close-modal]')) { document.getElementById('modal-root').classList.remove('is-open'); return; }
@@ -1028,7 +1107,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     out.setDate(out.getDate() + nights);
     box.querySelector('.wt-nights__n').textContent = nights;
     box.querySelector('[data-nights="-1"]').disabled = nights <= 1;
-    box.querySelector('.wt-nights__out').textContent = isNaN(out) ? '' : `check out ${out.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+    document.getElementById('demo-checkout-day').textContent = isNaN(out) ? '' : ` · ${out.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
   }
   document.getElementById('demo-checkin').addEventListener('change', () => setNights(nights));
   setNights(nights);

@@ -23,13 +23,13 @@ One more rule came out of the iterations: **don't rebuild what Google Maps and A
 
 ### Trip
 
-The trip is a single screen: a full-screen **map** with the **stop list** in a sheet over it. There are no List/Map tabs.
+The trip is a single screen: a **header** with the trip's name, the **map**, and the **stop list** in a sheet over the map. There are no List/Map tabs; on a phone, one button switches the list between half the screen and the whole day.
 
 ```
 ┌──────────────────────────────┐
-│ (⌂)                      (⚙) │  ← home, trip settings
+│ ⌂  White Sands, NM [≡ List] ⚙│  ← header: home · trip · Map/List · settings
 │        map: pins + routes    │  ← what's over is grey
-├──────────────────────────────┤  ← drag handle
+├──────────────────────────────┤  ← grab handle
 │ ‹       Today, Nov 21 ⌄    › │  ← day bar: step, or tap the day
 │ (🛏) Holiday Inn              │  ← last night's hotel
 │  ⊖   10 min drive          ◇ │  ← car on the rail · Directions
@@ -43,11 +43,16 @@ The trip is a single screen: a full-screen **map** with the **stop list** in a s
 └──────────────────────────────┘
 ```
 
-**Two floating buttons** sit over the map: **home** (back to the trip list) on the left and **trip settings** on the right. The trip name, its people and sharing used to be a header row that took space from the plan without helping to plan it. They're in trip settings now.
+**The header** is one row across the top: **home** (back to the trip list), the **trip's name**, **Map/List**, and **trip settings**. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings.
 
-**The sheet** is white and has three heights: the day bar only, half the screen (the default), and nearly full. Drag the top of the sheet to resize it. Tap its top edge to pull it down to the day bar. When it's pulled down, any tap on what's left of it opens it back to half. The map zooms to fit the day's stops above the sheet.
+**The sheet** is white and has two heights on a phone: half the screen (the default), and the whole day.
+- **The whole day** fills the screen up to the header and joins it, square and flat, so the header and the list read as one page. The header stays usable: home, settings, and the way back to the map.
+- **Switching:** **List** in the header shows the whole day; it then says **Map**, and tapping it goes back. The button names where it goes, so leaving the full list is one obvious tap. Tapping the grab handle, or dragging the sheet's top, does the same.
+- **It never hides.** It used to pull down to just the day bar, and any tap on the sheet's top that missed a button did that, so it was easy to hide the list by accident. A hidden list was rarely worth having on a phone; the whole day was. Now only the grab handle and Map/List resize the sheet.
+- Anything that needs the map, like showing a route or tapping a pin, brings the list back to half.
+- The map zooms to fit the day's stops above the sheet.
 
-**On a computer or tablet** (768px wide and up), the sheet becomes a side panel: the plan down the left, about a third of the window (360–440px), and the map filling the rest. There's nothing to drag, and nothing floats over the map: home, the trip's name and settings sit at the top of the panel, above the day bar. Opening a stop, a day list or settings covers the panel, so the map stays in view beside it, with the stop being edited in the middle.
+**On a computer or tablet** (768px wide and up), the header and the sheet become a side panel: the plan down the left, about a third of the window (360–440px), and the map filling the rest. There's nothing to drag and no Map/List: the header tops the panel, above the day bar. Opening a stop, a day list or settings covers the panel, so the map stays in view beside it, with the stop being edited in the middle.
 
 ```
 ┌─────────────────────┬──────────────────────────────────┐
@@ -95,7 +100,7 @@ A selected stop (tapped, or picked on the map) gets a light grey background and 
 A drive is a row between two places: a small grey car on the rail, **`1 hr 49 min drive`**, and a Directions icon (a road-sign arrow) on the right, where stops have their time.
 
 - **The Directions icon** opens the drive in the phone's maps app (see [Handing off navigation](#handing-off-navigation)). It sits in a pale grey circle, so it reads as a button without outranking the stops. It's the only part of the row that looks pressable: the row has no hover or press highlight, so tapping the row never looks like tapping Directions.
-- **Tapping the rest of the row** shows that route on the map. On a computer, hovering it previews the route.
+- **Tapping the rest of the row** shows that route on the map (see [How the map and the list work together](#how-the-map-and-the-list-work-together)). Tapping it again goes back to the whole day. On a computer, hovering it previews the route without moving the map.
 - **When a drive doesn't fit** in the gap between the two stops, its time turns red and a second line says by how much: `Arrives 49 min late`.
 
 ### Hotel stays
@@ -103,8 +108,9 @@ A drive is a row between two places: a small grey car on the rail, **`1 hr 49 mi
 A hotel isn't just a stop: you sleep there, and the next morning starts there. Before this, Saturday's first drive started at Friday's last stop (the boardwalk), and so did its Directions link.
 
 - **A hotel has nights.** On its check-in day it shows as a normal stop at its check-in time, with `2 nights` under the name.
-- **Every day of the stay starts and ends there.** The day opens with the hotel and, after the day's last stop, a drive back to it. These rows look like any stop, with the same solid marker, and no time. Only the last morning has a note, `Check out`, since that's the one with something to do. Tapping one opens the hotel.
-- **Nights, by default, follow the trip:** until the next hotel, or the trip's last day. In the stop sheet, a hotel's **When** becomes **Check-in**, and a **Nights** stepper shows the check-out day (`2 nights · check out Sun, Nov 22`).
+- **Every day of the stay starts and ends there.** The day opens with the hotel and, after the day's last stop, a drive back to it. These rows look like any stop, with the same solid marker, and no time. Only the last morning has a note, `Check out`, with the check-out time where the time goes, since that's the one with something to do. Tapping one opens the hotel.
+- **Nights, by default, follow the trip:** until the next hotel, or the trip's last day. In the stop sheet, a hotel's **When** becomes **Check-in**, followed by **Nights** (a stepper) and **Check-out** (a time, labeled with the day the nights end on: `Check-out · Sun, Nov 22`).
+- **Usual times:** a new hotel's check-in starts at **3:00 PM**, and check-out is **11:00 AM** until someone sets another time. Hotels saved before check-out times existed show 11:00 AM too.
 - The drive back to the hotel has no times, because the day's last stop has no end.
 
 ### Where the day starts without a hotel
@@ -134,7 +140,7 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 | Place (grey) | Place: anything else |
 
 - Colors go by group, so a day's meals or sights read alike. The colors leave out blue (routes) and red (a drive that doesn't fit), and they have light and dark versions.
-- **Choosing a type:** the stop sheet has a grid of types under the place. When you pick a place from search, the type starts as a guess from the place's OpenStreetMap category and its name (an "Inn" is a hotel, a "Visitor Center" an attraction). Tap a type to choose one yourself; after that, the guess leaves it alone.
+- **Choosing a type:** the stop sheet has one **Type** row under the place, showing the type's marker and name. Tapping it slides the sheet to a page with every type, one per row; picking one slides back. (It used to be a grid of all eleven types, the tallest thing in the stop sheet; on a phone the sheet now has to stay short enough to leave the map in view.) When you pick a place from search, the type starts as a guess from the place's category and its name (an "Inn" is a hotel, a "Visitor Center" an attraction). Choose a type yourself and the guess leaves it alone after that.
 - Stops saved before types existed get the guess from their name, or are a restaurant when the note says breakfast, brunch, lunch or dinner ("Cloudcroft", note "Lunch").
 
 ### What the list leaves out, and why
@@ -152,7 +158,7 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 | Hotel notes (`Start the day here`, `Back for the night`) and outlined hotel markers | Where the hotel sits in the day already says it. Only `Check out` is kept. |
 | Stop counts in the day list | The type icons show the same thing. |
 | Pins fading as you scroll the list | With one day on the map there are few pins, and fading them by scroll position made them look done. Faded pins now mean past only. |
-| Trip header (name, edit button, faces) | Not needed to plan the day. It's all in trip settings. |
+| Trip header (edit button, faces) | Not needed to plan the day. It's all in trip settings. The header came back as one row with just the trip's name and buttons, so a phone always says which trip you're in. |
 | Trip subtitle (dates · stop count) | The day bar already shows the date. |
 | Time-scaled heights and stay lengths | Tried after the grid: cards and drives as tall as the time they take, then a written "41 min" under each time with the rail colored by stay. The uneven gaps looked like layout bugs, and the extra numbers made the list harder to scan. |
 | Swiping between days | Dropped after review in favor of the day bar's arrows and day list, which say what they do. |
@@ -162,11 +168,12 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 ### Adding and editing a stop
 
 - **Add stop.** One black button pinned to the bottom of the sheet, always reachable: it's the main action on the screen. A new stop starts two hours after the last stop of the day on screen.
-- **Editing.** Tap a stop. The map moves the stop into the strip still visible above the edit sheet.
-- **The edit sheet** has four fields (five for a hotel), in this order:
+- **Editing.** Tap a stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
+- **The map follows the edit.** The stop's pin shows the draft: picking a place from search moves the pin there, and the map goes with it; choosing a type changes the pin's icon. A new stop's pin appears once a place is picked. If the stop moves, its two drives fade until it's saved. You can pan and zoom the map while the sheet is open, and taps on the map don't change anything. Closing without saving puts the map back where it was.
+- **The stop sheet** has four fields (six for a hotel), in this order:
   1. **Place.** The first line, like in the list. It shows the stop's name, and typing in it searches for a new place. One field does both, so there's no separate search box or address line.
-  2. **Type.** A grid of [stop types](#stop-types).
-  3. **When.** Date and time. For a hotel it's **Check-in**, followed by **Nights**.
+  2. **Type.** One row that opens the [stop types](#stop-types).
+  3. **When.** Date and time. For a hotel it's **Check-in**, followed by **Nights** and **Check-out** side by side.
   4. **Note.**
 - **Delete.** In the edit sheet. Deleting shows a notice with **Undo**.
 
@@ -179,8 +186,14 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 ### How the map and the list work together
 
 - **Tapping a pin** selects that stop and scrolls it into view in the list.
-- **Tapping a route** highlights it on the map and highlights its drive in the list. There's no popup, because the list already has the time and the link.
-- **Tapping a drive** in the list shows its route; on a computer, hovering a drive previews the route.
+- **Showing a route.** Tapping a route on the map, or its drive in the list, shows it:
+  - The route is highlighted, and the other routes and stops fade.
+  - **Both ends are named** on the map, with the same label a selected pin has. The lower end's name goes under its pin, so the two don't meet.
+  - **Its drive time** sits halfway along it, with a small car in the route's blue: `🚗 34 min`. A drive that doesn't fit adds, in red, `· 12 min late`.
+  - **The map fits the route**, with room for the names, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. If the whole day was showing, the list goes back to half so the map shows.
+  - The Directions link stays in the list.
+- **Tapping the same drive again**, or tapping empty map, goes back to the whole day.
+- **Hovering a drive** on a computer previews its route, with its names and time, without moving the map.
 - **Tapping empty map** clears the selection.
 
 ### Handing off navigation
@@ -209,8 +222,8 @@ The full visual language (tokens, components, light and dark themes, accessibili
 
   | Width | Trip | Home and sign-in |
   | --- | --- | --- |
-  | Under 768px | Full-screen map, plan in a bottom sheet; modal sheets slide up | A 480px column |
-  | 768px and up | Plan in a side panel beside the map; modal sheets cover the panel | Trips in a grid of cards; sign-in in a card; other sheets are dialogs in the middle |
+  | Under 768px | Header, map, plan in a bottom sheet (half or the whole day); modal sheets slide up, and the stop sheet leaves the map in view | A 480px column |
+  | 768px and up | Header and plan in a side panel beside the map; modal sheets cover the panel | Trips in a grid of cards; sign-in in a card; other sheets are dialogs in the middle |
 
   16px text in form fields (stops iPhone zooming in), and spacing for phone screen edges. The prototype doesn't opt in to the side panel, so it stays phone-shaped at every width.
 
@@ -244,7 +257,8 @@ The full visual language (tokens, components, light and dark themes, accessibili
 - **Phone-friendly gestures:** for example, dragging to reorder.
 - **Day view in the app:** shipped. The day bar, timeline, hotel stays, stop types and floating buttons are in `app/web`, with their styles in the design system (v2.0.0). Stops store `kind` and `nights` on the server. In the app, trip settings also holds Make a new link, and the trip name saves when you leave the field. Try changes in `prototype/` first, then port them by hand.
 - **How long a stop lasts:** stops have only a start time, so "Arrives late" and the highlight assume you leave each stop just in time for the next. Default lengths per type (a meal 1 hour, a museum 2, a flight's check-in 90 minutes) would make both more honest, without showing durations in the list.
-- **From the UX review, not yet done:** a lighter Add stop (type as one tappable marker instead of a grid, quick time choices), showing who's on the trip at a glance and what changed while you were away, working offline, an "All days" map of the whole route, and marking estimated drive times with `≈`.
+- **The map and list, in the app first:** the header, the half/whole-day sheet, route previews, the stop sheet that leaves the map in view, the Type page and hotel check-out times are in `app/web` and the design system (v3.0.0). The phone-only prototype still has the floating buttons, three sheet heights and the type grid.
+- **From the UX review, not yet done:** quick time choices in Add stop, showing who's on the trip at a glance and what changed while you were away, working offline, an "All days" map of the whole route, and marking estimated drive times with `≈`.
 - **Map credits:** Stadia's and OpenStreetMap's terms ask for attribution on or next to the map. The app now shows them only in trip settings, like the prototype. Check the terms before this deploys; if needed, bring back a small ⓘ button on the map that shows the credits.
 - **People at a glance:** with the header gone, who's on the trip is one tap away. If that hides co-editing too much, a small stack of faces could go back on the settings button.
 - **Accessibility:** a full review, including focus handling in the sheets and screen-reader labels for pins.

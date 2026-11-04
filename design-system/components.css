@@ -1,4 +1,4 @@
-/* Waythread design system — components v2.1.0
+/* Waythread design system — components v3.0.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -14,10 +14,10 @@
 .wt-base *, .wt-base *::before, .wt-base *::after { box-sizing: border-box; }
 .wt-icon { flex: none; display: block; }
 .wt-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action) {
+:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option) {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
 }
-:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack):focus-visible {
+:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option):focus-visible {
   outline: 2px solid var(--wt-border-focus);
   outline-offset: 2px;
   border-radius: var(--wt-radius-md);
@@ -194,7 +194,30 @@ textarea.wt-input { resize: none; }
 .wt-day-list__name { flex: 1; min-width: 0; font: var(--wt-type-name); }
 .wt-day-list__kinds { display: flex; gap: 3px; }
 
-/* ---------- Type picker and nights stepper (the stop sheet) ---------- */
+/* ---------- Picker: a field that shows the current choice and opens the options on a page of their own ---------- */
+/* The stop sheet's Type: one row (marker · Hotel · ›) instead of a grid of every type. Tapping it slides the
+   sheet to the options, with a back button in the sheet's head (.wt-modal__head--sub); picking one comes back. */
+.wt-picker {
+  display: flex; align-items: center; gap: var(--wt-space-3); width: 100%; min-height: 50px; padding: 9px var(--wt-space-3) 9px 9px;
+  font: var(--wt-type-input); color: var(--wt-text-primary);
+  background: var(--wt-surface-sunken); border: 1px solid var(--wt-border-default); border-radius: var(--wt-radius-md);
+}
+.wt-picker:active { background: var(--wt-surface-hover); }
+.wt-picker__value { flex: 1; min-width: 0; }
+.wt-picker > .wt-icon:last-child { width: 18px; height: 18px; color: var(--wt-text-secondary); }
+.wt-options { list-style: none; margin: 0; padding: 0; }
+.wt-option {
+  display: flex; align-items: center; gap: var(--wt-space-3); width: 100%; min-height: 48px;
+  padding: var(--wt-space-1) var(--wt-space-2); border-radius: var(--wt-radius-md); font: var(--wt-type-body);
+}
+.wt-option:active { background: var(--wt-surface-hover); }
+@media (hover: hover) { .wt-option:hover { background: var(--wt-surface-sunken); } }
+.wt-option__label { flex: 1; min-width: 0; }
+.wt-option > .wt-icon:last-child { width: 18px; height: 18px; visibility: hidden; }
+.wt-option[aria-checked="true"] { font-weight: 600; }
+.wt-option[aria-checked="true"] > .wt-icon:last-child { visibility: visible; }
+
+/* ---------- Type grid (the prototype's stop sheet; the app uses the picker above) and nights stepper ---------- */
 .wt-kinds { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--wt-space-1); }
 .wt-kinds__item {
   font: var(--wt-type-caption); font-size: 12px; color: var(--wt-text-secondary); background: none; border: 0; margin: 0; cursor: pointer;
@@ -211,23 +234,61 @@ textarea.wt-input { resize: none; }
 .wt-nights__step:disabled { opacity: .35; }
 .wt-nights__n { min-width: 24px; text-align: center; font: var(--wt-type-name); font-variant-numeric: tabular-nums; }
 .wt-nights__out { margin-left: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+/* A hotel's Nights and Check-out side by side; the check-out day is worked out from the nights. */
+.wt-field-row { display: grid; grid-template-columns: auto 1fr; gap: var(--wt-space-5); align-items: end; }
+.wt-field-row > .wt-field { min-width: 0; }
+.wt-field-row[hidden] { display: none; }
+.wt-nights__row { min-height: 50px; }
+input.wt-input[type="time"] { min-height: 50px; }
+
+/* ---------- Trip header: home · trip name · Map/List · settings ---------- */
+/* A full row at the top of the trip screen, so the trip's name is always in view. On a phone it spans the screen,
+   above the map; from 768px wide (the wt-trip container, below) it tops the side panel. */
+.wt-trip-head {
+  position: absolute; z-index: calc(var(--wt-z-sheet) + 1); top: 0; left: 0; right: 0;
+  height: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) var(--wt-space-2) 0 var(--wt-space-1);
+  display: flex; align-items: center; gap: var(--wt-space-1);
+  background: var(--wt-surface-raised); box-shadow: 0 1px 0 var(--wt-border-default);
+}
+.wt-trip-head__name { flex: 1; min-width: 0; margin: 0 0 0 var(--wt-space-1); font: var(--wt-type-name); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Map / List: on a phone, switches between the map with half the day under it, and the whole day.
+   It names where it goes, so leaving the full list is one obvious tap. */
+.wt-view-toggle {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px 0 11px;
+  border-radius: var(--wt-radius-pill); background: var(--wt-surface-sunken); font: var(--wt-type-label);
+  transition: background var(--wt-duration-fast);
+}
+.wt-view-toggle:active { background: var(--wt-surface-hover); }
+.wt-view-toggle .wt-icon { width: 18px; height: 18px; }
+@media (hover: hover) { .wt-view-toggle:hover, .wt-trip-head .wt-icon-btn:hover { background: var(--wt-surface-hover); } }
 
 /* ---------- Bottom sheet (the list over the map) ---------- */
+/* Two heights on a phone: half the screen, and full, docked under the trip header. It never hides: the day
+   bar and the list are always in reach. Drag the top, or tap the grab handle, to switch. */
 .wt-sheet {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--wt-z-sheet);
   display: flex; flex-direction: column;
   background: var(--wt-surface-raised); border-radius: var(--wt-radius-lg) var(--wt-radius-lg) 0 0; box-shadow: var(--wt-shadow-sheet);
-  overflow: hidden; /* a pulled-down sheet shows only its top */
-  transition: height var(--wt-duration-base) var(--wt-ease-out);
+  overflow: hidden;
+  transition: height var(--wt-duration-base) var(--wt-ease-out), border-radius var(--wt-duration-base);
 }
 .wt-sheet.is-dragging { transition: none; }
-.wt-sheet__top { flex: none; touch-action: none; cursor: grab; padding: 6px var(--wt-space-3) var(--wt-space-1) var(--wt-space-1); }
-.wt-sheet__grab { width: 36px; height: 4px; margin: 0 auto var(--wt-space-1); border-radius: 2px; background: var(--wt-border-strong); }
+/* Full: square and flush under the header, so the two read as one page: the trip, then the whole day. */
+.wt-sheet.is-full { border-radius: 0; box-shadow: none; }
+.wt-sheet__top { flex: none; touch-action: none; padding: 0 var(--wt-space-3) var(--wt-space-1) var(--wt-space-1); }
+/* The grab handle is a button as wide as the sheet, so it's easy to hit and nothing else on the sheet's top resizes it. */
+.wt-sheet__grab { position: relative; display: block; width: 100%; height: 22px; cursor: grab; }
+.wt-sheet__grab::before {
+  content: ''; position: absolute; left: 50%; top: 8px; width: 36px; height: 4px; transform: translateX(-50%);
+  border-radius: 2px; background: var(--wt-border-strong);
+}
+.wt-sheet__grab:focus-visible { border-radius: var(--wt-radius-md); }
 .wt-sheet__body { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--wt-space-3) var(--wt-space-3); overscroll-behavior: contain; }
 /* The one add button, below the list. Static, not sticky: a sticky bar pinned itself to the screen's bottom and covered a pulled-down sheet's top. */
 .wt-add-bar { flex: none; padding: var(--wt-space-3) var(--wt-space-3) calc(var(--wt-space-3) + env(safe-area-inset-bottom, 0px)); background: var(--wt-surface-raised); }
 
-/* ---------- Map buttons: home and settings, floating over the map ---------- */
+/* ---------- Map buttons: home and settings, floating over the map (the prototype; the app has the trip header) ---------- */
 .wt-map-bar {
   position: absolute; z-index: var(--wt-z-sheet); left: var(--wt-space-3); right: var(--wt-space-3);
   top: calc(var(--wt-space-3) + env(safe-area-inset-top, 0px));
@@ -238,23 +299,21 @@ textarea.wt-input { resize: none; }
 
 /* ---------- Wide screens: the sheet becomes a side panel ---------- */
 /* Opt in by making the element that holds the map and the sheet a size container named wt-trip:
-   `container: wt-trip / inline-size`. From 768px wide, the sheet is a full-height panel on the left
-   with home, the trip's name and settings in its top bar, and the floating map buttons go away.
-   Without the container, the sheet stays a bottom sheet at every width. */
-.wt-sheet__bar { display: none; }
+   `container: wt-trip / inline-size`. From 768px wide, the header and the sheet stack into a full-height panel
+   on the left, and there's nothing to drag or toggle. Without the container, the sheet stays a bottom sheet at every width. */
 @container wt-trip (min-width: 768px) {
+  .wt-trip-head { right: auto; width: var(--wt-size-panel); box-shadow: 1px 0 0 var(--wt-border-default); }
+  .wt-trip-head .wt-icon-btn { color: var(--wt-text-secondary); }
+  .wt-view-toggle { display: none; }
   .wt-sheet {
-    top: 0; right: auto; width: var(--wt-size-panel);
+    top: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px)); right: auto; width: var(--wt-size-panel);
     border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
   }
-  .wt-sheet__top { cursor: auto; touch-action: auto; padding: calc(var(--wt-space-2) + env(safe-area-inset-top, 0px)) var(--wt-space-3) var(--wt-space-1) var(--wt-space-1); }
+  .wt-sheet__top { touch-action: auto; padding-top: var(--wt-space-1); }
   .wt-sheet__grab { display: none; }
-  .wt-sheet__bar { display: flex; align-items: center; gap: var(--wt-space-1); margin-bottom: var(--wt-space-3); }
-  .wt-sheet__name { flex: 1; min-width: 0; margin: 0; font: var(--wt-type-name); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .wt-sheet__bar .wt-icon-btn { color: var(--wt-text-secondary); }
   .wt-map-bar { display: none; }
 }
-@media (hover: hover) { .wt-sheet__bar .wt-icon-btn:hover, .wt-day-bar__step:hover:not(:disabled), .wt-day-bar__title:hover { background: var(--wt-surface-hover); } }
+@media (hover: hover) { .wt-day-bar__step:hover:not(:disabled), .wt-day-bar__title:hover { background: var(--wt-surface-hover); } }
 
 /* ---------- Modal sheet ---------- */
 .wt-modal-root .wt-modal__backdrop {
@@ -271,6 +330,10 @@ textarea.wt-input { resize: none; }
 }
 .wt-modal-root.is-open .wt-modal__backdrop { opacity: 1; }
 .wt-modal-root.is-open .wt-modal { transform: translate(-50%, 0); }
+/* Panel: a sheet that leaves the map in view and usable, with no backdrop. The stop sheet is one, so you can
+   watch the place on the map as you edit it. On a phone it's a shorter bottom sheet; from 768px it covers
+   the trip's side panel (with --side), and the map beside it stays clear. */
+.wt-modal-root--panel .wt-modal { max-height: 62dvh; box-shadow: var(--wt-shadow-sheet); }
 /* From 768px wide: a dialog in the middle of the screen. With --side (set by script when the trip's side
    panel is showing), it covers the panel instead, so the map stays in view beside it. */
 @media (min-width: 768px) {
@@ -288,8 +351,11 @@ textarea.wt-input { resize: none; }
     border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transform: translateX(-24px);
   }
   .wt-modal-root--side.is-open .wt-modal { transform: none; }
+  .wt-modal-root--side.wt-modal-root--panel .wt-modal { max-height: none; box-shadow: 1px 0 0 var(--wt-border-default); }
 }
 .wt-modal__head { display: flex; align-items: center; justify-content: space-between; margin: 0 calc(-1 * var(--wt-space-2)) var(--wt-space-1) 0; }
+/* A page inside a sheet (a picker's options): back on the left, then the title */
+.wt-modal__head--sub { justify-content: flex-start; gap: var(--wt-space-1); margin-left: calc(-1 * var(--wt-space-2)); }
 .wt-modal__title { margin: 0; font: var(--wt-type-title); }
 .wt-modal__text { margin: 0 0 var(--wt-space-3); color: var(--wt-text-secondary); }
 .wt-modal__actions { display: flex; align-items: center; gap: var(--wt-space-3); margin-top: var(--wt-space-5); }
@@ -328,10 +394,25 @@ textarea.wt-input { resize: none; }
 .wt-pin--muted:not(.wt-pin--selected) .wt-pin__marker { opacity: .5; transform: scale(.85); box-shadow: none; }
 .wt-pin__label {
   position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis;
   padding: 3px var(--wt-space-2); border-radius: var(--wt-radius-sm);
   background: var(--wt-map-label); color: var(--wt-text-primary); box-shadow: var(--wt-shadow-float);
   font: var(--wt-type-label); font-size: 13px; white-space: nowrap;
 }
+/* With a route selected, both ends are named; the lower end's name goes under its pin, so the two don't meet. */
+.wt-pin__label--below { bottom: auto; top: calc(100% + 6px); }
+
+/* ---------- Route tag: a selected drive's time, on its route ---------- */
+/* Sits on the middle of the route, with the car in the route's color. A drive that doesn't fit says by how much, in red. */
+.wt-route-tag {
+  position: absolute; transform: translate(-50%, -50%);
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px;
+  border-radius: var(--wt-radius-pill); background: var(--wt-map-label); color: var(--wt-text-primary); box-shadow: var(--wt-shadow-float);
+  font: var(--wt-type-label); font-size: 13px; white-space: nowrap; pointer-events: none;
+}
+.wt-route-tag__car { width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--wt-radius-round); background: var(--wt-route-active); color: var(--wt-marker-ink); }
+.wt-route-tag__car .wt-icon { width: 14px; height: 14px; }
+.wt-route-tag__late { color: var(--wt-text-danger); font-weight: 500; }
 
 /* ---------- Empty state ---------- */
 .wt-empty { margin: 0; padding: var(--wt-space-10) var(--wt-space-6); text-align: center; color: var(--wt-text-secondary); }
