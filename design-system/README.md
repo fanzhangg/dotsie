@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 2.0.0. The design system behind Waythread, a minimal, phone-first trip planner. It's three plain files, with no build step:
+Version 2.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -138,7 +138,7 @@ The system font throughout, so the app feels native on every phone. Each token i
 
 - **Space:** a 4px grid. `--wt-space-1` (4) · `2` (8) · `3` (12) · `4` (16) · `5` (20) · `6` (24) · `8` (32) · `10` (40). The side margin on a phone is `--wt-space-4`; the list's inner margin is `--wt-space-3`.
 - **Radius:** `--wt-radius-sm` (8, pin labels) · `md` (12, cards, inputs, block buttons, timeline rows) · `lg` (18, sheets) · `pill` (buttons, toasts) · `round` (avatars, markers, icon buttons).
-- **Size:** `--wt-size-touch` (44, the minimum for anything tapped often) · `icon-btn` (40) · `avatar` (26) · `check` (26, unused since 2.0.0) · `icon` (22) · `column` (480, the app column on large screens).
+- **Size:** `--wt-size-touch` (44, the minimum for anything tapped often) · `icon-btn` (40) · `avatar` (26) · `check` (26, unused since 2.0.0) · `icon` (22) · `column` (480, the app column on large screens) · `panel` (360–440, 30% of the window: the plan's side panel from 768px wide).
 
 ### Elevation, motion, layers
 
@@ -293,8 +293,9 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - Set `--wt-kind-color` on the row, not only on the marker. The `is-now` tint uses it.
   - Notes are shown in full, never cut off.
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
+- **The day before's last stop:** with no hotel the night before, a day opens with that stop, at its own time. `.wt-tl-time__day` under the time says which day it was: "Yesterday", or the weekday ("Sat").
 - **Drive** (`.wt-tl-drive`): a car on the rail, "1 hr 49 min drive", and a Directions button that opens the phone's maps app.
-  - `__from`: the first drive of a day with no hotel the night before says where it starts ("from White Sands Visitor Center").
+  - The Directions button is a filled grey circle, the only part of the row that looks like a control. The row has no hover or press look, so tapping it doesn't seem to press the button.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
 - **States:**
@@ -302,7 +303,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   | State | On | Means |
   | --- | --- | --- |
   | `is-selected` | a stop | Its pin was tapped, or the row was. Grey with an ink outline. |
-  | `is-active` | a drive | Its route was tapped. Same look as `is-selected`. |
+  | `is-active` | a drive | Its route was tapped, or the row was. The car turns the selected-route blue; the row gets no box. |
   | `is-now` | either | On today, what's happening now: the latest row that has started. Tinted with its map color, a stop's type or a drive's route. |
   | `is-past` | either | On today, every row before `is-now`. On an earlier day, every row. Dims. |
   | `is-late` | a drive | The drive is longer than the gap between its two stops. The drive time turns red. |
@@ -377,6 +378,29 @@ Both live in the stop sheet.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky. The sheet hides what overflows, so a pulled-down sheet shows only its top.
 - On today, scroll the list so the `is-now` row sits a little above the middle.
 
+**On a wide screen it's a side panel.** Make the element that holds the map and the sheet a size container named `wt-trip`:
+
+```css
+.trip { position: relative; height: 100dvh; container: wt-trip / inline-size; }
+@container wt-trip (min-width: 768px) { #map { left: var(--wt-size-panel); } }   /* the map sits beside the panel */
+```
+
+From 768px wide, the sheet is a full-height panel on the left, `--wt-size-panel` wide, and the map fills the rest. Your code clears the sheet's `height` there: no snapping, no dragging. The grab handle and `.wt-map-bar` hide, and the top shows `.wt-sheet__bar` instead, with home, the trip's name and settings:
+
+```html
+<div class="wt-sheet__top">
+  <div class="wt-sheet__grab"></div>
+  <div class="wt-sheet__bar">
+    <a class="wt-icon-btn" href="#/" aria-label="All trips">${icon('home')}</a>
+    <h1 class="wt-sheet__name">White Sands, NM</h1>
+    <button class="wt-icon-btn" aria-label="Trip settings and sharing">${icon('settings')}</button>
+  </div>
+  <div class="wt-day-bar">…</div>
+</div>
+```
+
+On a computer there's room for the name, and nothing floats over the map. Without the `wt-trip` container, the sheet is a bottom sheet at every width.
+
 ### Map buttons `.wt-map-bar` and credit `.wt-credit`
 
 ```html
@@ -410,6 +434,7 @@ Both live in the stop sheet.
 ```
 
 - Slides up from the bottom, for editing one thing.
+- **From 768px wide** it's a dialog in the middle of the screen. On the trip screen, while the side panel shows, add `.wt-modal-root--side`: the sheet then covers the panel, so the map stays in view beside it (center the stop being edited).
 - **Actions:** destructive on the left, the main action on the right.
 - **Closing:** a tap on the backdrop or the Escape key closes it.
 
@@ -460,7 +485,8 @@ Say what can go here, in the user's words. No illustrations.
 ## Patterns
 
 - **The trip screen.**
-  - A full-screen map, with `.wt-sheet` over it at half height, and `.wt-map-bar` over the map's top corners.
+  - On a phone: a full-screen map, with `.wt-sheet` over it at half height, and `.wt-map-bar` over the map's top corners.
+  - From 768px wide: the sheet is a side panel on the left with home, the trip's name and settings at its top, and the map fills the rest. Modal sheets cover the panel. Fit the map with even padding: nothing covers it.
   - One day at a time. The day bar steps through the days, and the map shows only the open day.
   - A stop's marker is its pin: same icon, same color. The list and the map read as one without numbers.
   - Tapping a pin selects its stop (`is-selected`); tapping a route marks its drive `is-active`.

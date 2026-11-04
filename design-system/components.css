@@ -1,4 +1,4 @@
-/* Waythread design system — components v2.0.0
+/* Waythread design system — components v2.1.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -126,6 +126,7 @@ textarea.wt-input { resize: none; }
 .wt-tl-note { display: block; margin-top: 2px; font: var(--wt-type-caption); color: var(--wt-text-secondary); white-space: pre-line; }
 .wt-tl-time { padding: 13px var(--wt-space-3) 0 0; text-align: right; white-space: nowrap; font: var(--wt-type-time); font-variant-numeric: tabular-nums; color: var(--wt-text-secondary); }
 .wt-tl-meridiem { font: var(--wt-type-micro); margin-left: 2px; }
+.wt-tl-time__day { display: block; margin-top: 1px; font: var(--wt-type-micro); font-weight: 500; color: var(--wt-text-secondary); }
 
 /* Drive: a small grey car on the rail, "1 hr 49 min drive", and a Directions icon where stops have their time. */
 .wt-tl-drive {
@@ -138,21 +139,27 @@ textarea.wt-input { resize: none; }
   width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--wt-radius-round);
   background: var(--wt-surface-raised); color: var(--wt-text-secondary);
 }
-@media (hover: hover) { .wt-tl-drive:hover { background: var(--wt-surface-sunken); } .wt-tl-drive:hover .wt-tl-car { background: transparent; } }
+/* The row itself takes no hover or press look: only its Directions button reads as a control. */
 .wt-tl-drive__body { min-width: 0; display: grid; gap: 1px; }
-.wt-tl-drive__what, .wt-tl-drive__from, .wt-tl-drive__late { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wt-tl-drive__what, .wt-tl-drive__late { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wt-tl-drive__what { font: var(--wt-type-caption); font-size: 14px; color: var(--wt-text-secondary); }
 .wt-tl-drive__what b { font-weight: 600; color: var(--wt-text-primary); }
-.wt-tl-drive__from { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-tl-drive__late { font: var(--wt-type-caption-strong); color: var(--wt-text-danger); }
 .wt-tl-drive.is-late .wt-tl-drive__what b { color: var(--wt-text-danger); }
-.wt-tl-drive__go { width: 40px; height: 40px; color: var(--wt-text-primary); }
-.wt-tl-drive__go:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 0; }
-@media (hover: hover) { .wt-tl-drive__go:hover { background: var(--wt-surface-hover); } }
+/* Directions: a quiet filled circle with a grey icon, so it reads as a button without outranking the stops.
+   It darkens and sinks a little when pressed. */
+.wt-tl-drive__go {
+  width: 36px; height: 36px; margin: 2px; color: var(--wt-text-secondary); background: var(--wt-surface-sunken);
+  transition: background var(--wt-duration-fast), color var(--wt-duration-fast), transform var(--wt-duration-fast);
+}
+.wt-tl-drive__go .wt-icon { width: 18px; height: 18px; }
+.wt-tl-drive__go:active { background: var(--wt-surface-hover); color: var(--wt-text-primary); transform: scale(.92); }
+.wt-tl-drive__go:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+@media (hover: hover) { .wt-tl-drive__go:hover { background: var(--wt-surface-hover); color: var(--wt-text-primary); } }
 
-/* Selected (from the map, or tapped): grey with an outline, for stops and drives alike. */
-.wt-tl-stop.is-selected, .wt-tl-drive.is-active { background: var(--wt-surface-sunken); box-shadow: 0 0 0 2px var(--wt-border-focus); }
-.wt-tl-drive.is-active .wt-tl-car { background: transparent; }
+/* Selected (from the map, or tapped): a stop is grey with an outline; a drive's car turns the color of its route. */
+.wt-tl-stop.is-selected { background: var(--wt-surface-sunken); box-shadow: 0 0 0 2px var(--wt-border-focus); }
+.wt-tl-drive.is-active .wt-tl-car { background: var(--wt-route-active); color: var(--wt-marker-ink); }
 
 /* Today: what's happening now is tinted with its color on the map (a stop's type, a drive's route); what's over dims. */
 /* Markers and cars keep a solid backing, so the rail doesn't show through them: their color fades, not the whole thing. */
@@ -229,6 +236,26 @@ textarea.wt-input { resize: none; }
 .wt-map-btn { pointer-events: auto; width: var(--wt-size-touch); height: var(--wt-size-touch); background: var(--wt-surface-raised); color: var(--wt-text-primary); box-shadow: var(--wt-shadow-float); }
 .wt-map-btn:active { background: var(--wt-surface-hover); }
 
+/* ---------- Wide screens: the sheet becomes a side panel ---------- */
+/* Opt in by making the element that holds the map and the sheet a size container named wt-trip:
+   `container: wt-trip / inline-size`. From 768px wide, the sheet is a full-height panel on the left
+   with home, the trip's name and settings in its top bar, and the floating map buttons go away.
+   Without the container, the sheet stays a bottom sheet at every width. */
+.wt-sheet__bar { display: none; }
+@container wt-trip (min-width: 768px) {
+  .wt-sheet {
+    top: 0; right: auto; width: var(--wt-size-panel);
+    border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
+  }
+  .wt-sheet__top { cursor: auto; touch-action: auto; padding: calc(var(--wt-space-2) + env(safe-area-inset-top, 0px)) var(--wt-space-3) var(--wt-space-1) var(--wt-space-1); }
+  .wt-sheet__grab { display: none; }
+  .wt-sheet__bar { display: flex; align-items: center; gap: var(--wt-space-1); margin-bottom: var(--wt-space-3); }
+  .wt-sheet__name { flex: 1; min-width: 0; margin: 0; font: var(--wt-type-name); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wt-sheet__bar .wt-icon-btn { color: var(--wt-text-secondary); }
+  .wt-map-bar { display: none; }
+}
+@media (hover: hover) { .wt-sheet__bar .wt-icon-btn:hover, .wt-day-bar__step:hover:not(:disabled), .wt-day-bar__title:hover { background: var(--wt-surface-hover); } }
+
 /* ---------- Modal sheet ---------- */
 .wt-modal-root .wt-modal__backdrop {
   position: fixed; inset: 0; z-index: var(--wt-z-modal);
@@ -244,6 +271,24 @@ textarea.wt-input { resize: none; }
 }
 .wt-modal-root.is-open .wt-modal__backdrop { opacity: 1; }
 .wt-modal-root.is-open .wt-modal { transform: translate(-50%, 0); }
+/* From 768px wide: a dialog in the middle of the screen. With --side (set by script when the trip's side
+   panel is showing), it covers the panel instead, so the map stays in view beside it. */
+@media (min-width: 768px) {
+  .wt-modal {
+    top: 50%; bottom: auto; max-width: 440px; max-height: min(720px, 88dvh);
+    padding: var(--wt-space-3) var(--wt-space-5) var(--wt-space-5);
+    border-radius: var(--wt-radius-lg); box-shadow: var(--wt-shadow-float);
+    opacity: 0; transform: translate(-50%, calc(-50% + 16px));
+    transition: transform var(--wt-duration-base) var(--wt-ease-out), opacity var(--wt-duration-base);
+  }
+  .wt-modal-root.is-open .wt-modal { opacity: 1; transform: translate(-50%, -50%); }
+  .wt-modal-root--side .wt-modal {
+    top: 0; bottom: 0; left: 0; width: var(--wt-size-panel); max-width: none; max-height: none;
+    padding-top: calc(var(--wt-space-3) + env(safe-area-inset-top, 0px));
+    border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transform: translateX(-24px);
+  }
+  .wt-modal-root--side.is-open .wt-modal { transform: none; }
+}
 .wt-modal__head { display: flex; align-items: center; justify-content: space-between; margin: 0 calc(-1 * var(--wt-space-2)) var(--wt-space-1) 0; }
 .wt-modal__title { margin: 0; font: var(--wt-type-title); }
 .wt-modal__text { margin: 0 0 var(--wt-space-3); color: var(--wt-text-secondary); }

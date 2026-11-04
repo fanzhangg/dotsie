@@ -3,9 +3,23 @@
  * this file places them on the screen. */
 
 html, body { height: 100%; }
+body { display: flow-root; } /* so the sign-in card's top margin doesn't push the page into scrolling */
 
+/* A phone-width column by default; the trip screen always takes the whole window. */
 #app { max-width: var(--wt-size-column); margin: 0 auto; min-height: 100dvh; background: var(--wt-surface-raised); position: relative; }
-@media (min-width: 520px) { #app { box-shadow: 0 0 0 1px var(--wt-border-default); } }
+#app[data-page="trip"] { max-width: none; }
+@media (min-width: 520px) { #app:not([data-page="trip"]) { box-shadow: 0 0 0 1px var(--wt-border-default); } }
+
+/* ---------- Wide screens: Home is a grid of trips on the page; sign-in is a card ---------- */
+@media (min-width: 768px) {
+  #app[data-page="home"] { max-width: 920px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
+  #app[data-page="home"] .home-head { padding: var(--wt-space-10) 0 var(--wt-space-5); }
+  #app[data-page="home"] .home { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); padding: 0 0 var(--wt-space-10); }
+  #app[data-page="home"] .home > .wt-btn { grid-column: 1 / -1; justify-self: start; width: auto; }
+  #app[data-page="home"] .wt-trip-card { flex-direction: column; gap: var(--wt-space-1); min-height: 96px; justify-content: space-between; align-items: stretch; }
+
+  #app[data-page="signin"] { max-width: 420px; min-height: 0; margin: max(var(--wt-space-10), 12vh) auto var(--wt-space-10); padding: var(--wt-space-3) var(--wt-space-3) 0; border-radius: var(--wt-radius-lg); }
+}
 
 /* ---------- Home ---------- */
 .home-head { display: flex; align-items: center; justify-content: space-between; padding: var(--wt-space-6) var(--wt-space-4) var(--wt-space-3); }
@@ -37,8 +51,10 @@ html, body { height: 100%; }
 .settings-new-link { margin-top: var(--wt-space-2); padding: 0; color: var(--wt-text-secondary); }
 
 /* ---------- Trip: full-screen map with the list sheet on top ---------- */
-.trip { position: relative; height: 100dvh; overflow: hidden; }
+/* From 768px wide the sheet is a side panel (see the design system's wt-trip container), and the map sits beside it. */
+.trip { position: relative; height: 100dvh; overflow: hidden; container: wt-trip / inline-size; }
 #map { position: absolute; inset: 0; background: var(--wt-surface-map); }
+@container wt-trip (min-width: 768px) { #map { left: var(--wt-size-panel); } }
 .trip .leaflet-bottom { bottom: var(--bottom-h, 0); transition: bottom var(--wt-duration-base); }
 /* Only the busier fallback basemap needs quieting. */
 .trip.osm-tiles .leaflet-tile-pane { filter: saturate(.55) brightness(1.03); }

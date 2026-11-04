@@ -1,7 +1,8 @@
 'use strict';
 
 /* Waythread — vanilla JS, no build step.
-   One trip screen: a full-screen map with one day of the plan as a draggable sheet on top.
+   One trip screen: a full-screen map with one day of the plan as a draggable sheet on top; from 768px wide,
+   the plan is a side panel next to the map instead.
    Data comes from the Worker's /api. Edits show at once and save in the background; the open trip
    keeps a WebSocket so co-editors' changes land live. Look, components and icons come from design-system/. */
 
@@ -454,12 +455,14 @@ const TRIP_ERRORS = {
 
 function render() {
   const r = parseHash();
-  if (!me) { closeTrip(); teardownTrip(); renderSignIn(r); return; }
+  document.title = 'Waythread';
+  if (!me) { closeTrip(); teardownTrip(); $app.dataset.page = 'signin'; renderSignIn(r); return; }
   if (r.page === 'join') { teardownTrip(); join(r.token); return; }
   if (r.page !== 'trip') {
     if (cur) closeTrip();
     teardownTrip();
     if (trips === null) loadTrips();
+    $app.dataset.page = 'home';
     $app.innerHTML = homeHTML();
     return;
   }
@@ -468,14 +471,17 @@ function render() {
     if (tripLoad === r.id) return;
     closeTrip();
     teardownTrip();
+    $app.dataset.page = 'trip';
     $app.innerHTML = '';
     openTrip(r.id);
     return;
   }
   const trip = cur;
-  if (trip.error) { teardownTrip(); $app.innerHTML = messageHTML(TRIP_ERRORS[trip.error] || TRIP_ERRORS.offline); return; }
+  if (trip.error) { teardownTrip(); $app.dataset.page = 'message'; $app.innerHTML = messageHTML(TRIP_ERRORS[trip.error] || TRIP_ERRORS.offline); return; }
   if ($app.dataset.trip !== trip.id) mountTrip(trip);
+  document.title = `${trip.name} · Waythread`;
   const el = $app.querySelector('.trip');
+  el.querySelector('.wt-sheet__name').textContent = trip.name;
   const bar = el.querySelector('.wt-day-bar');
   const topH = el.querySelector('.wt-sheet__top').offsetHeight;
   bar.innerHTML = dayBarHTML(trip);
@@ -675,7 +681,9 @@ function teardownTrip() {
 function mountTrip(trip) {
   teardownTrip();
   $app.dataset.trip = trip.id;
+  $app.dataset.page = 'trip';
   // The plan is the page: two floating buttons over the map, and a sheet with one day of the plan.
+  // On a wide screen the sheet is a side panel, and its top bar holds home, the trip's name and settings instead.
   $app.innerHTML = `<div class="trip">
     <div id="map"></div>
     <nav class="wt-map-bar">
@@ -683,7 +691,15 @@ function mountTrip(trip) {
       <button class="wt-icon-btn wt-map-btn" data-action="settings" aria-label="Trip settings and sharing">${ICON.settings}</button>
     </nav>
     <section class="wt-sheet" aria-label="Plan">
-      <div class="wt-sheet__top"><div class="wt-sheet__grab"></div><div class="wt-day-bar" hidden></div></div>
+      <div class="wt-sheet__top">
+        <div class="wt-sheet__grab"></div>
+        <div class="wt-sheet__bar">
+          <a class="wt-icon-btn" href="#/" aria-label="All trips">${ICON.home}</a>
+          <h1 class="wt-sheet__name"></h1>
+          <button class="wt-icon-btn" data-action="settings" aria-label="Trip settings and sharing">${ICON.settings}</button>
+        </div>
+        <div class="wt-day-bar" hidden></div>
+      </div>
       <div class="wt-sheet__body wt-tl"></div>
       ${addBarHTML}
     </section>
@@ -720,7 +736,6 @@ const markerHTML = (s, cls) => `<i class="wt-marker ${cls}" role="img" aria-labe
 const gapMin = (a, b) => (toDate(b.time) - toDate(a.time)) / 60000;
 // A drive reads as a sentence ("1 hr 49 min drive"), with a small car on the rail, says when it won't make it,
 // and has a Directions icon button. Tapping the row shows the route on the map.
-// With no hotel last night, the first drive names where it starts.
 // Rows take `past` (over: dimmed) and `now` (happening now: highlighted).
 const rowState = (past, now) => `${past ? ' is-past' : ''}${now ? ' is-now' : ''}`;
 function driveItem(day, leg) {
@@ -734,7 +749,6 @@ function driveItem(day, leg) {
       <span class="wt-tl-rail"><i class="wt-tl-car">${WaythreadIcons.svg('car', 14)}</i></span>
       <span class="wt-tl-drive__body">
         <span class="wt-tl-drive__what"><b>${r ? fmtDur(r.duration) : '…'}</b> drive</span>
-        ${fromEntry.role === 'from' ? `<span class="wt-tl-drive__from">from ${esc(from.name)}</span>` : ''}
         ${lateMin > 0 ? `<span class="wt-tl-drive__late">Arrives ${fmtDur(lateMin * 60)} late</span>` : ''}
       </span>
       <a class="wt-icon-btn wt-tl-drive__go" href="${directionsURL(from, to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(to.name)} in your maps app" title="Directions">${ICON.directions}</a>
@@ -742,11 +756,12 @@ function driveItem(day, leg) {
   };
 }
 // A stop row: marker · name and note · time. A hotel on its check-in day says how many nights.
-function stopRow(s, past, now, note, time) {
+// A time on another day than the one on screen says which day, under it.
+function stopRow(s, past, now, note, time, timeDay) {
   return `<button class="wt-tl-stop${s.id === state.sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="edit" data-id="${esc(s.id)}" style="--wt-kind-color: ${kindColor(s)}">
       <span class="wt-tl-rail">${markerHTML(s, 'wt-tl-marker')}</span>
       <span class="wt-tl-body"><span class="wt-tl-name">${esc(s.name)}</span>${note.filter(Boolean).map(n => `<span class="wt-tl-note">${esc(n)}</span>`).join('')}</span>
-      <span class="wt-tl-time">${time ? timeHTML(time) : ''}</span>
+      <span class="wt-tl-time">${time ? timeHTML(time) : ''}${timeDay ? `<span class="wt-tl-time__day">${esc(timeDay)}</span>` : ''}</span>
     </button>`;
 }
 function stopItem(trip, s) {
@@ -762,6 +777,12 @@ function hotelItem(day, entry) {
     html: (past, now) => stopRow(entry.place, past, now, [entry.role === 'checkout' && 'Check out'], null),
   };
 }
+// With no hotel last night, the day opens where the day before ended: that stop, at the time you got there,
+// marked `Yesterday` (or the weekday, when there's a day with no stops in between).
+function fromItem(day, entry) {
+  const d = dayOf(entry.place), when = d === addDays(day, -1) ? 'Yesterday' : DAYS[toDate(d).getDay()];
+  return { start: `${day}T00:00`, html: (past, now) => stopRow(entry.place, past, now, [], entry.place.time, when) };
+}
 // One "Add stop", below the list so it's always in reach.
 const addBarHTML = `<div class="wt-add-bar"><button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button></div>`;
 // One day's rows, from the day's plan, each marked `past` or `now`. On today, the row you're in now
@@ -771,12 +792,15 @@ function dayItems(trip, day) {
   const now = nowStamp(), today = now.slice(0, 10);
   const legs = new Map(dayLegs(trip, day).map(l => [l.key, l]));
   const items = [];
-  for (const e of dayPlan(trip, day)) {
+  const plan = dayPlan(trip, day);
+  plan.forEach((e, i) => {
     const leg = legs.get(e.key);
     if (leg && !(leg.r && leg.r.distance === 0)) items.push({ leg: leg.key, ...driveItem(day, leg) });
     if (e.role === 'stop') items.push({ entry: e, ...stopItem(trip, e.place) });
-    else if (e.role !== 'from') items.push({ entry: e, ...hotelItem(day, e) });
-  }
+    // where you start, unless the day's first stop is the same place
+    else if (e.role === 'from') { if (!samePlace(e.place, plan[i + 1].place)) items.push({ entry: e, ...fromItem(day, e) }); }
+    else items.push({ entry: e, ...hotelItem(day, e) });
+  });
   const cur = day === today ? items.findLastIndex(it => it.start <= now) : -1;
   items.forEach((it, i) => { it.past = day < today || i < cur; it.now = i === cur; });
   return items;
@@ -841,6 +865,9 @@ function stepDay(n) {
   setDay(days[days.indexOf(currentDay(trip)) + n]);
 }
 
+// Wide: the plan is a side panel (the design system's wt-trip container query), so there's nothing to snap or drag.
+const WIDE = 768;
+const isWide = () => ($app.querySelector('.trip')?.clientWidth || 0) >= WIDE;
 // Sheet snaps between peek (day bar only), half, and full; drag the top or tap it to toggle.
 function snaps() {
   const H = $app.querySelector('.trip').clientHeight;
@@ -849,14 +876,14 @@ function snaps() {
 function applySnap() {
   const sheet = $app.querySelector('.wt-sheet');
   if (!sheet) return;
-  const h = snaps()[state.snap];
-  sheet.style.height = `${h}px`;
+  const h = isWide() ? 0 : snaps()[state.snap];
+  sheet.style.height = h ? `${h}px` : '';
   $app.querySelector('.trip').style.setProperty('--bottom-h', `${h}px`);
 }
 const drag = { active: false, moved: false, y0: 0, h0: 0, suppressClick: false };
 document.addEventListener('pointerdown', e => {
   const top = e.target.closest('.wt-sheet__top');
-  if (!top) return;
+  if (!top || isWide()) return;
   Object.assign(drag, { active: true, moved: false, y0: e.clientY, h0: parseFloat(top.parentElement.style.height) || top.parentElement.offsetHeight });
 });
 document.addEventListener('pointermove', e => {
@@ -894,6 +921,7 @@ document.addEventListener('click', e => {
   if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); }
 }, true);
 addEventListener('resize', () => {
+  $sheets.classList.toggle('wt-modal-root--side', isWide());
   if (!$app.dataset.trip) return;
   applySnap();
   map?.invalidateSize();
@@ -953,7 +981,8 @@ function drawMap(trip) {
   if (key === fitKey) return;
   fitKey = key;
   if (new Set(pts.map(String)).size === 1) map.setView(pts[0], 13);
-  // the top padding keeps pins clear of the floating buttons
+  // the top padding keeps pins clear of the floating buttons; the side panel sits beside the map, not on it
+  else if (pts.length && isWide()) map.fitBounds(pts, { padding: [56, 56], maxZoom: 15 });
   else if (pts.length) map.fitBounds(pts, { paddingTopLeft: [32, 72], paddingBottomRight: [32, snaps()[state.snap] + 24], maxZoom: 15 });
 }
 // Tapping a route highlights it and its drive in the list — the list already holds the time and the maps link.
@@ -982,10 +1011,11 @@ function selectStop(s) {
   $app.querySelector(`.wt-tl-stop[data-id="${CSS.escape(s.id)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 // Opening a stop moves it into the strip of map left visible above the edit sheet.
+// On a wide screen the edit sheet covers the side panel, so the whole map is clear: center the stop.
 function focusStop(s) {
   if (!map) return;
   const H = map.getSize().y, z = Math.max(map.getZoom(), 13);
-  const p = map.project([s.lat, s.lng], z).add([0, H / 2 - H * 0.2]);
+  const p = map.project([s.lat, s.lng], z).add([0, isWide() ? 0 : H / 2 - H * 0.2]);
   map.flyTo(map.unproject(p, z), z, { duration: 0.5 });
 }
 
@@ -1024,6 +1054,8 @@ function deleteStop(trip, stop) {
 const closeBtn = `<button class="wt-icon-btn" data-action="close-sheet" aria-label="Close">${ICON.close}</button>`;
 const modalHead = title => `<div class="wt-modal__head"><h2 class="wt-modal__title">${title}</h2>${closeBtn}</div>`;
 function openSheet(html, mount) {
+  // over the trip's side panel on a wide screen; a dialog in the middle elsewhere, a bottom sheet on a phone
+  $sheets.classList.toggle('wt-modal-root--side', isWide());
   $sheets.innerHTML = `<div class="wt-modal__backdrop" data-action="close-sheet"></div><div class="wt-modal" role="dialog" aria-modal="true">${html}</div>`;
   mount?.($sheets.querySelector('.wt-modal'));
   requestAnimationFrame(() => requestAnimationFrame(() => $sheets.classList.add('is-open')));

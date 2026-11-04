@@ -47,12 +47,26 @@ The trip is a single screen: a full-screen **map** with the **stop list** in a s
 
 **The sheet** is white and has three heights: the day bar only, half the screen (the default), and nearly full. Drag the top of the sheet to resize it. Tap its top edge to pull it down to the day bar. When it's pulled down, any tap on what's left of it opens it back to half. The map zooms to fit the day's stops above the sheet.
 
+**On a computer or tablet** (768px wide and up), the sheet becomes a side panel: the plan down the left, about a third of the window (360–440px), and the map filling the rest. There's nothing to drag, and nothing floats over the map: home, the trip's name and settings sit at the top of the panel, above the day bar. Opening a stop, a day list or settings covers the panel, so the map stays in view beside it, with the stop being edited in the middle.
+
+```
+┌─────────────────────┬──────────────────────────────────┐
+│ ⌂  White Sands, NM ⚙│                                  │
+│ ‹   Today, Nov 21 ⌄ ›│                                  │
+│ (🛏) Holiday Inn     │        map: pins + routes        │
+│  ⊖  10 min drive   ◇│                                  │
+│ (🏛) Museum   9:30 AM│                                  │
+│  …                  │                                  │
+│ [██ + Add stop ████]│                                  │
+└─────────────────────┴──────────────────────────────────┘
+```
+
 **One day at a time.** The list and the map show a single day. A whole trip on one page was too much to take in, and a day is the unit you plan and travel by.
 - **The day bar** tops the sheet, so it stays visible when the sheet is pulled down. It shows the day (`Fri, Nov 20`, or `Today, Nov 21` on a trip day, so today is easy to find again) between **‹** and **›** buttons that step to the previous and next day.
 - **Picking a day:** tap the day to open a list of every day of the trip, each with the type icons of its stops and of the hotel you sleep at, so you can see what a day holds before you jump to it. On a computer, ← → also step through days.
 - There's no swipe between days: the arrows and the day list replace it.
 - **Which day opens:** today on a trip day, otherwise the first day. Saving a stop switches to that stop's day. If a day loses its last stop, the list moves to the next day.
-- **Each day starts and ends at the hotel** (see [Hotel stays](#hotel-stays)). With no hotel the night before, the day starts from the day before's last stop: the first drive says `from Interdune Boardwalk`, and that stop is a faded pin on the map. Tapping that pin goes back to the day before.
+- **Each day starts and ends at the hotel** (see [Hotel stays](#hotel-stays)). With no hotel the night before, the day starts from the day before's last stop: the list opens with that stop, and it's a faded pin on the map. Tapping that pin goes back to the day before.
 
 **Trip settings** holds the trip's name, the people on it, the share link, and **Delete trip**.
 
@@ -74,16 +88,15 @@ The list is a timeline with three columns: a **rail**, the **stop**, and its **t
 - **Stop:** the name in bold, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. Tapping a stop opens it.
 - **Time:** on the right, in grey, with a small AM/PM. The name leads the row, and the time is where a glance down the right edge finds it. Hotel rows at either end of the day have no time, so the right edge stays empty instead of leaving a gap before the name.
 
-A selected stop or drive (tapped, or picked on the map) gets a light grey background and a dark outline.
+A selected stop (tapped, or picked on the map) gets a light grey background and a dark outline. A selected drive gets no box: its car turns blue, like its route on the map.
 
 ### Drives
 
 A drive is a row between two places: a small grey car on the rail, **`1 hr 49 min drive`**, and a Directions icon (a road-sign arrow) on the right, where stops have their time.
 
-- **The Directions icon** opens the drive in the phone's maps app (see [Handing off navigation](#handing-off-navigation)).
+- **The Directions icon** opens the drive in the phone's maps app (see [Handing off navigation](#handing-off-navigation)). It sits in a filled grey circle, so it reads as a button. It's the only part of the row that looks pressable: the row has no hover or press highlight, so tapping the row never looks like tapping Directions.
 - **Tapping the rest of the row** shows that route on the map. On a computer, hovering it previews the route.
 - **When a drive doesn't fit** in the gap between the two stops, its time turns red and a second line says by how much: `Arrives 49 min late`.
-- **With no hotel the night before**, the day's first drive starts at the day before's last stop, so a second line names it: `from Interdune Boardwalk`.
 
 ### Hotel stays
 
@@ -93,6 +106,10 @@ A hotel isn't just a stop: you sleep there, and the next morning starts there. B
 - **Every day of the stay starts and ends there.** The day opens with the hotel and, after the day's last stop, a drive back to it. These rows look like any stop, with the same solid marker, and no time. Only the last morning has a note, `Check out`, since that's the one with something to do. Tapping one opens the hotel.
 - **Nights, by default, follow the trip:** until the next hotel, or the trip's last day. In the stop sheet, a hotel's **When** becomes **Check-in**, and a **Nights** stepper shows the check-out day (`2 nights · check out Sun, Nov 22`).
 - The drive back to the hotel has no times, because the day's last stop has no end.
+
+### Where the day starts without a hotel
+
+With no hotel the night before, the day opens with the day before's last stop, so you can see where you're driving from before the first drive. It looks like any stop, with its arrival time, and under the time, the day it was: `Yesterday`, or the weekday (`Sat`) when there's a day with no stops in between. Without that, a `3:00 PM` above a `10:00 AM` reads as a mistake. Tapping it opens that stop. It's left out when the day's first stop is the same place. This replaces a second line on the first drive (`from Interdune Boardwalk`), which was easy to miss and couldn't be tapped.
 
 ### Today
 
@@ -188,7 +205,14 @@ The full visual language (tokens, components, light and dark themes, accessibili
   - Red only for a drive that doesn't fit.
 - **Type:** the system font. Stop names 16px semibold, times 15px with tabular numbers, notes and drives 13px.
 - **Surfaces:** the map, then the white plan sheet with the timeline straight on it. Trip cards on Home and modal sheets are white too. No heavy shadows.
-- **Phone-first layout:** a 480px column centered on larger screens, 16px text in form fields (stops iPhone zooming in), and spacing for phone screen edges.
+- **Phone-first layout, adapting up:**
+
+  | Width | Trip | Home and sign-in |
+  | --- | --- | --- |
+  | Under 768px | Full-screen map, plan in a bottom sheet; modal sheets slide up | A 480px column |
+  | 768px and up | Plan in a side panel beside the map; modal sheets cover the panel | Trips in a grid of cards; sign-in in a card; other sheets are dialogs in the middle |
+
+  16px text in form fields (stops iPhone zooming in), and spacing for phone screen edges. The prototype doesn't opt in to the side panel, so it stays phone-shaped at every width.
 
 ## Prototype notes
 

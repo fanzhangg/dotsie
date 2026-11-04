@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.1.0
+/* Waythread design system — tokens v1.2.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -279,6 +279,7 @@
   --wt-size-check: 26px;
   --wt-size-icon: 22px;
   --wt-size-column: 480px;  /* app column width on large screens */
+  --wt-size-panel: clamp(360px, 30vw, 440px);  /* the plan's side panel, from 768px wide */
 
   /* Elevation: by role, never decoration */
   --wt-shadow-hairline: 0 0 0 1px var(--wt-border-subtle);
