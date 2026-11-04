@@ -662,6 +662,8 @@ function render() {
   renderAddBar(trip);
   el.querySelector('.wt-sheet__grab').setAttribute('aria-label', grabLabel());
   if (!el.querySelector('.wt-sheet').style.height || topH !== el.querySelector('.wt-sheet__top').offsetHeight) applySnap();
+  // a new day, or stops with longer notes, can change the half height (see halfList): slide there
+  else if (!isWide() && state.snap === 'half' && !drag.active && Math.abs(snaps().half - sheetTarget()) >= 1) applySnap(true);
   // peeking, the sheet fits the row it shows, which can change with the selection or the plan
   else if (state.snap === 'peek' && !isWide() && !drag.active) {
     const h = snaps().peek;
@@ -1367,8 +1369,22 @@ const isWide = () => ($app.querySelector('.trip')?.clientWidth || 0) >= WIDE;
 const SNAPS = ['peek', 'half', 'full'];
 // Half is about half the screen, but tall enough for the list to show a stop with the stops before and after it
 // (three stops and the two drives between them), so a selected stop, centered, has its neighbors in view.
+// That's measured from the list's own rows (halfList), so a day whose stops have notes gets the room they take.
 // On a short screen that's taller than half, though never more than HALF_MAX of it, so the map keeps some room.
-const HALF_LIST = 3 * 45 + 2 * 32 + 16, HALF_MAX = 0.62; // + a little room for the fades at its edges
+const HALF_ROWS = 5, HALF_FADE = 16, HALF_MAX = 0.62; // + a little room for the fades at its edges
+// The tallest run of HALF_ROWS rows in the list. A selected stop counts as if its notes were one line, as they are
+// unselected, so selecting a stop opens its notes without resizing the sheet.
+function halfList() {
+  const rows = [...$app.querySelectorAll('.wt-sheet__body.wt-tl > *')].map(row => {
+    const notes = row.classList.contains('is-selected') && row.querySelector('.wt-tl-notes');
+    if (!notes) return row.offsetHeight;
+    const line = parseFloat(getComputedStyle(notes.firstElementChild).lineHeight) || 19;
+    return row.offsetHeight - notes.offsetHeight + (parseFloat(getComputedStyle(notes).paddingTop) || 0) + line;
+  });
+  let most = 0;
+  for (let i = 0; i <= Math.max(0, rows.length - HALF_ROWS); i++) most = Math.max(most, rows.slice(i, i + HALF_ROWS).reduce((a, b) => a + b, 0));
+  return most + HALF_FADE;
+}
 const PEEK_ROW_MAX = 120; // a row with a long note is cut there when peeking
 // The row a peek shows: the list's focus (the selected stop or drive, or else the row happening now), or else the first stop.
 const peekRow = body => body?.querySelector('.is-selected, .is-active') || body?.querySelector('.is-now') || body?.querySelector('.wt-tl-stop');
@@ -1379,7 +1395,7 @@ function snaps() {
   // the add bar itself isn't shown (Add stop alone under the day bar looked like a day with no stops)
   const pad = parseFloat(getComputedStyle($app.querySelector('.wt-add-bar')).paddingBottom) || 0;
   const row = Math.min(peekRow($app.querySelector('.wt-sheet__body'))?.offsetHeight || 0, PEEK_ROW_MAX);
-  const half = Math.min(Math.max(H * 0.48, chrome + HALF_LIST), H * HALF_MAX, H - headBottom());
+  const half = Math.min(Math.max(H * 0.48, chrome + halfList()), H * HALF_MAX, H - headBottom());
   return { peek: Math.round($app.querySelector('.wt-sheet__top').offsetHeight + row + pad), half: Math.round(half), full: H - headBottom(), chrome };
 }
 const GRAB_LABEL = { peek: "Show the day's plan", half: 'Show the whole day', full: 'Show more of the map' };
@@ -1447,6 +1463,8 @@ function setSheetHeight(h) {
   sheet.style.height = `${h}px`;
   setBottom(h);
 }
+// Where the sheet is going: the end of a movement under way, or else where it is.
+const sheetTarget = () => (motion.raf && motion.h1 != null ? motion.h1 : $app.querySelector('.wt-sheet')?.offsetHeight || 0);
 function stopMotion() {
   cancelAnimationFrame(motion.raf);
   motion.raf = 0;
