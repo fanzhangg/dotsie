@@ -45,7 +45,7 @@ The trip is a single screen: a **header** with the trip's name, the **map**, and
 
 With a stop selected, the bottom button becomes `[██████ ✎ Edit stop ██████] (+)`: Edit stop, and a small round + so adding is still one tap away. With a drive's route on show, it becomes `[██████ ◇ Directions ██████] (+)`.
 
-**The header** is one row: **home** (back to the trip list), the **trip's name**, and **trip settings**. On a phone it's a card floating over the top of the map, like the from/to card in Google Maps' directions, and the map runs under it. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings.
+**The header** is one row: **home** (back to the trip list), the **trip's name**, and **trip settings**. On a phone it's a card floating over the top of the map, like the from/to card in Google Maps' directions, and the map runs under it. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings. It's kept quiet, since the plan is what you read: a 44px row, the name at 15px, grey icons, and over the map a frosted, slightly see-through card with a light shadow. (It started as a 56px solid white card with a 17px name, which competed with the list.)
 
 **The sheet** is white and, on a phone, has three heights, following Google Maps' directions sheet:
 - **Peek:** the day bar and **one row of the list**, so the map has the screen and still says what you're looking at. The row is the list's focus: the selected stop or drive, or else, on a trip day, the row happening now, or else the day's first stop. It's the row itself, as in the list: marker, name, time and notes (a long note is cut after a few lines). The sheet is as tall as the day bar and that row. The day bar's arrows still step through the days, and the map follows. Add stop isn't shown here; it belongs with the whole list. (Peek used to be the day bar alone. Once the map lost its names and times, that left nothing on screen to say what a numbered pin was, or what was happening now.)
@@ -53,7 +53,7 @@ With a stop selected, the bottom button becomes `[██████ ✎ Edit st
 - **The whole day:** the sheet fills the screen up to the header, and the header card docks, flat across the top, so the two read as one page. Home and settings stay in reach.
 - **It never hides.**
 
-**The grab handle sits over the top edge of the day bar,** not on a row of its own, as in a maps app's sheet; the day bar's buttons take the taps over it. That and a tighter add bar (8px around Add stop, or the phone's safe area below it if that's taller) leave more of the half sheet to the list.
+**The grab handle sits over the top edge of the day bar,** not on a row of its own, as in a maps app's sheet; the day bar's buttons take the taps over it. A hairline under the day bar divides it from the list, with a little room above and below the day so the row doesn't feel crowded. That and a tighter add bar (8px around Add stop, or the phone's safe area below it if that's taller) leave more of the half sheet to the list.
 
 **Moving the sheet is dragging,** as in Google Maps, from anywhere on it: the grab handle, the day bar, or the list.
 - Dragging the list up grows the sheet; once it's the whole day, the list scrolls. Below the whole day it never scrolls by hand.

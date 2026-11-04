@@ -158,7 +158,7 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
   - `--wt-shadow-hairline`: cards.
   - `--wt-shadow-sheet`: the list sheet.
   - `--wt-shadow-float`: labels and buttons over the map.
-  - `--wt-shadow-card`: the trip header, a card floating over the map.
+  - `--wt-shadow-card`: a card floating over the map. (The trip header uses the lighter `--wt-shadow-float` since 5.1.0.)
   - `--wt-shadow-pin`: pins.
 
   Nothing else gets a shadow.
@@ -502,7 +502,7 @@ With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 </div>
 ```
 
-- **The header** is one row: home, the trip's name, settings. The name is always in view. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
+- **The header** is one row: home, the trip's name, settings. The name is always in view. It stays quiet next to the list: `--wt-size-trip-head` (44px) tall, the name at 15px, the icons 20px in `--wt-text-secondary`. Floating, it's frosted (`--wt-surface-raised` at 80% with a backdrop blur) with `--wt-shadow-float`; docked and in the side panel it's solid. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
 - **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has three heights, like a maps app's sheet:
   - **Peek** (`.is-peek`): the day bar and one row of the list, so the map has the screen and still says what you're looking at. The app marks that row `.is-peek-row` (the selected stop or drive, or else the row happening now, or else the first stop), scrolls it to the list's top, and makes the sheet as tall as the day bar, the row (at most 120px) and the add bar's bottom padding. The add bar leaves the layout and hides, and so do the other rows. Add stop isn't shown on its own while peeking.
   - **Half** the screen, the default, but tall enough for the list to fit three stops and two drives, measured from the list's real rows (never more than about 60% of the screen).
@@ -513,7 +513,7 @@ With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 - **Taps:** the grab handle is a button: half goes to full, peek and full go to half. Peeking, the day bar's buttons still work, and a tap anywhere else on the sheet opens it to half. No other tap resizes the sheet.
 - **The map:** zooming it (pinch, double-tap, wheel) means you're looking at the map, so a half sheet goes down to peek. A new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route opens the sheet to half.
 - **Peeking**, the rows other than `.is-peek-row` and the add bar hide `--wt-duration-base` after `.is-peek` goes on, so a sheet sliding down to its peek keeps its list until it's there. Animate the height and the list's scroll over that same duration. The list has no edge fades while peeking.
-- The top holds the grab handle and the day bar. The handle is laid over the day bar's top edge rather than taking a row of its own; the day bar's buttons sit above it and take their own taps, and a tap anywhere else on that strip is the handle's. People live in trip settings.
+- The top holds the grab handle and the day bar, with a 1px `--wt-border-default` line under it that divides the day bar from the list (left out when the day bar is hidden, on an empty trip). The handle is laid over the day bar's top edge rather than taking a row of its own; the day bar's buttons sit above it and take their own taps, and a tap anywhere else on that strip is the handle's. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
 - **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop, then **Maps** (the place in the maps app picked in Account, the same one Directions opens), then a round `+`, so adding is always one tap away. The maps app is how you find out what a place is (its photos, reviews and hours), so it sits beside Edit stop rather than inside the sheet. In the bar, secondary buttons are pills like the primary, so the row reads as one set. Its short label lets Edit stop fit beside it on a 320px phone. A stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
 - Tapping a selected stop or a shown drive again keeps it selected, and at half nothing animates: it's already in the middle.
@@ -699,8 +699,9 @@ More of the plan fits in a half sheet on a phone: three stops and the drives bet
 
 - `.wt-tl-name` is one line, with an ellipsis.
 - On a phone (`wt-trip` under 768px), an unselected stop's `.wt-tl-notes` are one line, joined with ` · `, with an ellipsis. The selected stop and wider screens show them in full.
-- `--wt-tl-rail` is 40px (was 48px), so names have more room. To keep the columns lined up, `.wt-day-bar` pads 8px on the left (was 12px) and 4px below (was 8px), and `.wt-trip-head` has no left padding floating and 12px docked and in the side panel (was 4px and 16px), with no gap before `__name`.
-- `.wt-sheet__grab` is laid over the day bar's top edge (16px, absolutely placed) instead of taking a 22px row of its own; `.wt-sheet__top` pads 8px on top.
+- `--wt-tl-rail` is 40px (was 48px), so names have more room. To keep the columns lined up, `.wt-day-bar` pads 8px on the left (was 12px) and nothing below (was 8px; `.wt-sheet__top` pads it now), and `.wt-trip-head` has no left padding floating and 12px docked and in the side panel (was 4px and 16px), with no gap before `__name`.
+- `.wt-sheet__grab` is laid over the day bar's top edge (16px, absolutely placed) instead of taking a 22px row of its own. `.wt-sheet__top` pads 14px on top and 8px below, and has a hairline (`--wt-border-default`) under it, between the day bar and the list.
+- The trip header is quieter and smaller: `--wt-size-trip-head` is 44px (was 56px), `__name` is 15px (was 17px), its icons are 20px in `--wt-text-secondary` at every width, and floating it's frosted with `--wt-shadow-float` (was solid with `--wt-shadow-card`).
 - `.wt-add-bar` pads 8px above and below Add stop, or the safe area below it if that's taller (was 12px, plus the safe area).
 - Nothing was renamed or removed.
 

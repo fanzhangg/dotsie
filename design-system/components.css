@@ -287,7 +287,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 
 /* ---------- Day bar: ‹ day › at the top of the sheet; tap the day for the list of days ---------- */
 /* The arrows are centred on the timeline's columns: ‹ on the rail, › on the Directions column (with the sheet top's padding). */
-.wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) var(--wt-space-1) var(--wt-space-2); }
+.wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) 0 var(--wt-space-2); }
 .wt-day-bar[hidden] { display: none; }
 .wt-day-bar__step { color: var(--wt-text-primary); }
 .wt-day-bar__title {
@@ -402,7 +402,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* ---------- Trip header: home · trip name · settings ---------- */
 /* A full row at the top of the trip screen, so the trip's name is always in view. On a phone it's a card floating
    over the map, like a maps app's from/to card; with the whole day showing (.is-docked) it spans the top, flat, and
-   joins the list. Its bottom edge stays put either way. From 768px wide (the wt-trip container, below) it tops the side panel. */
+   joins the list. Its bottom edge stays put either way. From 768px wide (the wt-trip container, below) it tops the side panel.
+   It stays quiet, since the plan is what you read: 44px, a smaller name, grey icons, and floating, a frosted card
+   with a light shadow that lets the map show through. */
 .wt-trip-head {
   position: absolute; z-index: calc(var(--wt-z-sheet) + 1);
   top: calc(env(safe-area-inset-top, 0px) + var(--wt-space-2)); left: var(--wt-space-3); right: var(--wt-space-3);
@@ -410,15 +412,20 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
      Docked or in the side panel, the header loses its inset and gains it back as padding, so nothing in it moves. */
   height: var(--wt-size-trip-head); padding: 0 var(--wt-space-1) 0 0;
   display: flex; align-items: center; gap: 0;
-  background: var(--wt-surface-raised); border-radius: var(--wt-radius-lg); box-shadow: var(--wt-shadow-card);
+  background: color-mix(in srgb, var(--wt-surface-raised) 80%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);
+  border-radius: var(--wt-radius-lg); box-shadow: var(--wt-shadow-float);
   transition: top var(--wt-duration-base) var(--wt-ease-out), left var(--wt-duration-base) var(--wt-ease-out), right var(--wt-duration-base) var(--wt-ease-out),
     height var(--wt-duration-base) var(--wt-ease-out), padding var(--wt-duration-base) var(--wt-ease-out), border-radius var(--wt-duration-base), box-shadow var(--wt-duration-base);
 }
 .wt-trip-head.is-docked {
   top: 0; left: 0; right: 0; height: calc(var(--wt-size-trip-head) + var(--wt-space-2) + env(safe-area-inset-top, 0px));
   padding: calc(var(--wt-space-2) + env(safe-area-inset-top, 0px)) var(--wt-space-4) 0 var(--wt-space-3); border-radius: 0; box-shadow: 0 1px 0 var(--wt-border-default);
+  background: var(--wt-surface-raised);
 }
-.wt-trip-head__name { flex: 1; min-width: 0; margin: 0; padding-right: var(--wt-space-1); font: var(--wt-type-name); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-trip-head .wt-icon-btn { color: var(--wt-text-secondary); }
+.wt-trip-head .wt-icon-btn .wt-icon { width: 20px; height: 20px; }
+.wt-trip-head__name { flex: 1; min-width: 0; margin: 0; padding-right: var(--wt-space-1); font: var(--wt-type-name); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Map / List (unused since 4.1.0: the sheet's three heights are reached by dragging it, as in a maps app) */
 .wt-view-toggle {
   display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px 0 11px;
@@ -457,8 +464,13 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body > :not(.is-peek-row) { visibility: hidden; transition: visibility 0s var(--wt-duration-base); }
 .wt-sheet.is-peek .wt-add-bar { position: absolute; left: 0; right: 0; bottom: 0; }
 .wt-sheet.is-peek:not(.is-dragging) .wt-add-bar { visibility: hidden; transition: visibility 0s var(--wt-duration-base); }
-/* The grab handle sits over the day bar's top edge rather than on a row of its own, as in a maps app's sheet. */
-.wt-sheet__top { position: relative; flex: none; min-height: 22px; touch-action: none; padding: var(--wt-space-2) var(--wt-space-3) 0 var(--wt-space-1); }
+/* The grab handle sits in the top margin, over the day bar's top edge, rather than on a row of its own, as in a maps app's sheet.
+   A hairline under the day bar divides it from the list (not when there's no day bar: an empty trip). */
+.wt-sheet__top {
+  position: relative; flex: none; min-height: 22px; touch-action: none; padding: 14px var(--wt-space-3) var(--wt-space-2) var(--wt-space-1);
+  border-bottom: 1px solid var(--wt-border-default);
+}
+.wt-sheet__top:has(> .wt-day-bar[hidden]) { border-bottom: 0; padding-bottom: 0; }
 /* The grab handle is a button as wide as the sheet, so it's easy to hit and nothing else on the sheet's top resizes it.
    The day bar's buttons sit over its lower part, so a tap on ‹, the day or › is theirs. */
 .wt-sheet__grab { position: absolute; top: 0; left: 0; right: 0; display: block; width: 100%; height: 16px; cursor: grab; }
@@ -512,8 +524,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   .wt-trip-head {
     top: 0; left: 0; right: auto; width: var(--wt-size-panel); height: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px));
     padding: env(safe-area-inset-top, 0px) var(--wt-space-4) 0 var(--wt-space-3); border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
+    background: var(--wt-surface-raised);
   }
-  .wt-trip-head .wt-icon-btn { color: var(--wt-text-secondary); }
   .wt-view-toggle { display: none; }
   .wt-sheet {
     top: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px)); right: auto; width: var(--wt-size-panel);
