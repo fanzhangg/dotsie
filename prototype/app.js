@@ -15,9 +15,9 @@ const NOW_HM = /^\d{2}:\d{2}$/.test(params.get('now') || '') ? params.get('now')
 const ROUTE_KEY = 'waythread:routes:v1';
 const $app = document.getElementById('app');
 const $sheets = document.getElementById('sheets');
-// sel: the selected stop · selRow: which of its rows was tapped (a hotel can start and end the day) · leg: the drive whose route is shown · snap: the phone's list, 'half' or 'full' ·
+// sel: the selected stop · selRow: which of its rows was tapped (a hotel can start and end the day) · leg: the drive whose route is shown · snap: the phone's list, 'peek' (compact) or 'full' ·
 // draft: the stop open in the stop sheet, as edited so far, which the map shows in its place
-const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, snap: 'half', draft: null, flash: new Set() };
+const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, snap: 'peek', draft: null, flash: new Set() };
 
 // Who's signed in, the home list, and the open trip ({ id, name, members, stops } or { id, error })
 let me = null, config = { google: false, apple: false, password: false }, trips = null, cur = null;
@@ -658,18 +658,13 @@ function render() {
   bar.innerHTML = dayBarHTML(trip);
   bar.hidden = !trip.stops.length;
   const newDay = renderList(trip);
-  peekRow(el.querySelector('.wt-sheet__body'))?.classList.add('is-peek-row'); // the row a peek shows; the rest hide there
+  for (const r of peekRows(el.querySelector('.wt-sheet__body'))) r.classList.add('is-peek-row'); // the rows a peek shows; the rest hide there
   renderAddBar(trip);
   el.querySelector('.wt-sheet__grab').setAttribute('aria-label', grabLabel());
   if (!el.querySelector('.wt-sheet').style.height || topH !== el.querySelector('.wt-sheet__top').offsetHeight) applySnap();
-  // a new day, or stops with longer notes, can change the half height (see halfList): slide there
-  else if (!isWide() && state.snap === 'half' && !drag.active && Math.abs(snaps().half - sheetTarget()) >= 1) applySnap(true);
-  // peeking, the sheet fits the row it shows, which can change with the selection or the plan
-  else if (state.snap === 'peek' && !isWide() && !drag.active) {
-    const h = snaps().peek;
-    if (h !== (motion.raf ? motion.h1 : el.querySelector('.wt-sheet').offsetHeight)) moveSheet({ h });
-  }
-  // the focused row in the middle of the list: at once on a new day, or else moved there if the plan moved it
+  // compact, the sheet fits the rows it shows, which can change with the selection or the plan: slide there
+  else if (state.snap === 'peek' && !isWide() && !drag.active && Math.abs(snaps().peek - sheetTarget()) >= 1) applySnap(true);
+  // the focused row at the compact list's top (in the middle on a wide screen): at once on a new day, or else moved there if the plan moved it
   centerFocus(newDay ? { force: true, animate: false } : {});
   for (const id of state.flash) el.querySelector(`.wt-tl-stop[data-id="${id}"]`)?.classList.add('is-flash');
   state.flash.clear();
@@ -1004,7 +999,7 @@ function teardownTrip() {
   const left = $app.dataset.trip;
   delete $app.dataset.trip;
   state.sel = state.selRow = state.leg = state.hoverLeg = state.day = state.draft = null;
-  state.snap = 'half';
+  state.snap = 'peek';
   camFree = false;
   // the stop sheet leaves the header in reach, so Home can be tapped while it's open
   if (left && $sheets.innerHTML) closeSheet();
@@ -1015,8 +1010,8 @@ function mountTrip(trip) {
   $app.dataset.page = 'trip';
   scrollTo(0, 0); // Home may have been scrolled; the trip screen starts at the top of the window
   // The plan is the page: a header with the trip's name, the map, and a sheet with one day of the plan.
-  // On a phone the header spans the top and the sheet is half or all of the screen below it, with Map/List in
-  // the header to switch. On a wide screen the header and the sheet are a side panel next to the map.
+  // On a phone the header spans the top and the sheet is compact or all of the screen below it, dragged between the
+  // two. On a wide screen the header and the sheet are a side panel next to the map.
   $app.innerHTML = `<div class="trip">
     <header class="wt-trip-head">
       <a class="wt-icon-btn" href="#/" aria-label="All trips">${ICON.home}</a>
@@ -1075,7 +1070,7 @@ function mountTrip(trip) {
   map.getContainer().addEventListener('pointerdown', () => { camFree = true; });
   // Zooming the map is looking at the map: the list gets out of the way, down to its peek.
   // A wheel doesn't fire pointerdown; without this, the re-frame for the new height would fight the zoom you asked for.
-  const zooming = () => { camFree = true; if (!state.draft && state.snap === 'half' && !isWide()) setSnap('peek'); };
+  const zooming = () => { camFree = true; };
   map.getContainer().addEventListener('wheel', zooming, { passive: true });
   map.getContainer().addEventListener('touchstart', e => { if (e.touches.length > 1) zooming(); }, { passive: true });
   mapGestures(map, zooming);
@@ -1360,46 +1355,40 @@ function stepDay(n) {
 // Wide: the plan is a side panel (the design system's wt-trip container query), so there's nothing to snap or drag.
 const WIDE = 768;
 const isWide = () => ($app.querySelector('.trip')?.clientWidth || 0) >= WIDE;
-// The list has three heights on a phone, like a maps app's sheet: peek (the day bar and one row, the list's focus,
-// so the map has the screen and still says what you're looking at), half (the default), and full (the whole day,
-// docked under the header). It never hides.
+// The list has two heights on a phone: compact (`peek`, the default: the day bar, one row of the list, its focus, and
+// the add bar, so the map has the screen and still says what you're looking at) and full (the whole day, docked under
+// the header). It never hides. (It had a half height between them too; once compact showed the focus and the map
+// numbered the stops, half only added the focus's neighbors.)
 // You move it by dragging: the grab handle, the day bar, or the list itself. Dragging the list up grows the sheet
 // before the list scrolls; at full, pulling the list down from its top shrinks the sheet again.
-// At half the list doesn't scroll by hand at all: the app keeps its focused row in the middle (see centerFocus).
-const SNAPS = ['peek', 'half', 'full'];
-// Half is about half the screen, but tall enough for the list to show a stop with the stops before and after it
-// (three stops and the two drives between them), so a selected stop, centered, has its neighbors in view.
-// That's measured from the list's own rows (halfList), so a day whose stops have notes gets the room they take.
-// On a short screen that's taller than half, though never more than HALF_MAX of it, so the map keeps some room.
-const HALF_ROWS = 5, HALF_FADE = 16, HALF_MAX = 0.62; // + a little room for the fades at its edges
-// The tallest run of HALF_ROWS rows in the list. A selected stop counts as if its notes were one line, as they are
-// unselected, so selecting a stop opens its notes without resizing the sheet.
-function halfList() {
-  const rows = [...$app.querySelectorAll('.wt-sheet__body.wt-tl > *')].map(row => {
-    const notes = row.classList.contains('is-selected') && row.querySelector('.wt-tl-notes');
-    if (!notes) return row.offsetHeight;
-    const line = parseFloat(getComputedStyle(notes.firstElementChild).lineHeight) || 19;
-    return row.offsetHeight - notes.offsetHeight + (parseFloat(getComputedStyle(notes).paddingTop) || 0) + line;
-  });
-  let most = 0;
-  for (let i = 0; i <= Math.max(0, rows.length - HALF_ROWS); i++) most = Math.max(most, rows.slice(i, i + HALF_ROWS).reduce((a, b) => a + b, 0));
-  return most + HALF_FADE;
+// Compact, the list doesn't scroll by hand at all: the app keeps its focus at the top (see centerFocus).
+const SNAPS = ['peek', 'full'];
+const PEEK_ROW_MAX = 120; // a peek is cut there, or at twice that for a drive with its two stops (rows with long notes)
+// The rows a peek shows: the list's focus (the selected stop or drive, or else the row happening now), or else the first
+// stop. A drive comes with the stops it goes from and to, the rows either side of it, so the peek says where it goes.
+function peekRows(body) {
+  const row = body?.querySelector('.is-selected, .is-active') || body?.querySelector('.is-now') || body?.querySelector('.wt-tl-stop');
+  if (!row) return [];
+  if (!row.matches('.wt-tl-drive')) return [row];
+  const stop = el => (el?.matches('.wt-tl-stop') ? el : null);
+  return [stop(row.previousElementSibling), row, stop(row.nextElementSibling)].filter(Boolean);
 }
-const PEEK_ROW_MAX = 120; // a row with a long note is cut there when peeking
-// The row a peek shows: the list's focus (the selected stop or drive, or else the row happening now), or else the first stop.
-const peekRow = body => body?.querySelector('.is-selected, .is-active') || body?.querySelector('.is-now') || body?.querySelector('.wt-tl-stop');
+// How much of the list a peek shows: from the top of its first row to the bottom of its last
+function peekHeight(body) {
+  const rows = peekRows(body);
+  if (!rows.length) return 0;
+  const h = rows.at(-1).offsetTop + rows.at(-1).offsetHeight - rows[0].offsetTop;
+  return Math.min(h, PEEK_ROW_MAX * (rows.length > 1 ? 2 : 1));
+}
 function snaps() {
   const H = $app.querySelector('.trip').clientHeight;
   const chrome = $app.querySelector('.wt-sheet__top').offsetHeight + $app.querySelector('.wt-add-bar').offsetHeight;
-  // peeking keeps the day bar and the focused row, with the add bar's bottom padding (and the safe area) below them;
-  // the add bar itself isn't shown (Add stop alone under the day bar looked like a day with no stops)
-  const pad = parseFloat(getComputedStyle($app.querySelector('.wt-add-bar')).paddingBottom) || 0;
-  const row = Math.min(peekRow($app.querySelector('.wt-sheet__body'))?.offsetHeight || 0, PEEK_ROW_MAX);
-  const half = Math.min(Math.max(H * 0.48, chrome + halfList()), H * HALF_MAX, H - headBottom());
-  return { peek: Math.round($app.querySelector('.wt-sheet__top').offsetHeight + row + pad), half: Math.round(half), full: H - headBottom(), chrome };
+  // compact: the day bar, the focused row (or a drive and its two stops), and the add bar
+  const row = peekHeight($app.querySelector('.wt-sheet__body'));
+  return { peek: Math.min(Math.round(chrome + row), H - headBottom()), full: H - headBottom(), chrome };
 }
-const GRAB_LABEL = { peek: "Show the day's plan", half: 'Show the whole day', full: 'Show more of the map' };
-const GRAB_LABEL_ALL = { peek: "Show the trip's plan", half: 'Show the whole trip', full: 'Show more of the map' };
+const GRAB_LABEL = { peek: 'Show the whole day', full: 'Show more of the map' };
+const GRAB_LABEL_ALL = { peek: 'Show the whole trip', full: 'Show more of the map' };
 const grabLabel = () => (state.day === ALL ? GRAB_LABEL_ALL : GRAB_LABEL)[state.snap];
 // `animate`: slide to the new height (a new snap); otherwise it's placed there at once (a first render, a resize).
 function applySnap(animate = false) {
@@ -1419,7 +1408,7 @@ function applySnap(animate = false) {
 }
 // A new height re-frames the map for what's left of it, unless you've moved the map yourself since.
 // `draw` false: the caller renders next, and that render frames the map, so it isn't drawn twice.
-// Arriving at half puts the focused row in the middle of the list, in the same movement as the sheet's.
+// Arriving at compact puts the focused row at the list's top, in the same movement as the sheet's.
 function setSnap(snap, draw = true) {
   const changed = state.snap !== snap;
   state.snap = snap;
@@ -1502,13 +1491,11 @@ function motionFrame(now) {
 }
 
 // ---------- The focused row ----------
-// The half list is about one row, its focus: the selected stop, or else the drive on show, or else, on today,
-// the row happening now. Peeking, the list shows just that row (or else the first stop), at its top.
-// Whenever the sheet is at half, the focus sits in the middle
-// of the list, with the rows before and after it in view: on opening a day, selecting a stop or a drive, clearing it,
-// saving a stop, coming to half from peek or full, and when the plan changes under it. The list can't scroll past
-// its ends, so a first or last row stays near its edge; a row taller than the list shows from its top.
-// At full the list is yours to scroll; `force` centers it there too (a new day, a stop just saved), and on a wide screen.
+// The compact list is one row, its focus: the selected stop, or else the drive on show, or else, on today, the row
+// happening now, or else the first stop; a drive comes with its two stops. The app keeps it at the list's top: on opening
+// a day, selecting a stop or a drive, clearing it, saving a stop, coming down from full, and when the plan changes under it.
+// At full the list is yours to scroll; `force` centers the focus there (a new day, a stop just saved), and on a wide screen,
+// where a first or last row stays near its edge and a row taller than the list shows from its top.
 const FADE = 24; // the list's edge fades (.is-more-above, .is-more-below)
 function centerFocus({ force = false, animate = true } = {}) {
   const sheet = $app.querySelector('.wt-sheet'), body = sheet?.querySelector('.wt-sheet__body');
@@ -1517,7 +1504,7 @@ function centerFocus({ force = false, animate = true } = {}) {
   if (!wide && !force && snap === 'full') return;
   if (wide && !force) return;
   const peek = !wide && snap === 'peek';
-  const row = peek ? peekRow(body) : body.querySelector('.is-selected, .is-active') || body.querySelector('.is-now');
+  const row = peek ? peekRows(body)[0] : body.querySelector('.is-selected, .is-active') || body.querySelector('.is-now');
   if (!row) return;
   // the list's height once the sheet has settled
   const s = wide ? null : snaps();
@@ -1610,8 +1597,8 @@ document.addEventListener('touchmove', e => {
 for (const t of ['touchend', 'touchcancel']) document.addEventListener(t, () => { if (drag.active && drag.list) dragEnd(); });
 document.addEventListener('click', e => {
   if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
-  // Peeking, the sheet is the day bar: its buttons work, and a tap anywhere else on it opens it to half.
-  if (state.snap === 'peek' && !isWide() && e.target.closest('.wt-sheet') && !e.target.closest('button, a, .wt-tl-stop')) { e.stopPropagation(); setSnap('half'); }
+  // Compact, a tap on the sheet's top (the grab handle aside) opens the whole day; its buttons work as usual.
+  if (state.snap === 'peek' && !isWide() && e.target.closest('.wt-sheet__top') && !e.target.closest('button, a')) { e.stopPropagation(); setSnap('full'); }
 }, true);
 addEventListener('resize', () => {
   $sheets.classList.toggle('wt-modal-root--side', isWide());
@@ -1624,11 +1611,11 @@ addEventListener('resize', () => {
 });
 
 // How much of the map's bottom is covered: by the open stop's sheet, or else by the list. At full the map
-// doesn't show, so the camera is placed for half, where the list goes back to. Nothing covers the map on a wide screen.
+// doesn't show, so the camera is placed for compact, where the list goes back to. Nothing covers the map on a wide screen.
 function coveredBottom() {
   if (isWide()) return 0;
   const panel = state.draft && $sheets.querySelector('.wt-modal');
-  return panel ? panel.offsetHeight : snaps()[state.snap === 'peek' ? 'peek' : 'half'];
+  return panel ? panel.offsetHeight : snaps().peek;
 }
 // The header card covers the map's top on a phone; on a wide screen it sits in the side panel.
 const headBottom = () => { const h = $app.querySelector('.wt-trip-head'); return h.offsetTop + h.offsetHeight; };
@@ -1743,7 +1730,7 @@ function drawMap(trip) {
       zIndexOffset: focus ? 1000 : quiet ? -1000 : 0, title: all[0].name,
     }).on('click', () => onMapTap(() => {
       if (state.draft) return;
-      if (g.length) selectStop(g[0], null, { fromMap: true }); else { setDay(dayOf(start)); selectStop(start, null, { fromMap: true }); }
+      if (g.length) selectStop(g[0]); else { setDay(dayOf(start)); selectStop(start); }
     })).addTo(layer);
   }
   drawDraft();
@@ -1804,19 +1791,18 @@ function fitLeg(l, onlyIfHidden = false) {
 // Show a drive's route: highlighted, with larger pins at its ends, and the map moved to fit it.
 // Tapping the same drive again keeps it shown; tapping empty map, changing the day or Esc goes back to the whole day.
 function previewLeg(l, { fromMap = false } = {}) {
-  // Again, at half: it's already the focus, so nothing animates. The map moves only if an end has gone out of view.
-  if (state.leg === l.key && state.snap === 'half' && !isWide()) {
+  // Again, compact: it's already the focus, so nothing animates. The map moves only if an end has gone out of view.
+  if (state.leg === l.key && state.snap === 'peek' && !isWide()) {
     fitLeg(l, true);
     centerFocus({ animate: false });
     return;
   }
   state.leg = l.key;
   state.sel = state.selRow = null;
-  // the whole-day list covers the map; peeking, the drive's row opens it to half so Directions shows, and the route keeps the peek
-  if (!(fromMap && state.snap === 'peek')) setSnap('half', false);
+  setSnap('peek', false); // the whole-day list covers the map; compact shows the route, the drive and its stops, and Directions
   render();
   fitLeg(l, fromMap);
-  centerFocus({ force: true }); // the drive in the middle of the list, as the sheet comes to half (peeking, at its top)
+  centerFocus({ force: true }); // the drive and its stops at the list's top, as the sheet comes down
 }
 // Hovering a drive in the list previews its route on the map, without moving the map. With a mouse only: a phone
 // sends a mouseover with every tap, and the map was redrawn for it.
@@ -1827,15 +1813,15 @@ document.addEventListener('pointerover', e => {
   state.hoverLeg = id;
   if (cur?.stops) drawMap(cur);
 });
-// Select a stop: its row and its pin are highlighted, and Add stop becomes Edit stop. From a pin (`fromMap`), a peek
-// stays a peek and shows the stop's row, so you can tap pin after pin and read each one without the sheet moving.
-// Tapping a pin or a row scrolls the row to the middle of the list. Tapping a row (`row`, its key) moves the pin into view if it's
+// Select a stop: its row and its pin are highlighted, and Add stop becomes Edit stop. The sheet goes to (or stays) compact,
+// with the stop's row, so you can tap pin after pin and read each one without the sheet moving.
+// Tapping a pin or a row puts the row at the compact list's top. Tapping a row (`row`, its key) moves the pin into view if it's
 // off the map you can see, keeping the zoom. Tapping the selected row (or its pin) again keeps it selected;
 // tapping empty map, changing the day or Esc clears it.
-function selectStop(s, row = null, { fromMap = false } = {}) {
-  // Again, at half: it's already the focus, so nothing animates. A row still brings its pin back if it's out of view.
+function selectStop(s, row = null) {
+  // Again, compact: it's already the focus, so nothing animates. A row still brings its pin back if it's out of view.
   // (A hotel that starts and ends the day has two rows: its other row isn't the highlighted one.)
-  if (state.sel === s.id && state.snap === 'half' && !isWide() && (!row || $app.querySelector('.wt-tl .is-selected')?.dataset.row === row)) {
+  if (state.sel === s.id && state.snap === 'peek' && !isWide() && (!row || $app.querySelector('.wt-tl .is-selected')?.dataset.row === row)) {
     if (row) panTo(s);
     centerFocus({ animate: false });
     return;
@@ -1846,11 +1832,10 @@ function selectStop(s, row = null, { fromMap = false } = {}) {
   state.selRow = row;
   // coming down from the whole day re-frames the map for the day, which already shows this stop
   const framed = state.snap === 'full' && !camFree && !isWide();
-  // the whole-day list covers the map; peeking, a row opens it to half, and a pin keeps the peek, which shows the stop's row
-  if (!(fromMap && state.snap === 'peek')) setSnap('half', false);
+  setSnap('peek', false); // the whole-day list covers the map; compact shows the pin, the stop's row and Edit stop
   render();
   if (row && !framed) panTo(s);
-  // in the middle of the list, so the stops before and after it show too
+  // at the compact list's top
   centerFocus({ force: true });
 }
 // Pan a stop's pin into the middle of the map you can see, keeping the zoom, if it's out of view.
@@ -2468,7 +2453,7 @@ document.addEventListener('click', e => {
     case 'sign-out': signOut(); break;
     case 'close-sheet': closeSheet(); break;
     case 'fit-day': showWholeDay(); break;
-    case 'grab': setSnap(state.snap === 'half' ? 'full' : 'half'); break; // peek and full go to half; half goes to full
+    case 'grab': setSnap(state.snap === 'peek' ? 'full' : 'peek'); break;
     case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast('Link copied'), () => toast('Copy failed')); break;
   }
 });
