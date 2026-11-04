@@ -425,7 +425,7 @@ With a stop selected, the add bar holds Edit stop and a round `+` beside it:
 - The top holds the grab handle and the day bar. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
 - **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop with a round `+` beside it, so adding is always one tap away. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
-- Tapping a selected stop or a shown drive again keeps it selected.
+- Tapping a selected stop or a shown drive again keeps it selected, and at half nothing animates: it's already in the middle.
 - **One row is the half list's focus**, and it sits in the middle of the list: the selected row (`.is-selected` or `.is-active`), or else, on today, the `is-now` row. When the sheet changes height and the list has to scroll, move both together, on one timeline, so the row goes straight to the middle. The app does this frame by frame and turns off the sheet's height transition.
 
 **On a wide screen it's a side panel.** Make the element that holds the header, map and sheet a size container named `wt-trip`:
