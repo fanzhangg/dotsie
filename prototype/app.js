@@ -662,11 +662,8 @@ function render() {
   renderAddBar(trip);
   el.querySelector('.wt-sheet__grab').setAttribute('aria-label', grabLabel());
   if (!el.querySelector('.wt-sheet').style.height || topH !== el.querySelector('.wt-sheet__top').offsetHeight) applySnap();
-  // peeking, the sheet fits the row it shows, which can change with the selection or the plan
-  else if (state.snap === 'peek' && !isWide() && !drag.active) {
-    const h = snaps().peek;
-    if (h !== (motion.raf ? motion.h1 : el.querySelector('.wt-sheet').offsetHeight)) moveSheet({ h });
-  }
+  // compact, the sheet fits the rows it shows, which can change with the selection or the plan: slide there
+  else if (state.snap === 'peek' && !isWide() && !drag.active && Math.abs(snaps().peek - sheetTarget()) >= 1) applySnap(true);
   // the focused row at the compact list's top (in the middle on a wide screen): at once on a new day, or else moved there if the plan moved it
   centerFocus(newDay ? { force: true, animate: false } : {});
   for (const id of state.flash) el.querySelector(`.wt-tl-stop[data-id="${id}"]`)?.classList.add('is-flash');
@@ -1455,6 +1452,8 @@ function setSheetHeight(h) {
   sheet.style.height = `${h}px`;
   setBottom(h);
 }
+// Where the sheet is going: the end of a movement under way, or else where it is.
+const sheetTarget = () => (motion.raf && motion.h1 != null ? motion.h1 : $app.querySelector('.wt-sheet')?.offsetHeight || 0);
 function stopMotion() {
   cancelAnimationFrame(motion.raf);
   motion.raf = 0;
