@@ -708,6 +708,10 @@ function homeHTML() {
 let stadiaCheck = null;
 const stadiaServes = () => (stadiaCheck ??= fetch('https://tiles.stadiamaps.com/tiles/alidade_smooth/0/0/0.png').then(r => r.ok, () => false));
 let map = null, layer = null, fitKey = '';
+let camPlaced = false; // the new map has been framed once: its first framing is placed, not flown to
+let camTarget = null; // where the camera is flying, and until when
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let camMoving = false, drawPending = false; // the camera is flying, or Leaflet is scaling the map for a zoom (a wheel, a double tap, a pinch)
 // The map's credits live in trip settings rather than over the map.
 const CREDIT = {
   stadia: '© <a href="https://stadiamaps.com/">Stadia Maps</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -838,6 +842,17 @@ function mountTrip(trip) {
   </div>`;
   if (!window.L) return;
   map = L.map($app.querySelector('#map'), { zoomControl: false, attributionControl: false }).setView([32.6, -106.1], 8);
+  camPlaced = false;
+  camTarget = null;
+  camMoving = drawPending = false;
+  // Pins and routes drawn while the camera moves aren't placed where the moving map is: during Leaflet's zoom
+  // animation a new pin sits at the end of the move while the map is still getting there, and during a flight a
+  // new route is drawn at the wrong scale. drawMap waits for the move to end.
+  map.on('zoomanim', () => { camMoving = true; });
+  map.on('moveend', () => {
+    camMoving = false;
+    if (drawPending && cur?.stops) { drawPending = false; drawMap(cur); }
+  });
   // A quiet basemap so routes lead. Stadia needs no key on localhost; in production, register the
   // domain with Stadia. Fall back to OpenStreetMap if it's refused.
   const m = map, dark = matchMedia('(prefers-color-scheme: dark)').matches;
@@ -860,7 +875,8 @@ function mountTrip(trip) {
   // once you've touched the map, a new sheet height leaves the camera where you put it
   map.getContainer().addEventListener('pointerdown', () => { camFree = true; });
   // Zooming the map is looking at the map: the list gets out of the way, down to its peek.
-  const zooming = () => { if (!state.draft && state.snap === 'half' && !isWide()) setSnap('peek'); };
+  // A wheel doesn't fire pointerdown; without this, the re-frame for the new height would fight the zoom you asked for.
+  const zooming = () => { camFree = true; if (!state.draft && state.snap === 'half' && !isWide()) setSnap('peek'); };
   map.getContainer().addEventListener('wheel', zooming, { passive: true });
   map.getContainer().addEventListener('dblclick', zooming);
   map.getContainer().addEventListener('touchstart', e => { if (e.touches.length > 1) zooming(); }, { passive: true });
@@ -1153,8 +1169,46 @@ function inView(ll, margin = 40) {
   return p.x > margin && p.x < size.x - margin && p.y > top + margin && p.y < size.y - coveredBottom() - margin;
 }
 
+// ---------- Camera ----------
+// Every camera move the app makes goes through here, so they all look the same: one flyTo that pans and zooms
+// together, timed by how far it goes. Leaflet's setView, fitBounds and panTo each pick an animation by distance:
+// a 250ms slide within a screen, a CSS scale for a zoom of up to 4 levels around an on-screen point, and otherwise
+// a jump with no animation. And a zoom asked for while one of those scales is still running is dropped.
+function moveCamera(center, zoom) {
+  if (!map) return;
+  center = L.latLng(center);
+  zoom = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), zoom));
+  const z0 = map.getZoom(), px = map.project(center, z0).distanceTo(map.project(map.getCenter(), z0)), dz = Math.abs(zoom - z0);
+  const now = performance.now();
+  // already there, or already on the way there: don't restart the flight
+  if (camTarget && now < camTarget.until && camTarget.center.equals(center, 1e-7) && camTarget.zoom === zoom) return;
+  if (px < 1 && dz < 0.01) { camTarget = null; return; }
+  // A new map is placed where it belongs rather than flown in from its default view
+  if (!camPlaced || reduceMotion.matches) {
+    camPlaced = true;
+    camTarget = null;
+    map.setView(center, zoom, { animate: false });
+    return;
+  }
+  // A move within the screen takes about as long as the sheet does to change height; a hop to another region, under a second
+  const size = map.getSize(), screens = px / Math.max(1, Math.hypot(size.x, size.y));
+  const duration = Math.min(0.9, 0.3 + 0.15 * Math.log2(1 + screens) + 0.06 * dz);
+  camTarget = { center, zoom, until: now + duration * 1000 };
+  camMoving = true;
+  map.flyTo(center, zoom, { duration });
+}
+// The center and zoom that fit `bounds` into the map with `tl` and `br` (points, in pixels) kept clear at the
+// top left and bottom right: fitBounds worked out by hand, as Leaflet does it, without moving the map.
+function frameBounds(bounds, tl, br, maxZoom) {
+  const zoom = Math.min(map.getBoundsZoom(bounds, false, tl.add(br)), maxZoom);
+  const sw = map.project(bounds.getSouthWest(), zoom), ne = map.project(bounds.getNorthEast(), zoom);
+  return { center: map.unproject(sw.add(ne).divideBy(2).add(br.subtract(tl).divideBy(2)), zoom), zoom };
+}
+
 function drawMap(trip) {
   if (!map) return;
+  // Mid-move, only where the camera is going can change now; the pins and routes are redrawn when it stops
+  if (camMoving) { drawPending = true; return frameMap(trip); }
   layer.clearLayers();
   // Only the day on screen, from its plan: the hotel at either end is a pin like any stop.
   // With no hotel last night, the day before's last stop is a quiet pin, so the first drive leads somewhere.
@@ -1220,26 +1274,29 @@ function drawMap(trip) {
     }).addTo(layer);
   }
   drawDraft();
-
-  const key = [trip.id, day, plan.length].join('|');
+  frameMap(trip);
+}
+// Frame the day on screen, or the drive on show, when either has changed since the map was last framed.
+function frameMap(trip) {
+  const day = currentDay(trip);
+  if (!day) return;
+  const key = [trip.id, day, dayPlan(trip, day).length].join('|');
   if (key === fitKey || state.draft) return;
   fitKey = key;
   camFree = false;
-  if (active && state.leg) return fitLeg(active);
+  const leg = state.leg && dayLegs(trip, day).find(l => l.key === state.leg);
+  if (leg) return fitLeg(leg);
   const v = dayView(trip, day);
-  if (v) map.setView(v.center, v.zoom);
+  if (v) moveCamera(v.center, v.zoom);
 }
 // Where the camera goes for a day: around all its places, clear of the list. Preloading uses it to fetch the
-// tiles a day will land on, so this is fitBounds worked out by hand (as Leaflet does it), without moving the map.
+// tiles a day will land on, so it works the view out without moving the map.
 function dayView(trip, day) {
   const pts = dayPlan(trip, day).map(e => [e.place.lat, e.place.lng]);
   if (!pts.length) return null;
   if (new Set(pts.map(String)).size === 1) return { center: L.latLng(pts[0]), zoom: 13 };
   // the side panel sits beside the map, not on it; on a phone, the list covers the bottom
-  const tl = L.point(32, coveredTop() + 24), br = L.point(32, coveredBottom() + 24), bounds = L.latLngBounds(pts);
-  const zoom = Math.min(map.getBoundsZoom(bounds, false, tl.add(br)), 15);
-  const sw = map.project(bounds.getSouthWest(), zoom), ne = map.project(bounds.getNorthEast(), zoom);
-  return { center: map.unproject(sw.add(ne).divideBy(2).add(br.subtract(tl).divideBy(2)), zoom), zoom };
+  return frameBounds(L.latLngBounds(pts), L.point(32, coveredTop() + 24), L.point(32, coveredBottom() + 24), 15);
 }
 // The stop being edited, where it would go: its new place and type, named.
 function drawDraft() {
@@ -1270,7 +1327,8 @@ function midpoint(coords) {
 function fitLeg(l, onlyIfHidden = false) {
   if (!map || (onlyIfHidden && inView(l.from) && inView(l.to))) return;
   camFree = false;
-  map.fitBounds(legCoords(l), { paddingTopLeft: [72, coveredTop() + 48], paddingBottomRight: [72, coveredBottom() + 48], maxZoom: 15 });
+  const v = frameBounds(L.latLngBounds(legCoords(l)), L.point(72, coveredTop() + 48), L.point(72, coveredBottom() + 48), 15);
+  moveCamera(v.center, v.zoom);
 }
 // Show a drive's route: highlighted, both ends named, its time on it, and the map moved to fit it.
 // Tapping the same drive in the list again goes back to the whole day.
@@ -1317,7 +1375,7 @@ function selectStop(s, row = null) {
   render();
   if (row && !framed && map && s.lat != null && !inView([s.lat, s.lng])) {
     const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
-    map.panTo(map.unproject(p, z), { duration: 0.5 });
+    moveCamera(map.unproject(p, z), z);
   }
   // once the list has shrunk, so the row stays in what's left of it
   setTimeout(() => $app.querySelector('.wt-tl-stop.is-selected')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), shrink ? 260 : 0);
@@ -1327,7 +1385,7 @@ function focusStop(s) {
   if (!map || s.lat == null) return;
   const z = Math.max(map.getZoom(), 13);
   const p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
-  map.flyTo(map.unproject(p, z), z, { duration: 0.5 });
+  moveCamera(map.unproject(p, z), z);
 }
 
 // ---------- Edits ----------
@@ -1672,7 +1730,7 @@ function openStopSheet(trip, stop) {
     onClose: () => {
       state.draft = null;
       $app.querySelector('.trip')?.classList.remove('is-editing');
-      if (!saved && map && camera) map.flyTo(camera.center, camera.zoom, { duration: 0.4 });
+      if (!saved && map && camera) moveCamera(camera.center, camera.zoom);
       if ($app.dataset.trip && cur?.stops) render();
     },
   });
