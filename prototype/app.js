@@ -270,10 +270,14 @@ function directionsURL(from, to) {
     ? `https://maps.apple.com/?saddr=${from.lat},${from.lng}&daddr=${to.lat},${to.lng}&dirflg=d`
     : `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}&travelmode=driving`;
 }
-// A place in Google Maps, to see that it's the right one and whether it's worth going: photos, reviews, hours.
-// Google on every phone, since that's where the photos and reviews are. Found by name and address, which opens the place
-// itself; its coordinates alone would open only a dropped pin.
-const placeURL = p => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.name, p.address].filter(Boolean).join(', '))}`;
+// A place in the same maps app as Directions, to see that it's the right one and whether it's worth going: photos,
+// reviews, hours. Found by name and address, which opens the place itself (Apple Maps searches near its coordinates);
+// coordinates alone would open only a dropped pin. (Android's geo: links open the default maps app, but can't give
+// directions, so the two would open different apps; Google is the default there for most people anyway.)
+function placeURL(p) {
+  const q = encodeURIComponent([p.name, p.address].filter(Boolean).join(', '));
+  return IS_APPLE ? `https://maps.apple.com/?q=${q}&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
+}
 
 // ---------- Sync between tabs ----------
 const bc = 'BroadcastChannel' in window ? new BroadcastChannel('waythread') : null;
@@ -575,7 +579,7 @@ const selectedSpot = trip => (state.sel && trip.spots.find(s => s.id === state.s
 function addBarHTML(trip) {
   const s = selectedSpot(trip);
   return s
-    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${s.id}">${ICON.edit}Edit stop</button><a class="wt-btn wt-btn--secondary" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="View ${esc(s.name)} in Google Maps">${ICON.map}Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
+    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${s.id}">${ICON.edit}Edit stop</button><a class="wt-btn wt-btn--secondary" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="${esc(s.name)} in your maps app" title="See it in your maps app">${ICON.map}Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
     : `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button>`;
 }
 function renderAddBar(trip) {

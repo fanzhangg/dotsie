@@ -353,10 +353,14 @@ function directionsURL(from, to) {
     ? `https://maps.apple.com/?saddr=${from.lat},${from.lng}&daddr=${to.lat},${to.lng}&dirflg=d`
     : `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}&travelmode=driving`;
 }
-// A place in Google Maps, to see that it's the right one and whether it's worth going: photos, reviews, hours.
-// Google on every phone, since that's where the photos and reviews are. Found by name and address, which opens the place
-// itself; its coordinates alone would open only a dropped pin.
-const placeURL = p => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.name, p.address].filter(Boolean).join(', '))}`;
+// A place in the same maps app as Directions, to see that it's the right one and whether it's worth going: photos,
+// reviews, hours. Found by name and address, which opens the place itself (Apple Maps searches near its coordinates);
+// coordinates alone would open only a dropped pin. (Android's geo: links open the default maps app, but can't give
+// directions, so the two would open different apps; Google is the default there for most people anyway.)
+function placeURL(p) {
+  const q = encodeURIComponent([p.name, p.address].filter(Boolean).join(', '));
+  return IS_APPLE ? `https://maps.apple.com/?q=${q}&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
+}
 
 // ---------- Trips ----------
 let tripLoad = null; // the id being fetched, so a slow reply for a trip you've left is dropped
@@ -1260,14 +1264,14 @@ function fromItem(day, entry) {
 }
 // The selected stop, if it's still in the trip (a co-editor may have deleted it).
 const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.sel)) || null;
-// Below the list, always in reach: Add stop; with a stop selected, Edit stop, and Maps (Google Maps) to see what the place is;
+// Below the list, always in reach: Add stop; with a stop selected, Edit stop, and Maps (the place in the maps app) to see what the place is;
 // with a drive's route shown, Directions to the drive's end in the maps app. Either way a small + beside it keeps adding one tap away.
 function addBarHTML(trip) {
   const s = selectedStop(trip);
   const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
   if (leg) return `<a class="wt-btn wt-btn--primary wt-btn--block" href="${directionsURL(leg.from, leg.to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
   return s
-    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${esc(s.id)}">${ICON.edit}Edit stop</button><a class="wt-btn wt-btn--secondary" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="View ${esc(s.name)} in Google Maps">${ICON.map}Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
+    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${esc(s.id)}">${ICON.edit}Edit stop</button><a class="wt-btn wt-btn--secondary" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="${esc(s.name)} in your maps app" title="See it in your maps app">${ICON.map}Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
     : `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button>`;
 }
 function renderAddBar(trip) {
