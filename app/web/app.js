@@ -1347,7 +1347,7 @@ function updateFades() {
   const body = $app.querySelector('.wt-sheet__body');
   if (!body) return;
   body.classList.toggle('is-more-above', body.scrollTop > 1);
-  body.classList.toggle('is-more-below', body.scrollTop + body.clientHeight < body.scrollHeight - 1);
+  body.classList.toggle('is-more-below', body.scrollTop + body.clientHeight < listContentHeight(body) - 1);
 }
 function renderList(trip) {
   const body = $app.querySelector('.wt-sheet__body'), day = currentDay(trip);
@@ -1357,6 +1357,7 @@ function renderList(trip) {
   // a new day starts at the top, or, on today, with what's happening now in the middle (render centers it)
   body.dataset.day = day;
   body.scrollTop = 0;
+  holdScroll(0);
   return true;
 }
 // Keep the highlight and the dimming current while the trip is open.
@@ -1479,6 +1480,10 @@ function reframe() {
 // the list: both are the same blend of where they start and where they end. (The sheet used to slide by a CSS
 // transition and the list scrolled after it, so a row tapped on the whole day slid off the list and came back.)
 // A new target mid-way keeps the timeline: everything goes the rest of the way from where it is.
+// The list's scroll always has a target, even when only the height is changing: a taller list has less room to
+// scroll, so near the end of the day the browser would cut the scroll back part way through the movement, and the
+// list would seem to scroll by itself, its rows riding with the sheet and then stopping short. Instead the scroll goes,
+// on the same timeline, to the nearest place it can be at the new height; on the way, it's always within its room.
 function cubicBezier(x1, y1, x2, y2) {
   const at = (a, b, u) => 3 * a * u * (1 - u) * (1 - u) + 3 * b * u * u * (1 - u) + u * u * u;
   return t => {
@@ -1503,6 +1508,30 @@ const sheetTarget = () => (motion.raf && motion.h1 != null ? motion.h1 : $app.qu
 function stopMotion() {
   cancelAnimationFrame(motion.raf);
   motion.raf = 0;
+  setRoom(false);
+}
+// How tall the list's rows are, with its padding. Not scrollHeight: that's never less than the list itself (with the
+// whole day showing, a short day looked as tall as the list, and there seemed to be room to scroll that wasn't there),
+// and it counts the room the list is given while the sheet moves.
+function listContentHeight(body) {
+  const last = body.lastElementChild;
+  if (!last) return 0;
+  const end = last.getBoundingClientRect().bottom - body.getBoundingClientRect().top + body.scrollTop;
+  return end + (parseFloat(getComputedStyle(body).paddingBottom) || 0);
+}
+// While the sheet moves, the list has room to scroll past its last row (--sheet-room, styles.css): enough for any
+// height between half and full. Where a short day doesn't fill the list, its scroll would otherwise have to wait for
+// the list to come down to its rows, and they'd ride with the sheet and then stop. Every movement ends where the list
+// can scroll without the room (see moveSheet), so taking it away moves nothing.
+function setRoom(on) {
+  const body = $app.querySelector('.wt-sheet__body'), s = on && snaps();
+  body?.style.setProperty('--sheet-room', s ? `${s.full - s.half}px` : '0px');
+}
+// The furthest the list can scroll with the sheet at height `h` (`chrome`: the sheet's top and add bar, see snaps)
+const maxScrollAt = (body, h, chrome) => Math.max(0, listContentHeight(body) - (h - chrome));
+// A movement under way keeps the list's scroll at `s` from now on (a new day, or a scroll placed at once)
+function holdScroll(s) {
+  if (motion.raf) motion.s0 = motion.s1 = s;
 }
 // Move the sheet to height `h` and/or the list to scroll position `s`; leave either out to keep where it's going.
 function moveSheet({ h, s }) {
@@ -1517,23 +1546,30 @@ function moveSheet({ h, s }) {
   }
   if (h !== undefined) motion.h1 = h;
   if (s !== undefined) motion.s1 = s;
+  // where the list's scroll can be at the new height: where it's going, or else where it is, cut back to its room
+  if (motion.h1 != null) motion.s1 = Math.min(motion.s1 ?? body.scrollTop, maxScrollAt(body, motion.h1, snaps().chrome));
   Object.assign(motion, { base: sheetEase(Math.max(0, p)), h0: sheet.offsetHeight, s0: body.scrollTop });
   if (!motion.dur) { // reduced motion: straight there
     if (motion.h1 != null) setSheetHeight(motion.h1);
     if (motion.s1 != null) body.scrollTop = motion.s1;
+    setRoom(false);
     return;
   }
+  if (motion.h1 != null) setRoom(true);
   if (!motion.raf) motion.raf = requestAnimationFrame(motionFrame);
 }
-function motionFrame(now) {
+// Timed by performance.now(), as moveSheet is, not by the frame's timestamp: that's when the frame began, which can be
+// before the movement (or a new target part way) was asked for, and the sheet stood still for that frame.
+function motionFrame() {
   const sheet = $app.querySelector('.wt-sheet'), body = sheet?.querySelector('.wt-sheet__body');
   if (!sheet) { motion.raf = 0; return; }
-  const p = Math.max(0, Math.min(1, (now - motion.t0) / motion.dur));
+  const p = Math.max(0, Math.min(1, (performance.now() - motion.t0) / motion.dur));
   const q = motion.base >= 1 ? 1 : Math.max(0, Math.min(1, (sheetEase(p) - motion.base) / (1 - motion.base)));
   // height first, then the scroll, so the frame is laid out once
   if (motion.h1 != null) setSheetHeight(motion.h0 + (motion.h1 - motion.h0) * q);
   if (motion.s1 != null) body.scrollTop = motion.s0 + (motion.s1 - motion.s0) * q;
   motion.raf = p < 1 ? requestAnimationFrame(motionFrame) : 0;
+  if (!motion.raf && !drag.moved) setRoom(false);
 }
 
 // ---------- The focused row ----------
@@ -1557,9 +1593,9 @@ function centerFocus({ force = false, animate = true } = {}) {
   const listH = wide ? body.clientHeight : s[snap] - s.chrome;
   const top = row.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop, h = row.offsetHeight;
   const want = h > listH - 2 * FADE ? top - FADE : top + h / 2 - listH / 2;
-  const to = Math.round(Math.max(0, Math.min(want, body.scrollHeight - listH)));
+  const to = Math.round(Math.max(0, Math.min(want, listContentHeight(body) - listH)));
   if (!animate) {
-    if (motion.raf) motion.s1 = null; // a sheet movement under way carries on without scrolling
+    holdScroll(to); // a sheet movement under way carries on, leaving the list here
     body.scrollTop = to;
     return;
   }
@@ -1569,12 +1605,21 @@ function centerFocus({ force = false, animate = true } = {}) {
 
 // ---------- Dragging the sheet ----------
 // The sheet follows the finger once a frame. The height range is measured once, when the drag starts.
-const drag = { active: false, moved: false, list: null, mode: null, y0: 0, h0: 0, y: 0, s: null, pts: [], frame: 0, suppressClick: false };
+// Dragged up, the list has less room to scroll the taller it gets. Near the end of the day, the browser cut its
+// scroll back as soon as it ran out, so the rows rode up with the finger and then stopped, and the list seemed to scroll
+// by itself. Instead the scroll comes down evenly with the height, from where it was to where it can be at full.
+const drag = { active: false, moved: false, list: null, mode: null, y0: 0, h0: 0, y: 0, s: null, sc0: 0, scFull: 0, pts: [], frame: 0, suppressClick: false };
 function dragStart(y, list) {
   cancelAnimationFrame(drag.frame);
   Object.assign(drag, { active: true, moved: false, list, mode: list ? null : 'sheet', y0: y, y, h0: 0, s: null, pts: [], frame: 0 });
 }
 const dragHeight = () => Math.max(drag.s.half, Math.min(drag.s.full, drag.h0 + drag.y0 - drag.y));
+function dragTo(h) {
+  setSheetHeight(h);
+  const body = $app.querySelector('.wt-sheet__body');
+  const sc = h > drag.h0 ? drag.sc0 + (drag.scFull - drag.sc0) * (h - drag.h0) / Math.max(1, drag.s.full - drag.h0) : drag.sc0;
+  if (body && Math.abs(body.scrollTop - sc) >= 0.5) body.scrollTop = sc;
+}
 function dragMove(y) {
   const now = performance.now();
   drag.pts.push([now, y]);
@@ -1587,8 +1632,12 @@ function dragMove(y) {
     stopMotion();
     Object.assign(drag, { moved: true, h0: sheet.offsetHeight, y0: y, s: snaps() });
     sheet.classList.add('is-dragging');
+    const body = sheet.querySelector('.wt-sheet__body');
+    drag.sc0 = body.scrollTop;
+    drag.scFull = Math.min(drag.sc0, maxScrollAt(body, drag.s.full, drag.s.chrome));
+    setRoom(true);
   }
-  if (!drag.frame) drag.frame = requestAnimationFrame(() => { drag.frame = 0; if (drag.active) setSheetHeight(dragHeight()); });
+  if (!drag.frame) drag.frame = requestAnimationFrame(() => { drag.frame = 0; if (drag.active) dragTo(dragHeight()); });
 }
 function dragEnd() {
   drag.active = false;
@@ -1597,7 +1646,7 @@ function dragEnd() {
   const sheet = $app.querySelector('.wt-sheet');
   if (!sheet || !drag.moved) return;
   const s = drag.s, h = dragHeight();
-  setSheetHeight(h);
+  dragTo(h);
   drag.moved = false;
   sheet.classList.remove('is-dragging');
   // The finger's speed over its last 100ms (none if it rested before letting go), up is positive.
