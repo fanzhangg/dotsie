@@ -1078,7 +1078,8 @@ function mountTrip(trip) {
     </section>
   </div>`;
   const list = $app.querySelector('.wt-sheet__body');
-  list.addEventListener('scroll', updateFades, { passive: true });
+  listTop = 0;
+  list.addEventListener('scroll', onListScroll, { passive: true });
   new ResizeObserver(updateFades).observe(list); // the sheet changing height
   if (!window.L) return;
   // double-tap zoom is our own (see mapGestures), so it works over routes and pins too
@@ -1352,13 +1353,15 @@ function updateFades() {
 function renderList(trip) {
   const body = $app.querySelector('.wt-sheet__body'), day = currentDay(trip);
   body.innerHTML = listHTML(trip, day);
-  updateFades();
-  if (body.dataset.day === day) return false;
-  // a new day starts at the top, or, on today, with what's happening now in the middle (render centers it)
+  const same = body.dataset.day === day;
+  // The same day stays where the app had it (as far as its new rows go): on an iPhone, new rows could leave the list
+  // at its end, and the movement a tap starts set off from there, so the list flew to the end and back.
+  // A new day starts at the top, or, on today, with what's happening now in the middle (render centers it).
   body.dataset.day = day;
-  body.scrollTop = 0;
-  holdScroll(0);
-  return true;
+  setListTop(same ? Math.max(0, Math.min(listTop, body.scrollHeight - body.clientHeight)) : 0);
+  if (!same) holdScroll(0);
+  updateFades();
+  return !same;
 }
 // Keep the highlight and the dimming current while the trip is open.
 setInterval(() => { if ($app.dataset.trip) scheduleRender(); }, 60000);
@@ -1467,7 +1470,12 @@ function reframe() {
 // --wt-ease-out). A row being centered while the sheet changes height goes straight to the middle and never leaves
 // the list: both are the same blend of where they start and where they end. (The sheet used to slide by a CSS
 // transition and the list scrolled after it, so a row tapped on the whole day slid off the list and came back.)
-// A new target mid-way keeps the timeline: everything goes the rest of the way from where it is.
+// A new target part way (a second tap) starts the movement again from where everything is, with a whole quarter
+// second to get there. (It used to keep the old timeline, so a tap late in a movement had only what was left of it,
+// and the list jumped.) Targets asked for before the first frame, as one tap asks for the height and then the scroll,
+// are one movement, and asking again for where it's already going changes nothing.
+// The clock starts with the first frame, not when the movement is asked for: a tap redraws the list and the map
+// before any frame, and on a slow phone that took up the start of the quarter second, so the first frame jumped.
 // The list's scroll always has a target, even when only the height is changing: a taller list has less room to
 // scroll, so near the end of the day the browser would cut the scroll back part way through the movement, and the
 // list would seem to scroll by itself, its rows riding with the sheet and then stopping short. Instead the scroll goes,
@@ -1482,7 +1490,8 @@ function cubicBezier(x1, y1, x2, y2) {
   };
 }
 const sheetEase = cubicBezier(0.2, 0.8, 0.2, 1); // --wt-ease-out
-const motion = { raf: 0, t0: 0, dur: 0, base: 0, h0: 0, h1: null, s0: 0, s1: null };
+const motion = { raf: 0, t0: null, dur: 0, h0: 0, h1: null, s0: 0, s1: null };
+const FRAME = 1000 / 60;
 // What floats over the map (Whole day) rides with the sheet.
 const setBottom = h => $app.querySelector('.trip-fit')?.style.setProperty('--bottom-h', `${h}px`);
 function setSheetHeight(h) {
@@ -1517,6 +1526,25 @@ function setRoom(on) {
 }
 // The furthest the list can scroll with the sheet at height `h` (`chrome`: the sheet's top and add bar, see snaps)
 const maxScrollAt = (body, h, chrome) => Math.max(0, listContentHeight(body) - (h - chrome));
+// Where the list is scrolled to, as the app has it. Movements set off from here, not from the list's scrollTop:
+// on an iPhone, replacing the list's rows could leave its scrollTop at the end of the list for a moment, and a
+// movement that read it there went from the end of the list back to its row. The list follows listTop; only you,
+// scrolling the whole day or the side panel by hand, move listTop by scrolling the list.
+let listTop = 0;
+function setListTop(s) {
+  listTop = s;
+  const body = $app.querySelector('.wt-sheet__body');
+  if (body && Math.abs(body.scrollTop - s) >= 0.5) body.scrollTop = s;
+}
+function onListScroll() {
+  const body = $app.querySelector('.wt-sheet__body');
+  if (!body) return;
+  // you scrolled it: the whole day or the side panel, while the app isn't moving it
+  if ((state.snap === 'full' || isWide()) && !motion.raf && !drag.moved) listTop = body.scrollTop;
+  // anything else (at half nothing scrolls it by hand) is put back
+  else if (Math.abs(body.scrollTop - listTop) >= 1) body.scrollTop = listTop;
+  updateFades();
+}
 // A movement under way keeps the list's scroll at `s` from now on (a new day, or a scroll placed at once)
 function holdScroll(s) {
   if (motion.raf) motion.s0 = motion.s1 = s;
@@ -1525,37 +1553,36 @@ function holdScroll(s) {
 function moveSheet({ h, s }) {
   const sheet = $app.querySelector('.wt-sheet'), body = sheet?.querySelector('.wt-sheet__body');
   if (!sheet) return;
-  const now = performance.now();
-  let p = motion.raf && motion.dur ? (now - motion.t0) / motion.dur : 1;
-  if (p >= 1) { // a new movement
-    stopMotion();
-    Object.assign(motion, { t0: now, dur: parseFloat(token('--wt-duration-base')) || 0, h1: null, s1: null });
-    p = 0;
-  }
-  if (h !== undefined) motion.h1 = h;
-  if (s !== undefined) motion.s1 = s;
+  const running = !!motion.raf;
+  let h1 = h !== undefined ? h : running ? motion.h1 : null;
+  let s1 = s !== undefined ? s : running ? motion.s1 : null;
   // where the list's scroll can be at the new height: where it's going, or else where it is, cut back to its room
-  if (motion.h1 != null) motion.s1 = Math.min(motion.s1 ?? body.scrollTop, maxScrollAt(body, motion.h1, snaps().chrome));
-  Object.assign(motion, { base: sheetEase(Math.max(0, p)), h0: sheet.offsetHeight, s0: body.scrollTop });
-  if (!motion.dur) { // reduced motion: straight there
-    if (motion.h1 != null) setSheetHeight(motion.h1);
-    if (motion.s1 != null) body.scrollTop = motion.s1;
-    setRoom(false);
+  if (h1 != null) s1 = Math.min(s1 ?? listTop, maxScrollAt(body, h1, snaps().chrome));
+  const same = (a, b) => (a == null ? b == null : b != null && Math.abs(a - b) < 0.5);
+  if (running && same(h1, motion.h1) && same(s1, motion.s1)) return; // already on its way there
+  const dur = parseFloat(token('--wt-duration-base')) || 0;
+  if (!dur) { // reduced motion: straight there
+    stopMotion();
+    if (h1 != null) setSheetHeight(h1);
+    if (s1 != null) setListTop(s1);
     return;
   }
-  if (motion.h1 != null) setRoom(true);
-  if (!motion.raf) motion.raf = requestAnimationFrame(motionFrame);
+  // from where everything is now, with the clock to start on the next frame
+  Object.assign(motion, { t0: null, dur, h0: parseFloat(sheet.style.height) || sheet.offsetHeight, s0: listTop, h1, s1 });
+  setRoom(h1 != null);
+  if (!running) motion.raf = requestAnimationFrame(motionFrame);
 }
 // Timed by performance.now(), as moveSheet is, not by the frame's timestamp: that's when the frame began, which can be
-// before the movement (or a new target part way) was asked for, and the sheet stood still for that frame.
+// before the movement was asked for.
 function motionFrame() {
   const sheet = $app.querySelector('.wt-sheet'), body = sheet?.querySelector('.wt-sheet__body');
   if (!sheet) { motion.raf = 0; return; }
-  const p = Math.max(0, Math.min(1, (performance.now() - motion.t0) / motion.dur));
-  const q = motion.base >= 1 ? 1 : Math.max(0, Math.min(1, (sheetEase(p) - motion.base) / (1 - motion.base)));
+  const now = performance.now();
+  if (motion.t0 == null) motion.t0 = now - FRAME; // the first frame is a frame in
+  const p = Math.max(0, Math.min(1, (now - motion.t0) / motion.dur)), q = sheetEase(p);
   // height first, then the scroll, so the frame is laid out once
   if (motion.h1 != null) setSheetHeight(motion.h0 + (motion.h1 - motion.h0) * q);
-  if (motion.s1 != null) body.scrollTop = motion.s0 + (motion.s1 - motion.s0) * q;
+  if (motion.s1 != null) setListTop(motion.s0 + (motion.s1 - motion.s0) * q);
   motion.raf = p < 1 ? requestAnimationFrame(motionFrame) : 0;
   if (!motion.raf && !drag.moved) setRoom(false);
 }
@@ -1584,10 +1611,10 @@ function centerFocus({ force = false, animate = true } = {}) {
   const to = Math.round(Math.max(0, Math.min(want, listContentHeight(body) - listH)));
   if (!animate) {
     holdScroll(to); // a sheet movement under way carries on, leaving the list here
-    body.scrollTop = to;
+    setListTop(to);
     return;
   }
-  if (Math.abs(to - body.scrollTop) < 1 && (!motion.raf || motion.s1 == null)) return;
+  if (Math.abs(to - listTop) < 1 && (!motion.raf || motion.s1 == null)) return;
   moveSheet({ s: to });
 }
 
@@ -1606,7 +1633,7 @@ function dragTo(h) {
   setSheetHeight(h);
   const body = $app.querySelector('.wt-sheet__body');
   const sc = h > drag.h0 ? drag.sc0 + (drag.scFull - drag.sc0) * (h - drag.h0) / Math.max(1, drag.s.full - drag.h0) : drag.sc0;
-  if (body && Math.abs(body.scrollTop - sc) >= 0.5) body.scrollTop = sc;
+  if (body) setListTop(sc);
 }
 function dragMove(y) {
   const now = performance.now();
@@ -1621,7 +1648,7 @@ function dragMove(y) {
     Object.assign(drag, { moved: true, h0: sheet.offsetHeight, y0: y, s: snaps() });
     sheet.classList.add('is-dragging');
     const body = sheet.querySelector('.wt-sheet__body');
-    drag.sc0 = body.scrollTop;
+    drag.sc0 = listTop;
     drag.scFull = Math.min(drag.sc0, maxScrollAt(body, drag.s.full, drag.s.chrome));
     setRoom(true);
   }

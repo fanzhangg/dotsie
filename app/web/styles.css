@@ -68,6 +68,8 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
 /* While the sheet moves, room for the list to scroll past its last row (the app sets --sheet-room; see setRoom), so the
    browser never cuts the list's scroll short part way through and the rows move evenly with the sheet. */
 .trip .wt-sheet__body::after { content: ''; display: block; height: var(--sheet-room, 0px); }
+/* The app keeps the list's scroll (listTop in app.js): no scroll anchoring moving it when its rows change. */
+.trip .wt-sheet__body { overflow-anchor: none; }
 /* Whole day sits at the map's bottom right: just above the list on a phone, riding up and down with it (the app sets
    its --bottom-h with each frame of the sheet), and tucked under the sheet when it's dragged over. Not while a stop is open. */
 .trip-fit {
