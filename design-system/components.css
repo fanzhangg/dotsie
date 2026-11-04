@@ -1,4 +1,4 @@
-/* Waythread design system — components v4.9.0
+/* Waythread design system — components v4.10.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -162,7 +162,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* ---------- Timeline: rail · stop · time, with drives on the rail ---------- */
 /* Rows touch and have no padding of their own, so the rail is one solid hairline down the day. */
 /* --wt-tl-pad: space above and below a stop's text. The marker sits on the name's first line. */
-.wt-tl { --wt-tl-rail: 48px; --wt-tl-pad: 12px; --wt-tl-mark-y: calc(var(--wt-tl-pad) + 10px); }
+.wt-tl { --wt-tl-rail: 40px; --wt-tl-pad: 12px; --wt-tl-mark-y: calc(var(--wt-tl-pad) + 10px); }
 .wt-tl-rail { position: relative; align-self: stretch; }
 .wt-tl-rail::before { content: ''; position: absolute; left: calc(50% - .75px); top: 0; bottom: 0; width: 1.5px; background: var(--wt-border-rail); }
 .wt-tl > :first-child .wt-tl-rail::before { top: var(--wt-tl-mark-y); }
@@ -170,7 +170,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl > :only-child .wt-tl-rail::before { display: none; }
 
 /* Stop: marker · name · time, and its notes on the next row, across the name and time columns, so a long note
-   wraps to the row's full width and its right edge lines up with the times. A hotel at either end of the day is the
+   wraps to the row's full width and its right edge lines up with the times. The name is one line, cut off with an ellipsis. A hotel at either end of the day is the
    same row, with no time. The last row is the bottom padding, inside the grid so the rail runs through it. */
 .wt-tl-stop {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
@@ -184,12 +184,22 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 @keyframes wt-flash { from { background: var(--wt-highlight); } to { background: transparent; } }
 .wt-tl-marker { position: absolute; z-index: 1; left: 50%; top: var(--wt-tl-mark-y); transform: translate(-50%, -50%); box-shadow: 0 0 0 3px var(--wt-surface-raised); }
 .wt-tl-stop > .wt-tl-rail { grid-column: 1; grid-row: 1 / -1; }
-.wt-tl-name { grid-column: 2; grid-row: 1; min-width: 0; padding: var(--wt-tl-pad) var(--wt-space-2) 0 0; font: var(--wt-type-name); line-height: 1.3; overflow-wrap: anywhere; }
+.wt-tl-name {
+  grid-column: 2; grid-row: 1; min-width: 0; padding: var(--wt-tl-pad) var(--wt-space-2) 0 0; font: var(--wt-type-name); line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .wt-tl-notes { grid-column: 2 / -1; grid-row: 2; min-width: 0; display: grid; gap: 2px; padding: 3px var(--wt-space-3) 0 0; }
 .wt-tl-note { font: var(--wt-type-caption); line-height: 19px; color: var(--wt-text-secondary); white-space: pre-line; overflow-wrap: anywhere; }
 /* A link in a note: its site's name in blue, the one thing in the row that isn't the row's own tap. Regular weight:
    the blue says it's a link (see the README's rule on weight) */
 .wt-tl-note a { color: var(--wt-text-link); text-decoration: none; }
+/* On a phone (the wt-trip container under 768px) a stop's notes are one line, run together with " · " and cut off
+   with an ellipsis, so the half sheet fits a stop with its neighbors. The selected stop shows them in full. */
+@container wt-trip (max-width: 767px) {
+  .wt-tl-stop:not(.is-selected) .wt-tl-notes { display: block; font: var(--wt-type-caption); line-height: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wt-tl-stop:not(.is-selected) .wt-tl-note { display: inline; white-space: nowrap; }
+  .wt-tl-stop:not(.is-selected) .wt-tl-note + .wt-tl-note::before { content: ' · '; }
+}
 .wt-tl-time { grid-column: 3; grid-row: 1; padding: calc(var(--wt-tl-pad) + 1px) var(--wt-space-3) 0 0; text-align: right; white-space: nowrap; font: var(--wt-type-time); font-variant-numeric: tabular-nums; color: var(--wt-text-secondary); }
 .wt-tl-meridiem { font: var(--wt-type-micro); margin-left: 2px; color: var(--wt-text-tertiary); }
 .wt-tl-time__day { display: block; font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
@@ -276,7 +286,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 
 /* ---------- Day bar: ‹ day › at the top of the sheet; tap the day for the list of days ---------- */
 /* The arrows are centred on the timeline's columns: ‹ on the rail, › on the Directions column (with the sheet top's padding). */
-.wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) var(--wt-space-2) var(--wt-space-3); }
+.wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) var(--wt-space-1) var(--wt-space-2); }
 .wt-day-bar[hidden] { display: none; }
 .wt-day-bar__step { color: var(--wt-text-primary); }
 .wt-day-bar__title {
@@ -397,17 +407,17 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   top: calc(env(safe-area-inset-top, 0px) + var(--wt-space-2)); left: var(--wt-space-3); right: var(--wt-space-3);
   /* Home and settings are centred on the timeline's rail and Directions column, and the name starts where stop names do.
      Docked or in the side panel, the header loses its inset and gains it back as padding, so nothing in it moves. */
-  height: var(--wt-size-trip-head); padding: 0 var(--wt-space-1);
-  display: flex; align-items: center; gap: var(--wt-space-1);
+  height: var(--wt-size-trip-head); padding: 0 var(--wt-space-1) 0 0;
+  display: flex; align-items: center; gap: 0;
   background: var(--wt-surface-raised); border-radius: var(--wt-radius-lg); box-shadow: var(--wt-shadow-card);
   transition: top var(--wt-duration-base) var(--wt-ease-out), left var(--wt-duration-base) var(--wt-ease-out), right var(--wt-duration-base) var(--wt-ease-out),
     height var(--wt-duration-base) var(--wt-ease-out), padding var(--wt-duration-base) var(--wt-ease-out), border-radius var(--wt-duration-base), box-shadow var(--wt-duration-base);
 }
 .wt-trip-head.is-docked {
   top: 0; left: 0; right: 0; height: calc(var(--wt-size-trip-head) + var(--wt-space-2) + env(safe-area-inset-top, 0px));
-  padding: calc(var(--wt-space-2) + env(safe-area-inset-top, 0px)) var(--wt-space-4) 0; border-radius: 0; box-shadow: 0 1px 0 var(--wt-border-default);
+  padding: calc(var(--wt-space-2) + env(safe-area-inset-top, 0px)) var(--wt-space-4) 0 var(--wt-space-3); border-radius: 0; box-shadow: 0 1px 0 var(--wt-border-default);
 }
-.wt-trip-head__name { flex: 1; min-width: 0; margin: 0; font: var(--wt-type-name); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-trip-head__name { flex: 1; min-width: 0; margin: 0; padding-right: var(--wt-space-1); font: var(--wt-type-name); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Map / List (unused since 4.1.0: the sheet's three heights are reached by dragging it, as in a maps app) */
 .wt-view-toggle {
   display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px 0 11px;
@@ -445,11 +455,16 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   transition: --wt-fade-top var(--wt-duration-fast), --wt-fade-bottom var(--wt-duration-fast), visibility 0s var(--wt-duration-base), padding-bottom 0s var(--wt-duration-base);
 }
 .wt-sheet.is-peek:not(.is-dragging) .wt-add-bar { visibility: hidden; transition: visibility 0s var(--wt-duration-base); }
-.wt-sheet__top { flex: none; touch-action: none; padding: 0 var(--wt-space-3) var(--wt-space-1) var(--wt-space-1); }
-/* The grab handle is a button as wide as the sheet, so it's easy to hit and nothing else on the sheet's top resizes it. */
-.wt-sheet__grab { position: relative; display: block; width: 100%; height: 22px; cursor: grab; }
+/* The grab handle sits over the day bar's top edge rather than on a row of its own, as in a maps app's sheet. */
+.wt-sheet__top { position: relative; flex: none; min-height: 22px; touch-action: none; padding: var(--wt-space-2) var(--wt-space-3) 0 var(--wt-space-1); }
+/* The grab handle is a button as wide as the sheet, so it's easy to hit and nothing else on the sheet's top resizes it.
+   The day bar's buttons sit over its lower part, so a tap on ‹, the day or › is theirs. */
+.wt-sheet__grab { position: absolute; top: 0; left: 0; right: 0; display: block; width: 100%; height: 16px; cursor: grab; }
+/* Above the handle, but only its buttons take taps: a tap between them is the handle's. */
+.wt-sheet__top .wt-day-bar { position: relative; pointer-events: none; }
+.wt-sheet__top .wt-day-bar > * { pointer-events: auto; }
 .wt-sheet__grab::before {
-  content: ''; position: absolute; left: 50%; top: 8px; width: 36px; height: 4px; transform: translateX(-50%);
+  content: ''; position: absolute; left: 50%; top: 6px; width: 36px; height: 4px; transform: translateX(-50%);
   border-radius: 2px; background: var(--wt-border-strong);
 }
 .wt-sheet__grab:focus-visible { border-radius: var(--wt-radius-md); }
@@ -470,7 +485,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
    so adding is always one tap away. Static, not sticky: a sticky bar pinned itself to the screen's bottom and covered a pulled-down sheet's top. */
 .wt-add-bar {
   flex: none; display: flex; gap: var(--wt-space-2);
-  padding: var(--wt-space-3) var(--wt-space-3) calc(var(--wt-space-3) + env(safe-area-inset-bottom, 0px)); background: var(--wt-surface-raised);
+  padding: var(--wt-space-2) var(--wt-space-3) max(var(--wt-space-2), env(safe-area-inset-bottom, 0px)); background: var(--wt-surface-raised);
 }
 .wt-add-bar .wt-btn--block { flex: 1; min-width: 0; }
 /* Beside the pill, a secondary button (Maps) is a pill too, and the round + stays round: one shape along the bar */
@@ -494,7 +509,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 @container wt-trip (min-width: 768px) {
   .wt-trip-head {
     top: 0; left: 0; right: auto; width: var(--wt-size-panel); height: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px));
-    padding: env(safe-area-inset-top, 0px) var(--wt-space-4) 0; border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
+    padding: env(safe-area-inset-top, 0px) var(--wt-space-4) 0 var(--wt-space-3); border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
   }
   .wt-trip-head .wt-icon-btn { color: var(--wt-text-secondary); }
   .wt-view-toggle { display: none; }
@@ -502,7 +517,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
     top: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px)); right: auto; width: var(--wt-size-panel);
     border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
   }
-  .wt-sheet__top { touch-action: auto; padding-top: var(--wt-space-1); }
+  .wt-sheet__top { touch-action: auto; min-height: 0; padding-top: var(--wt-space-1); }
   .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: auto; overflow: auto; }
   .wt-sheet__grab { display: none; }
   .wt-map-bar { display: none; }
