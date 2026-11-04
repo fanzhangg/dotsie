@@ -173,7 +173,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.2.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.3.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -346,7 +346,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <div class="wt-field wt-nights" id="demo-nights"><span class="wt-field__label">Nights</span>
                 <div class="wt-nights__row"><button class="wt-icon-btn wt-nights__step" type="button" data-nights="-1" aria-label="One night fewer">−</button><output class="wt-nights__n" aria-live="polite">2</output><button class="wt-icon-btn wt-nights__step" type="button" data-nights="1" aria-label="One more night">+</button></div>
               </div>
-              <label class="wt-field"><span class="wt-field__label">Check-out<span id="demo-checkout-day"> · Sun, Nov 22</span></span><input class="wt-input" type="time" value="11:00"></label>
+              <div class="wt-field"><span class="wt-field__label" id="demo-checkout-label">Check-out</span><label class="wt-input wt-input-group"><span class="wt-input-group__prefix" id="demo-checkout-day">Sun, Nov 22</span><input type="time" value="11:00" aria-labelledby="demo-checkout-label"></label></div>
             </div>
           </div>
           <div class="demo-type-page" hidden>
@@ -388,14 +388,16 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       &lt;button class="wt-icon-btn wt-nights__step" aria-label="One night fewer"&gt;−&lt;/button&gt;
       &lt;output class="wt-nights__n" aria-live="polite"&gt;2&lt;/output&gt;
       &lt;button class="wt-icon-btn wt-nights__step" aria-label="One more night"&gt;+&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
-  &lt;label class="wt-field"&gt;&lt;span class="wt-field__label"&gt;Check-out · Sun, Nov 22&lt;/span&gt;
-    &lt;input class="wt-input" type="time" value="11:00"&gt;&lt;/label&gt;
+  &lt;div class="wt-field"&gt;&lt;span class="wt-field__label" id="checkout-label"&gt;Check-out&lt;/span&gt;
+    &lt;label class="wt-input wt-input-group"&gt;
+      &lt;span class="wt-input-group__prefix"&gt;Sun, Nov 22&lt;/span&gt;
+      &lt;input type="time" value="11:00" aria-labelledby="checkout-label"&gt;&lt;/label&gt;&lt;/div&gt;
 &lt;/div&gt;</code></pre></details>
       </div>
       <ul class="rules">
         <li><b>Type</b> takes one row, not a grid of every type, so the stop sheet stays short enough to leave the map in view. The options are a radio group: <code>role="radio"</code> and <code>aria-checked</code> on each; the checked one is bold with a check.</li>
         <li>On the types page, focus the checked option; coming back, focus the picker.</li>
-        <li><b>Nights</b> is at least 1. Hide the row (<code>hidden</code>) for anything that isn't a hotel. Check-out's day comes from the nights, so only its time is a field.</li>
+        <li><b>Nights</b> is at least 1. Hide the row (<code>hidden</code>) for anything that isn't a hotel. Check-out's day comes from the nights, so only its time is an input; the day shows in the field before it (<code>.wt-input-group</code>).</li>
       </ul>
     </section>
 
@@ -846,7 +848,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v4.2.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v4.3.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -1125,7 +1127,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     out.setDate(out.getDate() + nights);
     box.querySelector('.wt-nights__n').textContent = nights;
     box.querySelector('[data-nights="-1"]').disabled = nights <= 1;
-    document.getElementById('demo-checkout-day').textContent = isNaN(out) ? '' : ` · ${out.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+    document.getElementById('demo-checkout-day').textContent = isNaN(out) ? '' : out.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   }
   document.getElementById('demo-checkin').addEventListener('change', () => setNights(nights));
   setNights(nights);

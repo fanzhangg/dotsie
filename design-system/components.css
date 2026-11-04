@@ -1,4 +1,4 @@
-/* Waythread design system — components v4.2.0
+/* Waythread design system — components v4.3.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -79,6 +79,24 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 .wt-input::placeholder { color: var(--wt-text-placeholder); }
 .wt-input:focus { border-color: var(--wt-border-focus); background: var(--wt-surface-raised); }
 textarea.wt-input { resize: none; }
+/* Date and time fields: iPhone Safari draws them its own way, centred and wider than width: 100% allows, so they run
+   off the sheet's edge. Drawn like any other field, they fit, read from the left, and keep the field height when empty. */
+input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-width: 0; max-width: 100%; min-height: 50px; }
+@supports (-webkit-touch-callout: none) {
+  input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { -webkit-appearance: none; appearance: none; }
+}
+.wt-input::-webkit-date-and-time-value { text-align: left; margin: 0; }
+/* A field with a fixed part before its input, like check-out's day before its time. The whole box is a label, so
+   tapping anywhere in it opens the input. */
+.wt-input-group { display: flex; align-items: center; gap: var(--wt-space-2); min-height: 50px; padding-top: 0; padding-bottom: 0; cursor: text; }
+.wt-input-group:focus-within { border-color: var(--wt-border-focus); background: var(--wt-surface-raised); }
+.wt-input-group__prefix { flex: none; color: var(--wt-text-secondary); white-space: nowrap; }
+.wt-input-group > input {
+  flex: 1; min-width: 0; width: 100%; min-height: 48px; padding: 0; margin: 0;
+  font: inherit; color: inherit; background: none; border: 0; outline: none; -webkit-appearance: none; appearance: none;
+}
+/* On a touch screen, tapping the field opens the picker, so its icon only takes room from the time */
+@media (pointer: coarse) { .wt-input-group > input::-webkit-calendar-picker-indicator { display: none; } }
 .wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-results__item { display: block; width: 100%; padding: 10px var(--wt-space-1); border-bottom: 1px solid var(--wt-border-default); }
 .wt-results__item:hover { background: var(--wt-surface-sunken); }
@@ -247,16 +265,17 @@ textarea.wt-input { resize: none; }
 
 .wt-nights[hidden] { display: none; }
 .wt-nights__row { display: flex; align-items: center; gap: var(--wt-space-2); }
-.wt-nights__step { width: 36px; height: 36px; box-shadow: inset 0 0 0 1px var(--wt-border-default); font: var(--wt-type-title); color: var(--wt-text-primary); }
+.wt-nights__step { width: var(--wt-size-touch); height: var(--wt-size-touch); box-shadow: inset 0 0 0 1px var(--wt-border-default); font: var(--wt-type-title); color: var(--wt-text-primary); }
 .wt-nights__step:disabled { opacity: .35; }
 .wt-nights__n { min-width: 24px; text-align: center; font: var(--wt-type-name); font-variant-numeric: tabular-nums; }
 .wt-nights__out { margin-left: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-/* A hotel's Nights and Check-out side by side; the check-out day is worked out from the nights. */
-.wt-field-row { display: grid; grid-template-columns: auto 1fr; gap: var(--wt-space-5); align-items: end; }
-.wt-field-row > .wt-field { min-width: 0; }
+/* A hotel's Nights and Check-out side by side, labels level; on a very narrow screen Check-out wraps below.
+   The check-out day is worked out from the nights, and shows in the field before the time (.wt-input-group). */
+.wt-field-row { display: flex; flex-wrap: wrap; column-gap: var(--wt-space-4); align-items: flex-start; }
+.wt-field-row > .wt-field { flex: none; min-width: 0; }
+.wt-field-row > .wt-field:last-child { flex: 1 1 180px; }
 .wt-field-row[hidden] { display: none; }
 .wt-nights__row { min-height: 50px; }
-input.wt-input[type="time"] { min-height: 50px; }
 
 /* ---------- Trip header: home · trip name · settings ---------- */
 /* A full row at the top of the trip screen, so the trip's name is always in view. On a phone it's a card floating
@@ -358,9 +377,10 @@ input.wt-input[type="time"] { min-height: 50px; }
   background: var(--wt-overlay); opacity: 0; transition: opacity var(--wt-duration-base);
 }
 .wt-modal {
+  --wt-modal-pad-x: var(--wt-space-4); --wt-modal-pad-top: var(--wt-space-2);
   position: fixed; left: 50%; bottom: 0; z-index: calc(var(--wt-z-modal) + 1);
   width: 100%; max-width: var(--wt-size-column); max-height: 92dvh; overflow: auto;
-  padding: var(--wt-space-2) var(--wt-space-4) calc(var(--wt-space-5) + env(safe-area-inset-bottom, 0px));
+  padding: var(--wt-modal-pad-top) var(--wt-modal-pad-x) calc(var(--wt-space-5) + env(safe-area-inset-bottom, 0px));
   background: var(--wt-surface-raised); color: var(--wt-text-primary);
   border-radius: var(--wt-radius-lg) var(--wt-radius-lg) 0 0;
   transform: translate(-50%, 100%); transition: transform var(--wt-duration-base) var(--wt-ease-out);
@@ -375,8 +395,9 @@ input.wt-input[type="time"] { min-height: 50px; }
    panel is showing), it covers the panel instead, so the map stays in view beside it. */
 @media (min-width: 768px) {
   .wt-modal {
+    --wt-modal-pad-x: var(--wt-space-5); --wt-modal-pad-top: var(--wt-space-3);
     top: 50%; bottom: auto; max-width: 440px; max-height: min(720px, 88dvh);
-    padding: var(--wt-space-3) var(--wt-space-5) var(--wt-space-5);
+    padding: var(--wt-modal-pad-top) var(--wt-modal-pad-x) var(--wt-space-5);
     border-radius: var(--wt-radius-lg); box-shadow: var(--wt-shadow-float);
     opacity: 0; transform: translate(-50%, calc(-50% + 16px));
     transition: transform var(--wt-duration-base) var(--wt-ease-out), opacity var(--wt-duration-base);
@@ -384,7 +405,7 @@ input.wt-input[type="time"] { min-height: 50px; }
   .wt-modal-root.is-open .wt-modal { opacity: 1; transform: translate(-50%, -50%); }
   .wt-modal-root--side .wt-modal {
     top: 0; bottom: 0; left: 0; width: var(--wt-size-panel); max-width: none; max-height: none;
-    padding-top: calc(var(--wt-space-3) + env(safe-area-inset-top, 0px));
+    --wt-modal-pad-top: calc(var(--wt-space-3) + env(safe-area-inset-top, 0px));
     border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transform: translateX(-24px);
   }
   .wt-modal-root--side.is-open .wt-modal { transform: none; }
@@ -397,6 +418,21 @@ input.wt-input[type="time"] { min-height: 50px; }
 .wt-modal__text { margin: 0 0 var(--wt-space-3); color: var(--wt-text-secondary); }
 .wt-modal__actions { display: flex; align-items: center; gap: var(--wt-space-3); margin-top: var(--wt-space-5); }
 .wt-modal__actions .wt-btn--primary { margin-left: auto; min-width: 110px; }
+/* A long form in a short sheet (the stop sheet): its head and actions stay put while the fields scroll between
+   them, so Close and Save are always in reach. Put --sticky on the head and the actions; the actions take over
+   the sheet's bottom padding. */
+.wt-modal:has(.wt-modal__actions--sticky) { padding-bottom: 0; }
+.wt-modal__head--sticky {
+  position: sticky; top: 0; z-index: 1;
+  margin-top: calc(-1 * var(--wt-modal-pad-top)); padding-top: var(--wt-modal-pad-top);
+  background: var(--wt-surface-raised);
+}
+.wt-modal__actions--sticky {
+  position: sticky; bottom: 0; z-index: 1;
+  margin: var(--wt-space-4) calc(-1 * var(--wt-modal-pad-x)) 0;
+  padding: var(--wt-space-3) var(--wt-modal-pad-x) calc(var(--wt-space-3) + env(safe-area-inset-bottom, 0px));
+  background: var(--wt-surface-raised); box-shadow: 0 -1px 0 var(--wt-border-default);
+}
 
 /* ---------- Toast ---------- */
 .wt-toast {
