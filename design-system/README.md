@@ -128,7 +128,7 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-kind-drive` | The car marker on a drive in the timeline: grey, and quieter than any stop type. |
 | `--wt-kind-drive-current` | The car on the selected drive: a darker grey, never blue. |
 | `--wt-kind-past` | Markers, cars and muted pins of what's over: light grey. |
-| `--wt-marker-gloss` | The gradient over every marker, car and pin, as on a maps app's: lighter at the top, darker at the bottom. It shades whatever color is under it (`background-image` over `background-color`), so set a marker's color with `background-color`, never the `background` shorthand. |
+| `--wt-marker-gloss` | The gradient over every stop's marker and pin, as on a maps app's. Not on a drive's car, which stays flat so drives stay quieter than stops: lighter at the top, darker at the bottom. It shades whatever color is under it (`background-image` over `background-color`), so set a marker's color with `background-color`, never the `background` shorthand. |
 | `--wt-marker-ink` | The icon on a marker, the number or dot on a map pin, and the car on a drive. Meets 3:1 on every kind color, `--wt-kind-drive`, `--wt-kind-drive-current`, `--wt-now`, `--wt-danger` and `--wt-route`. Not on `--wt-kind-past`: what's over is faded on purpose. |
 | `--wt-danger`, `--wt-danger-surface` | "Doesn't fit" and destructive states; a late drive's car. The loudest color. |
 | `--wt-now` | The ring on the stop happening now and the car on the drive you're on: the blackest ink (`gray-950`; `gray-100` in dark). |
@@ -729,8 +729,7 @@ Say what can go here, in the user's words. No illustrations.
 The plan leads, and its markers look like a maps app's (tokens 1.9.0).
 
 - `--wt-type-context` (15 / 20, 500) is new: the trip's name (`.wt-trip-head__name`) and the day bar (`.wt-day-bar__label`) use it, in `--wt-text-secondary`. Both used to be as strong as the stops or stronger (the day bar was 18px semibold in black). The day bar's arrows are `--wt-text-secondary` too. `--wt-type-title` is now for modal titles only.
-- `--wt-marker-gloss` is new: a gradient over `.wt-marker`, `.wt-tl-car` and `.wt-pin` (as `::after`), lighter at the top and darker at the bottom, as on Apple Maps' markers. Their colors are now set with `background-color`.
-- `--wt-kind-drive` is `gray-500` in light (was `gray-450`), so the car's icon keeps 3:1 under the gloss.
+- `--wt-marker-gloss` is new: a gradient over `.wt-marker` and `.wt-pin` (as `::after`), lighter at the top and darker at the bottom, as on Apple Maps' markers. A marker's color is now set with `background-color`. A drive's car (`.wt-tl-car`) stays flat, so drives stay quieter than stops.
 - Nothing was renamed or removed.
 
 ### Changed in 5.3.0

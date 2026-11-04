@@ -218,7 +218,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-car {
   position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: 20px; height: 20px; display: grid; place-items: center; border-radius: var(--wt-radius-round);
-  background-color: var(--wt-kind-drive); background-image: var(--wt-marker-gloss); color: var(--wt-marker-ink);
+  background-color: var(--wt-kind-drive); color: var(--wt-marker-ink);   /* flat: no gloss, so a drive stays quieter than a stop */
 }
 .wt-tl-car .wt-icon { width: 13px; height: 13px; }
 /* The row itself takes no hover or press look: only its Directions button reads as a control. */

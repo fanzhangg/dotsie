@@ -131,11 +131,11 @@
   --wt-kind-sight: #b94082;
   --wt-kind-nature: #298a41;
   --wt-kind-shop: #8b7300;
-  --wt-kind-drive: var(--wt-color-gray-500);        /* the car on a drive: grey, and smaller than any stop */
+  --wt-kind-drive: var(--wt-color-gray-450);        /* the car on a drive: quieter than any stop */
   --wt-kind-drive-current: var(--wt-color-gray-700); /* the car on the selected drive: a step darker */
   --wt-kind-past: var(--wt-color-gray-350);         /* markers, cars and pins of what's over: the color drains out */
   --wt-marker-ink: var(--wt-color-gray-0);          /* the icon on a marker, the number on a pin, the car on a drive */
-  /* Laid over every marker, car and pin, as on a maps app's: lighter at the top, darker at the bottom, so it reads as a
+  /* Laid over every stop's marker and pin, as on a maps app's (not a drive's car, which stays flat): lighter at the top, darker at the bottom, so it reads as a
      solid button-like object. It shades whatever color is under it, so a marker keeps its one color token. Gentle
      enough that --wt-marker-ink stays at 3:1 across the icon. */
   --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .24), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .16));
