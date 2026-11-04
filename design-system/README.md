@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 6.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 6.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -585,7 +585,7 @@ Pad the top when you fit the map on a phone, so pins stay clear of the header ca
 
 - A round icon button floating over the map, 44px, the touch size. **Whole day** fits the day's route back in view, as a maps app's route overview button does. It's the one icon-only button whose icon isn't universal, so it keeps its `aria-label` and a `title` ("Whole day") for hover.
 - Your code places it: the app puts it at the map's bottom right, just above the sheet on a phone (`bottom: calc(var(--bottom-h) + var(--wt-space-3))`), one z-index under the sheet so a dragged sheet covers it.
-- Show it only while it would do something; hide it with `hidden`. Whole day is hidden while the map already shows the whole day, over the whole-day list, and while a stop is open.
+- Keep it on the map, and set `disabled` while it would do nothing: the background stays solid and only the icon greys out, so the map doesn't show through. Whole day is disabled while the map already shows the whole day. Hide it with `hidden` where the map isn't there to fit: over the whole-day list, and while a stop is open.
 
 ### Modal sheet `.wt-modal`
 
@@ -724,6 +724,12 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 6.3.0
+
+- The `fit` icon is simpler (icons 1.2.1): just the four corners of a frame, without the route line inside.
+- `.wt-map-btn:disabled`: Whole day now stays on the map and is disabled, rather than hidden, while the map already shows the whole day. It keeps its solid background, greys its icon and has no hover or press state.
+- Nothing was renamed or removed.
 
 ### Changed in 6.2.0
 
