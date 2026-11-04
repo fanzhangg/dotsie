@@ -675,7 +675,7 @@ let mapCredit = CREDIT.stadia;
 // Leaflet fetches only the tiles in view, so a zoom waits on a whole fresh set and a pan shows blank edges.
 // This layer also loads a ring of tiles around the view, and once the view's tiles are in, it fetches the
 // next zoom level in (where a zoom-in lands) and the one out (a quarter as many) so the browser has them cached.
-// Skipped when the browser asks to save data. `_getTiledPixelBounds` is Leaflet-internal: check it on upgrade.
+// Stadia tiles only. Skipped when the browser asks to save data. `_getTiledPixelBounds` is Leaflet-internal: check it on upgrade.
 const EDGE_TILES = 1;
 const PREFETCH_ZOOMS = [1, -1];
 function bufferedTileLayer(url, opts) {
@@ -746,7 +746,8 @@ function mountTrip(trip) {
   // domain with Stadia. Fall back to OpenStreetMap if it's refused.
   const m = map, dark = matchMedia('(prefers-color-scheme: dark)').matches;
   const osm = () => {
-    bufferedTileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(m);
+    // No prefetch here: OpenStreetMap's tile policy discourages loading tiles nobody looks at
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(m);
     mapCredit = CREDIT.osm;
     $app.querySelector('.trip')?.classList.add('osm-tiles');
   };
