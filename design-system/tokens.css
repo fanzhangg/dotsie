@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.7.0
+/* Waythread design system — tokens v1.8.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -135,10 +135,14 @@
   --wt-kind-drive-current: var(--wt-color-gray-700); /* the car on the selected drive: a step darker */
   --wt-kind-past: var(--wt-color-gray-350);         /* markers, cars and pins of what's over: the color drains out */
   --wt-marker-ink: var(--wt-color-gray-0);          /* the icon on a marker, the number on a pin, the car on a drive */
-  /* Laid over every stop's marker and pin, as on a maps app's (not a drive's car, which stays flat): lighter at the top, darker at the bottom, so it reads as a
-     solid button-like object. It shades whatever color is under it, so a marker keeps its one color token. Gentle
-     enough that --wt-marker-ink stays at 3:1 across the icon. */
-  --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .24), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .16));
+  /* The gradient on a stop's marker and pin, as on a maps app's: built from the marker's own color in OKLCH, a little
+     lighter and richer at the top and a little darker at the bottom, with the same hue all the way down. Never a white
+     or black overlay: those wash the color out at the top and muddy it at the bottom. Lift and sink are OKLCH
+     lightness; boost multiplies chroma at the top. Gentle enough that --wt-marker-ink stays at 3:1 across the icon. */
+  --wt-marker-lift: .06;
+  --wt-marker-sink: .07;
+  --wt-marker-boost: 1.15;
+  --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .24), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .16)); /* unused since 6.2.0 */
 
   /* Overlays and shadows */
   --wt-overlay: rgba(0, 0, 0, .32);
@@ -212,6 +216,8 @@
     --wt-kind-drive-current: var(--wt-color-gray-300);
     --wt-kind-past: var(--wt-color-gray-600);
     --wt-marker-ink: var(--wt-color-gray-950);
+    --wt-marker-lift: .05;
+    --wt-marker-sink: .04;
     --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .1));
     --wt-overlay: rgba(0, 0, 0, .55);
     --wt-shadow-color: rgba(0, 0, 0, .5);
@@ -271,6 +277,8 @@
   --wt-kind-drive-current: var(--wt-color-gray-300);
   --wt-kind-past: var(--wt-color-gray-600);
   --wt-marker-ink: var(--wt-color-gray-950);
+  --wt-marker-lift: .05;
+  --wt-marker-sink: .04;
   --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .1));
   --wt-overlay: rgba(0, 0, 0, .55);
   --wt-shadow-color: rgba(0, 0, 0, .5);

@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 6.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 6.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -128,7 +128,8 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-kind-drive` | The car marker on a drive in the timeline: grey, and quieter than any stop type. |
 | `--wt-kind-drive-current` | The car on the selected drive: a darker grey, never blue. |
 | `--wt-kind-past` | Markers, cars and muted pins of what's over: light grey. |
-| `--wt-marker-gloss` | The gradient over every stop's marker and pin, as on a maps app's. Not on a drive's car, which stays flat so drives stay quieter than stops: lighter at the top, darker at the bottom. It shades whatever color is under it (`background-image` over `background-color`), so set a marker's color with `background-color`, never the `background` shorthand. |
+| `--wt-marker-lift`, `--wt-marker-sink`, `--wt-marker-boost` | The shading on a stop's marker and pin, as on a maps app's. Each builds its own gradient from its color (`--wt-marker-fill`) with OKLCH relative colors: `lift` lighter and `boost` times the chroma at the top, `sink` darker at the bottom, one hue throughout. Not on a drive's car, which stays flat, nor on what's over. |
+| `--wt-marker-gloss` | Unused since 6.2.0: a white-and-black overlay that greyed the colors. Kept until the next major version. |
 | `--wt-marker-ink` | The icon on a marker, the number or dot on a map pin, and the car on a drive. Meets 3:1 on every kind color, `--wt-kind-drive`, `--wt-kind-drive-current`, `--wt-now`, `--wt-danger` and `--wt-route`. Not on `--wt-kind-past`: what's over is faded on purpose. |
 | `--wt-danger`, `--wt-danger-surface` | "Doesn't fit" and destructive states; a late drive's car. The loudest color. |
 | `--wt-now` | The ring on the stop happening now and the car on the drive you're on: the blackest ink (`gray-950`; `gray-100` in dark). |
@@ -312,7 +313,7 @@ Labels are verbs that say exactly what happens.
 
 ### Marker `.wt-marker`
 
-A stop's type icon on its type's color, with `--wt-marker-gloss` over it, so it reads as a solid, tappable object like a maps app's marker. The same marker sits on the timeline's rail, in the day list, in the Type picker and in place search. On the map, a stop's [pin](#map-pin-wt-pin) has the same color but carries its number instead of the icon.
+A stop's type icon on its type's color, shaded from that color (lighter at the top, darker at the bottom, the same hue throughout), so it reads as a solid, tappable object like a maps app's marker. The same marker sits on the timeline's rail, in the day list, in the Type picker and in place search. On the map, a stop's [pin](#map-pin-wt-pin) has the same color but carries its number instead of the icon.
 
 ```html
 <i class="wt-marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)">${icon('utensils')}</i>
@@ -646,7 +647,7 @@ The name and dates only: enough to pick a trip.
 ```
 
 - **A teardrop, like a maps app's pin.** Its tip is on the place, so it points at it exactly; place the element at the place and the tip lands there. 30 × 39px.
-- **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), with the same gloss (`::after`, cut to the drop's shape), outlined in `--wt-pin-fill`.
+- **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), shaded like a marker (`::before`, cut to the drop's shape), outlined in `--wt-pin-fill` on top so the outline stays clean.
 - **Its head holds one thing: the stop's number,** in the day's order (on All days, the trip's), in `--wt-marker-ink`. A place that isn't a numbered stop has `.wt-pin__dot` instead.
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal.
 - Variants: `--selected` (a quarter larger: the selected stop, and both ends of a route on show) and `--muted` (smaller and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). The pins still in color are the ones that matter now. Both scale from the tip.
@@ -722,6 +723,15 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 6.2.0
+
+The marker gradient looked dirty: white over the top and black over the bottom washed the color out and turned it muddy, and on pins it greyed the white outline.
+
+- `.wt-marker` and `.wt-pin` shade from their own color instead: `--wt-marker-fill` (their type color) and `--wt-marker-shade`, an OKLCH gradient a little lighter and richer at the top and darker at the bottom, in one hue. New tokens `--wt-marker-lift`, `--wt-marker-sink` and `--wt-marker-boost` tune it per theme. Without relative-color support a marker is its flat color.
+- A pin's fill is now `::before` (was the SVG's fill plus an `::after` overlay); the SVG draws only the outline, on top. The shadow moved from the SVG to `.wt-pin`.
+- Past markers and muted pins are flat grey.
+- `--wt-marker-gloss` is unused; it stays until the next major version. Nothing else was renamed or removed.
 
 ### Changed in 6.1.0
 
