@@ -292,12 +292,13 @@
   --wt-size-icon: 22px;
   --wt-size-column: 480px;  /* app column width on large screens */
   --wt-size-panel: clamp(360px, 30vw, 440px);  /* the plan's side panel, from 768px wide */
-  --wt-size-trip-head: 56px;  /* the trip header, under the safe area at the top */
+  --wt-size-trip-head: 56px;  /* the trip header card */
 
   /* Elevation: by role, never decoration */
   --wt-shadow-hairline: 0 0 0 1px var(--wt-border-subtle);
   --wt-shadow-sheet: 0 -2px 16px var(--wt-shadow-color);
   --wt-shadow-float: 0 1px 4px var(--wt-shadow-color);
+  --wt-shadow-card: 0 2px 10px var(--wt-shadow-color);   /* the trip header, floating over the map */
   --wt-shadow-pin: 0 1px 3px rgba(0, 0, 0, .35);
 
   /* Motion */

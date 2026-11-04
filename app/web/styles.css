@@ -53,11 +53,11 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 /* ---------- Trip: full-screen map with the list sheet on top ---------- */
 /* From 768px wide the sheet is a side panel (see the design system's wt-trip container), and the map sits beside it. */
 .trip { position: relative; height: 100dvh; overflow: hidden; container: wt-trip / inline-size; }
-/* On a phone the map sits under the trip header; from 768px wide the header tops the side panel, and the map has the full height. */
-#map { position: absolute; inset: 0; top: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px)); background: var(--wt-surface-map); }
-@container wt-trip (min-width: 768px) { #map { top: 0; left: var(--wt-size-panel); } }
+/* On a phone the map fills the screen, under the floating header card; from 768px wide the header tops the side panel, and the map sits beside it. */
+#map { position: absolute; inset: 0; background: var(--wt-surface-map); }
+@container wt-trip (min-width: 768px) { #map { left: var(--wt-size-panel); } }
 /* While a stop is open on a phone, its sheet takes the list's place at the bottom, and the map shows above it. */
-.trip.is-editing .wt-sheet, .trip.is-editing .wt-view-toggle { visibility: hidden; }
+.trip.is-editing .wt-sheet { visibility: hidden; }
 .trip .leaflet-bottom { bottom: var(--bottom-h, 0); transition: bottom var(--wt-duration-base); }
 /* Only the busier fallback basemap needs quieting. */
 .trip.osm-tiles .leaflet-tile-pane { filter: saturate(.55) brightness(1.03); }
