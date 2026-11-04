@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 6.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 6.4.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -198,6 +198,12 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
   - `--wt-duration-flash` (2.4s): a co-editor's change.
 
   All three drop to 0 when the phone asks for reduced motion.
+- **A set of buttons changing to another morphs, never swaps.** When what you can do changes (the add bar's Add stop, a stop's Open in Maps, a drive's Directions), the old buttons turn into the new ones on `--wt-duration-base` with `--wt-ease-out`, so you see where each went:
+  - **A button in both sets moves and stretches** from where it was to where it goes, its old look (color, label) fading out over it in the first 60%. Selecting a stop shrinks the full-width Add stop to the right, into the round `+` at the row's end; clearing it grows the `+` back. Open in Maps and Directions are the same button: one stretches into the other.
+  - **A new button fades in**: a wide one grows from its left edge, out of a circle; a round one grows from 60%.
+  - **A button that's gone fades out where it was,** under the rest, which slide over it.
+  - Give each button a key that's the same in every set (the app uses `data-key`). Mark the row `.is-morphing` while it runs: its buttons are placed absolutely, from where they'll end up, and it keeps its height. The fading copies are `.is-ghost` and take no taps. The add bar is the only such row so far; a new one should work the same way.
+  - With reduced motion the new set just appears.
 - **Layers:** `--wt-z-raised` (sticky parts inside a scroll area) · `sheet` (500, above the map; also the map buttons) · `modal` (1000) · `toast` (2000).
 
 ## Icons
@@ -233,12 +239,12 @@ Each entry shows the minimum markup. Your code supplies the content and the beha
 
 | Variant | Use for |
 | --- | --- |
-| `--primary` | The one main action in a view: Save, Add, Create. On the trip screen, Add stop, or Edit stop while a stop is selected. Never more than one per view. |
+| `--primary` | The one main action in a view: Save, Add, Create. On the trip screen, Add stop, or Open in Maps while a stop is selected. Never more than one per view. |
 | `--secondary` | A quiet action next to content, like Copy beside the trip link. |
 | `--ghost` | Low-emphasis actions next to content. |
 | `--danger` | Destructive actions. Always leave a way back: an Undo toast or a confirmation. |
 | `--block` | Full width, at the bottom of a sheet or form. |
-| `--icon` | Icon only: a round button as tall as the others, for an action that sits beside a bigger one, like the `+` beside Edit stop. Needs an `aria-label`. |
+| `--icon` | Icon only: a round button as tall as the others, for an action that sits beside a bigger one, like Edit stop and the `+` beside Open in Maps. White (`--secondary`). Needs an `aria-label`. |
 
 Labels are verbs that say exactly what happens.
 
@@ -526,12 +532,12 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 </section>
 ```
 
-With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
+With a stop selected, the add bar holds Open in Maps, a round Edit stop and a round `+`:
 
 ```html
-<div class="wt-add-bar">
-  <button class="wt-btn wt-btn--primary wt-btn--block">${icon('edit')}Edit stop</button>
-  <a class="wt-btn wt-btn--secondary" href="…" target="_blank" rel="noopener">${icon('map')}Maps</a>
+<div class="wt-add-bar">   <!-- .is-morphing while it changes set -->
+  <a class="wt-btn wt-btn--primary wt-btn--block" href="…" target="_blank" rel="noopener">${icon('map')}Open in Maps</a>
+  <button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Edit stop">${icon('edit')}</button>
   <button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Add stop">${icon('plus')}</button>
 </div>
 ```
@@ -547,7 +553,8 @@ With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 - **The map:** a new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route opens the sheet to half. Zooming doesn't move the sheet.
 - The top holds the grab handle and the day bar, with a 1px `--wt-border-default` line under it that divides the day bar from the list (left out when the day bar is hidden, on an empty trip). The handle is laid over the day bar's top edge rather than taking a row of its own; the day bar's buttons sit above it and take their own taps, and a tap anywhere else on that strip is the handle's. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
-- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop, then **Maps** (the place in the maps app picked in Account, the same one Directions opens), then a round `+`, so adding is always one tap away. The maps app is how you find out what a place is (its photos, reviews and hours), so it sits beside Edit stop rather than inside the sheet. In the bar, secondary buttons are pills like the primary, so the row reads as one set. Its short label lets Edit stop fit beside it on a 320px phone. A stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
+- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes **Open in Maps** (the place in the maps app picked in Account, the same one Directions opens; `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`), then a round white **Edit stop** with only its pencil, then a round `+`, so adding is always one tap away. Seeing what a place is (its photos, reviews and hours) is what you most often want from a stop on the road, so it's the black button; editing is one tap to its right. A stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, as Open in Maps) with the same `+`. It's always one primary button. Every button in the bar is a pill (the 44px ones are circles), so the row reads as one set.
+- **Changing set morphs** (see [Motion](#elevation-motion-layers)): Add stop shrinks to the right into the `+`, Open in Maps grows from the left and Edit stop grows in between; clearing the selection runs it back. Open in Maps and Directions stretch into each other.
 - Tapping a selected stop or a shown drive again keeps it selected, and at half nothing animates: it's already in the middle.
 - **One row is the half list's focus**, and it sits in the middle of the list: the selected row (`.is-selected` or `.is-active`), or else, on today, the `is-now` row. When the sheet changes height and the list has to scroll, move both together, on one timeline, so the row goes straight to the middle. The app does this frame by frame and turns off the sheet's height transition.
 
@@ -677,7 +684,7 @@ Say what can go here, in the user's words. No illustrations.
   - Rows before it turn light grey (`is-past`), their routes turn grey (`--wt-route-done`), and their pins mute to grey (`.wt-pin--muted`).
   - The hotel you go back to tonight stays bright.
 - **Doesn't fit.** If a drive takes longer than the gap between its two stops, the drive gets `is-late` and says "Arrives 13 min late". That red text is the only warning.
-- **Handing off to maps.** Every drive's Directions button, and a stop's Maps button, opens the maps app the person picked in Account: Google Maps unless they chose Apple Maps. Both always open the same one. Directions are never rebuilt in-app.
+- **Handing off to maps.** Every drive's Directions button, and a stop's Open in Maps button, opens the maps app the person picked in Account: Google Maps unless they chose Apple Maps. Both always open the same one. Directions are never rebuilt in-app.
 - **Choosing from a list.** Every choice of one from a set of named options is a [picker](#picker-wt-picker-options-wt-options-and-check-out): a row with the current choice that opens the options on a page of the sheet. Picking applies it and comes back. On a computer the options drop down as a menu instead. A stop's Type and Account's Maps app both work this way; a new choice should too, even with two options.
 - **Changes from others.** When a co-editor changes a stop, show a toast naming them ("Sam updated Cloudcroft") and flash the stop once with `is-flash`.
 - **Deleting.** Delete right away, then show a toast with Undo. Ask first only when undo isn't possible, such as deleting a whole trip.
@@ -724,6 +731,13 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 6.4.0
+
+- **With a stop selected, Open in Maps is the add bar's black button** (`a.wt-btn--primary.wt-btn--block`), and Edit stop is a round white icon button (`wt-btn--secondary wt-btn--icon`, `aria-label="Edit stop"`) to its right, before the `+`. Maps used to be a white button between a black Edit stop and the `+`.
+- **A row of buttons morphs from one set to the next** instead of swapping ([Motion](#elevation-motion-layers)). New: `.wt-add-bar.is-morphing` (its buttons placed absolutely while they move) and `.is-ghost` (a fading copy that takes no taps).
+- Every `.wt-btn` in the add bar is a pill (was only `--secondary`), so a round button can stretch into a wide one without turning oval.
+- Nothing was renamed or removed.
 
 ### Changed in 6.3.0
 

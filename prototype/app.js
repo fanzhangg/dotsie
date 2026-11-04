@@ -1198,7 +1198,7 @@ function noteHTML(text) {
 // A stop row: marker · name · time, with its notes below across the name and time. A hotel on its check-in day says how many nights.
 // Under the time, a second line: when you leave (`to 4:15 PM`), or, for a row from another day than the one on
 // screen, which day (in place of the time).
-// Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Edit stop. Tapping it again keeps it selected.
+// Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Open in Maps and Edit stop. Tapping it again keeps it selected.
 // It's a div acting as a button, like a drive, since a link in its note can't sit inside a <button>.
 function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
   const notes = note.filter(Boolean);
@@ -1233,20 +1233,71 @@ function fromItem(day, entry) {
 }
 // The selected stop, if it's still in the trip (a co-editor may have deleted it).
 const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.sel)) || null;
-// Below the list, always in reach: Add stop; with a stop selected, Edit stop, and Maps (the place in the maps app) to see what the place is;
-// with a drive's route shown, Directions to the drive's end in the maps app. Either way a small + beside it keeps adding one tap away.
+// Below the list, always in reach: Add stop; with a stop selected, Open in Maps (the place in the maps app, to see what it is)
+// and a round Edit stop; with a drive's route shown, Directions to the drive's end in the maps app. Either way a small + at the
+// end keeps adding one tap away. Each button has a `data-key`, the same in every set, so a change of set can morph (morphRow).
 function addBarHTML(trip) {
   const s = selectedStop(trip);
   const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
-  if (leg) return `<a class="wt-btn wt-btn--primary wt-btn--block" href="${directionsURL(leg.from, leg.to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
+  const plus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
+  if (leg) return `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${directionsURL(leg.from, leg.to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a>${plus}`;
   return s
-    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${esc(s.id)}">${ICON.edit}Edit stop</button><a class="wt-btn wt-btn--secondary" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="${esc(s.name)} in your maps app" title="See it in your maps app">${ICON.map}Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
-    : `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button>`;
+    ? `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="Open ${esc(s.name)} in your maps app">${ICON.map}Open in Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="edit" data-id="${esc(s.id)}" aria-label="Edit stop" title="Edit stop">${ICON.edit}</button>${plus}`
+    : `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="add" data-action="add">${ICON.plus}Add stop</button>`;
 }
 function renderAddBar(trip) {
   const bar = $app.querySelector('.wt-add-bar'), html = addBarHTML(trip);
   // only when it changes, so a focused button keeps its focus through the minute's re-render
-  if (bar.wtHTML !== html) { bar.innerHTML = html; bar.wtHTML = html; }
+  if (bar.wtHTML === html) return;
+  const before = bar.wtHTML !== undefined && [...bar.querySelectorAll(':scope > [data-key]')].map(el => ({ key: el.dataset.key, el, r: el.getBoundingClientRect() }));
+  bar.innerHTML = html; bar.wtHTML = html;
+  if (before) morphRow(bar, before);
+}
+// A row of buttons changing to another set morphs into it, on --wt-duration-base (see "Motion" in the design system's README).
+// `before` is the old buttons and where they were. A button in both sets (the same data-key) moves and stretches from where it
+// was to where it goes, its old look fading out over it in the first 60%: full-width Add stop shrinks into the + at the row's end, and back.
+// A new button fades in, a wide one growing from its left edge, a round one from smaller; one that's gone fades out where it
+// was, under the rest. While it runs the row is .is-morphing: its buttons are placed absolutely, here, and it keeps its height.
+function morphRow(row, before) {
+  const ms = parseFloat(token('--wt-duration-base')) || 0, id = row.wtMorph = {};
+  row.classList.remove('is-morphing'); row.style.height = '';
+  row.querySelectorAll(':scope > *').forEach(el => el.removeAttribute('style'));
+  const box = row.getBoundingClientRect();
+  const after = [...row.querySelectorAll(':scope > [data-key]')].map(el => ({ key: el.dataset.key, el, r: el.getBoundingClientRect() }));
+  const was = new Map(before.map(b => [b.key, b])), keys = new Set(after.map(a => a.key));
+  const still = after.length === before.length && after.every(a => was.get(a.key)?.r.left === a.r.left && was.get(a.key).r.width === a.r.width);
+  if (!ms || still || !box.width || before.some(b => !b.r.width)) return;
+  const x = r => `${r.left - box.left}px`, place = (el, r) => Object.assign(el.style, { left: x(r), top: `${r.top - box.top}px`, width: `${r.width}px` });
+  const ghost = b => {
+    const g = b.el.cloneNode(true);
+    g.removeAttribute('style'); g.removeAttribute('data-key'); g.removeAttribute('data-action');
+    g.classList.add('is-ghost'); g.inert = true; g.setAttribute('aria-hidden', 'true'); g.tabIndex = -1;
+    place(g, b.r);
+    return g;
+  };
+  const opts = { duration: ms, easing: token('--wt-ease-out') || 'ease-out' }, runs = [];
+  const gone = { ...opts, fill: 'forwards' }; // a ghost stays faded out until it's removed
+  row.style.height = `${box.height}px`; row.classList.add('is-morphing');
+  for (const a of after) place(a.el, a.r);
+  for (const b of before) if (!keys.has(b.key)) { const g = ghost(b); row.prepend(g); runs.push(g.animate({ opacity: [1, 0] }, gone)); }
+  for (const a of after) {
+    const b = was.get(a.key), to = { left: x(a.r), width: `${a.r.width}px` };
+    if (b) {
+      const from = { left: x(b.r), width: `${b.r.width}px` };
+      runs.push(a.el.animate([from, to], opts));
+      if (b.el.className !== a.el.className || b.el.innerHTML !== a.el.innerHTML) {
+        const g = ghost(b); a.el.after(g);
+        runs.push(g.animate([{ ...from, opacity: 1 }, { opacity: 0, offset: 0.6 }, { ...to, opacity: 0 }], gone));
+      }
+    } else if (a.el.matches('.wt-btn--icon')) runs.push(a.el.animate({ opacity: [0, 1], transform: ['scale(.6)', 'none'] }, opts));
+    else runs.push(a.el.animate({ opacity: [0, 1], width: [`${Math.min(a.r.height, a.r.width)}px`, to.width] }, opts));
+  }
+  Promise.all(runs.map(r => r.finished)).then(() => {
+    if (row.wtMorph !== id) return;
+    row.querySelectorAll(':scope > .is-ghost').forEach(g => g.remove());
+    row.querySelectorAll(':scope > *').forEach(el => el.removeAttribute('style'));
+    row.classList.remove('is-morphing'); row.style.height = '';
+  }, () => {});
 }
 // One day's rows, from the day's plan, each marked `past` or `now`. On today, the row you're in now
 // (the latest thing that has started) is now, and everything before it is past; earlier days are past throughout.
@@ -1876,7 +1927,7 @@ document.addEventListener('pointerover', e => {
   state.hoverLeg = id;
   if (cur?.stops) drawMap(cur);
 });
-// Select a stop: its row and its pin are highlighted, and Add stop becomes Edit stop.
+// Select a stop: its row and its pin are highlighted, and Add stop becomes Open in Maps and Edit stop.
 // Tapping a pin or a row scrolls the row to the middle of the list. Tapping a row (`row`, its key) moves the pin into view if it's
 // off the map you can see, keeping the zoom; the map is never zoomed for it. Tapping the selected row (or its pin) again keeps it selected;
 // tapping empty map, changing the day or Esc clears it.

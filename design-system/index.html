@@ -103,6 +103,9 @@
     .motion-track { position: relative; height: 120px; border-radius: var(--wt-radius-md); background: var(--wt-surface-map); overflow: hidden; }
     .motion-sheet { position: absolute; left: 12px; right: 12px; bottom: 0; height: 40px; border-radius: var(--wt-radius-lg) var(--wt-radius-lg) 0 0; background: var(--wt-surface-sheet); box-shadow: var(--wt-shadow-sheet); transition: height var(--wt-duration-base) var(--wt-ease-out); }
     .motion-track.is-up .motion-sheet { height: 96px; }
+    .morph-stage { max-width: 390px; padding: var(--wt-space-4) 0 0; border-radius: var(--wt-radius-lg); background: var(--wt-surface-map); overflow: hidden; }
+    .morph-stage .wt-add-bar { border-radius: var(--wt-radius-lg) var(--wt-radius-lg) 0 0; box-shadow: var(--wt-shadow-sheet); }
+    .morph-controls .wt-btn[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--wt-border-strong); }
 
     /* Icons */
     .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--wt-space-2); }
@@ -279,6 +282,17 @@
       <p class="intro">Sheets and toasts move with <code>--wt-duration-base</code> and <code>--wt-ease-out</code>; color changes use <code>--wt-duration-fast</code>. Every duration drops to 0 when reduced motion is on.</p>
       <div class="motion-track" id="motion-track"><div class="motion-sheet"></div></div>
       <div class="stage-controls"><button class="wt-btn wt-btn--secondary" type="button" id="motion-play">Move the sheet</button></div>
+      <h3>Buttons that change</h3>
+      <p class="intro">When what you can do changes, a row of buttons <b>morphs</b> into the next set instead of swapping, on <code>--wt-duration-base</code>. A button in both sets moves and stretches to its new place, its old look fading out over it: selecting a stop shrinks Add stop to the right into the +. A new button grows in, a wide one from its left edge; one that's gone fades out underneath. Open in Maps and Directions stretch into each other. Pick what's selected:</p>
+      <div class="morph-stage"><div class="wt-add-bar" id="morph-bar"></div></div>
+      <div class="stage-controls morph-controls">
+        <span role="group" aria-label="Selected" class="stage-controls" style="margin: 0">
+          <button class="wt-btn wt-btn--secondary" type="button" data-morph="none" aria-pressed="true">Nothing</button>
+          <button class="wt-btn wt-btn--secondary" type="button" data-morph="stop" aria-pressed="false">A stop</button>
+          <button class="wt-btn wt-btn--secondary" type="button" data-morph="drive" aria-pressed="false">A drive</button>
+        </span>
+        <button class="wt-btn wt-btn--ghost" type="button" id="morph-slow" aria-pressed="false">Slow motion</button>
+      </div>
     </section>
 
     <section id="icons">
@@ -306,7 +320,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       <ul class="rules">
         <li><b>Primary</b> is the one main action: Save, Add, Create. On the trip screen it's Add stop, below the list.</li>
         <li><b>Secondary</b> is a quiet action next to content, like Copy beside the trip link.</li>
-        <li><b>Icon</b> (<code>--icon</code>) is a round button as tall as the others, for an action that sits beside a bigger one, like the + beside Edit stop. Give it an <code>aria-label</code>.</li>
+        <li><b>Icon</b> (<code>--icon</code>) is a round button as tall as the others, for an action that sits beside a bigger one, like Edit stop and the + beside Open in Maps. Give it an <code>aria-label</code>.</li>
         <li><b>Danger</b> always leaves a way back: an Undo toast, or a confirmation when undo isn't possible.</li>
         <li><b>Icon buttons</b> only where the icon is universally understood: back, close, edit, home, settings, the day arrows and Directions. Everything else gets words.</li>
       </ul>
@@ -618,9 +632,10 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
   &lt;/div&gt;
   &lt;div class="wt-sheet__body wt-tl"&gt; … timeline rows … &lt;/div&gt;
   &lt;div class="wt-add-bar"&gt;&lt;button class="wt-btn wt-btn--primary wt-btn--block"&gt;${icon('plus')}Add stop&lt;/button&gt;&lt;/div&gt;
-  &lt;!-- with a stop selected:
+  &lt;!-- with a stop selected (.is-morphing while it changes set):
   &lt;div class="wt-add-bar"&gt;
-    &lt;button class="wt-btn wt-btn--primary wt-btn--block"&gt;${icon('edit')}Edit stop&lt;/button&gt;
+    &lt;a class="wt-btn wt-btn--primary wt-btn--block" href="…" target="_blank" rel="noopener"&gt;${icon('map')}Open in Maps&lt;/a&gt;
+    &lt;button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Edit stop"&gt;${icon('edit')}&lt;/button&gt;
     &lt;button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Add stop"&gt;${icon('plus')}&lt;/button&gt;
   &lt;/div&gt; --&gt;
 &lt;/section&gt;</code></pre></details>
@@ -631,7 +646,8 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li>The sheet's top holds the grab handle and the day bar. People live in trip settings.</li>
         <li><b>Day bar:</b> the arrows step a day; the first and last day disable theirs. The title says <i>Today, Nov 21</i> on today, and <i>Sat, Nov 21</i> otherwise. Tapping it opens the day list.</li>
         <li>The add bar comes after <code>.wt-sheet__body</code>, not inside it. It's static, not sticky.</li>
-        <li><b>The add bar follows the selection:</b> Add stop, or, with a stop selected, Edit stop with a round + (<code>wt-btn--secondary wt-btn--icon</code>) beside it, so adding is always one tap away.</li>
+        <li><b>The add bar follows the selection:</b> Add stop, or, with a stop selected, Open in Maps, then a round white Edit stop and a round + (<code>wt-btn--secondary wt-btn--icon</code>), so adding is always one tap away. A drive's route gives Directions and the +.</li>
+        <li><b>Changing set morphs:</b> Add stop shrinks to the right into the +, Open in Maps grows from the left and Edit stop grows in between; a button's old look fades out over it as it moves (<code>.is-morphing</code>, <code>.is-ghost</code>).</li>
         <li>On today, scroll the list so the <code>is-now</code> row sits a little above the middle.</li>
         <li>Add <code>.is-dragging</code> while a finger is moving the sheet, so it follows without lag.</li>
       </ul>
@@ -919,7 +935,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v6.2.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v6.4.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -1194,6 +1210,11 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     const t = e.target.closest('[data-toast]');
     if (t) { showToast(t.dataset.toast, t.dataset.toastAction); return; }
     if (e.target.closest('#motion-play')) { document.getElementById('motion-track').classList.toggle('is-up'); return; }
+    if (e.target.closest('#morph-bar a')) { e.preventDefault(); return; } // a demo: Open in Maps and Directions go nowhere
+    const m = e.target.closest('[data-morph]');
+    if (m) { setMorph(m.dataset.morph); return; }
+    const slow = e.target.closest('#morph-slow');
+    if (slow) { slow.setAttribute('aria-pressed', String(slow.getAttribute('aria-pressed') !== 'true')); return; }
     if (e.target.closest('#replay-flash')) {
       const el = document.getElementById('flash-stop');
       el.classList.remove('is-flash'); void el.offsetWidth; el.classList.add('is-flash');
@@ -1224,6 +1245,64 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
   }
   // Rest state: the toast stage shows a visible example.
   document.getElementById('demo-toast').classList.add('is-visible');
+
+  // ---------- Buttons that change: the add bar's three sets, morphing as in the app ----------
+  const morphSets = {
+    none: '<button class="wt-btn wt-btn--primary wt-btn--block" type="button" data-key="add"><i data-icon="plus"></i>Add stop</button>',
+    stop: '<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="#elevation"><i data-icon="map"></i>Open in Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" type="button" data-key="edit" aria-label="Edit stop" title="Edit stop"><i data-icon="edit"></i></button><button class="wt-btn wt-btn--secondary wt-btn--icon" type="button" data-key="add" aria-label="Add stop" title="Add stop"><i data-icon="plus"></i></button>',
+    drive: '<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="#elevation"><i data-icon="directions"></i>Directions</a><button class="wt-btn wt-btn--secondary wt-btn--icon" type="button" data-key="add" aria-label="Add stop" title="Add stop"><i data-icon="plus"></i></button>',
+  };
+  const morphBar = document.getElementById('morph-bar');
+  function setMorph(set, animate = true) {
+    document.querySelectorAll('[data-morph]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.morph === set)));
+    const before = [...morphBar.querySelectorAll(':scope > [data-key]')].map(el => ({ key: el.dataset.key, el, r: el.getBoundingClientRect() }));
+    morphBar.innerHTML = morphSets[set];
+    fillIcons(morphBar);
+    if (animate) morphRow(morphBar, before, document.getElementById('morph-slow').getAttribute('aria-pressed') === 'true' ? 6 : 1);
+  }
+  // The app's morphRow (app/web/app.js), with `slow` to stretch the timing for the demo.
+  function morphRow(row, before, slow = 1) {
+    const ms = (parseFloat(getComputedStyle(root).getPropertyValue('--wt-duration-base')) || 0) * slow, id = row.wtMorph = {};
+    row.classList.remove('is-morphing'); row.style.height = '';
+    row.querySelectorAll(':scope > *').forEach(el => el.removeAttribute('style'));
+    const box = row.getBoundingClientRect();
+    const after = [...row.querySelectorAll(':scope > [data-key]')].map(el => ({ key: el.dataset.key, el, r: el.getBoundingClientRect() }));
+    const was = new Map(before.map(b => [b.key, b])), keys = new Set(after.map(a => a.key));
+    const still = after.length === before.length && after.every(a => was.get(a.key)?.r.left === a.r.left && was.get(a.key).r.width === a.r.width);
+    if (!ms || still || !box.width || before.some(b => !b.r.width)) return;
+    const x = r => `${r.left - box.left}px`, place = (el, r) => Object.assign(el.style, { left: x(r), top: `${r.top - box.top}px`, width: `${r.width}px` });
+    const ghost = b => {
+      const g = b.el.cloneNode(true);
+      g.removeAttribute('style'); g.removeAttribute('data-key');
+      g.classList.add('is-ghost'); g.inert = true; g.setAttribute('aria-hidden', 'true'); g.tabIndex = -1;
+      place(g, b.r);
+      return g;
+    };
+    const opts = { duration: ms, easing: getComputedStyle(root).getPropertyValue('--wt-ease-out').trim() || 'ease-out' }, runs = [];
+    const gone = { ...opts, fill: 'forwards' };
+    row.style.height = `${box.height}px`; row.classList.add('is-morphing');
+    for (const a of after) place(a.el, a.r);
+    for (const b of before) if (!keys.has(b.key)) { const g = ghost(b); row.prepend(g); runs.push(g.animate({ opacity: [1, 0] }, gone)); }
+    for (const a of after) {
+      const b = was.get(a.key), to = { left: x(a.r), width: `${a.r.width}px` };
+      if (b) {
+        const from = { left: x(b.r), width: `${b.r.width}px` };
+        runs.push(a.el.animate([from, to], opts));
+        if (b.el.className !== a.el.className || b.el.innerHTML !== a.el.innerHTML) {
+          const g = ghost(b); a.el.after(g);
+          runs.push(g.animate([{ ...from, opacity: 1 }, { opacity: 0, offset: 0.6 }, { ...to, opacity: 0 }], gone));
+        }
+      } else if (a.el.matches('.wt-btn--icon')) runs.push(a.el.animate({ opacity: [0, 1], transform: ['scale(.6)', 'none'] }, opts));
+      else runs.push(a.el.animate({ opacity: [0, 1], width: [`${Math.min(a.r.height, a.r.width)}px`, to.width] }, opts));
+    }
+    Promise.all(runs.map(r => r.finished)).then(() => {
+      if (row.wtMorph !== id) return;
+      row.querySelectorAll(':scope > .is-ghost').forEach(g => g.remove());
+      row.querySelectorAll(':scope > *').forEach(el => el.removeAttribute('style'));
+      row.classList.remove('is-morphing'); row.style.height = '';
+    }, () => {});
+  }
+  setMorph('none', false);
 
   renderStatic();
   let saved = 'system';
