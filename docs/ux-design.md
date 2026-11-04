@@ -79,7 +79,7 @@ The trip is a single screen: a **header** with the trip's name, the **map**, and
 
 ### A timeline
 
-The list is a timeline with three columns: a **rail**, the **stop**, and its **time** on the right. There are no cards: rows sit straight on the white sheet and touch, so the rail is one solid line down the day. Spacing is even; times are written out, not drawn to scale.
+The list is a timeline with three columns: a **rail**, the **stop**, and its **time** on the right. There are no cards: rows sit straight on the white sheet and touch, so the rail is one unbroken line down the day. Spacing is even; times are written out, not drawn to scale.
 
 ```
  (✈)  El Paso International Airport      10:30 AM
@@ -89,17 +89,18 @@ The list is a timeline with three columns: a **rail**, the **stop**, and its **t
       2 nights
 ```
 
-- **Rail:** a solid grey line down the day. Each stop sits on it as a **type marker**: the stop's [type](#stop-types) icon on its type's color. The marker is the same as the stop's pin on the map, so you can match the list to the map at a glance. Drives sit on it as a small grey car.
-- **Stop:** the name in bold, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. Tapping a stop opens it.
+- **Rail:** a thin, light grey line down the day, unbroken from the first stop to the last. It's quiet so the markers and names stand out. Each stop sits on it as a **type marker**: the stop's [type](#stop-types) icon on its type's color. The marker is the same as the stop's pin on the map, so you can match the list to the map at a glance. Drives sit on it as a smaller grey marker with a car, so stops and drives read as one family of icons.
+- **Stop:** the name in bold, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. A note runs across the time column too, so a long one wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop opens it.
 - **Time:** on the right, in grey, with a small AM/PM. The name leads the row, and the time is where a glance down the right edge finds it. Hotel rows at either end of the day have no time, so the right edge stays empty instead of leaving a gap before the name.
 
-A selected stop (tapped, or picked on the map) gets a light grey background and a dark outline. A selected drive gets no box: its car turns blue, like its route on the map.
+A selected row (a stop or a drive, tapped or picked on the map) gets a light grey background, with no border. A selected drive's car turns a darker grey. **Only one row is ever highlighted:** while something is selected, the row happening now is a plain row.
 
 ### Drives
 
-A drive is a row between two places: a small grey car on the rail, **`1 hr 49 min drive`**, and a Directions icon (a road-sign arrow) on the right, where stops have their time.
+A drive is a row between two places: a small grey car marker on the rail, **`1 hr 49 min drive`**, and a Directions icon (a turn arrow in a rounded road sign, drawn like the app's other line icons) on the right, where stops have their time.
 
-- **The Directions icon** opens the drive in the phone's maps app (see [Handing off navigation](#handing-off-navigation)). It sits in a pale grey circle, so it reads as a button without outranking the stops. It's the only part of the row that looks pressable: the row has no hover or press highlight, so tapping the row never looks like tapping Directions.
+- **The Directions icon** opens the drive in the phone's maps app (see [Handing off navigation](#handing-off-navigation)). On most drives it's just a small grey icon, with no circle around it, so a day of drives doesn't fill the right edge with buttons. It's the only part of the row that reacts to hover and press: the row itself has no highlight, so tapping the row never looks like tapping Directions.
+- **The highlighted drive has a dark icon.** On the drive you're on, or the one you tapped to see on the map, the icon turns dark, like the duration. It keeps its size and has no label, so the row doesn't shift. (An earlier version gave every drive a pale grey circle; seven of them down the list drew more attention than the stops. A `Directions` label on the drive that matters was tried next and dropped: the icon is the same on every drive, and the label made the row jump.)
 - **Tapping the rest of the row** shows that route on the map (see [How the map and the list work together](#how-the-map-and-the-list-work-together)). Tapping it again goes back to the whole day. On a computer, hovering it previews the route without moving the map.
 - **When a drive doesn't fit** in the gap between the two stops, its time turns red and a second line says by how much: `Arrives 49 min late`.
 
@@ -121,7 +122,7 @@ With no hotel the night before, the day opens with the day before's last stop, s
 
 On trip days, today's page shows where you are without a clock in the list:
 
-- **Now is highlighted.** The row you're in (the latest thing that has started: the stop you're at, or the drive you're on) gets a background tinted with its color on the map: a stop's type color, or blue for a drive, whose car turns blue too. A stop's marker also gets a ring.
+- **Now is highlighted.** The row you're in (the latest thing that has started: the stop you're at, or the drive you're on) gets the same light grey background as a selected row, whether it's a stop or a drive. A stop's marker also gets a ring in its type color, and a drive's car turns a darker grey. When you select another row, the highlight moves there; the dimmed rows above still show where the day is. (Tinting the whole row with its map color was tried first; a different color for every type made the highlight look inconsistent. A dark outline on selected rows was dropped too: it pulled the eye away from the plan. So were blue cars and icons on drive rows, and highlighting the selected row and the row happening now at once: two grey rows, sometimes touching, read as one block.)
 - **Past dims, in the list and on the map.** Everything before it fades, and so does every earlier day. The rail stays solid. On the map, past drives turn grey and sit under the rest, and a stop you're done with gets a small, faded pin. A hotel stays strong until the night is over.
 - **Today opens at now.** When today's page shows, it scrolls so the highlighted row sits a little above the middle.
 
@@ -180,7 +181,7 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 ## The map
 
 - **Pins** are the stop's type marker (its icon on its type's color) ringed in white, with no numbers. A selected stop gets a larger pin and its name in a label above it. Stops at the same place share one pin; for example, flying in and out of the same airport.
-- **Routes** are drawn as driving routes in blue; on a trip day, past ones are grey. **Blue means routes and nothing else**: a selected stop is outlined in dark grey, no stop type is blue, and the drive you're on is tinted blue in the list.
+- **Routes** are drawn as driving routes in blue; on a trip day, past ones are grey. **Blue means routes and nothing else**: a selected stop is grey, no stop type is blue, and the list uses no blue at all: the drive you're on or have selected gets a darker grey car.
 - **The background map** is a light, low-contrast style (Stadia "Alidade Smooth"), so the routes stand out. Its credits are at the bottom of trip settings, not over the map.
 
 ### How the map and the list work together
@@ -216,7 +217,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
   - Grey for secondary information.
   - Blue only for routes and links.
   - Red only for a drive that doesn't fit.
-- **Type:** the system font. Stop names 16px semibold, times 15px with tabular numbers, notes and drives 13px.
+- **Type:** the system font. Stop names 16px semibold, times 15px with tabular numbers, notes and drives 13px. Drives are all grey, so stop names are the only strong text in the list.
 - **Surfaces:** the map, then the white plan sheet with the timeline straight on it. Trip cards on Home and modal sheets are white too. No heavy shadows.
 - **Phone-first layout, adapting up:**
 

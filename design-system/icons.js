@@ -1,4 +1,4 @@
-/* Waythread design system — icons v1.1.0
+/* Waythread design system — icons v1.1.1
  *
  * Line icons on a 24px grid, 2px stroke, round caps and joins, drawn in currentColor.
  * Usage: WaythreadIcons.svg('car')            -> default size and stroke
@@ -12,7 +12,7 @@
     plus: 'M12 5v14M5 12h14',
     edit: 'M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z',
     check: 'M5 12.5l4.5 4.5L19 7.5',
-    car: 'M5 16h14M6 16v2.5M18 16v2.5M3.5 16v-3.5L6 7h12l2.5 5.5V16',
+    car: 'M5 11l1.6-4.3A2 2 0 018.5 5.3h7a2 2 0 011.9 1.4L19 11M4.5 11h15a.5.5 0 01.5.5V17H4v-5.5a.5.5 0 01.5-.5zM6 17v2M18 17v2M7.5 14h1M15.5 14h1',
     external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5',
     'person-add': 'M15 19a6 6 0 00-12 0M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M16 11h6',
     search: 'M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-4-4',
@@ -22,7 +22,7 @@
     'chevron-down': 'M6 9l6 6 6-6',
     map: 'M9 4.5L3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2zM9 4.5v13M15 6.5v13',
     list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
-    directions: 'M12 2.5l9.5 9.5-9.5 9.5L2.5 12zM9 14.5v-2a2 2 0 012-2h4.5M13.5 8.5l2 2-2 2',
+    directions: 'M10.6 3.4a2 2 0 012.8 0l7.2 7.2a2 2 0 010 2.8l-7.2 7.2a2 2 0 01-2.8 0l-7.2-7.2a2 2 0 010-2.8zM9 15v-2.5a2 2 0 012-2h4.5M13 8l2.5 2.5L13 13',
     // Stop types
     plane: 'M12 3c.8 0 1.5.9 1.5 2v4.5l7 4V16l-7-2v4l2 1.5V21L12 20l-3.5 1v-1.5l2-1.5v-4l-7 2v-2.5l7-4V5c0-1.1.7-2 1.5-2z',
     bed: 'M3 5v14M3 15h18v4M21 15v-2.5a3 3 0 00-3-3h-7V15M7 12.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z',
@@ -37,7 +37,7 @@
   };
   // Default size and stroke per icon, as the product uses them.
   const DEFAULTS = {
-    close: [20], 'person-add': [20], edit: [18], check: [16, 3], car: [16], external: [14],
+    close: [20], 'person-add': [20], edit: [18], check: [16, 3], car: [14], external: [14],
   };
   function svg(name, size, stroke) {
     const d = PATHS[name];
