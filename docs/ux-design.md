@@ -1,6 +1,6 @@
 # Waythread UX Design
 
-This document describes the UX of the Waythread prototype in [`prototype/`](../prototype), the reasoning behind it, and what was left out on purpose. The app in [`app/web`](../app/web) has the same trip screen, on real data. It builds on the [proposal](proposal.md).
+This document describes the UX of Waythread, the reasoning behind it, and what was left out on purpose. The app in [`app/web`](../app/web) and the prototype in [`prototype/`](../prototype) look and behave the same: the prototype is the app's frontend with the server swapped for the browser (see [CLAUDE.md](../CLAUDE.md)). It builds on the [proposal](proposal.md).
 
 ## Principles
 
@@ -286,7 +286,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
   | Under 768px | Header card over the map, plan in a bottom sheet (peek, half or the whole day); modal sheets slide up, and the stop sheet leaves the map in view | A 480px column |
   | 768px and up | Header and plan in a side panel beside the map; modal sheets cover the panel | Trips in a grid of cards; sign-in in a card; other sheets are dialogs in the middle |
 
-  16px text in form fields (stops iPhone zooming in), and spacing for phone screen edges. The prototype doesn't opt in to the side panel, so it stays phone-shaped at every width.
+  16px text in form fields (stops iPhone zooming in), and spacing for phone screen edges. The prototype has the same layouts at every width.
 
 ## Prototype notes
 
@@ -301,12 +301,12 @@ The full visual language (tokens, components, light and dark themes, accessibili
   | Background map | Stadia | Falls back to OpenStreetMap if Stadia's map doesn't load. |
 
   None of these are meant for production traffic.
-- **Data:** saved in the browser, one browser only. Open tabs sync with each other, which simulates co-editing.
+- **Data:** saved in the browser, one browser only. The app's server is answered in the browser, so share links, deleting with Undo and the rest work as in the app. Open tabs sync with each other, which simulates co-editing. There's no sign-in: you're Alex unless `?as=` says otherwise.
 - **Simulating other people and dates:**
 
   | Add to the address | Effect |
   | --- | --- |
-  | `?as=sam` or `?as=jo` | Use the app as another person. Open two tabs to try co-editing. Trip settings links to these. |
+  | `?as=sam` or `?as=jo` | Use the app as another person. Open two tabs to try co-editing. Trip settings links to these, through the trip's share link, so Jo joins the trip. |
   | `?today=2026-11-20` | Pretend it's a trip day, to preview the highlight and the dimming. |
 | `&now=14:10` | With `?today=`, pretend it's that time, to preview what's highlighted and what dims. |
 
@@ -316,9 +316,9 @@ The full visual language (tokens, components, light and dark themes, accessibili
 - **Production map services:** a paid or self-hosted service for routes, search, and the background map.
 - **Transport modes:** walking and flights currently all show as driving time.
 - **Phone-friendly gestures:** for example, dragging to reorder.
-- **Day view in the app:** shipped. The day bar, timeline, hotel stays, stop types and floating buttons are in `app/web`, with their styles in the design system (v2.0.0). Stops store `kind` and `nights` on the server. In the app, trip settings also holds Make a new link, and the trip name saves when you leave the field. Try changes in `prototype/` first, then port them by hand.
+- **Day view in the app:** shipped. The day bar, timeline, hotel stays, stop types and floating buttons are in `app/web`, with their styles in the design system (v2.0.0). Stops store `kind` and `nights` on the server. Trip settings also holds Make a new link, and the trip name saves when you leave the field.
 - **How long a stop lasts:** stops have only a start time, so "Arrives late" and the highlight assume you leave each stop just in time for the next. Default lengths per type (a meal 1 hour, a museum 2, a flight's check-in 90 minutes) would make both more honest, without showing durations in the list.
-- **The map and list:** the header, the half/whole-day sheet, route previews, the stop sheet that leaves the map in view, the Type page and hotel check-out times are in `app/web` and `prototype/`, with their styles in the design system (v3.0.0). They went into the app first, then back to the prototype, which saves `checkout` in the browser like the app's server does.
+- **The map and list:** the header, the half/whole-day sheet, route previews, the stop sheet that leaves the map in view, the Type page and hotel check-out times are in `app/web` and `prototype/`, with their styles in the design system (v3.0.0).
 - **From the UX review, not yet done:** quick time choices in Add stop, showing who's on the trip at a glance and what changed while you were away, working offline, and marking estimated drive times with `≈`.
 - **Map credits:** Stadia's and OpenStreetMap's terms ask for attribution on or next to the map. The app now shows them only in trip settings, like the prototype. Check the terms before this deploys; if needed, bring back a small ⓘ button on the map that shows the credits.
 - **People at a glance:** with the header gone, who's on the trip is one tap away. If that hides co-editing too much, a small stack of faces could go back on the settings button.
