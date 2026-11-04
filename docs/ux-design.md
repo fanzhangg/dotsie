@@ -222,7 +222,7 @@ The map zooms the way a phone's maps app does:
 - **Two-finger tap** zooms out a step.
 - **Pinch** and the scroll wheel zoom as usual.
 
-**Whole day** is a button over the map's bottom right, just above the sheet on a phone. It shows the whole day's route again: all its stops, fitted to the space the sheet leaves, as when the day opened. It also ends a route preview, so every drive is back in blue. It's there only when the map shows something else: after you pan or zoom, while one drive is on show, or after the sheet changed height under a map you'd moved. It isn't there over the whole-day list, which hides the map, or while a stop is open. It's a labelled pill, not an icon button: no icon says "the whole day" on its own. (Google Maps' and Apple Maps' route overview buttons do the same job.)
+**Whole day** is a button over the map's bottom right, just above the sheet on a phone. It shows the whole day's route again: all its stops, fitted to the space the sheet leaves, as when the day opened. It also ends a route preview, so every drive is back in blue. It's there only when the map shows something else: after you pan or zoom, while one drive is on show, or after the sheet changed height under a map you'd moved. It isn't there over the whole-day list, which hides the map, or while a stop is open. It's a round icon button, a frame around a route, like Google Maps' and Apple Maps' route overview buttons, so it takes as little of the map as it can. Its name, "Whole day", is its label for screen readers and its tooltip on a computer. (A pill labelled "Whole day" was tried first; it covered more of the map than a control should.)
 
 ### Handing off navigation
 

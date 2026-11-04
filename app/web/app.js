@@ -830,7 +830,7 @@ function mountTrip(trip) {
       <button class="wt-icon-btn" data-action="settings" aria-label="Trip settings and sharing">${ICON.settings}</button>
     </header>
     <div id="map"></div>
-    <button class="wt-map-action trip-fit" data-action="fit-day" aria-label="Show the whole day on the map" hidden>${ICON.fit}Whole day</button>
+    <button class="wt-icon-btn wt-map-btn trip-fit" data-action="fit-day" aria-label="Show the whole day on the map" title="Whole day" hidden>${ICON.fit}</button>
     <section class="wt-sheet" aria-label="Plan">
       <div class="wt-sheet__top">
         <button class="wt-sheet__grab" data-action="grab"></button>

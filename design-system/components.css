@@ -14,10 +14,10 @@
 .wt-base *, .wt-base *::before, .wt-base *::after { box-sizing: border-box; }
 .wt-icon { flex: none; display: block; }
 .wt-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-map-action) {
+:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option) {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
 }
-:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-map-action):focus-visible {
+:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option):focus-visible {
   outline: 2px solid var(--wt-border-focus);
   outline-offset: 2px;
   border-radius: var(--wt-radius-md);
@@ -340,7 +340,7 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 }
 .wt-add-bar .wt-btn--block { flex: 1; min-width: 0; }
 
-/* ---------- Map buttons: home and settings, floating over the map (unused since 3.0.1: the trip header replaced them) ---------- */
+/* ---------- Map buttons: round icon buttons floating over the map. Whole day is one; .wt-map-bar (home and settings) is unused since 3.0.1 ---------- */
 .wt-map-bar {
   position: absolute; z-index: var(--wt-z-sheet); left: var(--wt-space-3); right: var(--wt-space-3);
   top: calc(var(--wt-space-3) + env(safe-area-inset-top, 0px));
@@ -348,21 +348,8 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 }
 .wt-map-btn { pointer-events: auto; width: var(--wt-size-touch); height: var(--wt-size-touch); background: var(--wt-surface-raised); color: var(--wt-text-primary); box-shadow: var(--wt-shadow-float); }
 .wt-map-btn:active { background: var(--wt-surface-hover); }
-
-/* ---------- Map action: a labelled pill floating over the map ---------- */
-/* For a map action whose icon alone wouldn't say what it does, like Whole day. Your code places it, clear of the sheet,
-   and hides it ([hidden]) while it would do nothing. */
-.wt-map-action {
-  display: inline-flex; align-items: center; gap: 6px; height: var(--wt-size-touch); padding: 0 16px 0 13px;
-  border-radius: var(--wt-radius-pill); background: var(--wt-surface-raised); color: var(--wt-text-primary);
-  font: var(--wt-type-label); white-space: nowrap; box-shadow: var(--wt-shadow-float);
-  transition: background var(--wt-duration-fast);
-}
-.wt-map-action[hidden] { display: none; }
-.wt-map-action .wt-icon { width: 18px; height: 18px; }
-.wt-map-action:active { background: var(--wt-surface-hover); }
-.wt-map-action:focus-visible { border-radius: var(--wt-radius-pill); }
-@media (hover: hover) { .wt-map-action:hover { background: var(--wt-surface-hover); } }
+.wt-map-btn[hidden] { display: none; }
+@media (hover: hover) { .wt-map-btn:hover { background: var(--wt-surface-hover); } }
 
 /* ---------- Wide screens: the sheet becomes a side panel ---------- */
 /* Opt in by making the element that holds the map and the sheet a size container named wt-trip:

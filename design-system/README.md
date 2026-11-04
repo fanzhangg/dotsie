@@ -462,16 +462,15 @@ Pad the top when you fit the map on a phone, so pins stay clear of the header ca
 - `.wt-map-bar` floated home and settings over the map's top corners. The trip header replaced it in the app and the prototype, so it's no longer used and can go in the next major version.
 - The map's credits go at the bottom of trip settings, not on the map.
 
-### Map action `.wt-map-action`
+### Whole day `.wt-map-btn`
 
 ```html
-<button class="wt-map-action" aria-label="Show the whole day on the map">${icon('fit')}Whole day</button>
+<button class="wt-icon-btn wt-map-btn" aria-label="Show the whole day on the map" title="Whole day">${icon('fit')}</button>
 ```
 
-- A labelled pill floating over the map, for a map action no icon says on its own. The app's one is **Whole day**, which fits the day's route back in view, as a maps app's route overview button does.
+- A round icon button floating over the map, 44px, the touch size. **Whole day** fits the day's route back in view, as a maps app's route overview button does. It's the one icon-only button whose icon isn't universal, so it keeps its `aria-label` and a `title` ("Whole day") for hover.
 - Your code places it: the app puts it at the map's bottom right, just above the sheet on a phone (`bottom: calc(var(--bottom-h) + var(--wt-space-3))`), one z-index under the sheet so a dragged sheet covers it.
 - Show it only while it would do something; hide it with `hidden`. Whole day is hidden while the map already shows the whole day, over the whole-day list, and while a stop is open.
-- 44px tall, the touch size.
 
 ### Modal sheet `.wt-modal`
 
@@ -611,7 +610,7 @@ Say what can go here, in the user's words. No illustrations.
 
 ### Added in 4.4.0
 
-- `.wt-map-action`, a labelled pill floating over the map, for Whole day.
+- `.wt-map-btn` is in use again, for Whole day: it now hides with `hidden` and has a hover state.
 - The `fit` icon (icons 1.2.0): a frame around a route, for showing the whole day.
 - Nothing was renamed or removed.
 
