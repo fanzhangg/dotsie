@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.9.0
+/* Waythread design system — tokens v1.7.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
