@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.4.0
+/* Waythread design system — tokens v1.5.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -300,6 +300,7 @@
   --wt-shadow-sheet: 0 -2px 16px var(--wt-shadow-color);
   --wt-shadow-float: 0 1px 4px var(--wt-shadow-color);
   --wt-shadow-card: 0 2px 10px var(--wt-shadow-color);   /* the trip header, floating over the map */
+  --wt-shadow-popover: 0 0 0 1px var(--wt-border-subtle), 0 8px 24px var(--wt-shadow-color);  /* suggestions over a sheet: the hairline keeps it apart in dark */
   --wt-shadow-pin: 0 1px 3px rgba(0, 0, 0, .35);
 
   /* Motion */

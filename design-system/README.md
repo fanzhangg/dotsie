@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.4.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.6.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -151,6 +151,7 @@ The system font throughout, so the app feels native on every phone. Each token i
   - `--wt-shadow-sheet`: the list sheet.
   - `--wt-shadow-float`: labels and buttons over the map.
   - `--wt-shadow-card`: the trip header, a card floating over the map.
+  - `--wt-shadow-popover`: a popover (search suggestions) over a sheet. It carries a hairline too, since in dark the popover and the sheet are the same surface.
   - `--wt-shadow-pin`: pins.
 
   Nothing else gets a shadow.
@@ -228,24 +229,45 @@ Labels are verbs that say exactly what happens.
 - With only one person on the trip, show the `person-add` icon instead.
 - Set `--wt-avatar-ring` to the surface behind the stack.
 
-### Field `.wt-field`, input `.wt-input`, search results `.wt-results`
+### Field `.wt-field`, input `.wt-input`, search `.wt-search`, popover `.wt-popover`, results `.wt-results`
 
 ```html
-<label class="wt-field">
-  <span class="wt-field__label">Place</span>
-  <input class="wt-input" type="search" placeholder="Search a place">
-</label>
-<ul class="wt-results">
-  <li><button class="wt-results__item"><span class="wt-results__name">White Sands Visitor Center</span>
-      <span class="wt-results__detail">US-70, Alamogordo, New Mexico</span></button></li>
-  <li class="wt-results__msg">No places found</li>
-</ul>
+<div class="wt-field">
+  <label class="wt-field__label" for="place">Place</label>
+  <label class="wt-input wt-input-group wt-search">${icon('search')}
+    <input id="place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="true"
+           aria-controls="place-results" aria-activedescendant="opt-0" placeholder="Search a place">
+    <span class="wt-spinner" hidden></span>
+    <button type="button" class="wt-search__clear" aria-label="Clear">${icon('close')}</button></label>
+  <p class="wt-field__hint">${icon('pin', 14)}<span>6554 Park Blvd, Joshua Tree, CA</span></p>   <!-- what it's set to -->
+  <p class="wt-field__error" id="place-error" hidden></p>                                      <!-- what to fix -->
+</div>
+
+<!-- A child of the modal root, not of the sheet, placed by script with position: fixed -->
+<div class="wt-popover wt-results" id="place-results" role="listbox" aria-label="Places">
+  <div class="wt-results__group" role="group" aria-label="In this trip">
+    <div class="wt-results__head" aria-hidden="true">In this trip</div>
+    <div class="wt-option" role="option" id="opt-0" aria-selected="true">
+      <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
+      <span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Ace</mark> Hotel</span>
+        <span class="wt-option__detail">701 E Palm Canyon Dr, Palm Springs, CA</span></span></div>
+  </div>
+  <div class="wt-results__group" role="group" aria-label="Places">…</div>
+  <!-- or, when there's nothing to pick -->
+  <div class="wt-results__msg"><b>No places match “zzq”</b>Try adding the town, or check the spelling.</div>
+</div>
 ```
 
 - Every field has a visible label.
 - Placeholders show an example, never the label.
-- Messages say what happened and what to do next, for example "Pick a place from the search results".
+- Messages say what happened and what to do next, for example "Pick a place from the suggestions, so the stop can go on the map". A field's error goes under it in `.wt-field__error`, with `aria-invalid` on the input (its box turns red) and `aria-describedby` pointing at the message.
 - `textarea.wt-input` works the same way.
+- **Search** suggestions open in a `.wt-popover` over the form, not in the form, so nothing below the field moves while you type. The popover is a child of the modal root, placed with `position: fixed` under the field, so the sheet's scrolling can't clip it. It opens above the field when there's more room there, and its `max-height` keeps it on the visible screen (`visualViewport`, so a phone's keyboard counts).
+- **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
+- **Groups** get a heading only when there's more than one kind of result: the trip's own places first, then search.
+- **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it, Esc closes the popover (a second Esc closes the sheet). Keep focus in the input while an option is tapped: `preventDefault()` on the popover's `mousedown`.
+- **While it searches**, the spinner shows in the field and the last results stay in the popover, so the list doesn't flash.
+- `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet for the prototype. They can go in the next major version.
 
 ### Marker `.wt-marker`
 
@@ -367,7 +389,9 @@ All live in the stop sheet.
 <ul class="wt-options" role="radiogroup" aria-label="Type">
   <li><button class="wt-option" role="radio" aria-checked="true">
     <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
-    <span class="wt-option__label">Hotel</span>${icon('check', 18)}</button></li>
+    <span class="wt-option__text"><span class="wt-option__label">Hotel</span>
+      <span class="wt-option__detail">Adds nights and check-out</span></span>${icon('check', 18)}</button></li>
+  <li class="wt-options__sep" role="presentation"></li>   <!-- between sections -->
   <!-- one per type -->
 </ul>
 
@@ -388,6 +412,8 @@ All live in the stop sheet.
 
 - **Type** is one row that shows the current type. Tapping it slides the sheet to the types; picking one, or Back, slides back. It keeps the sheet short, so the map stays in view above it. Focus the checked option when the page opens, and the picker when it closes.
 - Type starts as a guess from the place's name and category, until someone picks one.
+- **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
+- **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Adds nights and check-out". ↑ ↓ move between types.
 - **Nights and Check-out** show only for a hotel. When becomes check-in: 3:00 PM for a new hotel. Nights is at least 1, so disable the minus at 1. Check-out's day comes from the nights, so only its time is an input, but the day shows inside the field, before the time (`.wt-input-group`), so it reads as one value: `Sun, Nov 22  11:00 AM`. 11:00 AM unless someone sets another. The two sit side by side with their labels level; on a very narrow screen Check-out wraps below Nights.
 - **Date and time fields** (`.wt-input` on `date`, `time` and `datetime-local`) are drawn like any other field on iPhone, so they read from the left and stay inside the sheet, rather than Safari's centred control, which is wider than the sheet.
 - **`.wt-input-group`** is a `.wt-input` box with a fixed `__prefix` and a bare `<input>` after it. Make the box a `<label>` so a tap anywhere opens the input, and label the input with `aria-labelledby`.
@@ -607,6 +633,17 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 4.6.0
+
+Place search and the type list, redesigned as one system.
+
+- `.wt-option` is now the row for every choice: `__text`, `__detail` and `__match` are new, and `aria-selected` and `aria-checked` share the grey "this one" row (the checked type is no longer bold). `.wt-options__sep` splits a list into sections.
+- `.wt-popover`: a floating card anchored to a field. Search results open in one (`.wt-results` with `__group`, `__head` and `__msg`) instead of a list that pushed the form down.
+- `.wt-search` (a search field, with `__clear`) and `.wt-spinner`.
+- `.wt-field__hint` and `.wt-field__error`, the line under a field. A `.wt-input-group` whose input has `aria-invalid` gets a red border.
+- `--wt-shadow-popover` (tokens 1.5.0).
+- Nothing was renamed or removed. `.wt-results__item`, `__name` and `__detail` stay for the prototype.
 
 ### Added in 4.5.0
 

@@ -156,7 +156,7 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 | Place (grey) | Place: anything else |
 
 - Colors go by group, so a day's meals or sights read alike. The colors leave out blue (routes) and red (a drive that doesn't fit), and they have light and dark versions.
-- **Choosing a type:** the stop sheet has one **Type** row under the place, showing the type's marker and name. Tapping it slides the sheet to a page with every type, one per row; picking one slides back. (It used to be a grid of all eleven types, the tallest thing in the stop sheet; on a phone the sheet now has to stay short enough to leave the map in view.) When you pick a place from search, the type starts as a guess from the place's category and its name (an "Inn" is a hotel, a "Visitor Center" an attraction). Choose a type yourself and the guess leaves it alone after that.
+- **Choosing a type:** the stop sheet has one **Type** row under the place, showing the type's marker and name. Tapping it slides the sheet to a page with every type, one per row; picking one slides back. The types come in sections a traveler thinks in: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. Hotel says it *Adds nights and check-out*, the one type that changes the form. The rows are the same as place search's suggestions, and the set type is a grey row with a check, as a selected stop is grey in the list. (It used to be a grid of all eleven types, the tallest thing in the stop sheet; on a phone the sheet now has to stay short enough to leave the map in view.) When you pick a place from search, the type starts as a guess from the place's category and its name (an "Inn" is a hotel, a "Visitor Center" an attraction). Choose a type yourself and the guess leaves it alone after that.
 - Stops saved before types existed get the guess from their name, or are a restaurant when the note says breakfast, brunch, lunch or dinner ("Cloudcroft", note "Lunch").
 
 ### What the list leaves out, and why
@@ -189,10 +189,18 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 - **Editing.** Tap Edit stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
 - **The map follows the edit.** The stop's pin shows the draft: picking a place from search moves the pin there, and the map goes with it; choosing a type changes the pin's icon. A new stop's pin appears once a place is picked. If the stop moves, its two drives fade until it's saved. You can pan and zoom the map while the sheet is open, and taps on the map don't change anything. Closing without saving puts the map back where it was.
 - **The stop sheet** has four fields (six for a hotel), in this order:
-  1. **Place.** The first line, like in the list. It shows the stop's name, and typing in it searches for a new place. One field does both, so there's no separate search box or address line.
+  1. **Place.** The first line, like in the list. It shows the stop's name, and typing in it searches for a new place. One field does both, so there's no separate search box. See [Place search](#place-search).
   2. **Type.** One row that opens the [stop types](#stop-types).
   3. **When.** Date and time. For a hotel it's **Check-in**, followed by **Nights** and **Check-out** side by side.
   4. **Note.**
+- **Place search.** <a id="place-search"></a>
+  - **Suggestions open in a pop-up over the form**, under the field, so nothing below it jumps while you type. When there's more room above the field than below (a phone's keyboard can leave little), it opens above. Tapping elsewhere, or Esc, closes it; a second Esc closes the sheet.
+  - **This trip's places come first**, under *In this trip*: they show as soon as the empty field is focused (hotels first, then the latest stops), and match from the first letter typed, with no search. Going back to the hotel is the most common stop there is. Search results follow under *Places*, from the third letter.
+  - **Each suggestion shows the marker of the type it would get**, so the type's guess is visible before you pick, not a surprise after. The words you typed are bold in the name; the address is under it.
+  - **Return picks the top suggestion** while the stop has no place yet, and ↑ ↓ choose another (the grey row is the one Return picks). Once the stop has a place, Return saves instead, so renaming it never moves it.
+  - **The picked place shows under the field**: a pin and its address. Typing a new name keeps the place, and the address line shows that it did; only picking a suggestion moves the stop.
+  - **While it searches**, a spinner shows in the field and the last results stay put, so the list doesn't flash; going back to an earlier search shows its results at once. With nothing found, it says so and what to try (*Try adding the town, or check the spelling*). Saving without a place says, under the field, to pick one from the suggestions.
+  - (It used to be a list under the field that pushed the form down, with no keyboard support: Return saved the form, which then said to pick a place.)
 - **Save is always in reach.** The sheet's title and close button stay at the top and Delete and Save at the bottom, with the fields scrolling between them. On a phone the sheet is only about 60% of the screen, and a hotel's six fields don't fit, so Save used to sit below the fold.
 - **Delete.** In the edit sheet, on the left of Save. Deleting shows a notice with **Undo**.
 
