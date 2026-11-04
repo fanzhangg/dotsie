@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -189,16 +189,18 @@ Each entry shows the minimum markup. Your code supplies the content and the beha
 <button class="wt-btn wt-btn--primary">Save</button>
 <button class="wt-btn wt-btn--primary wt-btn--block">${icon('plus')}Add stop</button>
 <button class="wt-btn wt-btn--secondary">Copy</button>
+<button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Add stop">${icon('plus')}</button>
 <button class="wt-btn wt-btn--danger">Delete</button>
 ```
 
 | Variant | Use for |
 | --- | --- |
-| `--primary` | The one main action in a view: Save, Add, Create. On the trip screen, Add stop. Never more than one per view. |
+| `--primary` | The one main action in a view: Save, Add, Create. On the trip screen, Add stop, or Edit stop while a stop is selected. Never more than one per view. |
 | `--secondary` | A quiet action next to content, like Copy beside the trip link. |
 | `--ghost` | Low-emphasis actions next to content. |
 | `--danger` | Destructive actions. Always leave a way back: an Undo toast or a confirmation. |
 | `--block` | Full width, at the bottom of a sheet or form. |
+| `--icon` | Icon only: a round button as tall as the others, for an action that sits beside a bigger one, like the `+` beside Edit stop. Needs an `aria-label`. |
 
 Labels are verbs that say exactly what happens.
 
@@ -209,7 +211,7 @@ Labels are verbs that say exactly what happens.
 <button class="wt-icon-btn wt-icon-btn--sm wt-icon-btn--muted" aria-label="Edit trip">${icon('edit')}</button>
 ```
 
-- Only for actions whose icon is universally understood: back, close, edit, home, settings, the day arrows and Directions.
+- Only for actions whose icon is universally understood: add, back, close, edit, home, settings, the day arrows and Directions.
 - Everything else gets a text label.
 - `--muted` is for secondary actions next to a title.
 
@@ -407,6 +409,15 @@ All live in the stop sheet.
 </section>
 ```
 
+With a stop selected, the add bar holds Edit stop and a round `+` beside it:
+
+```html
+<div class="wt-add-bar">
+  <button class="wt-btn wt-btn--primary wt-btn--block">${icon('edit')}Edit stop</button>
+  <button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Add stop">${icon('plus')}</button>
+</div>
+```
+
 - **The header** is one row: home, the trip's name, settings. The name is always in view. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
 - **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has three heights, like a maps app's sheet:
   - **Peek** (`.is-peek`): the day bar and Add stop only, so the map has the screen. The list is hidden.
@@ -418,6 +429,7 @@ All live in the stop sheet.
 - **The map:** zooming it (pinch, double-tap, wheel) means you're looking at the map, so a half sheet goes down to peek. A new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin opens the sheet to half; showing a route from the whole day goes to half.
 - The top holds the grab handle and the day bar. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
+- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop with a round `+` beside it, so adding is always one tap away. It's still one primary button.
 - On today, scroll the list so the `is-now` row sits a little above the middle.
 
 **On a wide screen it's a side panel.** Make the element that holds the header, map and sheet a size container named `wt-trip`:
@@ -580,6 +592,10 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 4.2.0
+
+- `.wt-btn--icon`, a round icon-only button, and a flex `.wt-add-bar` that fits Edit stop and a `+` side by side. Nothing was renamed or removed.
 
 ### Added in 4.1.0
 

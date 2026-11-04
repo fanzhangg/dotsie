@@ -173,7 +173,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.1.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.2.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -284,6 +284,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
           <button class="wt-btn wt-btn--secondary" type="button">Copy</button>
           <button class="wt-btn wt-btn--ghost" type="button">Cancel</button>
           <button class="wt-btn wt-btn--danger" type="button">Delete</button>
+          <button class="wt-btn wt-btn--secondary wt-btn--icon" type="button" aria-label="Add stop"><i data-icon="plus"></i></button>
           <button class="wt-icon-btn" type="button" aria-label="Close"><i data-icon="close"></i></button>
           <button class="wt-icon-btn wt-icon-btn--sm wt-icon-btn--muted" type="button" aria-label="Edit trip"><i data-icon="edit"></i></button>
         </div>
@@ -291,6 +292,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       <ul class="rules">
         <li><b>Primary</b> is the one main action: Save, Add, Create. On the trip screen it's Add stop, below the list.</li>
         <li><b>Secondary</b> is a quiet action next to content, like Copy beside the trip link.</li>
+        <li><b>Icon</b> (<code>--icon</code>) is a round button as tall as the others, for an action that sits beside a bigger one, like the + beside Edit stop. Give it an <code>aria-label</code>.</li>
         <li><b>Danger</b> always leaves a way back: an Undo toast, or a confirmation when undo isn't possible.</li>
         <li><b>Icon buttons</b> only where the icon is universally understood: back, close, edit, home, settings, the day arrows and Directions. Everything else gets words.</li>
       </ul>
@@ -546,6 +548,11 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
   &lt;/div&gt;
   &lt;div class="wt-sheet__body wt-tl"&gt; … timeline rows … &lt;/div&gt;
   &lt;div class="wt-add-bar"&gt;&lt;button class="wt-btn wt-btn--primary wt-btn--block"&gt;${icon('plus')}Add stop&lt;/button&gt;&lt;/div&gt;
+  &lt;!-- with a stop selected:
+  &lt;div class="wt-add-bar"&gt;
+    &lt;button class="wt-btn wt-btn--primary wt-btn--block"&gt;${icon('edit')}Edit stop&lt;/button&gt;
+    &lt;button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Add stop"&gt;${icon('plus')}&lt;/button&gt;
+  &lt;/div&gt; --&gt;
 &lt;/section&gt;</code></pre></details>
       </div>
       <ul class="rules">
@@ -554,6 +561,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li>The sheet's top holds the grab handle and the day bar. People live in trip settings.</li>
         <li><b>Day bar:</b> the arrows step a day; the first and last day disable theirs. The title says <i>Today, Nov 21</i> on today, and <i>Sat, Nov 21</i> otherwise. Tapping it opens the day list.</li>
         <li>The add bar comes after <code>.wt-sheet__body</code>, not inside it. It's static, not sticky.</li>
+        <li><b>The add bar follows the selection:</b> Add stop, or, with a stop selected, Edit stop with a round + (<code>wt-btn--secondary wt-btn--icon</code>) beside it, so adding is always one tap away.</li>
         <li>On today, scroll the list so the <code>is-now</code> row sits a little above the middle.</li>
         <li>Add <code>.is-dragging</code> while a finger is moving the sheet, so it follows without lag.</li>
       </ul>
@@ -838,7 +846,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v4.1.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v4.2.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
