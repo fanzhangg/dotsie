@@ -1754,8 +1754,14 @@ function fitLeg(l, onlyIfHidden = false) {
   moveCamera(v.center, v.zoom);
 }
 // Show a drive's route: highlighted, both ends named, its time on it, and the map moved to fit it.
-// Tapping the same drive again keeps it shown (and frames it again); tapping empty map, changing the day or Esc goes back to the whole day.
+// Tapping the same drive again keeps it shown; tapping empty map, changing the day or Esc goes back to the whole day.
 function previewLeg(l, { fromMap = false } = {}) {
+  // Again, at half: it's already the focus, so nothing animates. The map moves only if an end has gone out of view.
+  if (state.leg === l.key && state.snap === 'half' && !isWide()) {
+    fitLeg(l, true);
+    centerFocus({ animate: false });
+    return;
+  }
   state.leg = l.key;
   state.sel = state.selRow = null;
   setSnap('half', false); // the whole-day list covers the map; peeking, it's opened so Directions shows below the list
@@ -1763,8 +1769,10 @@ function previewLeg(l, { fromMap = false } = {}) {
   fitLeg(l, fromMap);
   centerFocus({ force: true }); // the drive in the middle of the list, as the sheet comes to half
 }
-// Hovering a drive in the list previews its route on the map, without moving the map.
-document.addEventListener('mouseover', e => {
+// Hovering a drive in the list previews its route on the map, without moving the map. With a mouse only: a phone
+// sends a mouseover with every tap, and the map was redrawn for it.
+document.addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse') return;
   const id = e.target.closest?.('.wt-tl-drive')?.dataset.leg || null;
   if (id === state.hoverLeg) return;
   state.hoverLeg = id;
@@ -1772,9 +1780,16 @@ document.addEventListener('mouseover', e => {
 });
 // Select a stop: its row and its pin are highlighted, and Add stop becomes Edit stop.
 // Tapping a pin or a row scrolls the row to the middle of the list. Tapping a row (`row`, its key) moves the pin into view if it's
-// off the map you can see, keeping the zoom. Tapping the selected row again keeps it selected (and centered);
+// off the map you can see, keeping the zoom. Tapping the selected row (or its pin) again keeps it selected;
 // tapping empty map, changing the day or Esc clears it.
 function selectStop(s, row = null) {
+  // Again, at half: it's already the focus, so nothing animates. A row still brings its pin back if it's out of view.
+  // (A hotel that starts and ends the day has two rows: its other row isn't the highlighted one.)
+  if (state.sel === s.id && state.snap === 'half' && !isWide() && (!row || $app.querySelector('.wt-tl .is-selected')?.dataset.row === row)) {
+    if (row) panTo(s);
+    centerFocus({ animate: false });
+    return;
+  }
   if (state.leg) fitKey = '';
   state.leg = null;
   state.sel = s.id;
@@ -1783,12 +1798,15 @@ function selectStop(s, row = null) {
   const framed = state.snap === 'full' && !camFree && !isWide();
   setSnap('half', false); // the whole-day list covers the map; peeking, it's opened to show the stop's row
   render();
-  if (row && !framed && map && s.lat != null && !inView([s.lat, s.lng])) {
-    const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
-    moveCamera(map.unproject(p, z), z);
-  }
+  if (row && !framed) panTo(s);
   // in the middle of the list, so the stops before and after it show too
   centerFocus({ force: true });
+}
+// Pan a stop's pin into the middle of the map you can see, keeping the zoom, if it's out of view.
+function panTo(s) {
+  if (!map || s.lat == null || inView([s.lat, s.lng])) return;
+  const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
+  moveCamera(map.unproject(p, z), z);
 }
 // Move a place into the middle of the map you can see: above the stop sheet on a phone, the whole map on a wide screen.
 function focusStop(s) {
