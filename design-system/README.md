@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.9.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 5.0.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -110,13 +110,12 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-action-secondary`, `--wt-action-secondary-text` | Quiet actions, like Copy. |
 | `--wt-action-done`, `--wt-action-done-text` | Unused since 2.0.0, when checks were removed. Kept until the next major version. |
 | `--wt-route`, `--wt-route-active`, `--wt-route-muted`, `--wt-route-done`, `--wt-route-casing` | Route lines: normal, selected, the others while one is selected, past (on today), and the outline under each line. |
-| `--wt-pin-fill` | The ring around a pin's marker. |
+| `--wt-pin-fill` | The outline around a map pin. |
 | `--wt-pin-ring`, `--wt-pin-ring-muted`, `--wt-pin-ring-done` | Unused since 2.0.0, when pins became markers. Kept until the next major version. |
 | `--wt-kind-place`, `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight`, `--wt-kind-nature`, `--wt-kind-shop` | Stop types, one color per group: a plain place; airports and gas; hotels; restaurants and cafés; attractions, museums and viewpoints; nature; shopping. Only on markers, pins, the type picker and the ring on today's stop. None is blue or red. |
 | `--wt-kind-drive` | The car marker on a drive in the timeline: grey, and quieter than any stop type. |
 | `--wt-kind-drive-current` | The car on the highlighted drive: a darker grey, never blue. |
-| `--wt-marker-ink` | The icon on a marker, and the car on a drive. Meets 3:1 on every kind color, `--wt-kind-drive`, `--wt-kind-drive-current` and `--wt-route`. |
-| `--wt-map-label` | The background of a pin's name label. |
+| `--wt-marker-ink` | The icon on a marker, the number or dot on a map pin, and the car on a drive. Meets 3:1 on every kind color, `--wt-kind-drive`, `--wt-kind-drive-current` and `--wt-route`. |
 | `--wt-danger`, `--wt-danger-surface` | "Doesn't fit" and destructive states. |
 | `--wt-highlight` | Flashing a co-editor's change once. |
 | `--wt-overlay` | The dimmed backdrop behind modal sheets. |
@@ -284,7 +283,7 @@ Labels are verbs that say exactly what happens.
 
 ### Marker `.wt-marker`
 
-A stop's type icon on its type's color. The same marker sits on the timeline's rail, on the map pin and in the day list, so a stop reads the same everywhere.
+A stop's type icon on its type's color. The same marker sits on the timeline's rail, in the day list, in the Type picker and in place search. On the map, a stop's [pin](#map-pin-wt-pin) has the same color but carries its number instead of the icon.
 
 ```html
 <i class="wt-marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)">${icon('utensils')}</i>
@@ -504,7 +503,7 @@ With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 
 - **The header** is one row: home, the trip's name, settings. The name is always in view. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
 - **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has three heights, like a maps app's sheet:
-  - **Peek** (`.is-peek`): the day bar only, so the map has the screen. The list and the add bar are hidden (the add bar keeps its place, so its bottom padding and the safe area sit under the day bar): Add stop alone under an empty sheet read as if the day had no stops.
+  - **Peek** (`.is-peek`): the day bar and one row of the list, so the map has the screen and still says what you're looking at. The app marks that row `.is-peek-row` (the selected stop or drive, or else the row happening now, or else the first stop), scrolls it to the list's top, and makes the sheet as tall as the day bar, the row (at most 120px) and the add bar's bottom padding. The add bar leaves the layout and hides, and so do the other rows. Add stop isn't shown on its own while peeking.
   - **Half** the screen, the default, but tall enough for the list to fit three stops and two drives (never more than about 60% of the screen).
   - The list (`.wt-sheet__body`) fades out at an edge with more past it: `.is-more-above` and `.is-more-below`, which the app sets from the scroll position.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
@@ -512,7 +511,7 @@ With a stop selected, the add bar holds Edit stop, Maps and a round `+`:
 - **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it, and the list can't be scrolled by hand at all (`touch-action: none` and `overflow: hidden`): your code scrolls it, to keep the focused row in its middle. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the next height its way; a slower drag settles at the nearest. Add `.is-dragging` while a finger is moving it.
 - **Taps:** the grab handle is a button: half goes to full, peek and full go to half. Peeking, the day bar's buttons still work, and a tap anywhere else on the sheet opens it to half. No other tap resizes the sheet.
 - **The map:** zooming it (pinch, double-tap, wheel) means you're looking at the map, so a half sheet goes down to peek. A new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route opens the sheet to half.
-- **Peeking**, the list and the add bar hide `--wt-duration-base` after `.is-peek` goes on, so a sheet sliding down to its peek keeps its list until it's there. Animate the height over that same duration.
+- **Peeking**, the rows other than `.is-peek-row` and the add bar hide `--wt-duration-base` after `.is-peek` goes on, so a sheet sliding down to its peek keeps its list until it's there. Animate the height and the list's scroll over that same duration. The list has no edge fades while peeking.
 - The top holds the grab handle and the day bar. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
 - **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop, then **Maps** (the place in the maps app picked in Account, the same one Directions opens), then a round `+`, so adding is always one tap away. The maps app is how you find out what a place is (its photos, reviews and hours), so it sits beside Edit stop rather than inside the sheet. In the bar, secondary buttons are pills like the primary, so the row reads as one set. Its short label lets Edit stop fit beside it on a 320px phone. A stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
@@ -604,23 +603,24 @@ The name and dates only: enough to pick a trip.
 ### Map pin `.wt-pin`
 
 ```html
-<div class="wt-pin wt-pin--selected">
-  <i class="wt-marker wt-pin__marker" role="img" aria-label="Attraction" style="--wt-kind-color: var(--wt-kind-sight)">${icon('star')}</i>
-  <span class="wt-pin__label">White Sands Visitor Center</span>
+<div class="wt-pin wt-pin--selected" role="img" aria-label="3. White Sands Visitor Center, Attraction" style="--wt-kind-color: var(--wt-kind-sight)">
+  <svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><path d="M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z"/></svg>
+  <b class="wt-pin__num">3</b>
+</div>
+<!-- a place that isn't a numbered stop: the hotel at either end of a day, or the day before's last stop -->
+<div class="wt-pin" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="--wt-kind-color: var(--wt-kind-stay)">
+  <svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><path d="…"/></svg>
+  <i class="wt-pin__dot"></i>
 </div>
 ```
 
-- The pin is the stop's marker, ringed in `--wt-pin-fill`. No numbers.
-- Variants: `--selected` (bigger, with its name) and `--muted` (past: on today, a stop that's over; or the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at).
-- **A route on show** names both its ends: each end's pin is `--selected`, and the lower one's label gets `.wt-pin__label--below`, so the two don't meet. Its time sits halfway along it:
-
-  ```html
-  <div class="wt-route-tag"><i class="wt-route-tag__car">${icon('car', 14)}</i>34 min<span class="wt-route-tag__late">· 12 min late</span></div>
-  ```
-
-  The late part shows only when the drive doesn't fit. Showing a route moves the map to fit it, with room for the labels; from a tap on the route itself, only when an end is out of view.
-- The map shows only the open day, or the whole trip on All days.
-- Stops at the same place, like a hotel in the morning and at night, share one pin.
+- **A teardrop, like a maps app's pin.** Its tip is on the place, so it points at it exactly; place the element at the place and the tip lands there. 30 × 39px.
+- **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), outlined in `--wt-pin-fill`.
+- **Its head holds one thing: the stop's number,** in the day's order (on All days, the trip's), in `--wt-marker-ink`. A place that isn't a numbered stop has `.wt-pin__dot` instead.
+- **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal.
+- Variants: `--selected` (a quarter larger: the selected stop, and both ends of a route on show) and `--muted` (smaller and faded: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). Both scale from the tip.
+- Stops at the same place, like a hotel in the morning and at night, share one pin, with the first one's number.
+- The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves the pins' height clear above it.
 
 ### Empty state `.wt-empty`
 
@@ -692,11 +692,18 @@ Say what can go here, in the user's words. No illustrations.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
 
-### Fixed in 4.9.1
+### Fixed in 5.0.1
 
 - `.wt-field[hidden]` is hidden. `.wt-field`'s `display: block` used to override the `hidden` attribute, so the stop sheet showed a hotel's Check-out on every stop.
 - `.wt-tl-time__day` is also the line under a stop's time that says when you leave ("to 4:15 PM"). No new class.
 - Nothing was renamed or removed.
+
+### Changed in 5.0.0
+
+- **Map pins are teardrops with a number** instead of a stop's marker with its icon ([Map pin](#map-pin-wt-pin)). New: `.wt-pin__shape`, `.wt-pin__num`, `.wt-pin__dot`. `.wt-pin` is now the pin itself, 30 × 39px, placed by its tip.
+- **The map carries no text.** Removed: `.wt-pin__marker` (the marker inside a pin), `.wt-pin__label` and `.wt-pin__label--below` (a selected pin's name), and `.wt-route-tag`, `.wt-route-tag__car` and `.wt-route-tag__late` (a shown drive's time). Their content is in the list.
+- Removed the token `--wt-map-label`, the background of those labels, which nothing else used.
+- **A peek shows one row** under the day bar, `.is-peek-row` ([Bottom sheet](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)), instead of the day bar alone: with no text on the map, the row is what says what you're looking at.
 
 ### Added in 4.9.0
 

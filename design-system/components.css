@@ -1,4 +1,4 @@
-/* Waythread design system — components v4.9.1
+/* Waythread design system — components v5.0.1
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -420,7 +420,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 @media (hover: hover) { .wt-view-toggle:hover, .wt-trip-head .wt-icon-btn:hover { background: var(--wt-surface-hover); } }
 
 /* ---------- Bottom sheet (the list over the map) ---------- */
-/* Three heights on a phone, like a maps app's sheet: peek (.is-peek: the day bar only), half, and full (.is-full:
+/* Three heights on a phone, like a maps app's sheet: peek (.is-peek: the day bar and one row), half, and full (.is-full:
    docked under the trip header). It never hides. Drag the top or the list to move it; tap the grab handle to step. */
 .wt-sheet {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--wt-z-sheet);
@@ -436,15 +436,16 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
    by hand at all, not by a finger, a wheel or a trackpad: the app scrolls it, to keep the focused row in the middle. */
 .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: none; overflow: hidden; }
 .wt-sheet.is-peek { cursor: pointer; }
-/* Peeking shows only the day bar; the list and the add bar appear as soon as the sheet is dragged up.
-   Add stop isn't shown on its own: under an empty-looking sheet it read as if the day had no stops.
-   The add bar stays in the layout, so its bottom padding (with the safe area) is the peek's margin under the day bar.
-   They hide once the sheet is down (after --wt-duration-base), so it slides down with the list on it, not empty;
-   going up, they show at once. */
-.wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body {
-  visibility: hidden; padding-bottom: 0;
-  transition: --wt-fade-top var(--wt-duration-fast), --wt-fade-bottom var(--wt-duration-fast), visibility 0s var(--wt-duration-base), padding-bottom 0s var(--wt-duration-base);
-}
+/* Peeking shows the day bar and one row of the list (.is-peek-row, set by the app): its focus, which the app scrolls to
+   the list's top and sizes the sheet to: the map has the screen, and the row says what you're looking at. The list has no fades there.
+   The add bar leaves the layout, so the list reaches the sheet's bottom, and hides once the sheet is down
+   (after --wt-duration-base), so the sheet slides down with it on; going up, it shows at once. Add stop isn't shown
+   while peeking: it belongs with the whole list. */
+.wt-sheet.is-peek .wt-sheet__body { --wt-fade-top: 0px; --wt-fade-bottom: 0px; }
+.wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body { padding-bottom: 0; transition: padding-bottom 0s var(--wt-duration-base); }
+/* The other rows hide once the sheet is down, like the add bar, so none shows in the margin under the peek's row. */
+.wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body > :not(.is-peek-row) { visibility: hidden; transition: visibility 0s var(--wt-duration-base); }
+.wt-sheet.is-peek .wt-add-bar { position: absolute; left: 0; right: 0; bottom: 0; }
 .wt-sheet.is-peek:not(.is-dragging) .wt-add-bar { visibility: hidden; transition: visibility 0s var(--wt-duration-base); }
 .wt-sheet__top { flex: none; touch-action: none; padding: 0 var(--wt-space-3) var(--wt-space-1) var(--wt-space-1); }
 /* The grab handle is a button as wide as the sheet, so it's easy to hit and nothing else on the sheet's top resizes it. */
@@ -604,34 +605,32 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-trip-card__dates { font: var(--wt-type-caption); font-size: 14px; color: var(--wt-text-secondary); white-space: nowrap; }
 
 /* ---------- Map pin ---------- */
-.wt-pin { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; }
-/* The stop's marker, ringed in white. Muted: a stop that's over, or the day before's last stop. */
-.wt-pin__marker { width: 28px; height: 28px; border: 2px solid var(--wt-pin-fill); box-shadow: var(--wt-shadow-pin); transition: transform var(--wt-duration-base), opacity var(--wt-duration-base); }
-.wt-pin__marker .wt-icon { width: 15px; height: 15px; }
-.wt-pin--selected .wt-pin__marker { width: 36px; height: 36px; }
-.wt-pin--selected .wt-pin__marker .wt-icon { width: 19px; height: 19px; }
-.wt-pin--muted:not(.wt-pin--selected) .wt-pin__marker { opacity: .5; transform: scale(.85); box-shadow: none; }
-.wt-pin__label {
-  position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
-  max-width: 180px; overflow: hidden; text-overflow: ellipsis;
-  padding: 3px var(--wt-space-2); border-radius: var(--wt-radius-sm);
-  background: var(--wt-map-label); color: var(--wt-text-primary); box-shadow: var(--wt-shadow-float);
-  font: var(--wt-type-label); font-size: 13px; white-space: nowrap;
+/* A teardrop like a maps app's pin: its tip on the place, in the stop's type color, outlined in --wt-pin-fill, with the
+   stop's number in its head (.wt-pin__num) or, for a place that isn't a numbered stop, a dot (.wt-pin__dot). Nothing else:
+   names and times are in the list. Selected: larger. Muted (over, or the day before's last stop): smaller and faded.
+   Both grow and shrink from the tip, so it stays on the place. Placed by its tip, at the marker's position on the map. */
+.wt-pin {
+  position: absolute; width: 30px; height: 39px; transform: translate(-50%, -100%); transform-origin: 50% 100%;
+  transition: transform var(--wt-duration-base), opacity var(--wt-duration-base);
 }
-/* With a route selected, both ends are named; the lower end's name goes under its pin, so the two don't meet. */
-.wt-pin__label--below { bottom: auto; top: calc(100% + 6px); }
-
-/* ---------- Route tag: a selected drive's time, on its route ---------- */
-/* Sits on the middle of the route, with the car in the route's color. A drive that doesn't fit says by how much, in red. */
-.wt-route-tag {
-  position: absolute; transform: translate(-50%, -50%);
-  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px;
-  border-radius: var(--wt-radius-pill); background: var(--wt-map-label); color: var(--wt-text-primary); box-shadow: var(--wt-shadow-float);
-  font: var(--wt-type-label); font-size: 13px; white-space: nowrap; pointer-events: none;
+.wt-pin--selected { transform: translate(-50%, -100%) scale(1.25); }
+.wt-pin--muted:not(.wt-pin--selected) { transform: translate(-50%, -100%) scale(.85); opacity: .5; }
+/* Two classes, to beat Leaflet's .leaflet-map-pane svg { z-index: 200 }, which would cover the number */
+.wt-pin .wt-pin__shape {
+  position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; overflow: visible;
+  fill: var(--wt-kind-color, var(--wt-kind-place)); stroke: var(--wt-pin-fill); stroke-width: 1.5;
+  filter: drop-shadow(var(--wt-shadow-pin));
 }
-.wt-route-tag__car { width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--wt-radius-round); background: var(--wt-route-active); color: var(--wt-marker-ink); }
-.wt-route-tag__car .wt-icon { width: 14px; height: 14px; }
-.wt-route-tag__late { color: var(--wt-text-danger); font-weight: 500; }
+.wt-pin--muted .wt-pin__shape { filter: none; }
+/* Centered in the head of the drop, whose circle's center is 14.3px down */
+.wt-pin__num {
+  position: absolute; z-index: 1; inset: 0 0 auto; height: 28.6px; display: grid; place-items: center;
+  color: var(--wt-marker-ink); font: 700 13px/1 var(--wt-font-sans); font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+}
+.wt-pin__dot {
+  position: absolute; z-index: 1; left: 50%; top: 14.3px; width: 9px; height: 9px; border-radius: var(--wt-radius-round);
+  background: var(--wt-marker-ink); transform: translate(-50%, -50%);
+}
 
 /* ---------- Empty state ---------- */
 .wt-empty { margin: 0; padding: var(--wt-space-10) var(--wt-space-6); text-align: center; color: var(--wt-text-secondary); }

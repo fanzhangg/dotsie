@@ -104,7 +104,6 @@
   --wt-pin-ring: var(--wt-route);
   --wt-pin-ring-muted: var(--wt-color-blue-200);
   --wt-pin-ring-done: var(--wt-color-gray-400);
-  --wt-map-label: var(--wt-color-gray-0);
 
   /* Status */
   --wt-danger: var(--wt-color-red-600);
@@ -179,7 +178,6 @@
     --wt-pin-fill: var(--wt-color-gray-950);
     --wt-pin-ring-muted: var(--wt-color-blue-800);
     --wt-pin-ring-done: var(--wt-color-gray-600);
-    --wt-map-label: var(--wt-color-gray-900);
     --wt-danger: var(--wt-color-red-300);
     --wt-danger-surface: var(--wt-color-red-900);
     --wt-highlight: #4a3f12;
@@ -235,7 +233,6 @@
   --wt-pin-fill: var(--wt-color-gray-950);
   --wt-pin-ring-muted: var(--wt-color-blue-800);
   --wt-pin-ring-done: var(--wt-color-gray-600);
-  --wt-map-label: var(--wt-color-gray-900);
   --wt-danger: var(--wt-color-red-300);
   --wt-danger-surface: var(--wt-color-red-900);
   --wt-highlight: #4a3f12;
