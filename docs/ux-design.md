@@ -125,7 +125,7 @@ The list is a timeline with three columns: a **rail**, the **stop**, and its **t
 ```
 
 - **Rail:** a thin, light grey line down the day, unbroken from the first stop to the last. It's quiet so the markers and names stand out. Each stop sits on it as a **type marker**: the stop's [type](#stop-types) icon on its type's color. The marker is the same as the stop's pin on the map, so you can match the list to the map at a glance. Drives sit on it as a smaller grey marker with a car, so stops and drives read as one family of icons.
-- **Stop:** the name in bold, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. A note runs across the time column too, so a long one wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop selects it and shows it on the map (see [Adding and editing a stop](#adding-and-editing-a-stop)); it doesn't open it.
+- **Stop:** the name in medium weight, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. A note runs across the time column too, so a long one wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop selects it and shows it on the map (see [Adding and editing a stop](#adding-and-editing-a-stop)); it doesn't open it.
 - **Time:** on the right, in grey, with a small AM/PM. The name leads the row, and the time is where a glance down the right edge finds it. Hotel rows at either end of the day have no time, so the right edge stays empty instead of leaving a gap before the name.
 
 A selected row (a stop or a drive, tapped or picked on the map) gets a grey background, with no border. It's a clear step darker than the sheet (`gray-200` on white; a lighter grey on the dark sheet): the first, paler grey was hard to see, above all in dark mode. A selected drive's car turns a darker grey. **Only one row is ever highlighted:** while something is selected, the row happening now is a plain row. A hotel that starts and ends the day highlights only the row you tapped; picked on the map, it's the first one.
@@ -277,7 +277,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
   - Grey for secondary information.
   - Blue only for routes and links.
   - Red only for a drive that doesn't fit.
-- **Type:** the system font. Stop names 16px semibold, times 15px with tabular numbers, notes and drives 13px. Drives are all grey, so stop names are the only strong text in the list.
+- **Type:** the system font, in few weights: stop names 16px medium, the day bar semibold, and everything else regular, so the screen never reads as a wall of bold. Below the names, hierarchy is size and ink: times 15px in dark grey with tabular numbers, notes 13px in dark grey, drives 13px in a lighter grey with the duration a step darker. Stop names are the only strong text in the list.
 - **Surfaces:** the map, then the white plan sheet with the timeline straight on it. Trip cards on Home and modal sheets are white too. No heavy shadows.
 - **Phone-first layout, adapting up:**
 
