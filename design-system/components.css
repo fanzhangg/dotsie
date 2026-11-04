@@ -1,4 +1,4 @@
-/* Waythread design system — components v6.4.0
+/* Waythread design system — components v6.5.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -657,16 +657,20 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* ---------- Map pin ---------- */
 /* A teardrop like a maps app's pin: its tip on the place, in the stop's type color, outlined in --wt-pin-fill, with the
    stop's number in its head (.wt-pin__num) or, for a place that isn't a numbered stop, a dot (.wt-pin__dot). Nothing else:
-   names and times are in the list. Selected: larger. Muted (over, the day before's last stop, or off the route on show):
-   smaller and grey, as what's over is grey in the list, so the pins still in color are the ones ahead.
+   names and times are in the list. Selected: half as large again, with a deeper shadow, and the other pins in the same
+   .wt-pins (the element that holds them) fade, still in their colors, so the selected one stands out among pins of
+   every type. Muted (over, the day before's last stop, or off the route on show): smaller and grey, as what's over is
+   grey in the list, so the pins still in color are the ones ahead.
    Both grow and shrink from the tip, so it stays on the place. Placed by its tip, at the marker's position on the map. */
 .wt-pin {
   position: absolute; width: 30px; height: 39px; transform: translate(-50%, -100%); transform-origin: 50% 100%;
   filter: drop-shadow(var(--wt-shadow-pin));
-  transition: transform var(--wt-duration-base), opacity var(--wt-duration-base);
+  transition: transform var(--wt-duration-base), opacity var(--wt-duration-base), filter var(--wt-duration-base);
 }
-.wt-pin--selected { transform: translate(-50%, -100%) scale(1.25); }
+.wt-pin--selected { transform: translate(-50%, -100%) scale(1.5); filter: drop-shadow(var(--wt-shadow-pin-selected)); }
 .wt-pin--muted:not(.wt-pin--selected) { transform: translate(-50%, -100%) scale(.85); opacity: .85; }
+/* Faded, not grey: grey means over */
+.wt-pins:has(.wt-pin--selected) .wt-pin:not(.wt-pin--selected) { opacity: .55; }
 /* Two classes, to beat Leaflet's .leaflet-map-pane svg { z-index: 200 }, which would cover the number */
 /* The drop draws only the outline, on top of the shaded fill below it, so the outline stays clean white. */
 .wt-pin .wt-pin__shape {

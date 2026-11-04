@@ -1035,6 +1035,7 @@ function mountTrip(trip) {
   if (!window.L) return;
   // double-tap zoom is our own (see mapGestures), so it works over routes and pins too
   map = L.map($app.querySelector('#map'), { zoomControl: false, attributionControl: false, doubleClickZoom: false }).setView([32.6, -106.1], 8);
+  map.getPane('markerPane').classList.add('wt-pins'); // so the other pins step back while one is selected
   camPlaced = false;
   camTarget = null;
   zoomAnim = drawPending = false;

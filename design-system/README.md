@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 6.4.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 6.5.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -190,6 +190,7 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
   - `--wt-shadow-float`: labels and buttons over the map.
   - `--wt-shadow-card`: a card floating over the map. (The trip header uses the lighter `--wt-shadow-float` since 5.1.0.)
   - `--wt-shadow-pin`: pins.
+  - `--wt-shadow-pin-selected`: the selected pin, and both ends of a route on show.
 
   Nothing else gets a shadow.
 - **Motion:**
@@ -658,7 +659,8 @@ The name and dates only: enough to pick a trip.
 - **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), shaded like a marker (`::before`, cut to the drop's shape), outlined in `--wt-pin-fill` on top so the outline stays clean.
 - **Its head holds one thing: the stop's number,** in the day's order (on All days, the trip's), in `--wt-marker-ink`. A place that isn't a numbered stop has `.wt-pin__dot` instead.
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal.
-- Variants: `--selected` (a quarter larger: the selected stop, and both ends of a route on show) and `--muted` (smaller and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). The pins still in color are the ones that matter now. Both scale from the tip.
+- Variants: `--selected` (half as large again, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (smaller and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). The pins still in color are the ones that matter now. Both scale from the tip.
+- **Put the pins in a `.wt-pins` element** (with Leaflet, the marker pane). While one of them is `--selected`, the rest fade to 55%, keeping their colors, so the selected pin stands out among pins of every type. They fade rather than turn grey, since grey means over.
 - Stops at the same place, like a hotel in the morning and at night, share one pin, with the first one's number.
 - The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves the pins' height clear above it.
 
@@ -731,6 +733,14 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 6.5.0
+
+A selected pin was hard to find: a quarter larger, among pins of seven colors.
+
+- `.wt-pin--selected` is half as large again (was a quarter), with a deeper shadow, the new `--wt-shadow-pin-selected` (tokens 1.9.0).
+- New: `.wt-pins`, the element that holds the pins. While one is selected, the others fade to 55% opacity, in their colors.
+- Nothing was renamed or removed.
 
 ### Changed in 6.4.0
 
