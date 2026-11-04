@@ -14,7 +14,10 @@ html, body { height: 100%; }
 
 /* ---------- Trip: full-screen map with the list sheet on top ---------- */
 .trip { position: relative; height: 100dvh; overflow: hidden; }
-#map { position: absolute; inset: 0; background: var(--wt-surface-map); }
+/* The map sits under the trip header. */
+#map { position: absolute; inset: 0; top: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px)); background: var(--wt-surface-map); }
+/* While a stop is open, its sheet takes the list's place at the bottom, and the map shows above it. */
+.trip.is-editing .wt-sheet, .trip.is-editing .wt-view-toggle { visibility: hidden; }
 .trip .leaflet-bottom { bottom: var(--bottom-h, 0); transition: bottom var(--wt-duration-base); }
 .trip .leaflet-control-attribution { font-size: 10px; }
 /* Only the busier fallback basemap needs quieting. */

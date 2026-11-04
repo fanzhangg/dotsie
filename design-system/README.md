@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 3.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 3.0.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -374,7 +374,7 @@ All live in the stop sheet.
 - **Type** is one row that shows the current type. Tapping it slides the sheet to the types; picking one, or Back, slides back. It keeps the sheet short, so the map stays in view above it. Focus the checked option when the page opens, and the picker when it closes.
 - Type starts as a guess from the place's name and category, until someone picks one.
 - **Nights and Check-out** show only for a hotel. When becomes check-in: 3:00 PM for a new hotel. Nights is at least 1, so disable the minus at 1. Check-out's day comes from the nights, so only its time is a field: 11:00 AM unless someone sets another.
-- `.wt-kinds`, a grid of every type, is still here for the phone-only prototype. The app uses the picker.
+- `.wt-kinds`, a grid of every type, is no longer used: the app and the prototype both use the picker. It can go in the next major version.
 
 ### Trip header `.wt-trip-head`, bottom sheet `.wt-sheet` and add bar `.wt-add-bar`
 
@@ -427,7 +427,7 @@ From 768px wide, the header and the sheet stack into a full-height panel on the 
 <p class="wt-credit">Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</p>
 ```
 
-- The app has the trip header instead. `.wt-map-bar` floats home and settings over the map's top corners, for the phone-only prototype. Pad the top when you fit the map to a day, so pins stay clear of the buttons.
+- `.wt-map-bar` floated home and settings over the map's top corners. The trip header replaced it in the app and the prototype, so it's no longer used and can go in the next major version.
 - The map's credits go at the bottom of trip settings, not on the map.
 
 ### Modal sheet `.wt-modal`
@@ -572,7 +572,7 @@ The trip header became one row for every screen size, and the phone's list stopp
 - `.wt-sheet__bar` and `.wt-sheet__name` are removed. Use `.wt-trip-head` and `.wt-trip-head__name`, outside the sheet; from 768px wide the header tops the side panel.
 - `.wt-sheet__grab` is now a button, as wide as the sheet. Its bar is drawn by `::before`.
 - The sheet's top-only height is gone; a sheet is half or full (`.is-full`).
-- `.wt-map-bar` and `.wt-kinds` stay, for the prototype only.
+- `.wt-map-bar` and `.wt-kinds` stay, but since 3.0.1 nothing uses them: the prototype moved to the header and the picker too. They can go in the next major version.
 - Added: `--wt-size-trip-head`, `.wt-view-toggle`, `.wt-picker`, `.wt-options`, `.wt-option`, `.wt-modal__head--sub`, `.wt-modal-root--panel`, `.wt-field-row`, `.wt-route-tag`, `.wt-pin__label--below`, and the `map` and `list` icons.
 
 ### Renamed or removed in 2.0.0
