@@ -72,3 +72,12 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 @media (prefers-color-scheme: dark) {
   .trip.osm-tiles .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) saturate(.4) brightness(.9); }
 }
+/* Routes, drawn by the app over the tiles (see RouteLayer in app.js); their colors and widths come from the route tokens.
+ * A route eases into a new look: shown, muted while another is shown, or over. */
+.wt-routes { overflow: visible; pointer-events: none; }
+.wt-route path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.wt-route__casing { stroke-opacity: .9; }
+.wt-route__casing, .wt-route__line { transition: stroke var(--wt-duration-base), stroke-width var(--wt-duration-base); }
+/* A wide line nobody sees, so a route is easy to tap. */
+.leaflet-pane > svg path.wt-route__hit { stroke: transparent; stroke-width: 24px; pointer-events: stroke; }
+.leaflet-pane > svg .wt-route.is-leaving .wt-route__hit { pointer-events: none; }

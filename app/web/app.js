@@ -708,11 +708,210 @@ function homeHTML() {
 // can't tell from a real tile; ask once per visit whether it will serve this site.
 let stadiaCheck = null;
 const stadiaServes = () => (stadiaCheck ??= fetch('https://tiles.stadiamaps.com/tiles/alidade_smooth/0/0/0.png').then(r => r.ok, () => false));
-let map = null, layer = null, fitKey = '';
+let map = null, layer = null, routeLayer = null, fitKey = '';
 let camPlaced = false; // the new map has been framed once: its first framing is placed, not flown to
 let camTarget = null; // where the camera is flying, and until when
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-let camMoving = false, drawPending = false; // the camera is flying, or Leaflet is scaling the map for a zoom (a wheel, a double tap, a pinch)
+let zoomAnim = false, drawPending = false; // Leaflet is sliding the map to a new zoom (a wheel, a double tap, the end of a pinch)
+
+// ---------- Routes on the map ----------
+// Leaflet's own vector layers draw a route once each time the map stops, and while the map moves they scale that
+// picture with CSS: lines fatten as the map zooms in and thin out as it zooms out, and whatever lay outside the view
+// they were drawn for is missing until the map stops. This layer draws the routes itself, on every frame of a move,
+// at the map's real scale, so a line keeps its width and reaches the edge of the map the whole way:
+// - a flight (flyTo), a pinch, a drag and its glide move the map frame by frame, and each frame is drawn as it comes;
+// - Leaflet's short zoom animation (a wheel, a double tap, the end of a pinch) slides the tiles and pins with a CSS
+//   transition, so each frame is drawn where that transition has them by then.
+// Routes are kept by key: one that changes its look (shown, muted, over) eases into it, and one that comes or goes
+// (another day, a route that has come in) fades.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ROUTE_PAD = 0.3; // drawn this far past each edge of the map (a share of its size), so a drag doesn't reach the end
+const ROUTE_FADE = 250; // ms, as --wt-duration-base
+const ZOOM_ANIM = 250; // ms: Leaflet's zoom transition, transform .25s cubic-bezier(0, 0, .25, 1) in leaflet.css
+// How far along Leaflet's zoom transition is at `t` (0–1): cubic-bezier(0, 0, .25, 1), solved for x = t
+function zoomEase(t) {
+  let lo = 0, hi = 1, u = t;
+  for (let i = 0; i < 24; i++) {
+    u = (lo + hi) / 2;
+    if (0.75 * u * u * (1 - u) + u * u * u < t) lo = u; else hi = u;
+  }
+  return 3 * u * u * (1 - u) + u * u * u;
+}
+const svgEl = (tag, cls) => { const el = document.createElementNS(SVG_NS, tag); if (cls) el.setAttribute('class', cls); return el; };
+// Where the routes are drawn from: a point on the map is at `world * s - o` in Leaflet's layer pixels, where `world`
+// is its place at zoom 0. Every view the map passes through, flying, pinching or in a zoom transition, is one of these.
+const viewOf = m => { const o = m.getPixelOrigin(); return { s: m.getZoomScale(m.getZoom(), 0), ox: o.x, oy: o.y }; };
+const RouteLayer = window.L && L.Layer.extend({
+  options: { pane: 'overlayPane' },
+  initialize() { this._routes = new Map(); this._leaving = new Set(); },
+  onAdd(map) {
+    this._svg = svgEl('svg', 'wt-routes');
+    this._base = svgEl('g');
+    this._top = svgEl('g'); // the route on show, over the others where they cross
+    this._svg.append(this._base, this._top);
+    this.getPane().appendChild(this._svg);
+    this._view = this._bounds = this._size = null;
+    this._draw(viewOf(map));
+  },
+  onRemove() {
+    cancelAnimationFrame(this._anim);
+    this._svg.remove();
+    this._routes.clear();
+    this._leaving.clear();
+  },
+  getEvents() {
+    return { zoom: this._onMove, move: this._onMove, moveend: this._onMove, viewreset: this._onMove, resize: this._onResize, zoomanim: this._onZoomAnim };
+  },
+  // The routes to show, bottom first: { key, coords: [[lat, lng], …], color, width, casing, casingWidth, dash, top, onClick }.
+  // A route under the same key with other coordinates (the drive came in, or moved) is a new route: the old one fades out.
+  setRoutes(list) {
+    const next = new Map();
+    for (const r of list) {
+      const sig = `${r.coords.length}|${r.coords[0]}|${r.coords.at(-1)}`;
+      let route = this._routes.get(r.key);
+      if (route && route.sig !== sig) { this._leave(route); route = null; }
+      this._routes.delete(r.key);
+      if (!route) route = this._enter(r, sig);
+      else if (route.coords !== r.coords) this._project(route, r.coords);
+      this._style(route, r);
+      next.set(r.key, route);
+    }
+    for (const route of this._routes.values()) this._leave(route);
+    this._routes = next;
+    // in the order asked, moving routes only when the order has changed (a move restarts a route's transitions)
+    for (const g of [this._base, this._top]) {
+      const want = [...next.values()].filter(route => route.g.parentNode === g || (!route.g.parentNode && route.top === (g === this._top))).map(route => route.g);
+      const have = [...g.children].filter(el => !el.classList.contains('is-leaving'));
+      if (want.length !== have.length || want.some((el, i) => el !== have[i])) for (const el of want) g.appendChild(el);
+    }
+    for (const route of next.values()) {
+      if (this._view && !route.drawn) this._drawRoute(route);
+      if (route.entering && !reduceMotion.matches) route.g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ROUTE_FADE, easing: 'ease-out' });
+      route.entering = false;
+    }
+  },
+  _enter(r, sig) {
+    const g = svgEl('g', 'wt-route');
+    const casing = svgEl('path', 'wt-route__casing'), line = svgEl('path', 'wt-route__line');
+    g.append(casing, line);
+    const route = { key: r.key, sig, g, paths: [casing, line], top: !!r.top, drawn: false, entering: true };
+    if (r.onClick) {
+      // a wide line nobody sees, so the route is easy to tap
+      const hit = svgEl('path', 'wt-route__hit leaflet-interactive');
+      g.append(hit);
+      route.paths.push(hit);
+      hit.addEventListener('click', e => {
+        e.stopPropagation(); // the map's own click clears the selection
+        if (!this._map?.dragging?.moved()) route.onClick?.();
+      });
+    }
+    this._project(route, r.coords);
+    return route;
+  },
+  _leave(route) {
+    route.g.classList.add('is-leaving');
+    this._leaving.add(route);
+    const done = () => { route.g.remove(); this._leaving.delete(route); };
+    if (reduceMotion.matches || !route.g.parentNode) return done();
+    const from = getComputedStyle(route.g).opacity;
+    route.g.animate([{ opacity: from }, { opacity: 0 }], { duration: ROUTE_FADE, easing: 'ease-in', fill: 'forwards' }).finished.then(done, done);
+  },
+  _style(route, r) {
+    const [casing, line] = route.paths;
+    route.onClick = r.onClick;
+    casing.style.stroke = r.casing;
+    casing.style.strokeWidth = `${r.casingWidth}px`;
+    line.style.stroke = r.color;
+    line.style.strokeWidth = `${r.width}px`;
+    line.style.strokeDasharray = r.dash || 'none';
+  },
+  // Each point at zoom 0, once: every frame after that is a multiply and a subtract
+  _project(route, coords) {
+    const m = this._map, w = new Float64Array(coords.length * 2);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    coords.forEach((c, i) => {
+      const p = m.project(c, 0);
+      w[i * 2] = p.x; w[i * 2 + 1] = p.y;
+      x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y);
+    });
+    Object.assign(route, { coords, world: w, box: [x0, y0, x1, y1] });
+  },
+  _onMove() {
+    const m = this._map;
+    if (!m || m._animatingZoom) return; // the zoom transition's frames draw themselves
+    cancelAnimationFrame(this._anim);
+    const v = viewOf(m), last = this._view;
+    // a drag moves the drawing with the map; it's only drawn again once the map nears its edge
+    if (!this._dirty && last && v.s === last.s && v.ox === last.ox && v.oy === last.oy && this._covers()) return;
+    this._draw(v);
+  },
+  _onResize() { this._dirty = true; this._onMove(); },
+  // Leaflet moves the map to its new zoom at once and lets a CSS transition slide the tiles and pins there; on every frame
+  // of it, each point is that far between where it was and where it's going, so draw the routes at that view.
+  _onZoomAnim(e) {
+    const m = this._map, from = viewOf(m), o = m._getNewPixelOrigin(e.center, e.zoom);
+    const to = { s: m.getZoomScale(e.zoom, 0), ox: o.x, oy: o.y }, pane = m.getPane('mapPane'), t0 = document.timeline?.currentTime ?? performance.now();
+    let css = null;
+    cancelAnimationFrame(this._anim);
+    const frame = now => {
+      if (!m._animatingZoom) return; // over: the map's own zoom and move events have drawn the end
+      // Timed by the tiles' and pins' own transition when there is one: the browser can start it a frame later than
+      // it was asked for, and the curve is steep at the start, so a frame early would put the routes well ahead of the pins.
+      css ||= pane.getAnimations?.({ subtree: true }).find(a => a.transitionProperty === 'transform');
+      const t = css ? (css.currentTime ?? 0) : now - t0;
+      const k = zoomEase(Math.min(1, Math.max(0, t) / ZOOM_ANIM));
+      this._draw({ s: from.s + (to.s - from.s) * k, ox: from.ox + (to.ox - from.ox) * k, oy: from.oy + (to.oy - from.oy) * k });
+      if (k < 1) this._anim = requestAnimationFrame(frame);
+    };
+    this._anim = requestAnimationFrame(frame);
+  },
+  // Does the drawing still reach past every edge of the map?
+  _covers() {
+    const m = this._map, tl = m.containerPointToLayerPoint([0, 0]);
+    return !!this._bounds && this._bounds.contains(tl) && this._bounds.contains(tl.add(m.getSize()));
+  },
+  _draw(v) {
+    const m = this._map, size = m.getSize(), pad = size.multiplyBy(ROUTE_PAD).round();
+    const min = m.containerPointToLayerPoint([0, 0]).subtract(pad).round(), dim = size.add(pad.multiplyBy(2));
+    this._view = v;
+    this._dirty = false;
+    this._bounds = L.bounds(min, min.add(dim));
+    if (!this._size?.equals(dim)) {
+      this._size = dim;
+      this._svg.setAttribute('width', dim.x);
+      this._svg.setAttribute('height', dim.y);
+    }
+    L.DomUtil.setPosition(this._svg, min);
+    this._svg.setAttribute('viewBox', `${min.x} ${min.y} ${dim.x} ${dim.y}`);
+    for (const route of this._routes.values()) this._drawRoute(route);
+    for (const route of this._leaving) this._drawRoute(route);
+  },
+  // The route as a path at the current view: points less than a pixel apart are merged, and the line is cut where it
+  // leaves the drawing, so a long drive at a close zoom stays a short path.
+  _drawRoute(route) {
+    const { s, ox, oy } = this._view, b = this._bounds, w = route.world, [x0, y0, x1, y1] = route.box;
+    route.drawn = true;
+    let d = '';
+    if (x1 * s - ox >= b.min.x && x0 * s - ox <= b.max.x && y1 * s - oy >= b.min.y && y0 * s - oy <= b.max.y) {
+      const pts = [], n = w.length / 2;
+      for (let i = 0; i < n; i++) {
+        const x = w[i * 2] * s - ox, y = w[i * 2 + 1] * s - oy, last = pts.at(-1);
+        if (last && i < n - 1 && Math.abs(x - last.x) < 1 && Math.abs(y - last.y) < 1) continue;
+        pts.push(L.point(x, y));
+      }
+      let part = false;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const seg = L.LineUtil.clipSegment(pts[i], pts[i + 1], b, i > 0, false);
+        if (!seg) { part = false; continue; }
+        if (!part) d += `M${seg[0].x.toFixed(1)} ${seg[0].y.toFixed(1)}`;
+        d += `L${seg[1].x.toFixed(1)} ${seg[1].y.toFixed(1)}`;
+        part = seg[1] === pts[i + 1]; // cut off at the edge: the next piece starts a new line
+      }
+      if (pts.length === 1) d = `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}l0 0`;
+    }
+    if (d !== route.d) { route.d = d; for (const p of route.paths) p.setAttribute('d', d); }
+  },
+});
 // The map's credits live in trip settings rather than over the map.
 const CREDIT = {
   stadia: '© <a href="https://stadiamaps.com/">Stadia Maps</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -805,7 +1004,7 @@ function preloadTrip() {
 }
 
 function teardownTrip() {
-  if (map) { map.remove(); map = null; layer = null; fitKey = ''; }
+  if (map) { map.remove(); map = null; layer = routeLayer = null; fitKey = ''; }
   tiles = null;
   tileQueue = [];
   clearTimeout(preloadTimer);
@@ -852,13 +1051,13 @@ function mountTrip(trip) {
   map = L.map($app.querySelector('#map'), { zoomControl: false, attributionControl: false, doubleClickZoom: false }).setView([32.6, -106.1], 8);
   camPlaced = false;
   camTarget = null;
-  camMoving = drawPending = false;
-  // Pins and routes drawn while the camera moves aren't placed where the moving map is: during Leaflet's zoom
-  // animation a new pin sits at the end of the move while the map is still getting there, and during a flight a
-  // new route is drawn at the wrong scale. drawMap waits for the move to end.
-  map.on('zoomanim', () => { camMoving = true; });
+  zoomAnim = drawPending = false;
+  // A pin added during Leaflet's zoom animation is placed where the map is going, while the map is still sliding
+  // there, so drawMap waits the quarter second for it to end. A flight is drawn as it goes: pins follow the map
+  // frame by frame, and so do routes (see RouteLayer).
+  map.on('zoomanim', () => { zoomAnim = true; });
   map.on('moveend', () => {
-    camMoving = false;
+    zoomAnim = false;
     if (drawPending && cur?.stops) { drawPending = false; drawMap(cur); }
   });
   // A quiet basemap so routes lead. Stadia needs no key on localhost; in production, register the
@@ -879,6 +1078,7 @@ function mountTrip(trip) {
     quiet.once('tileerror', () => { m.removeLayer(quiet); tiles = null; tileQueue = []; osm(); });
     schedulePreload();
   });
+  routeLayer = new RouteLayer().addTo(map);
   layer = L.layerGroup().addTo(map);
   // once you've touched the map, a new sheet height leaves the camera where you put it
   map.getContainer().addEventListener('pointerdown', () => { camFree = true; });
@@ -1290,7 +1490,6 @@ function moveCamera(center, zoom) {
   const size = map.getSize(), screens = px / Math.max(1, Math.hypot(size.x, size.y));
   const duration = Math.min(0.9, 0.3 + 0.15 * Math.log2(1 + screens) + 0.06 * dz);
   camTarget = { center, zoom, until: now + duration * 1000 };
-  camMoving = true;
   map.flyTo(center, zoom, { duration });
 }
 // The center and zoom that fit `bounds` into the map with `tl` and `br` (points, in pixels) kept clear at the
@@ -1303,13 +1502,13 @@ function frameBounds(bounds, tl, br, maxZoom) {
 
 function drawMap(trip) {
   if (!map) return;
-  // Mid-move, only where the camera is going can change now; the pins and routes are redrawn when it stops
-  if (camMoving) { drawPending = true; return frameMap(trip); }
+  // Mid zoom animation, only where the camera is going can change now; the pins and routes are redrawn when it ends
+  if (zoomAnim) { drawPending = true; return frameMap(trip); }
   layer.clearLayers();
   // Only the day on screen, from its plan: the hotel at either end is a pin like any stop.
   // With no hotel last night, the day before's last stop is a quiet pin, so the first drive leads somewhere.
   const day = currentDay(trip);
-  if (!day) return drawDraft();
+  if (!day) { routeLayer.setRoutes([]); return drawDraft(); }
   const plan = dayPlan(trip, day);
   const start = plan.find(e => e.role === 'from')?.place;
   const legs = dayLegs(trip, day);
@@ -1323,18 +1522,23 @@ function drawMap(trip) {
   const pastLeg = new Set(items.filter(it => it.leg && it.past).map(it => it.leg));
   const isPast = s => { const rows = items.filter(it => it.entry?.place === s); return rows.length > 0 && rows.every(it => it.past); };
   const C = { on: token('--wt-route-active'), muted: token('--wt-route-muted'), route: token('--wt-route'), done: token('--wt-route-done'), casing: token('--wt-route-casing') };
-  // past routes first, so they sit under the rest; the active route last, on top
-  const order = l => (l === active ? 2 : pastLeg.has(l.key) ? 0 : 1);
-  for (const l of [...legs].sort((a, b) => order(a) - order(b))) {
-    const rt = l.r, isOn = l === active, stale = moved && (editing(l.from) || editing(l.to));
-    const color = isOn ? C.on : active || stale ? C.muted : pastLeg.has(l.key) ? C.done : C.route;
-    const coords = legCoords(l);
-    L.polyline(coords, { color: C.casing, weight: isOn ? 11 : 8, opacity: 0.9, interactive: false }).addTo(layer);
-    L.polyline(coords, { color, weight: isOn ? 7 : 4.5, dashArray: rt?.ok && !stale ? null : '1 9', lineCap: 'round', interactive: false }).addTo(layer);
-    // wide invisible line so the route is easy to tap
-    L.polyline(coords, { opacity: 0, weight: 24, bubblingMouseEvents: false })
-      .on('click', () => onMapTap(() => { if (!state.draft) previewLeg(l, { fromMap: true }); })).addTo(layer);
-  }
+  // Past routes first, so they sit under the rest. The route on show widens and darkens in place, and a copy of it
+  // fades in on top, over any route it crosses; moving the route itself to the top would cut its transition short.
+  const style = (l, isOn) => {
+    const stale = moved && (editing(l.from) || editing(l.to));
+    return {
+      coords: legCoords(l), casing: C.casing, casingWidth: isOn ? 11 : 8, width: isOn ? 7 : 4.5,
+      color: isOn ? C.on : active || stale ? C.muted : pastLeg.has(l.key) ? C.done : C.route,
+      dash: l.r?.ok && !stale ? null : '1 9',
+    };
+  };
+  const order = l => (pastLeg.has(l.key) ? 0 : 1);
+  const drawn = [...legs].sort((a, b) => order(a) - order(b)).map(l => ({
+    key: l.key, ...style(l, l === active),
+    onClick: () => onMapTap(() => { if (!state.draft) previewLeg(l, { fromMap: true }); }),
+  }));
+  if (active) drawn.push({ key: `on:${active.key}`, top: true, ...style(active, true) });
+  routeLayer.setRoutes(drawn);
   // A route on show names both its ends, and its time sits on the route.
   const ends = active ? [active.from, active.to] : [];
   const lower = active && (map.latLngToContainerPoint(active.to).y > map.latLngToContainerPoint(active.from).y ? active.to : active.from);
