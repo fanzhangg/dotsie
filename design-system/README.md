@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 5.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 5.0.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -335,6 +335,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - Leave out `.wt-tl-notes` when there are none.
   - **Links in a note can be tapped.** Each shows only its site (`booking.com`), in blue, so a long link doesn't fill the row; tapping it opens the page and doesn't select the stop. Since a link can't sit inside a `<button>`, the row is a `div` with `role="button"`, `tabindex="0"` and `aria-pressed`, like a drive, and Enter or Space selects it.
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
+- **Leave time:** a stop that says when you leave has a second line under its time, in `.wt-tl-time__day`: "to 4:15 PM". A hotel says how long instead with its nights, and its check-out gets its own row on the last morning.
 - **The day before's last stop:** with no hotel the night before, a day opens with that stop. In place of a time, `.wt-tl-time__day` says which day it was: "Yesterday", or the weekday ("Sat").
 - **Drive** (`.wt-tl-drive`): a car on the rail and "1 hr 49 min drive". Tapping it shows its route; Directions to the maps app goes in the add bar (see [the add bar](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)), not in the row.
   - **Hierarchy:** the drive's text is 13px in `--wt-text-tertiary`, its duration medium in `--wt-text-secondary`. Stop names are the only strong text in the list, so the day reads as its stops, with drives as the links between them. The drive you're on darkens its duration to primary; a late drive turns it red.
@@ -424,7 +425,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
   <li><button class="wt-option" role="radio" aria-checked="true">
     <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
     <span class="wt-option__text"><span class="wt-option__label">Hotel</span>
-      <span class="wt-option__detail">Adds check-out</span></span>${icon('check', 18)}</button></li>
+      <span class="wt-option__detail">Check-in and check-out</span></span>${icon('check', 18)}</button></li>
   <li class="wt-options__sep" role="presentation"></li>   <!-- between sections -->
   <!-- one per type -->
 </ul>
@@ -459,13 +460,14 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 - **Picking applies it at once** and slides back to the sheet, which shows the new choice in the row; there's no Save or Done, and no toast. **Back** slides back with nothing changed. The sheet returns to where it was scrolled.
 - **Focus** goes to the checked option when the page opens, and back to the row when it closes. ↑ ↓ move between options.
 - **On a computer (768px and up) the options drop down as a menu** (`.wt-menu`) under the row instead of taking over the sheet, since a page and a Back button are slow with a mouse. It's the same page, moved into the field: its Back head goes, its intro line stays, smaller, and rows are 36px. Click the row to open it (its chevron points down there), click an option to pick it; Esc, a click outside, or tabbing away closes it without changing anything, and Esc doesn't close the sheet. Give the row `aria-haspopup` and `aria-expanded`. Same options, same check, same keys: only the way in and out changes.
-- **Markers and details:** give options a marker only when every option has one (types do; maps apps don't). A detail line only where a choice changes something else: Hotel's "Adds check-out".
+- **Markers and details:** give options a marker only when every option has one (types do; maps apps don't). A detail line only where a choice changes something else: Hotel's "Check-in and check-out".
 - **Type** keeps the stop sheet short this way, so the map stays in view above it.
 - In the app, `optionHTML`, `choicePageHTML` and `choicePage` in `app/web/app.js` build and wire any picker, as a page on a phone and a menu on a computer; use them for a new one.
 - Type starts as a guess from the place's name and category, until someone picks one.
 - **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
-- **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Adds check-out". ↑ ↓ move between types.
-- **Check-out** shows only for a hotel, under Check-in, and is a day and time like it. When becomes check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. Check-out is at least a night after check-in and at most 30 (`min` and `max`); a day outside that, or an empty field, goes back to the last good one when you leave the field. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 1–30 nights.
+- **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Check-in and check-out". ↑ ↓ move between types.
+- **Two times for every stop: when you get there, and when you leave.** Anything but a hotel has **Arrive** and **Leave (optional)**, a time later the same day (`type="time"`, `min` set to the arrival). Left empty, the stop has no end, and the drive after it sets off just in time for the next stop. Moving Arrive keeps how long you stay, while that still leaves the same day. For a hotel they become Check-in and Check-out.
+- **Check-out** shows only for a hotel, in place of Leave, and is a day and time like Check-in. Arrive becomes Check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. Check-out is at least a night after check-in and at most 30 (`min` and `max`); a day outside that, or an empty field, goes back to the last good one when you leave the field. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 1–30 nights.
 - **Date and time fields** (`.wt-input` on `date`, `time` and `datetime-local`) are drawn like any other field on iPhone, so they read from the left and stay inside the sheet, rather than Safari's centred control, which is wider than the sheet.
 - **`.wt-input-group`** is a `.wt-input` box with a fixed `__prefix` and a bare `<input>` after it. Make the box a `<label>` so a tap anywhere opens the input, and label the input with `aria-labelledby`.
 - `.wt-nights` (the stepper), `.wt-field-row` and `.wt-input-group` are no longer used: Check-out became a day and time, which replaced the stepper and the day shown before the time. They can go in the next major version.
@@ -689,6 +691,12 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Fixed in 5.0.1
+
+- `.wt-field[hidden]` is hidden. `.wt-field`'s `display: block` used to override the `hidden` attribute, so the stop sheet showed a hotel's Check-out on every stop.
+- `.wt-tl-time__day` is also the line under a stop's time that says when you leave ("to 4:15 PM"). No new class.
+- Nothing was renamed or removed.
 
 ### Changed in 5.0.0
 

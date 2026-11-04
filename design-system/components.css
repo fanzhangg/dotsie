@@ -1,4 +1,4 @@
-/* Waythread design system — components v5.0.0
+/* Waythread design system — components v5.0.1
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -73,6 +73,7 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 
 /* ---------- Form ---------- */
 .wt-field { display: block; margin-top: var(--wt-space-3); }
+.wt-field[hidden] { display: none; } /* display: block would otherwise show a field marked hidden */
 .wt-field__label { display: block; margin-bottom: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-input {
   display: block; width: 100%; padding: var(--wt-space-3);

@@ -108,7 +108,7 @@ function seed() {
         spots: [
           s('airport', 'El Paso International Airport', '6701 Convair Rd, El Paso, TX', 31.8072, -106.3779, '2026-11-20T10:30', 'UA 1234 lands · rental car at Hertz', 'alex'),
           s('hotel', 'Holiday Inn Express Alamogordo', 'S White Sands Blvd, Alamogordo, NM', 32.8800, -105.9580, '2026-11-20T13:00', 'Drop bags · conf # in email', 'alex'),
-          s('attraction', 'White Sands Visitor Center', '19955 US-70, Alamogordo, NM', 32.7797, -106.1717, '2026-11-20T15:00', 'Buy a sled + wax', 'sam'),
+          { ...s('attraction', 'White Sands Visitor Center', '19955 US-70, Alamogordo, NM', 32.7797, -106.1717, '2026-11-20T15:00', 'Buy a sled + wax', 'sam'), checkout: '16:00' },
           s('nature', 'Interdune Boardwalk', 'Dunes Dr, White Sands National Park, NM', 32.7930, -106.2110, '2026-11-20T16:30', 'Sunset ~5:00 PM', 'sam'),
           s('museum', 'New Mexico Museum of Space History', '3198 NM-2001, Alamogordo, NM', 32.9214, -105.9213, '2026-11-21T09:30', '', 'alex'),
           s('restaurant', 'Cloudcroft', 'Burro Ave, Cloudcroft, NM', 32.9573, -105.7428, '2026-11-21T12:30', 'Lunch', 'sam'),
@@ -334,8 +334,9 @@ function dayPlan(trip, day) {
   if (night && plan.at(-1)?.place !== night.s) plan.push({ key: `night:${night.s.id}:${day}`, place: night.s, role: 'night' });
   return plan;
 }
-// The day's drives, between consecutive places in the plan. Arrival is the next stop's time; you leave that long before it.
-// The drive back to the hotel has no times: the day's last stop has no end.
+// The day's drives, between consecutive places in the plan. Arrival is the next stop's time. You set off when you
+// leave the stop before, if it says; if not, that long before you arrive. The drive back to the hotel has no times
+// unless the day's last stop says when you leave it.
 function dayLegs(trip, day) {
   const plan = dayPlan(trip, day), legs = [];
   for (let i = 1; i < plan.length; i++) {
@@ -343,7 +344,7 @@ function dayLegs(trip, day) {
     if (samePlace(a.place, b.place)) continue;
     const r = getRoute(a.place, b.place);
     const arrive = b.role === 'stop' ? b.place.time : null;
-    const leave = arrive && r ? toInput(new Date(toDate(arrive) - r.duration * 1000)) : null;
+    const leave = (a.role === 'stop' && leaveOf(a.place)) || (arrive && r ? toInput(new Date(toDate(arrive) - r.duration * 1000)) : null);
     legs.push({ key: b.key, from: a.place, to: b.place, fromEntry: a, toEntry: b, r, arrive, leave });
   }
   return legs;
@@ -372,7 +373,7 @@ const KINDS = {
 // The type list, in sections a traveler thinks in: anywhere; staying and getting there; eating; seeing and doing
 const KIND_SECTIONS = [['place'], ['hotel', 'airport', 'gas'], ['restaurant', 'cafe'], ['attraction', 'viewpoint', 'nature', 'museum', 'shopping']];
 // Said only where a type changes the form
-const KIND_HINTS = { hotel: 'Adds check-out' };
+const KIND_HINTS = { hotel: 'Check-in and check-out' };
 // A first guess from the place's name, and from its category when it came from search
 // (OpenStreetMap's "tourism:museum" in local dev, Stadia's "accommodation" or "food" in production).
 function guessKind(name = '', cat = '') {
@@ -1161,7 +1162,7 @@ const timeHTML = t => fmtTime(t).replace(/ (AM|PM)$/, '<span class="wt-tl-meridi
 const markerHTML = (s, cls) => `<i class="wt-marker ${cls}" role="img" aria-label="${KINDS[kindOf(s)].label}" style="--wt-kind-color: ${kindColor(s)}">${kindIcon(s)}</i>`;
 
 // ---------- Timeline: rail · stop · time. Each stop's marker is its pin on the map: same icon, same color. ----------
-const gapMin = (a, b) => (toDate(b.time) - toDate(a.time)) / 60000;
+const gapMin = (a, b) => (toDate(b) - toDate(a)) / 60000;
 // A drive reads as a sentence ("1 hr 49 min drive"), with a small car on the rail, and says when it won't make it.
 // Tapping the row shows the route on the map, and the bar below the list offers Directions in the maps app.
 // Rows take `row`: { key, past (over: dimmed), now (happening now: highlighted), sel (the selected row) }.
@@ -1170,7 +1171,7 @@ function driveItem(day, leg) {
   const { r, to, fromEntry, toEntry } = leg, late = lateMin(leg);
   const cls = ['wt-tl-drive', state.leg === leg.key ? 'is-active' : '', late > 0 ? 'is-late' : ''];
   return {
-    // when you set off (until the route is in, no earlier than you arrive); the drive back to the hotel has no time, so it comes last
+    // when you set off (until the route is in, no earlier than you arrive); a drive back to the hotel with no time comes last
     start: leg.leave || leg.arrive || (toEntry.role === 'night' ? `${day}T23:58` : fromEntry.place.time),
     html: ({ past, now }) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="button" aria-pressed="${state.leg === leg.key}" aria-label="${r ? fmtDur(r.duration) : ''} drive to ${esc(to.name)}. Show the route on the map">
       <span class="wt-tl-rail"><i class="wt-tl-car">${ICON.car}</i></span>
@@ -1196,7 +1197,8 @@ function noteHTML(text) {
   return html + esc(text.slice(at));
 }
 // A stop row: marker · name · time, with its notes below across the name and time. A hotel on its check-in day says how many nights.
-// A row from another day than the one on screen can say which day in place of the time.
+// Under the time, a second line: when you leave (`to 4:15 PM`), or, for a row from another day than the one on
+// screen, which day (in place of the time).
 // Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Edit stop. Tapping it again keeps it selected.
 // It's a div acting as a button, like a drive, since a link in its note can't sit inside a <button>.
 function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
@@ -1208,16 +1210,19 @@ function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
     </div>`;
 }
 // `note` false leaves out the stop's own note (the overview), keeping a hotel's nights.
+// A stop's time is when you get there; a hotel's nights or any other stop's leave time say how long you're there.
 function stopItem(trip, s, { note = true } = {}) {
   const stay = kindOf(s) === 'hotel' && staysOf(trip).find(st => st.s === s);
-  const nights = stay && `${stay.nights} ${stay.nights === 1 ? 'night' : 'nights'}`;
-  return { start: s.time, html: row => stopRow(s, row, [nights, note && s.note], s.time) };
+  const nights = stay && `${stay.nights} ${stay.nights === 1 ? 'night' : 'nights'}`, leave = leaveOf(s);
+  return { start: s.time, html: row => stopRow(s, row, [nights, note && s.note], s.time, leave && `to ${fmtTime(leave)}`) };
 }
 // The hotel at either end of a day: where you wake up, and where you go back to at night. It has no time,
 // except on check-out morning, the one with something to do: `Check out`, at the check-out time. Tapping it selects the hotel.
-function hotelItem(day, entry) {
+// At night it starts when the drive back gets you there, if the day's last stop says when you leave; else at midnight.
+function hotelItem(day, entry, leg) {
+  const back = entry.role === 'night' && leg?.leave && leg.r && toInput(new Date(+toDate(leg.leave) + leg.r.duration * 1000));
   return {
-    start: entry.role === 'night' ? `${day}T23:59` : `${day}T00:00`,
+    start: back || (entry.role === 'night' ? `${day}T23:59` : `${day}T00:00`),
     html: row => stopRow(entry.place, row, [entry.role === 'checkout' && 'Check out'], entry.role === 'checkout' ? `${day}T${checkoutOf(entry.place)}` : null),
   };
 }
@@ -1258,7 +1263,7 @@ function dayItems(trip, day) {
     if (e.role === 'stop') items.push({ entry: e, ...stopItem(trip, e.place) });
     // where you start, unless the day's first stop is the same place
     else if (e.role === 'from') { if (!samePlace(e.place, plan[i + 1].place)) items.push({ entry: e, ...fromItem(day, e) }); }
-    else items.push({ entry: e, ...hotelItem(day, e) });
+    else items.push({ entry: e, ...hotelItem(day, e, leg) });
   });
   const cur = day === today ? items.findLastIndex(it => it.start <= now) : -1;
   items.forEach((it, i) => { it.past = day < today || i < cur; it.now = i === cur; });
@@ -1767,8 +1772,9 @@ function drawDraft() {
   }).addTo(layer);
 }
 const legCoords = l => (l.r ? l.r.coords : [[l.from.lat, l.from.lng], [l.to.lat, l.to.lng]]);
-// Minutes a drive runs past the next stop's time, between two of the day's stops
-const lateMin = l => (l.r && l.fromEntry.role === 'stop' && l.toEntry.role === 'stop' ? Math.round(l.r.duration / 60 - gapMin(l.from, l.to)) : 0);
+// Minutes a drive runs past the next stop's time, between two of the day's stops: from when you leave the first,
+// or, if it doesn't say, from when you get there
+const lateMin = l => (l.r && l.fromEntry.role === 'stop' && l.toEntry.role === 'stop' ? Math.round(l.r.duration / 60 - gapMin(leaveOf(l.from) || l.from.time, l.to.time)) : 0);
 // Fit a route into the part of the map you can see, with room above its ends for their pins.
 // From a tap on the map, only when an end is out of view, so the map doesn't jump under your finger.
 function fitLeg(l, onlyIfHidden = false) {
@@ -2043,6 +2049,9 @@ function nearParam(trip) {
 // A hotel you add starts at a 3 PM check-in, and checks out at 11 AM unless you set another time.
 const HOTEL_CHECK_IN = '15:00', HOTEL_CHECK_OUT = '11:00';
 const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
+// Any other stop can say when you leave it, later the same day: the drive after it sets off then. It's kept where a
+// hotel keeps its check-out time, since both are when you leave.
+const leaveOf = s => (kindOf(s) !== 'hotel' && s.checkout && s.checkout > s.time.slice(11) ? `${dayOf(s)}T${s.checkout}` : null);
 
 // ---------- Choices: every pick from a list is a picker row that opens its options ----------
 // The row shows the current choice. On a phone, tapping it slides the sheet to the options, with Back in the head;
@@ -2137,7 +2146,8 @@ function openStopSheet(trip, stop) {
         <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
-      <label class="wt-field"><span class="wt-field__label" data-when>When</span><input class="wt-input" name="time" type="datetime-local" required></label>
+      <label class="wt-field"><span class="wt-field__label" data-when>Arrive</span><input class="wt-input" name="time" type="datetime-local" required></label>
+      <label class="wt-field wt-leave"><span class="wt-field__label">Leave (optional)</span><input class="wt-input" name="leave" type="time"></label>
       <label class="wt-field wt-stay" hidden><span class="wt-field__label">Check-out</span><input class="wt-input" name="checkout" type="datetime-local"></label>
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="2000" placeholder="Confirmation #, tickets, tips…"></textarea></label>
       <div class="wt-modal__actions wt-modal__actions--sticky">${stop ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${stop ? 'Save' : 'Add'}</button></div>
@@ -2155,7 +2165,7 @@ function openStopSheet(trip, stop) {
     const main = el.querySelector('.stop-main'), kindsPage = el.querySelector('.stop-kinds'), picker = el.querySelector('[data-kind-open]');
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!stop;
-    if (stop) { F.time.value = stop.time; F.note.value = stop.note || ''; }
+    if (stop) { F.time.value = stop.time; F.leave.value = leaveOf(stop)?.slice(11) || ''; F.note.value = stop.note || ''; }
     else F.time.value = defaultTime(trip);
 
     // ----- Type: the picker row, and its page -----
@@ -2173,11 +2183,12 @@ function openStopSheet(trip, stop) {
       if (cur?.stops) drawMap(cur);
     }
 
-    // ----- A hotel is a stay: When becomes check-in, then Check-out, a day and time. The nights are the days
-    // between them. Left alone, check-out follows the trip (the next hotel, or the last day). -----
-    let nights = stop?.nights >= 1 ? stop.nights : null, outTime = stop ? checkoutOf(stop) : HOTEL_CHECK_OUT;
-    const stay = el.querySelector('.wt-stay'), inDay = () => F.time.value.slice(0, 10);
-    let shownIn = inDay();
+    // ----- Every stop has two times: when you get there, and when you leave. Anything but a hotel: Arrive, and an
+    // optional Leave, a time later the same day. A hotel is a stay: Check-in, then Check-out, a day and time. The
+    // nights are the days between them. Left alone, check-out follows the trip (the next hotel, or the last day). -----
+    let nights = stop?.nights >= 1 ? stop.nights : null, outTime = stop && kindOf(stop) === 'hotel' ? checkoutOf(stop) : HOTEL_CHECK_OUT;
+    const stay = el.querySelector('.wt-stay'), leave = el.querySelector('.wt-leave'), inDay = () => F.time.value.slice(0, 10);
+    let shownIn = inDay(), shownAt = F.time.value;
     function autoNights() {
       const day = inDay(), later = stopsOf(trip).filter(s => s.id !== stop?.id && dayOf(s) > day);
       const nextHotel = later.find(s => kindOf(s) === 'hotel');
@@ -2186,9 +2197,12 @@ function openStopSheet(trip, stop) {
     function showNights() {
       const hotel = draft.kind === 'hotel', day = inDay();
       stay.hidden = !hotel;
+      leave.hidden = hotel;
       F.checkout.disabled = !hotel; // so a hidden field can't block saving
-      el.querySelector('[data-when]').textContent = hotel ? 'Check-in' : 'When';
+      F.leave.disabled = hotel;
+      el.querySelector('[data-when]').textContent = hotel ? 'Check-in' : 'Arrive';
       if (!day) return;
+      F.leave.min = F.time.value.slice(11, 16); // you leave after you get there
       // Check-out is at least a night after check-in, and at most 30.
       F.checkout.min = `${addDays(day, 1)}T00:00`;
       F.checkout.max = `${addDays(day, 30)}T23:59`;
@@ -2212,6 +2226,13 @@ function openStopSheet(trip, stop) {
         if (n >= 1 && n <= 30) nights = n;
       }
       if (day) shownIn = day;
+      // Moving Arrive keeps how long you stay, while you still leave the same day.
+      const at = F.time.value;
+      if (at && shownAt && F.leave.value) {
+        const out = toInput(new Date(+toDate(`${shownAt.slice(0, 10)}T${F.leave.value}`) + (toDate(at) - toDate(shownAt))));
+        if (out.slice(0, 10) === at.slice(0, 10)) F.leave.value = out.slice(11);
+      }
+      if (at) shownAt = at;
       showNights();
     });
     showKind();
@@ -2363,7 +2384,8 @@ function openStopSheet(trip, stop) {
       const hotel = draft.kind === 'hotel';
       const data = {
         name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
-        kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? outTime : null,
+        kind: draft.kind, nights: hotel ? nights : null,
+        checkout: hotel ? outTime : F.leave.value > F.time.value.slice(11) ? F.leave.value : null,
       };
       if (state.day !== ALL) state.day = dayOf(data); // follow the stop to its day; the overview has every day
       saved = true;
