@@ -1,4 +1,4 @@
-/* Waythread design system — components v3.0.0
+/* Waythread design system — components v3.0.1
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -217,7 +217,7 @@ textarea.wt-input { resize: none; }
 .wt-option[aria-checked="true"] { font-weight: 600; }
 .wt-option[aria-checked="true"] > .wt-icon:last-child { visibility: visible; }
 
-/* ---------- Type grid (the prototype's stop sheet; the app uses the picker above) and nights stepper ---------- */
+/* ---------- Type grid (unused since 3.0.1: the picker above replaced it) and nights stepper ---------- */
 .wt-kinds { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--wt-space-1); }
 .wt-kinds__item {
   font: var(--wt-type-caption); font-size: 12px; color: var(--wt-text-secondary); background: none; border: 0; margin: 0; cursor: pointer;
@@ -288,7 +288,7 @@ input.wt-input[type="time"] { min-height: 50px; }
 /* The one add button, below the list. Static, not sticky: a sticky bar pinned itself to the screen's bottom and covered a pulled-down sheet's top. */
 .wt-add-bar { flex: none; padding: var(--wt-space-3) var(--wt-space-3) calc(var(--wt-space-3) + env(safe-area-inset-bottom, 0px)); background: var(--wt-surface-raised); }
 
-/* ---------- Map buttons: home and settings, floating over the map (the prototype; the app has the trip header) ---------- */
+/* ---------- Map buttons: home and settings, floating over the map (unused since 3.0.1: the trip header replaced them) ---------- */
 .wt-map-bar {
   position: absolute; z-index: var(--wt-z-sheet); left: var(--wt-space-3); right: var(--wt-space-3);
   top: calc(var(--wt-space-3) + env(safe-area-inset-top, 0px));
