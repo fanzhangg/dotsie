@@ -328,10 +328,9 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Café" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="cup"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Coffee Company</span><span class="wt-option__detail">61738 29 Palms Hwy, Joshua Tree, CA</span></span></div>
             <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree National Park</span><span class="wt-option__detail">Twentynine Palms, CA</span></span></div>
           </div>
-          <div class="wt-field"><span class="wt-field__label">Place, once picked: the name, and where it is</span>
-            <label class="wt-input wt-input-group wt-search is-plain"><i data-icon="search"></i><input type="text" value="Joshua Tree Inn" autocomplete="off" placeholder="Name" aria-label="Place, once picked"><button type="button" class="wt-search__clear" aria-label="Clear"><i data-icon="close"></i></button></label>
-            <p class="wt-field__hint"><i data-icon="pin" data-size="14"></i><span>61259 29 Palms Hwy, Joshua Tree, CA</span><button type="button" class="wt-field__action">Change</button></p>
-            <p class="wt-field__hint wt-field__hint--inset"><span>Moved from Keys View Rd, Joshua Tree, CA</span><button type="button" class="wt-field__action">Undo</button></p></div>
+          <div class="wt-field"><span class="wt-field__label">Place, once picked</span>
+            <label class="wt-input wt-input-group wt-search"><i data-icon="search"></i><input type="text" value="Joshua Tree Inn" autocomplete="off" aria-label="Place, once picked"><button type="button" class="wt-search__clear" aria-label="Clear"><i data-icon="close"></i></button></label>
+            <p class="wt-field__hint"><i data-icon="pin" data-size="14"></i><span>61259 29 Palms Hwy, Joshua Tree, CA</span></p></div>
           <div class="wt-field"><span class="wt-field__label">Place, with nothing picked</span>
             <label class="wt-input wt-input-group wt-search"><i data-icon="search"></i><input type="text" value="zzq" autocomplete="off" aria-invalid="true" aria-label="Place, with nothing picked" aria-describedby="demo-place-error"><button type="button" class="wt-search__clear" aria-label="Clear"><i data-icon="close"></i></button></label>
             <p class="wt-field__error" id="demo-place-error">Pick a place from the suggestions, so the stop can go on the map.</p></div>
@@ -344,7 +343,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li>Messages say what to do next: <i>Pick a place from the suggestions, so the stop can go on the map.</i></li>
         <li>Suggestions open in a popover over the form, so nothing below the field moves while you type. Results are the same rows as the type list, each with the marker of the type it would get.</li>
         <li>↑ ↓ move the grey row, Return picks it, Esc closes the popover.</li>
-        <li>Once a place is picked, the field is the stop's name (<code>.is-plain</code>): typing renames it and never searches. <b>Change</b> searches again; Esc or tapping away keeps the place. A moved stop says where it was, with <b>Undo</b>, until it's saved.</li>
+        <li>Once a place is picked, the field holds its name; editing it searches from there. Only picking changes the place. Leave the field without picking and the name comes back.</li>
         <li>Input text is 16px, so iPhones don't zoom in.</li>
       </ul>
 

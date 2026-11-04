@@ -1901,8 +1901,7 @@ function openStopSheet(trip, stop) {
     <form>
       <div class="wt-field"><label class="wt-field__label" for="stop-place">Place</label>
         <label class="wt-input wt-input-group wt-search">${ICON.search}<input id="stop-place" name="title" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="place-results" placeholder="Search a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" required maxlength="200"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden>${ICON.close}</button></label>
-        <p class="wt-field__hint" data-place-at hidden>${WaythreadIcons.svg('pin', 14)}<span></span><button type="button" class="wt-field__action" data-place-change aria-label="Change place">Change</button></p>
-        <p class="wt-field__hint wt-field__hint--inset" data-place-moved hidden><span></span><button type="button" class="wt-field__action" data-place-undo>Undo</button></p>
+        <p class="wt-field__hint" data-place-at hidden>${WaythreadIcons.svg('pin', 14)}<span></span></p>
         <p class="wt-field__error" id="place-error" hidden></p>
         <span class="wt-visually-hidden" role="status" data-place-status></span></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
@@ -1994,16 +1993,13 @@ function openStopSheet(trip, stop) {
     showKind();
     showNights();
 
-    // ----- Place: one field, in one of two modes.
-    // Search, until the stop has a place: suggestions open in a pop-up over the form, each with the marker of the
-    // type it would get; ↑ ↓ and Return pick one, Esc closes the pop-up. Picking moves the pin there, on the map
-    // you can see.
-    // Name, once it has one: the field is just the stop's name, so typing renames it and never moves it. The
-    // address shows under it with Change, which searches again (Esc or tapping away keeps the place). Moving an
-    // existing stop says where it was, with Undo, until it's saved. -----
+    // ----- Place: one field, holding the place's name. Editing the text searches, starting from what's there;
+    // suggestions open in a pop-up over the form, each with the marker of the type it would get. ↑ ↓ and Return
+    // pick one, Esc closes the pop-up. Only picking changes the place (and with it the name): the pin moves there,
+    // on the map you can see. Leave the field without picking, and it goes back to the place's name.
+    // The place's address shows under the field, so you can tell which of two same-named places it is. -----
     const input = F.title, box = input.closest('.wt-search'), spinner = box.querySelector('.wt-spinner'), clear = box.querySelector('.wt-search__clear');
-    const placeAt = el.querySelector('[data-place-at]'), placeMoved = el.querySelector('[data-place-moved]');
-    const placeErr = el.querySelector('#place-error'), status = el.querySelector('[data-place-status]');
+    const placeAt = el.querySelector('[data-place-at]'), placeErr = el.querySelector('#place-error'), status = el.querySelector('[data-place-status]');
     // In the modal root, not the sheet, so the sheet's scrolling can't clip it; the sheet's close removes it
     const pop = Object.assign(document.createElement('div'), { className: 'wt-popover wt-results', id: 'place-results', hidden: true });
     pop.setAttribute('role', 'listbox');
@@ -2016,53 +2012,20 @@ function openStopSheet(trip, stop) {
     const cache = new Map(); // query → places, so backspacing doesn't search again
     let timer, ctrl, found = { q: '', list: [] }, phase = 'idle', failText = '';
     let opts = [], active = -1, pressing = false;
-    // searching: the field is a search box (else it's the name) · nameBefore: the name, while Change searches ·
-    // movedFrom: the name the stop had before it first moved, for Undo
-    let searching = false, nameBefore = '', movedFrom = null;
 
     function showPlaceAt() {
-      placeAt.hidden = draft.lat == null || searching;
+      placeAt.hidden = draft.lat == null;
       placeAt.querySelector('span').textContent = draft.address || 'Pinned on the map';
-      const moved = stop && movedFrom != null && placeKey(draft) !== placeKey(stop);
-      placeMoved.hidden = !moved || searching;
-      if (moved) placeMoved.querySelector('span').textContent = `Moved from ${stop.address || stop.name}`;
     }
-    const COMBO = { role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'place-results', 'aria-expanded': 'false' };
-    function setMode(search) {
-      searching = search;
-      if (!search) closeSuggestions();
-      box.classList.toggle('is-plain', !search);
-      for (const [k, v] of Object.entries(COMBO)) if (search) input.setAttribute(k, v); else input.removeAttribute(k);
-      input.placeholder = !search ? 'Name' : draft.lat == null ? 'Search a place' : 'Search a new place';
-      input.enterKeyHint = search ? 'search' : 'done';
-      input.spellcheck = !search;
-      clear.hidden = !search || !input.value;
-      showPlaceAt();
+    // Whether the text is still the place's name (nothing being searched)
+    const unchanged = () => draft.lat != null && input.value === draft.name;
+    // Back to the place's name, when the field is left without picking
+    function restoreName() {
+      if (draft.lat == null || unchanged()) return;
+      input.value = draft.name;
+      clear.hidden = !input.value;
+      closeSuggestions();
     }
-    function startChange() {
-      nameBefore = input.value;
-      input.value = '';
-      showError('');
-      setMode(true);
-      input.focus();
-    }
-    // Leaving a search for a new place keeps the place, and the name it had
-    function cancelChange() {
-      if (!searching || draft.lat == null) return;
-      input.value = nameBefore;
-      setMode(false);
-    }
-    function undoMove() {
-      Object.assign(draft, { lat: stop.lat, lng: stop.lng, address: stop.address, name: stop.name });
-      input.value = movedFrom;
-      movedFrom = null;
-      showPlaceAt();
-      status.textContent = `Back at ${stop.name}`;
-      if (cur?.stops) drawMap(cur);
-      focusStop(draft);
-    }
-    placeAt.querySelector('[data-place-change]').addEventListener('click', startChange);
-    placeMoved.querySelector('[data-place-undo]').addEventListener('click', undoMove);
     function showError(msg) {
       placeErr.textContent = msg || '';
       placeErr.hidden = !msg;
@@ -2141,7 +2104,6 @@ function openStopSheet(trip, stop) {
 
     function onType() {
       showError('');
-      if (!searching) return; // a rename
       clear.hidden = !input.value;
       const q = input.value.trim();
       clearTimeout(timer);
@@ -2170,11 +2132,12 @@ function openStopSheet(trip, stop) {
       if (input.value.trim() === q && document.activeElement === input) paint();
     }
     function pick(p, { byPointer = false } = {}) {
-      if (stop && movedFrom == null && draft.lat != null) movedFrom = nameBefore;
       Object.assign(draft, { lat: p.lat, lng: p.lng, address: p.address, name: p.name });
       input.value = p.name;
+      clear.hidden = false;
+      closeSuggestions();
       showError('');
-      setMode(false);
+      showPlaceAt();
       status.textContent = `${p.name} picked`;
       if (!chosen) setKind(p.kind);
       else if (cur?.stops) drawMap(cur);
@@ -2187,24 +2150,22 @@ function openStopSheet(trip, stop) {
     input.addEventListener('blur', () => {
       if (pressing) return;
       closeSuggestions();
-      cancelChange();
+      restoreName();
     });
     input.addEventListener('keydown', e => {
-      if (!searching) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         if (pop.hidden) return paint();
         if (opts.length) setActive(e.key === 'ArrowDown' ? (active + 1) % opts.length : active <= 0 ? opts.length - 1 : active - 1);
       } else if (e.key === 'Enter') {
-        // Return picks; with nothing to pick it waits, rather than saving the stop mid-search. A new stop with
-        // no place yet still submits, so it says to pick one.
-        e.preventDefault();
-        if (!pop.hidden && active >= 0) pick(opts[active]);
-        else if (draft.lat == null && pop.hidden) f.requestSubmit();
-      } else if (e.key === 'Escape' && (!pop.hidden || draft.lat != null)) {
-        // Esc closes the suggestions, then leaves a search for a new place; only then does it close the sheet
+        // Return picks a suggestion. With the place's name untouched, it saves, like Return in any field; mid-search
+        // with nothing to pick, it waits. A new stop with no place yet still submits, so it says to pick one.
+        if (!pop.hidden && active >= 0) { e.preventDefault(); pick(opts[active]); }
+        else if (!unchanged() && draft.lat != null) e.preventDefault();
+      } else if (e.key === 'Escape' && (!pop.hidden || !unchanged() && draft.lat != null)) {
+        // Esc closes the suggestions, then puts the place's name back; only then does it close the sheet
         e.stopPropagation();
-        if (!pop.hidden) closeSuggestions(); else cancelChange();
+        if (!pop.hidden) closeSuggestions(); else restoreName();
       }
     });
     // Keep focus in the field while an option is tapped or clicked
@@ -2216,17 +2177,18 @@ function openStopSheet(trip, stop) {
       const o = e.target.closest('[data-i]');
       if (o) pick(opts[+o.dataset.i], { byPointer: true });
     });
-    clear.addEventListener('mousedown', e => e.preventDefault()); // so the field keeps focus, and a change isn't left
+    clear.addEventListener('mousedown', e => e.preventDefault()); // so the field keeps focus, and its name isn't put back
     clear.addEventListener('click', () => {
       input.value = '';
       input.focus();
       onType();
     });
-    setMode(draft.lat == null);
+    clear.hidden = !input.value;
+    showPlaceAt();
 
     f.onsubmit = e => {
       e.preventDefault();
-      cancelChange(); // Return in a search for a new place that found nothing: keep the place
+      restoreName(); // saved mid-search: the stop keeps its place, and its name
       if (draft.lat == null) {
         // Said under the field, with the suggestions closed so they don't cover it; typing or ↓ brings them back
         closeSuggestions();
@@ -2236,7 +2198,7 @@ function openStopSheet(trip, stop) {
       }
       const hotel = draft.kind === 'hotel';
       const data = {
-        name: F.title.value.trim(), address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
+        name: draft.name.trim() || F.title.value.trim(), address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
         kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? F.checkout.value || null : null,
       };
       state.day = dayOf(data); // follow the stop to its day

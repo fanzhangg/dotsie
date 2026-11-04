@@ -14,10 +14,10 @@
 .wt-base *, .wt-base *::before, .wt-base *::after { box-sizing: border-box; }
 .wt-icon { flex: none; display: block; }
 .wt-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-field__action) {
+:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear) {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
 }
-:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-field__action):focus-visible {
+:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear):focus-visible {
   outline: 2px solid var(--wt-border-focus);
   outline-offset: 2px;
   border-radius: var(--wt-radius-md);
@@ -101,23 +101,14 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-field__hint { display: flex; align-items: center; gap: 6px; margin: var(--wt-space-1) 0 0; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-field__hint[hidden] { display: none; }
 .wt-field__hint > .wt-icon { width: 14px; height: 14px; }
-.wt-field__hint--inset { padding-left: 20px; } /* lines up with the text of an icon hint above it */
 .wt-field__hint > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* A small action at the end of a hint line (Change, Undo). Padded to a bigger target without moving the line. */
-.wt-field__action {
-  flex: none; margin: calc(-1 * var(--wt-space-2)) 0 calc(-1 * var(--wt-space-2)) auto; padding: var(--wt-space-2) 0 var(--wt-space-2) var(--wt-space-3);
-  font: var(--wt-type-caption-strong); font-weight: 600; color: var(--wt-text-primary);
-}
-@media (hover: hover) { .wt-field__action:hover { text-decoration: underline; } }
 .wt-field__error { margin: var(--wt-space-1) 0 0; font: var(--wt-type-caption); color: var(--wt-text-danger); }
 .wt-input-group:has(> input[aria-invalid="true"]) { border-color: var(--wt-text-danger); }
 
 /* ---------- Search field: a search icon, the input, then a spinner while it looks and a clear button ---------- */
-/* An .wt-input-group, so tapping anywhere in it focuses the input. Its suggestions open in a .wt-popover.
-   .is-plain: done searching, the field holds what was found (the stop's name) and reads as a plain input. */
+/* An .wt-input-group, so tapping anywhere in it focuses the input. Its suggestions open in a .wt-popover. */
 .wt-search { padding-left: var(--wt-space-3); padding-right: var(--wt-space-1); }
 .wt-search > .wt-icon:first-child { width: 20px; height: 20px; color: var(--wt-text-secondary); }
-.wt-search.is-plain > .wt-icon:first-child, .wt-search.is-plain .wt-search__clear { display: none; }
 .wt-search__clear { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--wt-radius-round); color: var(--wt-text-secondary); }
 .wt-search__clear .wt-icon { width: 18px; height: 18px; }
 @media (hover: hover) { .wt-search__clear:hover { background: var(--wt-surface-hover); color: var(--wt-text-primary); } }

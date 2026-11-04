@@ -239,10 +239,7 @@ Labels are verbs that say exactly what happens.
            aria-controls="place-results" aria-activedescendant="opt-0" placeholder="Search a place">
     <span class="wt-spinner" hidden></span>
     <button type="button" class="wt-search__clear" aria-label="Clear">${icon('close')}</button></label>
-  <p class="wt-field__hint">${icon('pin', 14)}<span>6554 Park Blvd, Joshua Tree, CA</span>        <!-- what it's set to -->
-    <button type="button" class="wt-field__action">Change</button></p>
-  <p class="wt-field__hint wt-field__hint--inset"><span>Moved from Keys View Rd</span>
-    <button type="button" class="wt-field__action">Undo</button></p>
+  <p class="wt-field__hint">${icon('pin', 14)}<span>6554 Park Blvd, Joshua Tree, CA</span></p>   <!-- what it's set to -->
   <p class="wt-field__error" id="place-error" hidden></p>                                      <!-- what to fix -->
 </div>
 
@@ -261,10 +258,10 @@ Labels are verbs that say exactly what happens.
 - Placeholders show an example, never the label.
 - Messages say what happened and what to do next, for example "Pick a place from the suggestions, so the stop can go on the map". A field's error goes under it in `.wt-field__error`, with `aria-invalid` on the input (its box turns red) and `aria-describedby` pointing at the message.
 - `textarea.wt-input` works the same way.
-- **A search field has two states.** Until something is picked it searches. Once it is, add `.is-plain`: the search icon and clear button go, and the field holds what was found, plainly editable (the stop's name), so typing in it never searches. The hint line under it says where it is, with a `.wt-field__action` to search again (**Change**). Leaving that search (Esc, tapping away) restores the name and keeps the place. `.wt-field__hint--inset` lines a second hint up with the text of an icon hint, as **Moved from … Undo** does.
+- **The search field holds what was picked.** Its text is the picked place's name, and editing that text is how you search again, starting from what's there. Only picking a suggestion changes what's picked; leave the field without picking (Esc, tapping away, saving) and its text goes back to the name. There's no separate name to keep in step. The hint line under it gives the address, to tell two places with the same name apart.
 - **Search** suggestions open in a `.wt-popover` over the form, not in the form, so nothing below the field moves while you type. The popover is a child of the modal root, placed with `position: fixed` under the field, so the sheet's scrolling can't clip it. It opens above the field when there's more room there, and its `max-height` keeps it on the visible screen (`visualViewport`, so a phone's keyboard counts).
 - **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
-- **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it (with nothing to pick, it does nothing, rather than submit mid-search), Esc closes the popover, then leaves a Change. Only then does Esc close the sheet. The combobox attributes come off the input in the plain state. Keep focus in the input while an option is tapped: `preventDefault()` on the popover's `mousedown`.
+- **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it (with the text untouched it submits the form; mid-search with nothing to pick, it waits), Esc closes the popover, then puts the name back. Only then does Esc close the sheet. Keep focus in the input while an option is tapped: `preventDefault()` on the popover's `mousedown`.
 - **While it searches**, the spinner shows in the field and the last results stay in the popover, so the list doesn't flash.
 - `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet for the prototype. They can go in the next major version.
 
@@ -639,8 +636,8 @@ Place search and the type list, redesigned as one system.
 
 - `.wt-option` is now the row for every choice: `__text`, `__detail` and `__match` are new, and `aria-selected` and `aria-checked` share the grey "this one" row (the checked type is no longer bold). `.wt-options__sep` splits a list into sections.
 - `.wt-popover`: a floating card anchored to a field. Search results open in one (`.wt-results` of options, or a `__msg`) instead of a list that pushed the form down.
-- `.wt-search` (a search field, with `__clear`, and `.is-plain` once something is picked) and `.wt-spinner`.
-- `.wt-field__hint` (with `--inset`), `.wt-field__action` and `.wt-field__error`, the lines under a field. A `.wt-input-group` whose input has `aria-invalid` gets a red border.
+- `.wt-search` (a search field, with `__clear`) and `.wt-spinner`.
+- `.wt-field__hint` and `.wt-field__error`, the line under a field. A `.wt-input-group` whose input has `aria-invalid` gets a red border.
 - `--wt-shadow-popover` (tokens 1.5.0).
 - Nothing was renamed or removed. `.wt-results__item`, `__name` and `__detail` stay for the prototype.
 
