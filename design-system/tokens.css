@@ -280,6 +280,7 @@
   --wt-size-icon: 22px;
   --wt-size-column: 480px;  /* app column width on large screens */
   --wt-size-panel: clamp(360px, 30vw, 440px);  /* the plan's side panel, from 768px wide */
+  --wt-size-trip-head: 56px;  /* the trip header, under the safe area at the top */
 
   /* Elevation: by role, never decoration */
   --wt-shadow-hairline: 0 0 0 1px var(--wt-border-subtle);

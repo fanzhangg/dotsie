@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 2.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 3.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -138,7 +138,7 @@ The system font throughout, so the app feels native on every phone. Each token i
 
 - **Space:** a 4px grid. `--wt-space-1` (4) · `2` (8) · `3` (12) · `4` (16) · `5` (20) · `6` (24) · `8` (32) · `10` (40). The side margin on a phone is `--wt-space-4`; the list's inner margin is `--wt-space-3`.
 - **Radius:** `--wt-radius-sm` (8, pin labels) · `md` (12, cards, inputs, block buttons, timeline rows) · `lg` (18, sheets) · `pill` (buttons, toasts) · `round` (avatars, markers, icon buttons).
-- **Size:** `--wt-size-touch` (44, the minimum for anything tapped often) · `icon-btn` (40) · `avatar` (26) · `check` (26, unused since 2.0.0) · `icon` (22) · `column` (480, the app column on large screens) · `panel` (360–440, 30% of the window: the plan's side panel from 768px wide).
+- **Size:** `--wt-size-touch` (44, the minimum for anything tapped often) · `icon-btn` (40) · `avatar` (26) · `check` (26, unused since 2.0.0) · `icon` (22) · `column` (480, the app column on large screens) · `panel` (360–440, 30% of the window: the plan's side panel from 768px wide) · `trip-head` (56, the trip header, below the top safe area).
 
 ### Elevation, motion, layers
 
@@ -161,7 +161,7 @@ The system font throughout, so the app feels native on every phone. Each token i
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `directions`
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `directions` `map` `list`
 
 Stop types: `plane` `bed` `utensils` `cup` `star` `museum` `tree` `camera` `bag` `fuel` (with `pin` for a plain place).
 
@@ -334,37 +334,60 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 - Disable the previous arrow on the first day and the next arrow on the last.
 - The day list shows every day, with up to six small markers: the day's stops in order, then the hotel you sleep at. `aria-current="date"` marks the open day.
 
-### Type picker `.wt-kinds` and nights `.wt-nights`
+### Picker `.wt-picker`, options `.wt-options`, nights `.wt-nights` and check-out
 
-Both live in the stop sheet.
+All live in the stop sheet.
 
 ```html
 <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
-  <div class="wt-kinds" role="radiogroup" aria-labelledby="kind-label">
-    <button class="wt-kinds__item" role="radio" aria-checked="true" style="--wt-kind-color: var(--wt-kind-stay)">
-      <i class="wt-kinds__icon">${icon('bed', 18)}</i>Hotel</button>
-    <!-- one per type -->
-  </div>
+  <button class="wt-picker" aria-describedby="kind-label">
+    <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
+    <span class="wt-picker__value">Hotel</span>${icon('forward', 18)}
+  </button>
 </div>
-<div class="wt-field wt-nights"><span class="wt-field__label">Nights</span>
-  <div class="wt-nights__row">
-    <button class="wt-icon-btn wt-nights__step" aria-label="One night fewer">−</button>
-    <output class="wt-nights__n" aria-live="polite">2</output>
-    <button class="wt-icon-btn wt-nights__step" aria-label="One more night">+</button>
-    <span class="wt-nights__out">check out Sun, Nov 22</span>
+
+<!-- The types page, shown in place of the form (hide the form; don't remove it) -->
+<div class="wt-modal__head wt-modal__head--sub">
+  <button class="wt-icon-btn" aria-label="Back">${icon('back')}</button>
+  <h2 class="wt-modal__title">Type</h2>
+</div>
+<ul class="wt-options" role="radiogroup" aria-label="Type">
+  <li><button class="wt-option" role="radio" aria-checked="true">
+    <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
+    <span class="wt-option__label">Hotel</span>${icon('check', 18)}</button></li>
+  <!-- one per type -->
+</ul>
+
+<div class="wt-field-row">   <!-- hidden unless it's a hotel -->
+  <div class="wt-field wt-nights"><span class="wt-field__label">Nights</span>
+    <div class="wt-nights__row">
+      <button class="wt-icon-btn wt-nights__step" aria-label="One night fewer">−</button>
+      <output class="wt-nights__n" aria-live="polite">2</output>
+      <button class="wt-icon-btn wt-nights__step" aria-label="One more night">+</button>
+    </div>
   </div>
+  <label class="wt-field"><span class="wt-field__label">Check-out · Sun, Nov 22</span>
+    <input class="wt-input" type="time" value="11:00"></label>
 </div>
 ```
 
-- **Type** starts as a guess from the place's name and category, until someone picks one. The checked item fills with its `--wt-kind-color`.
-- **Nights** shows only for a hotel; hide it with `hidden` otherwise. When becomes check-in, and the stepper sets check-out. Nights is at least 1, so disable the minus at 1.
+- **Type** is one row that shows the current type. Tapping it slides the sheet to the types; picking one, or Back, slides back. It keeps the sheet short, so the map stays in view above it. Focus the checked option when the page opens, and the picker when it closes.
+- Type starts as a guess from the place's name and category, until someone picks one.
+- **Nights and Check-out** show only for a hotel. When becomes check-in: 3:00 PM for a new hotel. Nights is at least 1, so disable the minus at 1. Check-out's day comes from the nights, so only its time is a field: 11:00 AM unless someone sets another.
+- `.wt-kinds`, a grid of every type, is still here for the phone-only prototype. The app uses the picker.
 
-### Bottom sheet `.wt-sheet` and add bar `.wt-add-bar`
+### Trip header `.wt-trip-head`, bottom sheet `.wt-sheet` and add bar `.wt-add-bar`
 
 ```html
-<section class="wt-sheet" aria-label="White Sands, NM">
+<header class="wt-trip-head">
+  <a class="wt-icon-btn" href="#/" aria-label="All trips">${icon('home')}</a>
+  <h1 class="wt-trip-head__name">White Sands, NM</h1>
+  <button class="wt-view-toggle" aria-label="Show the whole day">${icon('list')}List</button>
+  <button class="wt-icon-btn" aria-label="Trip settings and sharing">${icon('settings')}</button>
+</header>
+<section class="wt-sheet" aria-label="Plan">
   <div class="wt-sheet__top">
-    <div class="wt-sheet__grab"></div>
+    <button class="wt-sheet__grab" aria-label="Show the whole day"></button>
     <div class="wt-day-bar">…</div>
   </div>
   <div class="wt-sheet__body wt-tl"><!-- the day's timeline --></div>
@@ -372,34 +395,26 @@ Both live in the stop sheet.
 </section>
 ```
 
-- The sheet is white (`--wt-surface-raised`) and sits over a full-screen map.
-- Your code sets its `height` to one of three stops: the top only, about half the screen, or nearly full. Add `.is-dragging` while it's being dragged.
-- The top holds the grab handle and the day bar. Nothing else: home and settings float over the map, and people live in trip settings.
-- The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky. The sheet hides what overflows, so a pulled-down sheet shows only its top.
+- **The header** is a full row at the top of the trip screen: home, the trip's name, Map/List, settings. The name is always in view. On a phone the map starts under the header.
+- **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has two heights, which your code sets:
+  - **Half** the screen, the default.
+  - **Full:** up to the header's bottom edge. Add `.is-full`: the sheet goes square and flat, so the header and the list read as one page.
+  - It never hides. The day bar and Add stop are always in reach.
+- **Switching:** `.wt-view-toggle` names where it goes: `List` (`aria-label` "Show the whole day") at half, `Map` ("Show the map") at full, so leaving the full list is one obvious tap. The grab handle is a button that does the same, and dragging the sheet's top works too. Nothing else on the sheet's top resizes the sheet, so a missed day-bar button does nothing. Add `.is-dragging` while it's being dragged.
+- When something needs the map (showing a route, selecting a pin), go back to half.
+- The top holds the grab handle and the day bar. People live in trip settings.
+- The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
 - On today, scroll the list so the `is-now` row sits a little above the middle.
 
-**On a wide screen it's a side panel.** Make the element that holds the map and the sheet a size container named `wt-trip`:
+**On a wide screen it's a side panel.** Make the element that holds the header, map and sheet a size container named `wt-trip`, and put the map under the header on a phone:
 
 ```css
 .trip { position: relative; height: 100dvh; container: wt-trip / inline-size; }
-@container wt-trip (min-width: 768px) { #map { left: var(--wt-size-panel); } }   /* the map sits beside the panel */
+#map { position: absolute; inset: 0; top: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px)); }
+@container wt-trip (min-width: 768px) { #map { top: 0; left: var(--wt-size-panel); } }   /* the map sits beside the panel */
 ```
 
-From 768px wide, the sheet is a full-height panel on the left, `--wt-size-panel` wide, and the map fills the rest. Your code clears the sheet's `height` there: no snapping, no dragging. The grab handle and `.wt-map-bar` hide, and the top shows `.wt-sheet__bar` instead, with home, the trip's name and settings:
-
-```html
-<div class="wt-sheet__top">
-  <div class="wt-sheet__grab"></div>
-  <div class="wt-sheet__bar">
-    <a class="wt-icon-btn" href="#/" aria-label="All trips">${icon('home')}</a>
-    <h1 class="wt-sheet__name">White Sands, NM</h1>
-    <button class="wt-icon-btn" aria-label="Trip settings and sharing">${icon('settings')}</button>
-  </div>
-  <div class="wt-day-bar">…</div>
-</div>
-```
-
-On a computer there's room for the name, and nothing floats over the map. Without the `wt-trip` container, the sheet is a bottom sheet at every width.
+From 768px wide, the header and the sheet stack into a full-height panel on the left, `--wt-size-panel` wide, and the map fills the rest. Your code clears the sheet's `height` there: no snapping, no dragging. The grab handle and Map/List hide. Without the `wt-trip` container, the header spans the top and the sheet is a bottom sheet at every width.
 
 ### Map buttons `.wt-map-bar` and credit `.wt-credit`
 
@@ -412,8 +427,7 @@ On a computer there's room for the name, and nothing floats over the map. Withou
 <p class="wt-credit">Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</p>
 ```
 
-- Home and settings float over the map's top corners. Nothing else floats over the map.
-- Pad the top when you fit the map to a day, so pins stay clear of the buttons.
+- The app has the trip header instead. `.wt-map-bar` floats home and settings over the map's top corners, for the phone-only prototype. Pad the top when you fit the map to a day, so pins stay clear of the buttons.
 - The map's credits go at the bottom of trip settings, not on the map.
 
 ### Modal sheet `.wt-modal`
@@ -435,8 +449,9 @@ On a computer there's room for the name, and nothing floats over the map. Withou
 
 - Slides up from the bottom, for editing one thing.
 - **From 768px wide** it's a dialog in the middle of the screen. On the trip screen, while the side panel shows, add `.wt-modal-root--side`: the sheet then covers the panel, so the map stays in view beside it (center the stop being edited).
+- **Panel:** add `.wt-modal-root--panel` and leave out the backdrop, for a sheet you work on with the map in view: the stop sheet. Nothing dims or blocks the map. On a phone it's at most 62% of the screen, so the map shows above it; with `--side` it covers the side panel. Use `aria-modal="false"`, and show what's being edited on the map as it changes (the stop's pin at the place picked, with the type chosen). Taps on the map don't change the selection while it's open.
 - **Actions:** destructive on the left, the main action on the right.
-- **Closing:** a tap on the backdrop or the Escape key closes it.
+- **Closing:** a tap on the backdrop, the close button or the Escape key closes it. A panel has no backdrop.
 
 ### Toast `.wt-toast`
 
@@ -470,7 +485,14 @@ The name and dates only: enough to pick a trip.
 ```
 
 - The pin is the stop's marker, ringed in `--wt-pin-fill`. No numbers.
-- Variants: `--selected` (bigger, with its name) and `--muted` (past: on today, a stop that's over; or the day before's last stop, where a day with no hotel starts).
+- Variants: `--selected` (bigger, with its name) and `--muted` (past: on today, a stop that's over; or the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at).
+- **A route on show** names both its ends: each end's pin is `--selected`, and the lower one's label gets `.wt-pin__label--below`, so the two don't meet. Its time sits halfway along it:
+
+  ```html
+  <div class="wt-route-tag"><i class="wt-route-tag__car">${icon('car', 14)}</i>34 min<span class="wt-route-tag__late">· 12 min late</span></div>
+  ```
+
+  The late part shows only when the drive doesn't fit. Showing a route moves the map to fit it, with room for the labels; from a tap on the route itself, only when an end is out of view.
 - The map shows only the open day.
 - Stops at the same place, like a hotel in the morning and at night, share one pin.
 
@@ -485,11 +507,12 @@ Say what can go here, in the user's words. No illustrations.
 ## Patterns
 
 - **The trip screen.**
-  - On a phone: a full-screen map, with `.wt-sheet` over it at half height, and `.wt-map-bar` over the map's top corners.
-  - From 768px wide: the sheet is a side panel on the left with home, the trip's name and settings at its top, and the map fills the rest. Modal sheets cover the panel. Fit the map with even padding: nothing covers it.
+  - On a phone: `.wt-trip-head` across the top, the map under it, and `.wt-sheet` over the map at half height, or the whole day.
+  - From 768px wide: the header and the sheet are a side panel on the left, and the map fills the rest. Modal sheets cover the panel. Fit the map with even padding: nothing covers it.
   - One day at a time. The day bar steps through the days, and the map shows only the open day.
   - A stop's marker is its pin: same icon, same color. The list and the map read as one without numbers.
-  - Tapping a pin selects its stop (`is-selected`); tapping a route marks its drive `is-active`.
+  - Tapping a pin selects its stop (`is-selected`). Tapping a route, or its drive in the list, marks the drive `is-active` and shows the route: both ends named, its time on it, the map fitted to it. Tapping the drive again goes back to the whole day.
+  - Editing a stop leaves the map in view (a panel), with the stop's pin showing the edit as it happens.
 - **Today.** During the trip, the trip opens on today.
   - The row happening now is highlighted (`is-now`).
   - Rows before it dim (`is-past`), their routes turn grey (`--wt-route-done`), and their pins mute (`.wt-pin--muted`).
@@ -541,6 +564,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Renamed or removed in 3.0.0
+
+The trip header became one row for every screen size, and the phone's list stopped hiding.
+
+- `.wt-sheet__bar` and `.wt-sheet__name` are removed. Use `.wt-trip-head` and `.wt-trip-head__name`, outside the sheet; from 768px wide the header tops the side panel.
+- `.wt-sheet__grab` is now a button, as wide as the sheet. Its bar is drawn by `::before`.
+- The sheet's top-only height is gone; a sheet is half or full (`.is-full`).
+- `.wt-map-bar` and `.wt-kinds` stay, for the prototype only.
+- Added: `--wt-size-trip-head`, `.wt-view-toggle`, `.wt-picker`, `.wt-options`, `.wt-option`, `.wt-modal__head--sub`, `.wt-modal-root--panel`, `.wt-field-row`, `.wt-route-tag`, `.wt-pin__label--below`, and the `map` and `list` icons.
 
 ### Renamed or removed in 2.0.0
 

@@ -67,12 +67,12 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET /api/trips/:id/invite` · `POST …/invite/rotate` | Share link, or a fresh one that kills the old |
 | `POST /api/join/:token` | Join through a share link |
 | `PUT /api/trips/:id/stops/:stopId` | Create a stop, or restore one (Undo). The client picks the id |
-| `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ kind: 'hotel', nights: 2 }` |
+| `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ kind: 'hotel', nights: 2, checkout: '11:00' }` |
 | `DELETE /api/trips/:id/stops/:stopId` | |
 | `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
 | `GET /api/route?from=lat,lng&to=lat,lng` | `{ duration, distance, coords }` |
 
-A stop is `{ id, name, address, lat, lng, time, note, kind, nights, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. Stops still carry `done`, which older clients set; the app no longer shows it.
+A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is a hotel's check-out time, `HH:MM`, on the day its nights end, or `null` (the app shows 11:00 AM). Stops still carry `done`, which older clients set; the app no longer shows it.
 
 Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
