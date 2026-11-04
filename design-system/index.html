@@ -65,7 +65,7 @@
     .swatch { display: grid; grid-template-rows: 64px auto; border-radius: var(--wt-radius-md); overflow: hidden; background: var(--wt-surface-raised); box-shadow: var(--wt-shadow-hairline); }
     .swatch__chip { box-shadow: inset 0 -1px 0 var(--wt-border-subtle); }
     .swatch__meta { padding: 10px 12px 12px; display: grid; gap: 2px; min-width: 0; }
-    .swatch__name { font-family: var(--wt-font-mono); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+    .swatch__name { font-family: var(--wt-font-mono); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
     .swatch__value { font-family: var(--wt-font-mono); font-size: 11.5px; color: var(--wt-text-secondary); }
     .swatch__use { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
     .ramp { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; gap: var(--wt-space-3); margin-bottom: var(--wt-space-2); }
@@ -81,8 +81,8 @@
     th { font: var(--wt-type-caption-strong); color: var(--wt-text-secondary); white-space: nowrap; }
     tr:last-child td { border-bottom: 0; }
     td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .pass { color: var(--wt-text-primary); font-weight: 600; }
-    .fail { color: var(--wt-text-danger); font-weight: 600; }
+    .pass { color: var(--wt-text-primary); font-weight: 500; }
+    .fail { color: var(--wt-text-danger); font-weight: 500; }
 
     /* Type */
     .type-row { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: var(--wt-space-4); align-items: baseline; padding: var(--wt-space-4) 0; border-bottom: 1px solid var(--wt-border-default); }
@@ -174,7 +174,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.5.1</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v4.7.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -416,7 +416,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 &lt;/div&gt;</code></pre></details>
       </div>
       <ul class="rules">
-        <li><b>Type</b> takes one row, not a grid of every type, so the stop sheet stays short enough to leave the map in view. The options are a radio group: <code>role="radio"</code> and <code>aria-checked</code> on each; the checked one is bold with a check.</li>
+        <li><b>Type</b> takes one row, not a grid of every type, so the stop sheet stays short enough to leave the map in view. The options are a radio group: <code>role="radio"</code> and <code>aria-checked</code> on each; the checked one is grey with a check.</li>
         <li>On the types page, focus the checked option; coming back, focus the picker.</li>
         <li><b>Nights</b> is at least 1. Hide the row (<code>hidden</code>) for anything that isn't a hotel. Check-out's day comes from the nights, so only its time is an input; the day shows in the field before it (<code>.wt-input-group</code>).</li>
       </ul>
@@ -945,7 +945,8 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ]],
     ['Text', [
       ['--wt-text-primary', 'Names, titles, running text.'],
-      ['--wt-text-secondary', 'Times, notes, drives, labels.'],
+      ['--wt-text-secondary', 'Times, notes, labels.'],
+      ['--wt-text-tertiary', 'Drives, AM / PM, hints.'],
       ['--wt-text-placeholder', 'Placeholders only.'],
       ['--wt-text-link', 'Links in running text.'],
       ['--wt-text-danger', 'Late drives, destructive buttons.'],
@@ -1001,7 +1002,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
   const TYPE = [
     ['--wt-type-display', 'Waythread', 'App name on Home'],
     ['--wt-type-title', 'Today, Nov 21', 'The day bar, modal titles'],
-    ['--wt-type-heading', 'Fri, Nov 20', 'Unused since 2.0.0'],
+    ['--wt-type-heading', 'Keep your trips', 'Section headings in settings'],
     ['--wt-type-name', 'El Paso International Airport', 'Stop and trip names'],
     ['--wt-type-body', 'Anyone with the link can edit this trip.', 'Running text'],
     ['--wt-type-time', '10:30 AM', 'Stop times, tabular figures'],
@@ -1034,6 +1035,10 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ['--wt-text-primary', '--wt-surface-sheet', 4.5],
     ['--wt-text-secondary', '--wt-surface-raised', 4.5],
     ['--wt-text-secondary', '--wt-surface-sheet', 4.5],
+    ['--wt-text-secondary', '--wt-surface-current', 4.5],
+    ['--wt-text-tertiary', '--wt-surface-raised', 4.5],
+    ['--wt-text-tertiary', '--wt-surface-sheet', 4.5],
+    ['--wt-text-tertiary', '--wt-surface-sunken', 4.5],
     ['--wt-text-danger', '--wt-surface-sheet', 4.5],
     ['--wt-text-link', '--wt-surface-raised', 4.5],
     ['--wt-action-primary-text', '--wt-action-primary', 4.5],

@@ -36,4 +36,4 @@ html, body { height: 100%; }
 
 /* ---------- Prototype-only helper in trip settings ---------- */
 .proto-note { margin-top: var(--wt-space-5); padding: var(--wt-space-3); border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-.proto-note a { color: var(--wt-text-link); font-weight: 600; }
+.proto-note a { color: var(--wt-text-link); font-weight: 500; }
