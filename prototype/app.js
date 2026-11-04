@@ -579,8 +579,10 @@ function stepDay(n) {
 const SNAPS = ['peek', 'half', 'full'];
 function snaps() {
   const H = $app.querySelector('.trip').clientHeight;
-  // peeking keeps the day bar and Add stop, as a maps app keeps its route summary and Start
-  return { peek: $app.querySelector('.wt-sheet__top').offsetHeight + $app.querySelector('.wt-add-bar').offsetHeight, half: Math.round(H * 0.48), full: H - headBottom() };
+  // peeking keeps only the day bar, with the add bar's bottom padding (and the safe area) below it; Add stop alone
+  // under an empty sheet looked like a day with no stops
+  const pad = parseFloat(getComputedStyle($app.querySelector('.wt-add-bar')).paddingBottom) || 0;
+  return { peek: Math.round($app.querySelector('.wt-sheet__top').offsetHeight + pad), half: Math.round(H * 0.48), full: H - headBottom() };
 }
 const GRAB_LABEL = { peek: "Show the day's plan", half: 'Show the whole day', full: 'Show more of the map' };
 function applySnap() {

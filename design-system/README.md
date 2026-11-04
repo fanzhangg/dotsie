@@ -424,7 +424,7 @@ With a stop selected, the add bar holds Edit stop and a round `+` beside it:
 
 - **The header** is one row: home, the trip's name, settings. The name is always in view. On a phone it's a card floating over the map, like a maps app's from/to card, and the map runs under it. Add `.is-docked` when the sheet is full: it goes flat across the top and joins the list. Its bottom edge is the same either way, so the full sheet's height doesn't change when it docks.
 - **The sheet** is white (`--wt-surface-raised`) and sits over the map. On a phone it has three heights, like a maps app's sheet:
-  - **Peek** (`.is-peek`): the day bar and Add stop only, so the map has the screen. The list is hidden.
+  - **Peek** (`.is-peek`): the day bar only, so the map has the screen. The list and the add bar are hidden (the add bar keeps its place, so its bottom padding and the safe area sit under the day bar): Add stop alone under an empty sheet read as if the day had no stops.
   - **Half** the screen, the default.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
   - It never hides.
@@ -614,7 +614,7 @@ The stop sheet's fixes: Save was below the fold, and on iPhone the date and time
 
 ### Added in 4.1.0
 
-- `.wt-sheet.is-peek` (the day bar and Add stop only), `.wt-trip-head.is-docked` (the header card, flat across the top over a full sheet), and `--wt-shadow-card`. The header floats over the map on a phone.
+- `.wt-sheet.is-peek` (the day bar only), `.wt-trip-head.is-docked` (the header card, flat across the top over a full sheet), and `--wt-shadow-card`. The header floats over the map on a phone.
 - `.wt-view-toggle` is now unused.
 
 ### Renamed or removed in 4.0.0

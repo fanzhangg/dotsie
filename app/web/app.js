@@ -1036,8 +1036,10 @@ const isWide = () => ($app.querySelector('.trip')?.clientWidth || 0) >= WIDE;
 const SNAPS = ['peek', 'half', 'full'];
 function snaps() {
   const H = $app.querySelector('.trip').clientHeight;
-  // peeking keeps the day bar and Add stop, as a maps app keeps its route summary and Start
-  return { peek: $app.querySelector('.wt-sheet__top').offsetHeight + $app.querySelector('.wt-add-bar').offsetHeight, half: Math.round(H * 0.48), full: H - headBottom() };
+  // peeking keeps only the day bar, with the add bar's bottom padding (and the safe area) below it; Add stop alone
+  // under an empty sheet looked like a day with no stops
+  const pad = parseFloat(getComputedStyle($app.querySelector('.wt-add-bar')).paddingBottom) || 0;
+  return { peek: Math.round($app.querySelector('.wt-sheet__top').offsetHeight + pad), half: Math.round(H * 0.48), full: H - headBottom() };
 }
 const GRAB_LABEL = { peek: "Show the day's plan", half: 'Show the whole day', full: 'Show more of the map' };
 function applySnap() {
@@ -1287,8 +1289,18 @@ function previewLeg(l, { fromMap = false } = {}) {
   if (shrink) setSnap('half'); // the whole-day list covers the map; peeking, the map already has the screen
   render();
   fitLeg(l, fromMap);
-  // once the list has shrunk, so the row stays in what's left of it
-  setTimeout(() => $app.querySelector(`.wt-tl-drive[data-leg="${CSS.escape(l.key)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), shrink ? 260 : 0);
+  centerRow(`.wt-tl-drive[data-leg="${CSS.escape(l.key)}"]`, shrink);
+}
+// Scroll the list so a row sits in its middle, with what comes before and after it in view on both sides
+// (the list's ends can't scroll past, so a first or last row stays near its end). When the sheet is changing
+// height, wait for it to settle, or the middle is measured from the old height.
+function centerRow(selector, resizing) {
+  setTimeout(() => {
+    const body = $app.querySelector('.wt-sheet__body'), row = body?.querySelector(selector);
+    if (!row) return;
+    const off = row.getBoundingClientRect().top - body.getBoundingClientRect().top;
+    body.scrollTo({ top: body.scrollTop + off - (body.clientHeight - row.offsetHeight) / 2, behavior: 'smooth' });
+  }, resizing ? 260 : 0);
 }
 // Hovering a drive in the list previews its route on the map, without moving the map.
 document.addEventListener('mouseover', e => {
@@ -1298,7 +1310,7 @@ document.addEventListener('mouseover', e => {
   if (cur?.stops) drawMap(cur);
 });
 // Select a stop: its row and its pin are highlighted, and Add stop becomes Edit stop.
-// Tapping a pin scrolls its row into view. Tapping a row (`row`, its key) moves the pin into view if it's
+// Tapping a pin or a row scrolls the row to the middle of the list. Tapping a row (`row`, its key) moves the pin into view if it's
 // off the map you can see, keeping the zoom; tapping the selected row again clears the selection.
 function selectStop(s, row = null) {
   if (row && state.sel === s.id && $app.querySelector('.wt-tl-stop.is-selected')?.dataset.row === row) {
@@ -1310,17 +1322,17 @@ function selectStop(s, row = null) {
   state.leg = null;
   state.sel = s.id;
   state.selRow = row;
-  const shrink = state.snap === 'full';
+  const shrink = state.snap === 'full', resizing = state.snap !== 'half' && !isWide();
   // coming down from the whole day re-frames the map for the day, which already shows this stop
   const framed = shrink && !camFree && !isWide();
-  setSnap('half'); // the whole-day list covers the map
+  setSnap('half'); // the whole-day list covers the map; peeking, it's opened to show the stop's row
   render();
   if (row && !framed && map && s.lat != null && !inView([s.lat, s.lng])) {
     const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
     map.panTo(map.unproject(p, z), { duration: 0.5 });
   }
-  // once the list has shrunk, so the row stays in what's left of it
-  setTimeout(() => $app.querySelector('.wt-tl-stop.is-selected')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), shrink ? 260 : 0);
+  // in the middle of the list, so the stops before and after it show too
+  centerRow('.wt-tl-stop.is-selected', resizing);
 }
 // Move a place into the middle of the map you can see: above the stop sheet on a phone, the whole map on a wide screen.
 function focusStop(s) {
