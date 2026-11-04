@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 6.6.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 7.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -652,24 +652,28 @@ The name and dates only: enough to pick a trip.
 
 ```html
 <div class="wt-pin wt-pin--selected" role="img" aria-label="3. White Sands Visitor Center, Attraction" style="--wt-kind-color: var(--wt-kind-attraction)">
-  <svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><path d="M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z"/></svg>
   <b class="wt-pin__num">3</b>
 </div>
 <!-- a place that isn't a numbered stop: the hotel at either end of a day, or the day before's last stop -->
 <div class="wt-pin" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="--wt-kind-color: var(--wt-kind-hotel)">
-  <svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><path d="…"/></svg>
   <i class="wt-pin__dot"></i>
+</div>
+<!-- crowded: no room for its number -->
+<div class="wt-pin wt-pin--dot" role="img" aria-label="4. Interdune Boardwalk, Nature" style="--wt-kind-color: var(--wt-kind-nature)">
+  <b class="wt-pin__num">4</b>
 </div>
 ```
 
-- **A teardrop, like a maps app's pin.** Its tip is on the place, so it points at it exactly; place the element at the place and the tip lands there. 30 × 39px.
-- **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), shaded like a marker (`::before`, cut to the drop's shape), outlined in `--wt-pin-fill` on top so the outline stays clean.
-- **Its head holds one thing: the stop's number,** in the day's order (on All days, the trip's), in `--wt-marker-ink`. A place that isn't a numbered stop has `.wt-pin__dot` instead.
+- **A round dot, centered on its place,** like a stop on a transit map: place the element at the place and its center lands there. 24px, ring included (`--wt-pin-size`). It covers its place and little else, so the routes running into it stay visible.
+- **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), shaded like a marker, in a 2px `--wt-pin-fill` ring that keeps it apart from the route under it.
+- **It holds one thing: the stop's number,** in the day's order (on All days, the trip's), in `--wt-marker-ink`. A place that isn't a numbered stop has `.wt-pin__dot` instead.
+- **Crowded pins are small dots.** `--dot` is 14px with no number. Give it to a pin that's too close to another for both to show their numbers: the app checks every pin after each zoom (two numbered pins' radii plus 4px). Zoomed out, a day is a line of small dots along its route instead of a pile of pins; zoom in and the numbers come back. A selected pin always keeps its number.
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal.
-- Variants: `--selected` (half as large again, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (smaller and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). The pins still in color are the ones that matter now. Both scale from the tip.
+- Variants: `--selected` (32px, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (20px and grey, `--wt-kind-past`, 10px as a `--dot`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). The pins still in color are the ones that matter now.
+- **A tap target of 36px**, centered on the dot (`::after`), so a small dot is still easy to tap.
 - **Put the pins in a `.wt-pins` element** (with Leaflet, the marker pane). While one of them is `--selected`, the rest fade to 55%, keeping their colors, so the selected pin stands out among pins of every type. They fade rather than turn grey, since grey means over.
 - Stops at the same place, like a hotel in the morning and at night, share one pin, with the first one's number.
-- The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves the pins' height clear above it.
+- The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves half a selected pin clear at the edges.
 
 ### Empty state `.wt-empty`
 
@@ -685,7 +689,7 @@ Say what can go here, in the user's words. No illustrations.
   - On a phone: `.wt-trip-head` across the top, the map under it, and `.wt-sheet` over the map, at half height or the whole day.
   - From 768px wide: the header and the sheet are a side panel on the left, and the map fills the rest. Modal sheets cover the panel. Fit the map with even padding: nothing covers it.
   - One day at a time, after All days. The day bar steps through them, and the map shows only the open day; on All days, the whole trip.
-  - A stop's pin has its marker's color and its number in the day; the map has no text. The list says what each pin is: the half list keeps the row in focus in its middle.
+  - A stop's pin is a dot in its marker's color with its number in the day; where pins crowd, they're small dots with no number. The map has no text. The list says what each pin is: the half list keeps the row in focus in its middle.
   - Tapping a pin selects its stop (`is-selected`). Tapping a route, or its drive in the list, marks the drive `is-active` and shows the route: both ends' pins larger, the map fitted to it, and the drive in the middle of the half list, between its two stops. Tapping the drive again goes back to the whole day.
   - Editing a stop leaves the map in view (a panel), with the stop's pin showing the edit as it happens.
 - **Today.** During the trip, the trip opens on today. On any other day, it opens on All days.
@@ -740,6 +744,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 7.0.0
+
+Zoomed out, the teardrop pins piled up into one blob: each stood 39px tall above its place and covered its neighbors and the routes between them.
+
+- **`.wt-pin` is a round dot centered on its place** (24px, ring included), not a teardrop placed by its tip. Removed: `.wt-pin__shape` (the drop's outline), and the drop's mask on `::before`. Place a pin by its center: with Leaflet, nothing changes (`iconSize: [0, 0]`).
+- New: `.wt-pin--dot`, a 14px dot with no number, for a pin with no room for its number. New: `--wt-pin-size`, the dot's whole width.
+- `--selected` is 32px (was the drop at 1.5×); `--muted` is 20px, or 10px as a dot (was the drop at .85×).
+- `::after` is now the pin's 36px tap target.
+- Tokens are unchanged.
 
 ### Changed in 6.6.0
 
