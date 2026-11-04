@@ -14,9 +14,9 @@ const NOW_HM = /^\d{2}:\d{2}$/.test(params.get('now') || '') ? params.get('now')
 const ROUTE_KEY = 'waythread:routes:v1';
 const $app = document.getElementById('app');
 const $sheets = document.getElementById('sheets');
-// sel: the selected stop · leg: the drive whose route is shown · snap: the phone's list, 'half' or 'full' ·
+// sel: the selected stop · selRow: which of its rows was tapped (a hotel can start and end the day) · leg: the drive whose route is shown · snap: the phone's list, 'half' or 'full' ·
 // draft: the stop open in the stop sheet, as edited so far, which the map shows in its place
-const state = { sel: null, leg: null, hoverLeg: null, day: null, snap: 'half', draft: null, flash: new Set() };
+const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, snap: 'half', draft: null, flash: new Set() };
 
 // Who's signed in, the home list, and the open trip ({ id, name, members, stops } or { id, error })
 let me = null, config = { google: false, apple: false, password: false }, trips = null, cur = null;
@@ -35,7 +35,7 @@ const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(-
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // ---------- Icons (design system) ----------
-const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'car', 'directions', 'map', 'list', 'check']
+const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check']
   .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
@@ -489,6 +489,7 @@ function render() {
   bar.innerHTML = dayBarHTML(trip);
   bar.hidden = !trip.stops.length;
   renderList(trip);
+  renderAddBar(trip);
   if (!el.querySelector('.wt-sheet').style.height || topH !== el.querySelector('.wt-sheet__top').offsetHeight) applySnap();
   for (const id of state.flash) el.querySelector(`.wt-tl-stop[data-id="${id}"]`)?.classList.add('is-flash');
   state.flash.clear();
@@ -713,7 +714,7 @@ function teardownTrip() {
   if (map) { map.remove(); map = null; layer = null; fitKey = ''; }
   const left = $app.dataset.trip;
   delete $app.dataset.trip;
-  state.sel = state.leg = state.hoverLeg = state.day = state.draft = null;
+  state.sel = state.selRow = state.leg = state.hoverLeg = state.day = state.draft = null;
   state.snap = 'half';
   // the stop sheet leaves the header in reach, so Home can be tapped while it's open
   if (left && $sheets.innerHTML) closeSheet();
@@ -739,7 +740,7 @@ function mountTrip(trip) {
         <div class="wt-day-bar" hidden></div>
       </div>
       <div class="wt-sheet__body wt-tl"></div>
-      ${addBarHTML}
+      <div class="wt-add-bar"></div>
     </section>
   </div>`;
   if (!window.L) return;
@@ -766,7 +767,7 @@ function mountTrip(trip) {
   map.on('click', () => {
     if (state.draft || (!state.sel && !state.leg)) return;
     if (state.leg) fitKey = '';
-    state.sel = state.leg = null;
+    state.sel = state.selRow = state.leg = null;
     render();
   });
 }
@@ -778,7 +779,7 @@ const markerHTML = (s, cls) => `<i class="wt-marker ${cls}" role="img" aria-labe
 const gapMin = (a, b) => (toDate(b.time) - toDate(a.time)) / 60000;
 // A drive reads as a sentence ("1 hr 49 min drive"), with a small car on the rail, says when it won't make it,
 // and has a Directions icon button. Tapping the row shows the route on the map.
-// Rows take `past` (over: dimmed) and `now` (happening now: highlighted).
+// Rows take `row`: { key, past (over: dimmed), now (happening now: highlighted), sel (the selected row) }.
 const rowState = (past, now) => `${past ? ' is-past' : ''}${now ? ' is-now' : ''}`;
 function driveItem(day, leg) {
   const { r, from, to, fromEntry, toEntry } = leg, late = lateMin(leg);
@@ -786,7 +787,7 @@ function driveItem(day, leg) {
   return {
     // when you set off (until the route is in, no earlier than you arrive); the drive back to the hotel has no time, so it comes last
     start: leg.leave || leg.arrive || (toEntry.role === 'night' ? `${day}T23:58` : fromEntry.place.time),
-    html: (past, now) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="group" aria-label="${r ? fmtDur(r.duration) : ''} drive to ${esc(to.name)}. Show the route on the map">
+    html: ({ past, now }) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="group" aria-label="${r ? fmtDur(r.duration) : ''} drive to ${esc(to.name)}. Show the route on the map">
       <span class="wt-tl-rail"><i class="wt-tl-car">${ICON.car}</i></span>
       <span class="wt-tl-drive__body">
         <span class="wt-tl-drive__what"><b>${r ? fmtDur(r.duration) : '…'}</b> drive</span>
@@ -798,9 +799,10 @@ function driveItem(day, leg) {
 }
 // A stop row: marker · name · time, with its notes below across the name and time. A hotel on its check-in day says how many nights.
 // A row from another day than the one on screen can say which day in place of the time.
-function stopRow(s, past, now, note, time, timeDay) {
+// Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Edit stop. Tapping it again clears that.
+function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
   const notes = note.filter(Boolean);
-  return `<button class="wt-tl-stop${s.id === state.sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="edit" data-id="${esc(s.id)}" style="--wt-kind-color: ${kindColor(s)}">
+  return `<button class="wt-tl-stop${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${esc(s.id)}" data-row="${esc(key)}" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
       <span class="wt-tl-rail">${markerHTML(s, 'wt-tl-marker')}</span>
       <span class="wt-tl-name">${esc(s.name)}</span>${notes.length ? `<span class="wt-tl-notes">${notes.map(n => `<span class="wt-tl-note">${esc(n)}</span>`).join('')}</span>` : ''}
       <span class="wt-tl-time">${time ? timeHTML(time) : ''}${timeDay ? `<span class="wt-tl-time__day">${esc(timeDay)}</span>` : ''}</span>
@@ -809,24 +811,36 @@ function stopRow(s, past, now, note, time, timeDay) {
 function stopItem(trip, s) {
   const stay = kindOf(s) === 'hotel' && staysOf(trip).find(st => st.s === s);
   const nights = stay && `${stay.nights} ${stay.nights === 1 ? 'night' : 'nights'}`;
-  return { start: s.time, html: (past, now) => stopRow(s, past, now, [nights, s.note], s.time) };
+  return { start: s.time, html: row => stopRow(s, row, [nights, s.note], s.time) };
 }
 // The hotel at either end of a day: where you wake up, and where you go back to at night. It has no time,
-// except on check-out morning, the one with something to do: `Check out`, at the check-out time. Tapping it opens the hotel.
+// except on check-out morning, the one with something to do: `Check out`, at the check-out time. Tapping it selects the hotel.
 function hotelItem(day, entry) {
   return {
     start: entry.role === 'night' ? `${day}T23:59` : `${day}T00:00`,
-    html: (past, now) => stopRow(entry.place, past, now, [entry.role === 'checkout' && 'Check out'], entry.role === 'checkout' ? `${day}T${checkoutOf(entry.place)}` : null),
+    html: row => stopRow(entry.place, row, [entry.role === 'checkout' && 'Check out'], entry.role === 'checkout' ? `${day}T${checkoutOf(entry.place)}` : null),
   };
 }
 // With no hotel last night, the day opens where the day before ended: that stop, with `Yesterday` where the time goes
 // (or the weekday, when there's a day with no stops in between).
 function fromItem(day, entry) {
   const d = dayOf(entry.place), when = d === addDays(day, -1) ? 'Yesterday' : DAYS[toDate(d).getDay()];
-  return { start: `${day}T00:00`, html: (past, now) => stopRow(entry.place, past, now, [], null, when) };
+  return { start: `${day}T00:00`, html: row => stopRow(entry.place, row, [], null, when) };
 }
-// One "Add stop", below the list so it's always in reach.
-const addBarHTML = `<div class="wt-add-bar"><button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button></div>`;
+// The selected stop, if it's still in the trip (a co-editor may have deleted it).
+const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.sel)) || null;
+// Below the list, always in reach: Add stop, or, with a stop selected, Edit stop and a small + so adding stays one tap away.
+function addBarHTML(trip) {
+  const s = selectedStop(trip);
+  return s
+    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${esc(s.id)}">${ICON.edit}Edit stop</button><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
+    : `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button>`;
+}
+function renderAddBar(trip) {
+  const bar = $app.querySelector('.wt-add-bar'), html = addBarHTML(trip);
+  // only when it changes, so a focused button keeps its focus through the minute's re-render
+  if (bar.wtHTML !== html) { bar.innerHTML = html; bar.wtHTML = html; }
+}
 // One day's rows, from the day's plan, each marked `past` or `now`. On today, the row you're in now
 // (the latest thing that has started) is now, and everything before it is past; earlier days are past throughout.
 // The map dims the same drives and stops.
@@ -851,7 +865,10 @@ function listHTML(trip, day) {
   if (!day) return '<p class="wt-empty">Add a flight, a hotel, or a place to see.</p>';
   const items = dayItems(trip, day);
   if (!items.length) return '<p class="wt-empty">Nothing planned this day yet.</p>';
-  return items.map(it => it.html(it.past, it.now)).join('');
+  // Only one row is selected: the one tapped, or, from a pin, the stop's first row (a hotel can start and end the day)
+  const rows = items.filter(it => it.entry?.place.id === state.sel);
+  const sel = (rows.find(it => it.entry.key === state.selRow) || rows[0])?.entry.key;
+  return items.map(it => it.html({ key: it.entry?.key, past: it.past, now: it.now, sel: !!it.entry && it.entry.key === sel })).join('');
 }
 function renderList(trip) {
   const body = $app.querySelector('.wt-sheet__body'), day = currentDay(trip);
@@ -897,7 +914,7 @@ function setDay(d) {
   const trip = cur?.stops ? cur : null;
   if (!trip || !daysOf(trip).includes(d) || d === state.day) return;
   state.day = d;
-  state.sel = state.leg = state.hoverLeg = null;
+  state.sel = state.selRow = state.leg = state.hoverLeg = null;
   render();
 }
 function stepDay(n) {
@@ -1042,8 +1059,9 @@ function drawMap(trip) {
     // or, while a route is on show, any place it doesn't start or end at
     const g = all.filter(s => s !== start), end = all.find(s => ends.includes(s));
     const quiet = !g.length || g.every(isPast) || (active && !end);
-    const focus = end || g.find(s => s.id === state.sel);
-    const cls = [focus ? 'wt-pin--selected' : '', quiet && !end ? 'wt-pin--muted' : ''].join(' ');
+    // the selected stop can be the day's start, from the day before's row at the top of the list
+    const focus = end || all.find(s => s.id === state.sel);
+    const cls = [focus ? 'wt-pin--selected' : '', quiet && !focus ? 'wt-pin--muted' : ''].join(' ');
     const label = focus ? `<span class="wt-pin__label${end && end === lower ? ' wt-pin__label--below' : ''}">${esc(focus.name)}</span>` : '';
     L.marker([all[0].lat, all[0].lng], {
       icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="wt-pin ${cls}">${markerHTML(focus || g[0] || start, 'wt-pin__marker')}${label}</div>` }),
@@ -1104,7 +1122,7 @@ function previewLeg(l, { fromMap = false } = {}) {
     return;
   }
   state.leg = l.key;
-  state.sel = null;
+  state.sel = state.selRow = null;
   const shrink = state.snap === 'full';
   setSnap('half'); // the whole-day list covers the map
   render();
@@ -1119,14 +1137,28 @@ document.addEventListener('mouseover', e => {
   state.hoverLeg = id;
   if (cur?.stops) drawMap(cur);
 });
-// Tapping a pin highlights its row in the list.
-function selectStop(s) {
+// Select a stop: its row and its pin are highlighted, and Add stop becomes Edit stop.
+// Tapping a pin scrolls its row into view. Tapping a row (`row`, its key) moves the pin into view if it's
+// off the map you can see, keeping the zoom; tapping the selected row again clears the selection.
+function selectStop(s, row = null) {
+  if (row && state.sel === s.id && $app.querySelector('.wt-tl-stop.is-selected')?.dataset.row === row) {
+    state.sel = state.selRow = null;
+    render();
+    return;
+  }
   if (state.leg) fitKey = '';
   state.leg = null;
   state.sel = s.id;
-  setSnap('half');
+  state.selRow = row;
+  const shrink = state.snap === 'full';
+  setSnap('half'); // the whole-day list covers the map
   render();
-  $app.querySelector(`.wt-tl-stop[data-id="${CSS.escape(s.id)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  if (row && map && s.lat != null && !inView([s.lat, s.lng])) {
+    const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, coveredBottom() / 2]);
+    map.panTo(map.unproject(p, z), { duration: 0.5 });
+  }
+  // once the list has shrunk, so the row stays in what's left of it
+  setTimeout(() => $app.querySelector('.wt-tl-stop.is-selected')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), shrink ? 260 : 0);
 }
 // Move a place into the middle of the map you can see: above the stop sheet on a phone, the whole map on a wide screen.
 function focusStop(s) {
@@ -1330,6 +1362,7 @@ function openStopSheet(trip, stop) {
   let chosen = !!stop, saved = false;
   const camera = map && { center: map.getCenter(), zoom: map.getZoom() };
   state.leg = null;
+  if (state.sel !== stop?.id) state.selRow = null;
   state.sel = stop?.id || null;
   state.draft = draft;
   $app.querySelector('.trip')?.classList.add('is-editing');
@@ -1505,6 +1538,7 @@ document.addEventListener('click', e => {
   switch (el.dataset.action) {
     case 'new-trip': openNewTrip(); break;
     case 'add': openStopSheet(trip); break;
+    case 'select': if (stop) selectStop(stop, el.dataset.row); break;
     case 'edit': if (stop) openStopSheet(trip, stop); break;
     case 'settings': openSettings(trip); break;
     case 'prev-day': stepDay(-1); break;
@@ -1527,7 +1561,15 @@ document.addEventListener('click', e => {
   }
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeSheet();
+  if (e.key === 'Escape') {
+    // with no sheet open, Esc clears the selection, like tapping empty map
+    if (!$sheets.innerHTML && $app.dataset.trip && (state.sel || state.leg)) {
+      if (state.leg) fitKey = '';
+      state.sel = state.selRow = state.leg = null;
+      render();
+    }
+    closeSheet();
+  }
   // A drive row is focusable: Enter or Space shows its route, like a tap
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.wt-tl-drive')) { e.preventDefault(); e.target.click(); }
   // ← → change day on the trip screen, unless typing or a sheet is open

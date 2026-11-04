@@ -1,4 +1,4 @@
-/* Waythread design system — components v4.0.0
+/* Waythread design system — components v4.1.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -41,6 +41,8 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 .wt-btn--ghost:hover, .wt-btn--ghost:active { background: var(--wt-surface-hover); }
 .wt-btn--danger { color: var(--wt-text-danger); padding: 0 var(--wt-space-1); }
 .wt-btn--block { width: 100%; }
+/* Icon only: a round button as tall as the others, like the + beside Edit stop. Give it an aria-label. */
+.wt-btn--icon { width: var(--wt-size-touch); padding: 0; flex: none; border-radius: var(--wt-radius-round); }
 .wt-btn .wt-icon { width: 18px; height: 18px; }
 
 /* ---------- Icon button ---------- */
@@ -300,8 +302,13 @@ input.wt-input[type="time"] { min-height: 50px; }
 }
 .wt-sheet__grab:focus-visible { border-radius: var(--wt-radius-md); }
 .wt-sheet__body { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--wt-space-3) var(--wt-space-3); overscroll-behavior: contain; }
-/* The one add button, below the list. Static, not sticky: a sticky bar pinned itself to the screen's bottom and covered a pulled-down sheet's top. */
-.wt-add-bar { flex: none; padding: var(--wt-space-3) var(--wt-space-3) calc(var(--wt-space-3) + env(safe-area-inset-bottom, 0px)); background: var(--wt-surface-raised); }
+/* The sheet's main action, below the list: Add stop, or, with a stop selected, Edit stop and a small round + beside it,
+   so adding is always one tap away. Static, not sticky: a sticky bar pinned itself to the screen's bottom and covered a pulled-down sheet's top. */
+.wt-add-bar {
+  flex: none; display: flex; gap: var(--wt-space-2);
+  padding: var(--wt-space-3) var(--wt-space-3) calc(var(--wt-space-3) + env(safe-area-inset-bottom, 0px)); background: var(--wt-surface-raised);
+}
+.wt-add-bar .wt-btn--block { flex: 1; min-width: 0; }
 
 /* ---------- Map buttons: home and settings, floating over the map (unused since 3.0.1: the trip header replaced them) ---------- */
 .wt-map-bar {

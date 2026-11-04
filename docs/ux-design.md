@@ -43,6 +43,8 @@ The trip is a single screen: a **header** with the trip's name, the **map**, and
 └──────────────────────────────┘
 ```
 
+With a stop selected, the bottom button becomes `[██████ ✎ Edit stop ██████] (+)`: Edit stop, and a small round + so adding is still one tap away.
+
 **The header** is one row across the top: **home** (back to the trip list), the **trip's name**, **Map/List**, and **trip settings**. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings.
 
 **The sheet** is white and has two heights on a phone: half the screen (the default), and the whole day.
@@ -90,10 +92,10 @@ The list is a timeline with three columns: a **rail**, the **stop**, and its **t
 ```
 
 - **Rail:** a thin, light grey line down the day, unbroken from the first stop to the last. It's quiet so the markers and names stand out. Each stop sits on it as a **type marker**: the stop's [type](#stop-types) icon on its type's color. The marker is the same as the stop's pin on the map, so you can match the list to the map at a glance. Drives sit on it as a smaller grey marker with a car, so stops and drives read as one family of icons.
-- **Stop:** the name in bold, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. A note runs across the time column too, so a long one wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop opens it.
+- **Stop:** the name in bold, the largest text in the list, with the note under it in grey, shown in full. Notes hold things like confirmation numbers, so they're never cut off. A note runs across the time column too, so a long one wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop selects it and shows it on the map (see [Adding and editing a stop](#adding-and-editing-a-stop)); it doesn't open it.
 - **Time:** on the right, in grey, with a small AM/PM. The name leads the row, and the time is where a glance down the right edge finds it. Hotel rows at either end of the day have no time, so the right edge stays empty instead of leaving a gap before the name.
 
-A selected row (a stop or a drive, tapped or picked on the map) gets a light grey background, with no border. A selected drive's car turns a darker grey. **Only one row is ever highlighted:** while something is selected, the row happening now is a plain row.
+A selected row (a stop or a drive, tapped or picked on the map) gets a light grey background, with no border. A selected drive's car turns a darker grey. **Only one row is ever highlighted:** while something is selected, the row happening now is a plain row. A hotel that starts and ends the day highlights only the row you tapped; picked on the map, it's the first one.
 
 ### Drives
 
@@ -109,14 +111,14 @@ A drive is a row between two places: a small grey car marker on the rail, **`1 h
 A hotel isn't just a stop: you sleep there, and the next morning starts there. Before this, Saturday's first drive started at Friday's last stop (the boardwalk), and so did its Directions link.
 
 - **A hotel has nights.** On its check-in day it shows as a normal stop at its check-in time, with `2 nights` under the name.
-- **Every day of the stay starts and ends there.** The day opens with the hotel and, after the day's last stop, a drive back to it. These rows look like any stop, with the same solid marker, and no time. Only the last morning has a note, `Check out`, with the check-out time where the time goes, since that's the one with something to do. Tapping one opens the hotel.
+- **Every day of the stay starts and ends there.** The day opens with the hotel and, after the day's last stop, a drive back to it. These rows look like any stop, with the same solid marker, and no time. Only the last morning has a note, `Check out`, with the check-out time where the time goes, since that's the one with something to do. Tapping one selects the hotel.
 - **Nights, by default, follow the trip:** until the next hotel, or the trip's last day. In the stop sheet, a hotel's **When** becomes **Check-in**, followed by **Nights** (a stepper) and **Check-out** (a time, labeled with the day the nights end on: `Check-out · Sun, Nov 22`).
 - **Usual times:** a new hotel's check-in starts at **3:00 PM**, and check-out is **11:00 AM** until someone sets another time. Hotels saved before check-out times existed show 11:00 AM too.
 - The drive back to the hotel has no times, because the day's last stop has no end.
 
 ### Where the day starts without a hotel
 
-With no hotel the night before, the day opens with the day before's last stop, so you can see where you're driving from before the first drive. It looks like any stop, with `Yesterday` where the time goes, or the weekday (`Sat`) when there's a day with no stops in between. Its time isn't shown: a `3:00 PM` above a `10:00 AM` reads as a mistake, and what matters this morning is where you are, not when you got there. Tapping it opens that stop. It's left out when the day's first stop is the same place. This replaces a second line on the first drive (`from Interdune Boardwalk`), which was easy to miss and couldn't be tapped.
+With no hotel the night before, the day opens with the day before's last stop, so you can see where you're driving from before the first drive. It looks like any stop, with `Yesterday` where the time goes, or the weekday (`Sat`) when there's a day with no stops in between. Its time isn't shown: a `3:00 PM` above a `10:00 AM` reads as a mistake, and what matters this morning is where you are, not when you got there. Tapping it selects that stop, and its faded pin is highlighted. It's left out when the day's first stop is the same place. This replaces a second line on the first drive (`from Interdune Boardwalk`), which was easy to miss and couldn't be tapped.
 
 ### Today
 
@@ -169,7 +171,9 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 ### Adding and editing a stop
 
 - **Add stop.** One black button pinned to the bottom of the sheet, always reachable: it's the main action on the screen. A new stop starts two hours after the last stop of the day on screen.
-- **Editing.** Tap a stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
+- **Selecting.** Tapping a stop in the list selects it instead of opening it, like tapping a drive shows its route: the row turns grey and its pin grows and is named on the map. If the pin is off the part of the map you can see, the map pans to it, keeping the zoom; a full-screen list goes back to half. Tapping the same row again, tapping empty map, changing the day or pressing Esc clears it. (Tapping a stop used to open it straight away, so seeing where a stop is meant opening a form.)
+- **Edit stop.** While a stop is selected, the black button says **Edit stop**, and a small round **+** beside it still adds a stop, so adding is always one tap away. There's still only one black button.
+- **Editing.** Tap Edit stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
 - **The map follows the edit.** The stop's pin shows the draft: picking a place from search moves the pin there, and the map goes with it; choosing a type changes the pin's icon. A new stop's pin appears once a place is picked. If the stop moves, its two drives fade until it's saved. You can pan and zoom the map while the sheet is open, and taps on the map don't change anything. Closing without saving puts the map back where it was.
 - **The stop sheet** has four fields (six for a hotel), in this order:
   1. **Place.** The first line, like in the list. It shows the stop's name, and typing in it searches for a new place. One field does both, so there's no separate search box or address line.
@@ -187,6 +191,7 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 ### How the map and the list work together
 
 - **Tapping a pin** selects that stop and scrolls it into view in the list.
+- **Tapping a stop in the list** selects it and highlights its pin, panning the map to it if it's out of view. The bottom button becomes Edit stop.
 - **Showing a route.** Tapping a route on the map, or its drive in the list, shows it:
   - The route is highlighted, and the other routes and stops fade.
   - **Both ends are named** on the map, with the same label a selected pin has. The lower end's name goes under its pin, so the two don't meet.
