@@ -266,8 +266,14 @@ function socialErrorMessage() {
 
 // ---------- Routes: only the line and drive time; navigation is handed to the maps app ----------
 const routes = (() => { try { return JSON.parse(localStorage.getItem(ROUTE_KEY)) || {}; } catch { return {}; } })();
-const pending = new Set();
-let routeQueue = Promise.resolve();
+// One lookup at a time, so opening a trip doesn't burst the router. Drives the screen needs go first; the other
+// days' drives (preloaded so switching days is instant) wait behind them and go slowly, so a trip opened for the
+// first time can't use up the per-person limit that place search shares with routes.
+const BG_ROUTE_GAP = 1000; // ms between background lookups: at most 60 a minute, half the server's limit
+const pending = new Map(); // key → job
+const routeJobs = [];
+const bgRouteFailed = new Set(); // not retried in the background this visit; retried once its day is on screen
+let routeBusy = false, bgRouteNext = 0, bgRouteTimer = 0;
 const legKey = (a, b) => `${(+a.lng).toFixed(5)},${(+a.lat).toFixed(5)};${(+b.lng).toFixed(5)},${(+b.lat).toFixed(5)}`;
 function haversine(a, b) {
   const R = 6371000, rad = x => x * Math.PI / 180;
@@ -275,28 +281,61 @@ function haversine(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-function getRoute(a, b) {
+function getRoute(a, b, { background = false } = {}) {
   const k = legKey(a, b);
   if (routes[k]) return routes[k];
   if (a.lat === b.lat && a.lng === b.lng) return { ok: true, duration: 0, distance: 0, coords: [[a.lat, a.lng]] };
-  if (!pending.has(k)) {
-    pending.add(k);
-    routeQueue = routeQueue.then(() => fetchRoute(a, b, k)); // one at a time, so opening a trip doesn't burst the router
-  }
+  if (background && bgRouteFailed.has(k)) return null;
+  const job = pending.get(k);
+  if (!job) {
+    const j = { a, b, k, background };
+    pending.set(k, j);
+    routeJobs.push(j);
+  } else if (!background) job.background = false; // queued for later, but it's on screen now: it goes next
+  pumpRoutes();
   return null;
 }
-async function fetchRoute(a, b, k) {
+async function pumpRoutes() {
+  if (routeBusy || !routeJobs.length) return;
+  let i = routeJobs.findIndex(j => !j.background);
+  if (i < 0) {
+    const wait = bgRouteNext - Date.now();
+    if (wait > 0) { bgRouteTimer ||= setTimeout(() => { bgRouteTimer = 0; pumpRoutes(); }, wait); return; }
+    i = 0;
+    bgRouteNext = Date.now() + BG_ROUTE_GAP;
+  }
+  const [job] = routeJobs.splice(i, 1);
+  routeBusy = true;
+  await fetchRoute(job);
+  routeBusy = false;
+  pumpRoutes();
+}
+async function fetchRoute(job) {
+  const { a, b, k } = job;
   try {
     const rt = await api(`/route?from=${a.lat},${a.lng}&to=${b.lat},${b.lng}`);
     routes[k] = { ok: true, ...rt };
     try { localStorage.setItem(ROUTE_KEY, JSON.stringify(Object.fromEntries(Object.entries(routes).filter(([, v]) => v.ok)))); } catch {}
-  } catch {
-    // Offline or unavailable: straight-line estimate so the plan still reads. Not persisted, so it retries next load.
-    const d = haversine(a, b) * 1.3;
-    routes[k] = { ok: false, duration: d / 22, distance: d, coords: [[a.lat, a.lng], [b.lat, b.lng]] };
+  } catch (e) {
+    if (job.background) {
+      // Nobody's looking at it yet: leave it for when its day is on screen, and back off if over the limit
+      bgRouteFailed.add(k);
+      if (e.status === 429) bgRouteNext = Date.now() + 60000;
+    } else {
+      // Offline or unavailable: straight-line estimate so the plan still reads. Not persisted, so it retries next load.
+      const d = haversine(a, b) * 1.3;
+      routes[k] = { ok: false, duration: d / 22, distance: d, coords: [[a.lat, a.lng], [b.lat, b.lng]] };
+    }
   }
   pending.delete(k);
-  scheduleRender();
+  if (!job.background) scheduleRender(); // a preloaded route shows once its day does
+}
+// Leaving a trip drops its preloading; a lookup the screen asked for still finishes.
+function dropBackgroundRoutes() {
+  for (let i = routeJobs.length - 1; i >= 0; i--) {
+    if (routeJobs[i].background) { pending.delete(routeJobs[i].k); routeJobs.splice(i, 1); }
+  }
+  bgRouteFailed.clear();
 }
 // Directions open in the phone's own maps app: Apple Maps on iOS, Google Maps everywhere else.
 const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
@@ -493,6 +532,7 @@ function render() {
   for (const id of state.flash) el.querySelector(`.wt-tl-stop[data-id="${id}"]`)?.classList.add('is-flash');
   state.flash.clear();
   drawMap(trip);
+  schedulePreload();
 }
 
 // ---------- Sign in ----------
@@ -677,8 +717,20 @@ let mapCredit = CREDIT.stadia;
 // This layer also loads a ring of tiles around the view, and once the view's tiles are in, it fetches the
 // next zoom level in (where a zoom-in lands) and the one out (a quarter as many) so the browser has them cached.
 // Stadia tiles only. Skipped when the browser asks to save data. `_getTiledPixelBounds` is Leaflet-internal: check it on upgrade.
+// The trip's other days are preloaded too (see preloadTrip), behind these and a few tiles at a time.
 const EDGE_TILES = 1;
 const PREFETCH_ZOOMS = [1, -1];
+const TILE_PRELOAD_PARALLEL = 4;
+const fetchedTiles = new Set(); // asked for once per visit; after that the browser's cache has them
+let tileQueue = [], tilesInFlight = 0;
+function pumpTiles() {
+  while (tilesInFlight < TILE_PRELOAD_PARALLEL && tileQueue.length) {
+    const img = new Image();
+    tilesInFlight++;
+    img.onload = img.onerror = () => { tilesInFlight--; pumpTiles(); };
+    img.src = tileQueue.shift();
+  }
+}
 function bufferedTileLayer(url, opts) {
   const t = L.tileLayer(url, { keepBuffer: 4, ...opts });
   const inView = t._getTiledPixelBounds;
@@ -686,31 +738,72 @@ function bufferedTileLayer(url, opts) {
     const b = inView.call(this, center), pad = this.getTileSize().multiplyBy(EDGE_TILES);
     return L.bounds(b.min.subtract(pad), b.max.add(pad));
   };
-  const fetched = new Set();
+  // Every tile under pixel bounds `b` at zoom `z`: now, or with `later`, queued behind everything else
+  t.prefetchArea = (b, z, later = false) => {
+    if (z < t.options.minZoom || z > t.options.maxZoom) return;
+    const size = t.getTileSize(), n = 2 ** z;
+    const lo = b.min.unscaleBy(size).floor(), hi = b.max.unscaleBy(size).ceil();
+    for (let y = Math.max(lo.y, 0); y < Math.min(hi.y, n); y++) {
+      for (let x = lo.x; x < hi.x; x++) {
+        const src = L.Util.template(url, { ...t.options, r: L.Browser.retina ? '@2x' : '', x: ((x % n) + n) % n, y, z });
+        if (fetchedTiles.has(src)) continue;
+        fetchedTiles.add(src);
+        if (later) tileQueue.push(src); else new Image().src = src;
+      }
+    }
+    if (later) pumpTiles();
+  };
   t.on('load', () => {
     const m = t._map;
     if (!m || navigator.connection?.saveData) return;
-    const size = t.getTileSize(), z0 = Math.round(m.getZoom()), view = m.getBounds();
+    const z0 = Math.round(m.getZoom()), view = m.getBounds();
     for (const dz of PREFETCH_ZOOMS) {
-      const z = z0 + dz, n = 2 ** z;
-      if (z < t.options.minZoom || z > t.options.maxZoom) continue;
+      const z = z0 + dz;
       // A zoom in centers on the pointer or pinch, so cover the whole view; a zoom out shows a view-sized area around the center
-      const b = dz > 0 ? L.bounds(m.project(view.getNorthWest(), z), m.project(view.getSouthEast(), z)) : m.getPixelBounds(m.getCenter(), z);
-      const lo = b.min.unscaleBy(size).floor(), hi = b.max.unscaleBy(size).ceil();
-      for (let y = Math.max(lo.y, 0); y < Math.min(hi.y, n); y++) {
-        for (let x = lo.x; x < hi.x; x++) {
-          const src = L.Util.template(url, { ...t.options, r: L.Browser.retina ? '@2x' : '', x: ((x % n) + n) % n, y, z });
-          if (fetched.has(src)) continue;
-          fetched.add(src);
-          new Image().src = src;
-        }
-      }
+      t.prefetchArea(dz > 0 ? L.bounds(m.project(view.getNorthWest(), z), m.project(view.getSouthEast(), z)) : m.getPixelBounds(m.getCenter(), z), z);
     }
   });
   return t;
 }
+let tiles = null; // the Stadia layer, when it's the one showing: the OpenStreetMap fallback isn't preloaded
+
+// ---------- Preloading the trip's other days ----------
+// Once the day on screen has settled, load every other day's drives and the map tiles where its camera will land,
+// nearest days first, so stepping to another day shows its routes and map at once.
+// Tiles are only the part of the view you can see (not under the list), at the day's zoom.
+let preloadTimer = 0;
+function schedulePreload() { clearTimeout(preloadTimer); preloadTimer = setTimeout(preloadTrip, 1500); }
+function preloadTrip() {
+  const trip = cur?.stops ? cur : null;
+  if (!map || !trip || $app.dataset.trip !== trip.id) return;
+  const d0 = currentDay(trip);
+  if (!d0) return;
+  // the next day, then the one before, then outward
+  const dist = d => Math.abs(daysBetween(d0, d)) * 2 - (d > d0 ? 1 : 0);
+  const days = daysOf(trip).filter(d => d !== d0).sort((a, b) => dist(a) - dist(b));
+  for (const d of days) {
+    const plan = dayPlan(trip, d);
+    for (let i = 1; i < plan.length; i++) getRoute(plan[i - 1].place, plan[i].place, { background: true });
+  }
+  // the camera depends on how much of the map the open stop covers; wait until it's closed
+  if (!tiles || navigator.connection?.saveData || state.draft) return;
+  if (tiles.isLoading()) { tiles.once('load', schedulePreload); return; } // the day on screen comes first
+  const size = map.getSize(), shown = L.point(size.x, size.y - coveredBottom());
+  if (shown.x <= 0 || shown.y <= 0) return;
+  for (const d of days) {
+    const v = dayView(trip, d);
+    if (!v) continue;
+    const z = Math.round(v.zoom), c = map.project(v.center, z), tl = c.subtract(size.divideBy(2));
+    tiles.prefetchArea(L.bounds(tl, tl.add(shown)), z, true);
+  }
+}
+
 function teardownTrip() {
   if (map) { map.remove(); map = null; layer = null; fitKey = ''; }
+  tiles = null;
+  tileQueue = [];
+  clearTimeout(preloadTimer);
+  dropBackgroundRoutes();
   const left = $app.dataset.trip;
   delete $app.dataset.trip;
   state.sel = state.leg = state.hoverLeg = state.day = state.draft = null;
@@ -758,7 +851,9 @@ function mountTrip(trip) {
     if (!ok) return osm();
     mapCredit = CREDIT.stadia;
     const quiet = bufferedTileLayer(`https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, { maxZoom: 20 }).addTo(m);
-    quiet.once('tileerror', () => { m.removeLayer(quiet); osm(); });
+    tiles = quiet;
+    quiet.once('tileerror', () => { m.removeLayer(quiet); tiles = null; tileQueue = []; osm(); });
+    schedulePreload();
   });
   layer = L.layerGroup().addTo(map);
   // once you've touched the map, a new sheet height leaves the camera where you put it
@@ -1013,7 +1108,7 @@ for (const t of ['touchend', 'touchcancel']) document.addEventListener(t, () => 
 document.addEventListener('click', e => {
   if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
   // Peeking, the sheet is the day bar: its buttons work, and a tap anywhere else on it opens it to half.
-  if (state.snap === 'peek' && e.target.closest('.wt-sheet') && !e.target.closest('button, a') || isWide()) { e.stopPropagation(); setSnap('half'); }
+  if (state.snap === 'peek' && !isWide() && e.target.closest('.wt-sheet') && !e.target.closest('button, a')) { e.stopPropagation(); setSnap('half'); }
 }, true);
 addEventListener('resize', () => {
   $sheets.classList.toggle('wt-modal-root--side', isWide());
@@ -1108,15 +1203,25 @@ function drawMap(trip) {
   }
   drawDraft();
 
-  const pts = plan.map(e => [e.place.lat, e.place.lng]);
-  const key = [trip.id, day, pts.length].join('|');
+  const key = [trip.id, day, plan.length].join('|');
   if (key === fitKey || state.draft) return;
   fitKey = key;
   camFree = false;
   if (active && state.leg) return fitLeg(active);
-  if (new Set(pts.map(String)).size === 1) map.setView(pts[0], 13);
+  const v = dayView(trip, day);
+  if (v) map.setView(v.center, v.zoom);
+}
+// Where the camera goes for a day: around all its places, clear of the list. Preloading uses it to fetch the
+// tiles a day will land on, so this is fitBounds worked out by hand (as Leaflet does it), without moving the map.
+function dayView(trip, day) {
+  const pts = dayPlan(trip, day).map(e => [e.place.lat, e.place.lng]);
+  if (!pts.length) return null;
+  if (new Set(pts.map(String)).size === 1) return { center: L.latLng(pts[0]), zoom: 13 };
   // the side panel sits beside the map, not on it; on a phone, the list covers the bottom
-  else if (pts.length) map.fitBounds(pts, { paddingTopLeft: [32, coveredTop() + 24], paddingBottomRight: [32, coveredBottom() + 24], maxZoom: 15 });
+  const tl = L.point(32, coveredTop() + 24), br = L.point(32, coveredBottom() + 24), bounds = L.latLngBounds(pts);
+  const zoom = Math.min(map.getBoundsZoom(bounds, false, tl.add(br)), 15);
+  const sw = map.project(bounds.getSouthWest(), zoom), ne = map.project(bounds.getNorthEast(), zoom);
+  return { center: map.unproject(sw.add(ne).divideBy(2).add(br.subtract(tl).divideBy(2)), zoom), zoom };
 }
 // The stop being edited, where it would go: its new place and type, named.
 function drawDraft() {
