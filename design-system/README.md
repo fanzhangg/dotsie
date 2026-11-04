@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 6.5.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 6.6.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -124,7 +124,7 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-route`, `--wt-route-active`, `--wt-route-muted`, `--wt-route-done`, `--wt-route-casing` | Route lines: normal, selected, the others while one is selected, past (on today: the same grey as `--wt-kind-past`), and the outline under each line. |
 | `--wt-pin-fill` | The outline around a map pin. |
 | `--wt-pin-ring`, `--wt-pin-ring-muted`, `--wt-pin-ring-done` | Unused since 2.0.0, when pins became markers. Kept until the next major version. |
-| `--wt-kind-place`, `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight`, `--wt-kind-nature`, `--wt-kind-shop` | Stop types, one color per group: a plain place; airports and gas; hotels; restaurants and cafés; attractions, museums and viewpoints; nature; shopping. Only on markers, pins and the type picker. All at one lightness (OKLCH L .56 in light, .76 in dark) and similar chroma, so a type says what a place is and never that it matters more. None is blue or red, which are louder. |
+| `--wt-kind-place`, `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight`, `--wt-kind-nature`, `--wt-kind-shop` | Stop types, one color per group: a plain place; airports and gas; hotels; restaurants and cafés; attractions, museums and viewpoints; nature; shopping. Only on markers, pins and the type picker. All at one lightness (OKLCH L .62 in light, .74 in dark), each as vivid as its hue allows there (chroma up to .21 in light, .18 in dark), so markers are bright and colorful and a type says what a place is, never that it matters more. L .62 is as light as a type can be with `--wt-marker-ink` still at 3:1. None is blue or red. Place stays a neutral. |
 | `--wt-kind-drive` | The car marker on a drive in the timeline: grey, and quieter than any stop type. |
 | `--wt-kind-drive-current` | The car on the selected drive: a darker grey, never blue. |
 | `--wt-kind-past` | Markers, cars and muted pins of what's over: light grey. |
@@ -733,6 +733,14 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 6.6.0
+
+The stop-type colors were muted: dark and greyish in light, pastel in dark. They are now bright and vibrant (tokens 1.10.0).
+
+- In light, every type is lighter (OKLCH L .62, was .56) and as saturated as its hue allows at that lightness (chroma up to .21, was .11-.15). `--wt-marker-ink` (white) still meets 3:1 on each.
+- In dark, the types are deeper and much richer (L .74, was .76; chroma up to .18, was .09-.14), so they read as color rather than pastel. Food is a clear orange, still clear of red.
+- `--wt-kind-place` stays a neutral grey. Nothing was renamed or removed.
 
 ### Changed in 6.5.0
 

@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.9.0
+/* Waythread design system — tokens v1.10.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -121,16 +121,17 @@
   --wt-highlight: #fff1b8;                          /* a co-editor's change, flashed once */
   --wt-now: var(--wt-color-gray-950);               /* the ring on the stop you're at, the car on the drive you're on: the blackest ink */
 
-  /* Stop types: one color per group, on markers and pins. Every type has the same lightness and nearly the same
-     chroma (OKLCH L .56, C .11-.15), so color says what kind of place it is and never that one matters more.
-     Hues keep clear of blue (routes) and red (doesn't fit), which are louder than any type. */
+  /* Stop types: one color per group, on markers and pins. Every type has the same lightness (OKLCH L .62; .74 in dark)
+     and is as vivid as its hue allows there (C up to .21; .18 in dark), so the markers are bright and colorful, and
+     color says what kind of place it is, never that one matters more. L .62 is as light as a type can be and keep
+     --wt-marker-ink at 3:1. Hues keep clear of blue (routes) and red (doesn't fit). Place stays a neutral. */
   --wt-kind-place: #78746d;
-  --wt-kind-travel: #00878e;
-  --wt-kind-stay: #835cbe;
-  --wt-kind-food: #b45c03;
-  --wt-kind-sight: #b94082;
-  --wt-kind-nature: #298a41;
-  --wt-kind-shop: #8b7300;
+  --wt-kind-travel: #0e9a96;
+  --wt-kind-stay: #985ff1;
+  --wt-kind-food: #cd650a;
+  --wt-kind-sight: #de3c8f;
+  --wt-kind-nature: #0ea236;
+  --wt-kind-shop: #a77f0b;
   --wt-kind-drive: var(--wt-color-gray-450);        /* the car on a drive: quieter than any stop */
   --wt-kind-drive-current: var(--wt-color-gray-700); /* the car on the selected drive: a step darker */
   --wt-kind-past: var(--wt-color-gray-350);         /* markers, cars and pins of what's over: the color drains out */
@@ -206,12 +207,12 @@
     --wt-highlight: #4a3f12;
     --wt-now: var(--wt-color-gray-100);
     --wt-kind-place: #b4b0aa;
-    --wt-kind-travel: #5fc3c8;
-    --wt-kind-stay: #be9ef6;
-    --wt-kind-food: #eda253;
-    --wt-kind-sight: #e889ca;
-    --wt-kind-nature: #7ac686;
-    --wt-kind-shop: #c8bd6b;
+    --wt-kind-travel: #1cc3bf;
+    --wt-kind-stay: #b794fd;
+    --wt-kind-food: #f68d17;
+    --wt-kind-sight: #fd75b2;
+    --wt-kind-nature: #4fc860;
+    --wt-kind-shop: #d4a317;
     --wt-kind-drive: var(--wt-color-gray-500);
     --wt-kind-drive-current: var(--wt-color-gray-300);
     --wt-kind-past: var(--wt-color-gray-600);
@@ -267,12 +268,12 @@
   --wt-highlight: #4a3f12;
   --wt-now: var(--wt-color-gray-100);
   --wt-kind-place: #b4b0aa;
-  --wt-kind-travel: #5fc3c8;
-  --wt-kind-stay: #be9ef6;
-  --wt-kind-food: #eda253;
-  --wt-kind-sight: #e889ca;
-  --wt-kind-nature: #7ac686;
-  --wt-kind-shop: #c8bd6b;
+  --wt-kind-travel: #1cc3bf;
+  --wt-kind-stay: #b794fd;
+  --wt-kind-food: #f68d17;
+  --wt-kind-sight: #fd75b2;
+  --wt-kind-nature: #4fc860;
+  --wt-kind-shop: #d4a317;
   --wt-kind-drive: var(--wt-color-gray-500);
   --wt-kind-drive-current: var(--wt-color-gray-300);
   --wt-kind-past: var(--wt-color-gray-600);
