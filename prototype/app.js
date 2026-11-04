@@ -1714,6 +1714,20 @@ for (const t of ['touchend', 'touchcancel']) document.addEventListener(t, () => 
 document.addEventListener('click', e => {
   if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
 }, true);
+// iPhone: the keyboard scrolls the window to show the field being typed in, and with the page's own scrolling off while a
+// trip is open, Safari and Chrome can leave it scrolled once the keyboard's gone. The trip screen, pinned to the window,
+// then sits too high: its header under the address bar and a gap under the sheet. Put the window back at the top whenever
+// it has moved and nothing is being typed in (not while zoomed in: that's the person's own doing).
+function unshiftTrip() {
+  if ($app.dataset.page !== 'trip' || document.activeElement?.matches('input, textarea, select, [contenteditable]')) return;
+  const vv = window.visualViewport;
+  if (vv && vv.scale > 1.01) return;
+  if (scrollX || scrollY || vv?.offsetTop || vv?.offsetLeft) scrollTo(0, 0);
+}
+addEventListener('scroll', unshiftTrip);
+window.visualViewport?.addEventListener('resize', unshiftTrip);
+window.visualViewport?.addEventListener('scroll', unshiftTrip);
+document.addEventListener('focusout', () => requestAnimationFrame(unshiftTrip));
 addEventListener('resize', () => {
   $sheets.classList.toggle('wt-modal-root--side', isWide());
   if (!$app.dataset.trip) return;
