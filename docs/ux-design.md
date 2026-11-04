@@ -110,6 +110,8 @@ The half list is about one row, its **focus**: the selected stop; or else the dr
 
 **Trip settings** holds the trip's name, the people on it, the share link, and **Delete trip**.
 
+**Account** (your picture on the trip list) holds your name, **Maps app** (Google Maps or Apple Maps, for every place and directions, on this device), and **Sign out**.
+
 ## The list
 
 ### A timeline
@@ -207,8 +209,8 @@ Every stop has a type, shown as its icon in the list, on its map pin, and in the
 - **Add stop.** One black button pinned to the bottom of the sheet, always reachable: it's the main action on the screen. A new stop starts two hours after the last stop of the day on screen.
 - **Selecting.** Tapping a stop in the list selects it instead of opening it, like tapping a drive shows its route: the row turns grey and its pin grows and is named on the map. If the pin is off the part of the map you can see, the map pans to it, keeping the zoom; a full-screen list goes back to half. Tapping the same row again keeps it selected, so a second tap never undoes the first, and in the half list nothing moves: the row is already in the middle, and the map pans only if you've moved the pin out of view. Tapping empty map, changing the day or pressing Esc clears it. (Tapping a stop used to open it straight away, so seeing where a stop is meant opening a form.)
 - **Edit stop.** While a stop is selected, the black button says **Edit stop**, and a small round **+** beside it still adds a stop, so adding is always one tap away. There's still only one black button.
-- **Maps.** Between them, while a stop is selected, a white **Maps** button opens the place in the phone's maps app: its photos, reviews and hours. A name alone doesn't say whether it's the right place or worth going, and this is how you find out, so it's beside Edit stop rather than inside the sheet. A stop you've just added is selected, so it's there to check the moment you save. Waythread doesn't show photos or descriptions itself: hotels and restaurants, most of a trip, aren't covered by free sources, and the plan stays the focus.
-  - **The same app as Directions:** Apple Maps on iPhone and iPad, Google Maps everywhere else, so a place and the way there never open in two different apps. A web page can't ask which maps app is the default. Android's `geo:` links open it, but only for a place, not directions, so they'd split the two again.
+- **Maps.** Between them, while a stop is selected, a white **Maps** button opens the place in your maps app: its photos, reviews and hours. A name alone doesn't say whether it's the right place or worth going, and this is how you find out, so it's beside Edit stop rather than inside the sheet. A stop you've just added is selected, so it's there to check the moment you save. Waythread doesn't show photos or descriptions itself: hotels and restaurants, most of a trip, aren't covered by free sources, and the plan stays the focus.
+  - **The same app as Directions,** so a place and the way there never open in two different apps. It's **Google Maps** unless you pick **Apple Maps** under **Maps app** in Account (tap your picture on the trip list). A web page can't ask which maps app is the default, so it's a setting; Android's `geo:` links open the default, but only for a place, not directions, so they'd split the two. The setting is kept on the device, not the account, since which apps you have is up to the phone. (Choosing by device, Apple Maps on iPhone, was tried first; Google has the most photos and reviews, and some iPhone users live in Google Maps.)
   - It finds the place by name and address, which opens the place itself; coordinates alone would open only a dropped pin.
 - **Editing.** Tap Edit stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
 - **The map follows the edit.** The stop's pin shows the draft: picking a place from search moves the pin there, and the map goes with it; choosing a type changes the pin's icon. A new stop's pin appears once a place is picked. If the stop moves, its two drives fade until it's saved. You can pan and zoom the map while the sheet is open, and taps on the map don't change anything. Closing without saving puts the map back where it was.
@@ -262,7 +264,7 @@ The map zooms the way a phone's maps app does:
 
 ### Handing off navigation
 
-Tapping a drive turns the bottom button into Directions, which opens directions from one stop to the next in the phone's own maps app: **Apple Maps** on iPhone and iPad, **Google Maps** everywhere else. Waythread has no turn-by-turn directions, step lists, or navigation mode. Those are what the maps apps do best.
+Tapping a drive turns the bottom button into Directions, which opens directions from one stop to the next in your maps app: **Google Maps**, or **Apple Maps** if you picked it in Account. Waythread has no turn-by-turn directions, step lists, or navigation mode. Those are what the maps apps do best.
 
 ## Collaboration
 

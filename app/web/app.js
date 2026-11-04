@@ -346,20 +346,28 @@ function dropBackgroundRoutes() {
   }
   bgRouteFailed.clear();
 }
-// Directions open in the phone's own maps app: Apple Maps on iOS, Google Maps everywhere else.
-const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+// Directions and places open in one maps app, the one you pick in Account: Google Maps unless you choose Apple Maps.
+// A web page can't ask which maps app is the default, so it's a setting. It's kept on this device, not the account,
+// since which apps you have is up to the phone.
+const MAPS_KEY = 'waythread:maps';
+const MAPS_APPS = { google: 'Google Maps', apple: 'Apple Maps' };
+let mapsApp = 'google';
+try { if (localStorage.getItem(MAPS_KEY) === 'apple') mapsApp = 'apple'; } catch {}
+function setMapsApp(app) {
+  mapsApp = app;
+  try { localStorage.setItem(MAPS_KEY, app); } catch {}
+}
 function directionsURL(from, to) {
-  return IS_APPLE
+  return mapsApp === 'apple'
     ? `https://maps.apple.com/?saddr=${from.lat},${from.lng}&daddr=${to.lat},${to.lng}&dirflg=d`
     : `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}&travelmode=driving`;
 }
-// A place in the same maps app as Directions, to see that it's the right one and whether it's worth going: photos,
-// reviews, hours. Found by name and address, which opens the place itself (Apple Maps searches near its coordinates);
-// coordinates alone would open only a dropped pin. (Android's geo: links open the default maps app, but can't give
-// directions, so the two would open different apps; Google is the default there for most people anyway.)
+// A place, to see that it's the right one and whether it's worth going: photos, reviews, hours. Found by name and
+// address, which opens the place itself (Apple Maps searches near its coordinates); coordinates alone would open
+// only a dropped pin.
 function placeURL(p) {
   const q = encodeURIComponent([p.name, p.address].filter(Boolean).join(', '));
-  return IS_APPLE ? `https://maps.apple.com/?q=${q}&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
+  return mapsApp === 'apple' ? `https://maps.apple.com/?q=${q}&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
 
 // ---------- Trips ----------
@@ -2019,6 +2027,10 @@ function openAccount() {
       <label class="wt-field"><span class="wt-field__label">Your name${me.isGuest ? ' (guest)' : ''}</span>
         <input class="wt-input" name="name" autocomplete="name" maxlength="40" required></label>
     </form>
+    <div class="wt-field"><span class="wt-field__label" id="maps-label">Maps app</span>
+      <ul class="wt-options account-maps" role="radiogroup" aria-labelledby="maps-label">${Object.entries(MAPS_APPS).map(([k, label]) =>
+        `<li><button type="button" class="wt-option" role="radio" aria-checked="${k === mapsApp}" data-maps="${k}"><span class="wt-option__label">${label}</span>${ICON.check}</button></li>`).join('')}</ul>
+      <p class="wt-modal__text account-maps__hint">Places and directions open here. Saved on this device.</p></div>
     ${upgrade ? `<h3 class="account-keep">Keep your trips</h3>
     <p class="wt-modal__text">As a guest, you can only reach your trips from this browser. Sign in to keep them on any device.</p>
     <div class="signin"></div>` : ''}
@@ -2038,6 +2050,13 @@ function openAccount() {
     };
     f.onsubmit = e => { e.preventDefault(); f.elements.name.blur(); };
     f.elements.name.addEventListener('change', saveName);
+    el.querySelector('.account-maps').addEventListener('click', e => {
+      const b = e.target.closest('[data-maps]');
+      if (!b || b.dataset.maps === mapsApp) return;
+      setMapsApp(b.dataset.maps);
+      for (const o of el.querySelectorAll('[data-maps]')) o.setAttribute('aria-checked', o === b);
+      toast(`Opens in ${MAPS_APPS[mapsApp]}`);
+    });
     if (upgrade) authFlow(el.querySelector('.signin'));
   });
 }

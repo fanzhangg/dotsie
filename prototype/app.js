@@ -263,20 +263,29 @@ async function fetchRoute(a, b, k) {
   pending.delete(k);
   scheduleRender();
 }
-// Directions open in the phone's own maps app: Apple Maps on iOS, Google Maps everywhere else.
-const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+// Directions and places open in one maps app, the one picked in the app's Account: Google Maps unless
+// you choose Apple Maps. The prototype has no Account, so here it's Google Maps unless waythread:maps is 'apple' in this browser.
+// A web page can't ask which maps app is the default, so it's a setting. It's kept on this device, not the account,
+// since which apps you have is up to the phone.
+const MAPS_KEY = 'waythread:maps';
+const MAPS_APPS = { google: 'Google Maps', apple: 'Apple Maps' };
+let mapsApp = 'google';
+try { if (localStorage.getItem(MAPS_KEY) === 'apple') mapsApp = 'apple'; } catch {}
+function setMapsApp(app) {
+  mapsApp = app;
+  try { localStorage.setItem(MAPS_KEY, app); } catch {}
+}
 function directionsURL(from, to) {
-  return IS_APPLE
+  return mapsApp === 'apple'
     ? `https://maps.apple.com/?saddr=${from.lat},${from.lng}&daddr=${to.lat},${to.lng}&dirflg=d`
     : `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}&travelmode=driving`;
 }
-// A place in the same maps app as Directions, to see that it's the right one and whether it's worth going: photos,
-// reviews, hours. Found by name and address, which opens the place itself (Apple Maps searches near its coordinates);
-// coordinates alone would open only a dropped pin. (Android's geo: links open the default maps app, but can't give
-// directions, so the two would open different apps; Google is the default there for most people anyway.)
+// A place, to see that it's the right one and whether it's worth going: photos, reviews, hours. Found by name and
+// address, which opens the place itself (Apple Maps searches near its coordinates); coordinates alone would open
+// only a dropped pin.
 function placeURL(p) {
   const q = encodeURIComponent([p.name, p.address].filter(Boolean).join(', '));
-  return IS_APPLE ? `https://maps.apple.com/?q=${q}&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
+  return mapsApp === 'apple' ? `https://maps.apple.com/?q=${q}&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
 
 // ---------- Sync between tabs ----------
