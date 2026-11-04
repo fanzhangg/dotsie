@@ -48,8 +48,8 @@ With a stop selected, the bottom button becomes `[██████ ✎ Edit st
 **The header** is one row: **home** (back to the trip list), the **trip's name**, and **trip settings**. On a phone it's a card floating over the top of the map, like the from/to card in Google Maps' directions, and the map runs under it. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings.
 
 **The sheet** is white and, on a phone, has three heights, following Google Maps' directions sheet:
-- **Peek:** just the day bar and **Add stop**, so the map has the screen, the way Google keeps the route summary and Start. The day bar's arrows still step through the days, and the map follows.
-- **Half** the screen: the default.
+- **Peek:** just the day bar, so the map has the screen. The day bar's arrows still step through the days, and the map follows. Add stop isn't shown here: alone under an empty-looking sheet, it read as if the day had no stops.
+- **Half** the screen: the default. On a short screen it grows (up to about 60%) so the list fits three stops and the drives between them: a selected stop, with the stops before and after it. Drive rows are compact for the same reason: the stops are what you read, the drives join them.
 - **The whole day:** the sheet fills the screen up to the header, and the header card docks, flat across the top, so the two read as one page. Home and settings stay in reach.
 - **It never hides.**
 
@@ -63,6 +63,8 @@ With a stop selected, the bottom button becomes `[██████ ✎ Edit st
 Why: the sheet used to have three heights reached by taps, and any tap on its top that missed a button pulled it down, so it was easy to hide the list by accident. Then it had two heights and a Map/List button in the header, which felt unlike any maps app. Dragging between three heights, the way Google Maps does it, gives a map view, a half view and the whole day, with nothing to mis-tap.
 
 - Anything that needs the list, like tapping a pin, opens the sheet to half. Showing a route from the whole day brings it down to half; from a peek, it stays a peek.
+- **The selected row sits in the middle of the list,** whether you tapped its pin or the row itself, so the stops before and after it are in view on both sides and one tap away. The same goes for a drive you tap. At the ends of the day the list can't scroll past its first or last row, so those stay near the edge.
+- **The list fades out at an edge with more of the day past it,** top or bottom, so it's clear there are stops you can't see.
 - The map zooms to fit the day's stops in what's left above the sheet and below the header. When the sheet changes height, the map re-fits for the new space, unless you've moved the map yourself.
 
 **On a computer or tablet** (768px wide and up), the header and the sheet become a side panel: the plan down the left, about a third of the window (360–440px), and the map filling the rest. There's nothing to drag: the header tops the panel, above the day bar. Opening a stop, a day list or settings covers the panel, so the map stays in view beside it, with the stop being edited in the middle.
