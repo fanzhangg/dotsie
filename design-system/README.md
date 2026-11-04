@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 6.5.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 6.6.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -31,7 +31,7 @@ Each principle comes with a rule you can check:
   | --- | --- | --- |
   | Red (`--wt-danger`) | Needs fixing | A drive that doesn't fit: its time, its car, "Arrives 13 min late". Destructive buttons. |
   | Black (`--wt-now`, `--wt-text-primary`) | Now, and what you read first | The row happening now: a black ring on its marker or a black car, and its time in primary ink. Stop names. The one primary button. |
-  | Type colors (`--wt-kind-*`) | What kind of place | Markers and pins only. All at the same lightness, so no type outranks another. |
+  | Type colors (`--wt-kind-*`) | What kind of place | Markers and pins only. One color per type, all about as light, so no type outranks another. |
   | Greys (`--wt-text-secondary`, `--wt-text-tertiary`) | Read next, then detail | Times and notes, then drives and detail. |
   | Light grey (`--wt-text-past`, `--wt-kind-past`) | Over | Past rows' text, markers and cars; past routes; muted pins. The color drains out of what's done. |
   | Blue (`--wt-route`, `--wt-text-link`) | Routes and links | Route lines on the map, links in notes. Never a highlight. |
@@ -124,7 +124,8 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-route`, `--wt-route-active`, `--wt-route-muted`, `--wt-route-done`, `--wt-route-casing` | Route lines: normal, selected, the others while one is selected, past (on today: the same grey as `--wt-kind-past`), and the outline under each line. |
 | `--wt-pin-fill` | The outline around a map pin. |
 | `--wt-pin-ring`, `--wt-pin-ring-muted`, `--wt-pin-ring-done` | Unused since 2.0.0, when pins became markers. Kept until the next major version. |
-| `--wt-kind-place`, `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight`, `--wt-kind-nature`, `--wt-kind-shop` | Stop types, one color per group: a plain place; airports and gas; hotels; restaurants and cafés; attractions, museums and viewpoints; nature; shopping. Only on markers, pins and the type picker. All at one lightness (OKLCH L .56 in light, .76 in dark) and similar chroma, so a type says what a place is and never that it matters more. None is blue or red, which are louder. |
+| `--wt-kind-place`, `--wt-kind-hotel`, `--wt-kind-airport`, `--wt-kind-gas`, `--wt-kind-restaurant`, `--wt-kind-cafe`, `--wt-kind-attraction`, `--wt-kind-viewpoint`, `--wt-kind-nature`, `--wt-kind-museum`, `--wt-kind-shopping` | Stop types, one color each, so no two types look alike (see [Marker](#marker-wt-marker)). Named for the type's key, so a stop's color is `--wt-kind-<kind>`. Only on markers, pins and the type picker. Each is as vivid as its hue allows (OKLCH chroma up to .21 in light, .18 in dark) at about one lightness (L .62 in light, .74 in dark), so markers are bright and colorful and a type says what a place is, never that it matters more. Café, gas, nature and airport sit a little deeper, to stay apart from their neighbors. L .62 is as light as a type can be with `--wt-marker-ink` still at 3:1. None is blue or red. Place stays a neutral. |
+| `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight`, `--wt-kind-shop` | Unused since 6.6.0, when each type got its own color. Each is now its group's first type (airport, hotel, restaurant, attraction, shopping). Kept until the next major version. |
 | `--wt-kind-drive` | The car marker on a drive in the timeline: grey, and quieter than any stop type. |
 | `--wt-kind-drive-current` | The car on the selected drive: a darker grey, never blue. |
 | `--wt-kind-past` | Markers, cars and muted pins of what's over: light grey. |
@@ -299,7 +300,7 @@ Labels are verbs that say exactly what happens.
 </div>
 <div class="wt-results" id="place-results" role="listbox" aria-label="Places">
   <div class="wt-option" role="option" id="opt-0" aria-selected="true">
-    <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
+    <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-hotel)">${icon('bed')}</i>
     <span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Inn</span>
       <span class="wt-option__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span></div>
   <!-- one per result; or, when there's nothing to pick -->
@@ -323,22 +324,28 @@ Labels are verbs that say exactly what happens.
 A stop's type icon on its type's color, shaded from that color (lighter at the top, darker at the bottom, the same hue throughout), so it reads as a solid, tappable object like a maps app's marker. The same marker sits on the timeline's rail, in the day list, in the Type picker and in place search. On the map, a stop's [pin](#map-pin-wt-pin) has the same color but carries its number instead of the icon.
 
 ```html
-<i class="wt-marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)">${icon('utensils')}</i>
-<i class="wt-marker wt-marker--sm" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)">${icon('utensils')}</i>
+<i class="wt-marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)">${icon('utensils')}</i>
+<i class="wt-marker wt-marker--sm" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)">${icon('utensils')}</i>
 ```
 
-| Type | Icon | Color |
-| --- | --- | --- |
-| Place | `pin` | `--wt-kind-place` |
-| Airport, gas | `plane`, `fuel` | `--wt-kind-travel` |
-| Hotel | `bed` | `--wt-kind-stay` |
-| Restaurant, café | `utensils`, `cup` | `--wt-kind-food` |
-| Attraction, museum, viewpoint | `star`, `museum`, `camera` | `--wt-kind-sight` |
-| Nature | `tree` | `--wt-kind-nature` |
-| Shopping | `bag` | `--wt-kind-shop` |
+Every type has its own color, so no two look alike. The colors follow maps apps where they can; where those use blue (airports, gas), Waythread uses the nearest hue that isn't the route's.
 
-- Set `--wt-kind-color` on the marker or on a parent. Without one, the marker is grey.
-- The colors share one lightness, so no type looks more important than another; what matters more (a late drive, now) is louder than any of them.
+| Type | Icon | Color | Light / dark |
+| --- | --- | --- | --- |
+| Place | `pin` | `--wt-kind-place`: grey | `#78746d` / `#b4b0aa` |
+| Hotel | `bed` | `--wt-kind-hotel`: purple | `#b24acf` / `#d785ef` |
+| Airport | `plane` | `--wt-kind-airport`: indigo | `#7250e2` / `#8c80ee` |
+| Gas | `fuel` | `--wt-kind-gas`: petrol | `#0a6783` / `#3292b3` |
+| Restaurant | `utensils` | `--wt-kind-restaurant`: orange | `#d65b0f` / `#fd862e` |
+| Café | `cup` | `--wt-kind-cafe`: coffee brown | `#89552a` / `#aa7b54` |
+| Attraction | `star` | `--wt-kind-attraction`: teal | `#139996` / `#1ed1cd` |
+| Viewpoint | `camera` | `--wt-kind-viewpoint`: lime | `#789310` / `#b6dd1e` |
+| Nature | `tree` | `--wt-kind-nature`: green | `#0e844c` / `#17b55f` |
+| Museum | `museum` | `--wt-kind-museum`: pink | `#df3c8c` / `#f96da4` |
+| Shopping | `bag` | `--wt-kind-shopping`: yellow | `#a98410` / `#edbe1c` |
+
+- Set `--wt-kind-color` on the marker or on a parent, to `var(--wt-kind-<kind>)`. Without one, the marker is grey.
+- The colors are about as light as each other, so no type looks more important than another; what matters more (a late drive, now) is louder than any of them.
 - `--sm` (20px) is for the day list. The default is 30px.
 - The `aria-label` names the type, so color is never the only signal.
 
@@ -348,7 +355,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 
 ```html
 <div class="wt-tl">
-  <div class="wt-tl-stop" tabindex="0" role="button" aria-pressed="false" style="--wt-kind-color: var(--wt-kind-food)">
+  <div class="wt-tl-stop" tabindex="0" role="button" aria-pressed="false" style="--wt-kind-color: var(--wt-kind-restaurant)">
     <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant">${icon('utensils')}</i></span>
     <span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span>
     <span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span>
@@ -453,7 +460,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 ```html
 <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
   <button class="wt-picker" aria-describedby="kind-label">
-    <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
+    <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-hotel)">${icon('bed')}</i>
     <span class="wt-picker__value">Hotel</span>${icon('forward', 18)}
   </button>
 </div>
@@ -465,7 +472,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 </div>
 <ul class="wt-options" role="radiogroup" aria-label="Type">
   <li><button class="wt-option" role="radio" aria-checked="true">
-    <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)">${icon('bed')}</i>
+    <i class="wt-marker" style="--wt-kind-color: var(--wt-kind-hotel)">${icon('bed')}</i>
     <span class="wt-option__text"><span class="wt-option__label">Hotel</span>
       <span class="wt-option__detail">Check-in and check-out</span></span>${icon('check', 18)}</button></li>
   <li class="wt-options__sep" role="presentation"></li>   <!-- between sections -->
@@ -644,12 +651,12 @@ The name and dates only: enough to pick a trip.
 ### Map pin `.wt-pin`
 
 ```html
-<div class="wt-pin wt-pin--selected" role="img" aria-label="3. White Sands Visitor Center, Attraction" style="--wt-kind-color: var(--wt-kind-sight)">
+<div class="wt-pin wt-pin--selected" role="img" aria-label="3. White Sands Visitor Center, Attraction" style="--wt-kind-color: var(--wt-kind-attraction)">
   <svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><path d="M15 1.5C7.8 1.5 2 7.2 2 14.3c0 5 2.5 8.9 5.5 12.2 2.9 3.2 5.9 6 6.8 10.7.1.5.4.8.7.8s.6-.3.7-.8c.9-4.7 3.9-7.5 6.8-10.7 3-3.3 5.5-7.2 5.5-12.2C28 7.2 22.2 1.5 15 1.5z"/></svg>
   <b class="wt-pin__num">3</b>
 </div>
 <!-- a place that isn't a numbered stop: the hotel at either end of a day, or the day before's last stop -->
-<div class="wt-pin" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="--wt-kind-color: var(--wt-kind-stay)">
+<div class="wt-pin" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="--wt-kind-color: var(--wt-kind-hotel)">
   <svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><path d="…"/></svg>
   <i class="wt-pin__dot"></i>
 </div>
@@ -733,6 +740,15 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 6.6.0
+
+Types shared a color with their group (a café looked like a restaurant, a museum like a viewpoint), and the colors were muted: dark and greyish in light, pastel in dark. Now each of the eleven types has a bright color of its own (tokens 1.10.0).
+
+- New: `--wt-kind-hotel`, `--wt-kind-airport`, `--wt-kind-gas`, `--wt-kind-restaurant`, `--wt-kind-cafe`, `--wt-kind-attraction`, `--wt-kind-viewpoint`, `--wt-kind-museum` and `--wt-kind-shopping`, one per type, named for its key. `--wt-kind-place` and `--wt-kind-nature` keep their names. See the table under [Marker](#marker-wt-marker).
+- The colors follow maps apps: food orange, coffee brown, hotels purple, nature green, shopping yellow, museums pink. Airports and gas, blue in maps apps, are indigo and petrol, since blue is the route's. Nothing is red.
+- Each is as vivid as its hue allows at about one lightness (OKLCH L .62, chroma up to .21; in dark L .74, chroma up to .18). Café, gas, nature and airport sit a little deeper, so the eleven stay apart. `--wt-marker-ink` still meets 3:1 on every one.
+- `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight` and `--wt-kind-shop` are unused. Each now points at its group's first type; they stay until the next major version. Nothing was renamed or removed.
 
 ### Changed in 6.5.0
 

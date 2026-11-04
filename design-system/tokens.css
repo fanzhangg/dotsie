@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.9.0
+/* Waythread design system — tokens v1.10.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -121,16 +121,29 @@
   --wt-highlight: #fff1b8;                          /* a co-editor's change, flashed once */
   --wt-now: var(--wt-color-gray-950);               /* the ring on the stop you're at, the car on the drive you're on: the blackest ink */
 
-  /* Stop types: one color per group, on markers and pins. Every type has the same lightness and nearly the same
-     chroma (OKLCH L .56, C .11-.15), so color says what kind of place it is and never that one matters more.
-     Hues keep clear of blue (routes) and red (doesn't fit), which are louder than any type. */
+  /* Stop types: a color of its own for each of the eleven types, on markers and pins, so no two types look alike.
+     The colors follow maps apps where they can: food orange, coffee brown, hotels purple, nature green, shopping
+     yellow, museums pink. Airports and gas, blue in maps apps, are indigo and petrol, because blue is the route's;
+     nothing is red, which means doesn't fit. Each is as vivid as its hue allows (OKLCH C up to .21; .18 in dark) at
+     about one lightness (L .62; .74 in dark), so no type outranks another; brown, petrol, green and indigo sit a little
+     deeper to stay apart from their neighbors. --wt-marker-ink meets 3:1 on every one. Place stays a neutral. */
   --wt-kind-place: #78746d;
-  --wt-kind-travel: #00878e;
-  --wt-kind-stay: #835cbe;
-  --wt-kind-food: #b45c03;
-  --wt-kind-sight: #b94082;
-  --wt-kind-nature: #298a41;
-  --wt-kind-shop: #8b7300;
+  --wt-kind-hotel: #b24acf;
+  --wt-kind-airport: #7250e2;
+  --wt-kind-gas: #0a6783;
+  --wt-kind-restaurant: #d65b0f;
+  --wt-kind-cafe: #89552a;
+  --wt-kind-attraction: #139996;
+  --wt-kind-viewpoint: #789310;
+  --wt-kind-nature: #0e844c;
+  --wt-kind-museum: #df3c8c;
+  --wt-kind-shopping: #a98410;
+  /* Unused since 6.6.0, when each type got its own color: the old group colors, now the color of their first type. */
+  --wt-kind-travel: var(--wt-kind-airport);
+  --wt-kind-stay: var(--wt-kind-hotel);
+  --wt-kind-food: var(--wt-kind-restaurant);
+  --wt-kind-sight: var(--wt-kind-attraction);
+  --wt-kind-shop: var(--wt-kind-shopping);
   --wt-kind-drive: var(--wt-color-gray-450);        /* the car on a drive: quieter than any stop */
   --wt-kind-drive-current: var(--wt-color-gray-700); /* the car on the selected drive: a step darker */
   --wt-kind-past: var(--wt-color-gray-350);         /* markers, cars and pins of what's over: the color drains out */
@@ -206,12 +219,16 @@
     --wt-highlight: #4a3f12;
     --wt-now: var(--wt-color-gray-100);
     --wt-kind-place: #b4b0aa;
-    --wt-kind-travel: #5fc3c8;
-    --wt-kind-stay: #be9ef6;
-    --wt-kind-food: #eda253;
-    --wt-kind-sight: #e889ca;
-    --wt-kind-nature: #7ac686;
-    --wt-kind-shop: #c8bd6b;
+    --wt-kind-hotel: #d785ef;
+    --wt-kind-airport: #8c80ee;
+    --wt-kind-gas: #3292b3;
+    --wt-kind-restaurant: #fd862e;
+    --wt-kind-cafe: #aa7b54;
+    --wt-kind-attraction: #1ed1cd;
+    --wt-kind-viewpoint: #b6dd1e;
+    --wt-kind-nature: #17b55f;
+    --wt-kind-museum: #f96da4;
+    --wt-kind-shopping: #edbe1c;
     --wt-kind-drive: var(--wt-color-gray-500);
     --wt-kind-drive-current: var(--wt-color-gray-300);
     --wt-kind-past: var(--wt-color-gray-600);
@@ -267,12 +284,16 @@
   --wt-highlight: #4a3f12;
   --wt-now: var(--wt-color-gray-100);
   --wt-kind-place: #b4b0aa;
-  --wt-kind-travel: #5fc3c8;
-  --wt-kind-stay: #be9ef6;
-  --wt-kind-food: #eda253;
-  --wt-kind-sight: #e889ca;
-  --wt-kind-nature: #7ac686;
-  --wt-kind-shop: #c8bd6b;
+  --wt-kind-hotel: #d785ef;
+  --wt-kind-airport: #8c80ee;
+  --wt-kind-gas: #3292b3;
+  --wt-kind-restaurant: #fd862e;
+  --wt-kind-cafe: #aa7b54;
+  --wt-kind-attraction: #1ed1cd;
+  --wt-kind-viewpoint: #b6dd1e;
+  --wt-kind-nature: #17b55f;
+  --wt-kind-museum: #f96da4;
+  --wt-kind-shopping: #edbe1c;
   --wt-kind-drive: var(--wt-color-gray-500);
   --wt-kind-drive-current: var(--wt-color-gray-300);
   --wt-kind-past: var(--wt-color-gray-600);

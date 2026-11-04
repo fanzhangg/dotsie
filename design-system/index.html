@@ -242,7 +242,7 @@
         <tbody>
           <tr><td><b style="color: var(--wt-text-danger)">Red</b></td><td>Needs fixing</td><td>A drive that doesn't fit: its time, its car, <i>Arrives 13 min late</i>. Destructive buttons.</td></tr>
           <tr><td><b>Black</b></td><td>Now, and what you read first</td><td>The row happening now: a black ring on its marker or a black car, and its time in primary ink. Stop names. The one primary button.</td></tr>
-          <tr><td><b>Type colors</b></td><td>What kind of place</td><td>Markers and pins only. All the same lightness, so no type outranks another.</td></tr>
+          <tr><td><b>Type colors</b></td><td>What kind of place</td><td>Markers and pins only. One color per type, all about as light, so no type outranks another.</td></tr>
           <tr><td><b style="color: var(--wt-text-secondary)">Greys</b></td><td>Read next, then detail</td><td>Times and notes in secondary ink, drives and detail in tertiary.</td></tr>
           <tr><td><b style="color: var(--wt-text-past)">Light grey</b></td><td>Over</td><td>Past rows' text, markers and cars, past routes, muted pins. The color drains out of what's done.</td></tr>
           <tr><td><b style="color: var(--wt-text-link)">Blue</b></td><td>Routes and links</td><td>Route lines on the map, links in notes. Never a highlight.</td></tr>
@@ -368,8 +368,8 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <button type="button" class="wt-search-bar__cancel">Cancel</button>
           </div>
           <div class="wt-results" id="demo-results" role="listbox" aria-label="Places">
-            <div class="wt-option" role="option" aria-selected="true"><i class="wt-marker" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-stay)"><i data-icon="bed"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Inn</span><span class="wt-option__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span></div>
-            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Café" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="cup"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Coffee Company</span><span class="wt-option__detail">61738 29 Palms Hwy, Joshua Tree, CA</span></span></div>
+            <div class="wt-option" role="option" aria-selected="true"><i class="wt-marker" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-hotel)"><i data-icon="bed"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Inn</span><span class="wt-option__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span></div>
+            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Café" style="--wt-kind-color: var(--wt-kind-cafe)"><i data-icon="cup"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Coffee Company</span><span class="wt-option__detail">61738 29 Palms Hwy, Joshua Tree, CA</span></span></div>
             <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree National Park</span><span class="wt-option__detail">Twentynine Palms, CA</span></span></div>
           </div>
         </div>
@@ -385,7 +385,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet id="demo-type">
           <div class="demo-type-main">
             <div class="wt-field"><span class="wt-field__label" id="demo-kind-label">Type</span>
-              <button class="wt-picker" type="button" id="demo-picker" aria-describedby="demo-kind-label" style="--wt-kind-color: var(--wt-kind-stay)"><i class="wt-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i><span class="wt-picker__value">Hotel</span><i data-icon="forward" data-size="18"></i></button></div>
+              <button class="wt-picker" type="button" id="demo-picker" aria-describedby="demo-kind-label" style="--wt-kind-color: var(--wt-kind-hotel)"><i class="wt-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i><span class="wt-picker__value">Hotel</span><i data-icon="forward" data-size="18"></i></button></div>
             <label class="wt-field"><span class="wt-field__label">Check-in</span><input class="wt-input" id="demo-checkin" type="datetime-local" value="2026-11-20T15:00"></label>
             <div class="wt-field-row">
               <div class="wt-field wt-nights" id="demo-nights"><span class="wt-field__label">Nights</span>
@@ -399,24 +399,24 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <ul class="wt-options" role="radiogroup" aria-label="Type">
               <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Place" data-icon-name="pin" style="--wt-kind-color: var(--wt-kind-place)"><i class="wt-marker" role="img" aria-label="Place"><i data-icon="pin"></i></i><span class="wt-option__text"><span class="wt-option__label">Place</span></span><i data-icon="check" data-size="18"></i></button></li>
               <li class="wt-options__sep" role="presentation"></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="true" data-demo-kind="Hotel" data-icon-name="bed" style="--wt-kind-color: var(--wt-kind-stay)"><i class="wt-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i><span class="wt-option__text"><span class="wt-option__label">Hotel</span><span class="wt-option__detail">Check-in and check-out</span></span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Airport" data-icon-name="plane" style="--wt-kind-color: var(--wt-kind-travel)"><i class="wt-marker" role="img" aria-label="Airport"><i data-icon="plane"></i></i><span class="wt-option__text"><span class="wt-option__label">Airport</span></span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Gas" data-icon-name="fuel" style="--wt-kind-color: var(--wt-kind-travel)"><i class="wt-marker" role="img" aria-label="Gas"><i data-icon="fuel"></i></i><span class="wt-option__text"><span class="wt-option__label">Gas</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="true" data-demo-kind="Hotel" data-icon-name="bed" style="--wt-kind-color: var(--wt-kind-hotel)"><i class="wt-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i><span class="wt-option__text"><span class="wt-option__label">Hotel</span><span class="wt-option__detail">Check-in and check-out</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Airport" data-icon-name="plane" style="--wt-kind-color: var(--wt-kind-airport)"><i class="wt-marker" role="img" aria-label="Airport"><i data-icon="plane"></i></i><span class="wt-option__text"><span class="wt-option__label">Airport</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Gas" data-icon-name="fuel" style="--wt-kind-color: var(--wt-kind-gas)"><i class="wt-marker" role="img" aria-label="Gas"><i data-icon="fuel"></i></i><span class="wt-option__text"><span class="wt-option__label">Gas</span></span><i data-icon="check" data-size="18"></i></button></li>
               <li class="wt-options__sep" role="presentation"></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Restaurant" data-icon-name="utensils" style="--wt-kind-color: var(--wt-kind-food)"><i class="wt-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i><span class="wt-option__text"><span class="wt-option__label">Restaurant</span></span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Café" data-icon-name="cup" style="--wt-kind-color: var(--wt-kind-food)"><i class="wt-marker" role="img" aria-label="Café"><i data-icon="cup"></i></i><span class="wt-option__text"><span class="wt-option__label">Café</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Restaurant" data-icon-name="utensils" style="--wt-kind-color: var(--wt-kind-restaurant)"><i class="wt-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i><span class="wt-option__text"><span class="wt-option__label">Restaurant</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Café" data-icon-name="cup" style="--wt-kind-color: var(--wt-kind-cafe)"><i class="wt-marker" role="img" aria-label="Café"><i data-icon="cup"></i></i><span class="wt-option__text"><span class="wt-option__label">Café</span></span><i data-icon="check" data-size="18"></i></button></li>
               <li class="wt-options__sep" role="presentation"></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Attraction" data-icon-name="star" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Attraction"><i data-icon="star"></i></i><span class="wt-option__text"><span class="wt-option__label">Attraction</span></span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Viewpoint" data-icon-name="camera" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Viewpoint"><i data-icon="camera"></i></i><span class="wt-option__text"><span class="wt-option__label">Viewpoint</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Attraction" data-icon-name="star" style="--wt-kind-color: var(--wt-kind-attraction)"><i class="wt-marker" role="img" aria-label="Attraction"><i data-icon="star"></i></i><span class="wt-option__text"><span class="wt-option__label">Attraction</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Viewpoint" data-icon-name="camera" style="--wt-kind-color: var(--wt-kind-viewpoint)"><i class="wt-marker" role="img" aria-label="Viewpoint"><i data-icon="camera"></i></i><span class="wt-option__text"><span class="wt-option__label">Viewpoint</span></span><i data-icon="check" data-size="18"></i></button></li>
               <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Nature" data-icon-name="tree" style="--wt-kind-color: var(--wt-kind-nature)"><i class="wt-marker" role="img" aria-label="Nature"><i data-icon="tree"></i></i><span class="wt-option__text"><span class="wt-option__label">Nature</span></span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Museum" data-icon-name="museum" style="--wt-kind-color: var(--wt-kind-sight)"><i class="wt-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i><span class="wt-option__text"><span class="wt-option__label">Museum</span></span><i data-icon="check" data-size="18"></i></button></li>
-              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Shopping" data-icon-name="bag" style="--wt-kind-color: var(--wt-kind-shop)"><i class="wt-marker" role="img" aria-label="Shopping"><i data-icon="bag"></i></i><span class="wt-option__text"><span class="wt-option__label">Shopping</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Museum" data-icon-name="museum" style="--wt-kind-color: var(--wt-kind-museum)"><i class="wt-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i><span class="wt-option__text"><span class="wt-option__label">Museum</span></span><i data-icon="check" data-size="18"></i></button></li>
+              <li><button class="wt-option" type="button" role="radio" aria-checked="false" data-demo-kind="Shopping" data-icon-name="bag" style="--wt-kind-color: var(--wt-kind-shopping)"><i class="wt-marker" role="img" aria-label="Shopping"><i data-icon="bag"></i></i><span class="wt-option__text"><span class="wt-option__label">Shopping</span></span><i data-icon="check" data-size="18"></i></button></li>
             </ul>
           </div>
         </div>
         <details><summary>Markup</summary><pre><code>&lt;div class="wt-field"&gt;&lt;span class="wt-field__label" id="kind-label"&gt;Type&lt;/span&gt;
   &lt;button class="wt-picker" aria-describedby="kind-label"&gt;
-    &lt;i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)"&gt;${icon('bed')}&lt;/i&gt;
+    &lt;i class="wt-marker" style="--wt-kind-color: var(--wt-kind-hotel)"&gt;${icon('bed')}&lt;/i&gt;
     &lt;span class="wt-picker__value"&gt;Hotel&lt;/span&gt;${icon('forward', 18)}
   &lt;/button&gt;&lt;/div&gt;
 
@@ -425,7 +425,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
   &lt;button class="wt-icon-btn" aria-label="Back"&gt;${icon('back')}&lt;/button&gt;&lt;h2 class="wt-modal__title"&gt;Type&lt;/h2&gt;&lt;/div&gt;
 &lt;ul class="wt-options" role="radiogroup" aria-label="Type"&gt;
   &lt;li&gt;&lt;button class="wt-option" role="radio" aria-checked="true"&gt;
-    &lt;i class="wt-marker" style="--wt-kind-color: var(--wt-kind-stay)"&gt;${icon('bed')}&lt;/i&gt;
+    &lt;i class="wt-marker" style="--wt-kind-color: var(--wt-kind-hotel)"&gt;${icon('bed')}&lt;/i&gt;
     &lt;span class="wt-option__label"&gt;Hotel&lt;/span&gt;${icon('check', 18)}&lt;/button&gt;&lt;/li&gt;
   &lt;!-- one per type --&gt;
 &lt;/ul&gt;
@@ -455,7 +455,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       <div class="demo">
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
           <div class="wt-tl">
-            <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-sight)">
+            <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-attraction)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Attraction"><i data-icon="star"></i></i></span>
               <span class="wt-tl-name">White Sands Visitor Center</span>
               <span class="wt-tl-time"><span class="wt-tl-time__day">Yesterday</span></span>
@@ -465,7 +465,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>25 min</b> drive</span></span>
               <a class="wt-icon-btn wt-tl-drive__go" href="https://www.google.com/maps/dir/?api=1&amp;destination=32.8826,-105.9588&amp;travelmode=driving" target="_blank" rel="noopener" aria-label="Directions to New Mexico Museum of Space History in your maps app" title="Directions"><i data-icon="directions"></i></a>
             </div>
-            <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-sight)">
+            <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-museum)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span>
               <span class="wt-tl-name">New Mexico Museum of Space History</span>
               <span class="wt-tl-time">9:30<span class="wt-tl-meridiem">AM</span></span>
@@ -475,7 +475,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>34 min</b> drive</span></span>
               <a class="wt-icon-btn wt-tl-drive__go" href="https://www.google.com/maps/dir/?api=1&amp;destination=32.9573,-105.7425&amp;travelmode=driving" target="_blank" rel="noopener" aria-label="Directions to Cloudcroft in your maps app" title="Directions"><i data-icon="directions"></i></a>
             </div>
-            <button class="wt-tl-stop is-selected" type="button" style="--wt-kind-color: var(--wt-kind-food)">
+            <button class="wt-tl-stop is-selected" type="button" style="--wt-kind-color: var(--wt-kind-restaurant)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span>
               <span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span>
               <span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span>
@@ -498,7 +498,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>20 min</b> drive</span></span>
               <a class="wt-icon-btn wt-tl-drive__go" href="https://www.google.com/maps/dir/?api=1&amp;destination=32.8799,-105.9583&amp;travelmode=driving" target="_blank" rel="noopener" aria-label="Directions to Holiday Inn Express Alamogordo in your maps app" title="Directions"><i data-icon="directions"></i></a>
             </div>
-            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-stay)">
+            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-hotel)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span>
               <span class="wt-tl-name">Holiday Inn Express Alamogordo</span>
               <span class="wt-tl-time"></span>
@@ -523,11 +523,11 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       </div>
 
       <h3>Marker</h3>
-      <p class="intro">A stop's type icon on its type's color. The same marker sits on the rail, on the map pin and in the day list, so a stop reads the same everywhere. One color per group, all at the same lightness, so a type tells you what a place is and never that it matters more. None is blue (routes) or red (doesn't fit), which are louder.</p>
+      <p class="intro">A stop's type icon on its type's color. The same marker sits on the rail, on the map pin and in the day list, so a stop reads the same everywhere. Each type has its own color, following maps apps where it can, all about as light, so a type tells you what a place is and never that it matters more. None is blue (routes) or red (doesn't fit).</p>
       <div class="demo">
         <div class="demo__live" id="marker-row"></div>
-        <details><summary>Markup</summary><pre><code>&lt;i class="wt-marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"&gt;${icon('utensils')}&lt;/i&gt;
-&lt;i class="wt-marker wt-marker--sm" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"&gt;${icon('utensils')}&lt;/i&gt;</code></pre></details>
+        <details><summary>Markup</summary><pre><code>&lt;i class="wt-marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)"&gt;${icon('utensils')}&lt;/i&gt;
+&lt;i class="wt-marker wt-marker--sm" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)"&gt;${icon('utensils')}&lt;/i&gt;</code></pre></details>
       </div>
       <ul class="rules">
         <li>Set <code>--wt-kind-color</code> to a <code>--wt-kind-*</code> token, on the marker or on a parent. Without one, the marker is grey (<code>place</code>).</li>
@@ -541,23 +541,23 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
           <div class="wt-tl">
             <button class="wt-tl-day" type="button" aria-label="Fri, Nov 20. Open this day"><span class="wt-tl-day__name">Fri, Nov 20</span><i data-icon="forward"></i></button>
-            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-travel)">
+            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-airport)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Airport"><i data-icon="plane"></i></i></span>
               <span class="wt-tl-name">El Paso International Airport</span>
               <span class="wt-tl-time">10:30<span class="wt-tl-meridiem">AM</span></span>
             </button>
-            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-stay)">
+            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-hotel)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span>
               <span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-notes"><span class="wt-tl-note">2 nights</span></span>
               <span class="wt-tl-time">3:00<span class="wt-tl-meridiem">PM</span></span>
             </button>
             <button class="wt-tl-day" type="button" aria-label="Sat, Nov 21. Open this day"><span class="wt-tl-day__name">Sat, Nov 21</span><i data-icon="forward"></i></button>
-            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-sight)">
+            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-museum)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span>
               <span class="wt-tl-name">New Mexico Museum of Space History</span>
               <span class="wt-tl-time">9:30<span class="wt-tl-meridiem">AM</span></span>
             </button>
-            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-food)">
+            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-restaurant)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span>
               <span class="wt-tl-name">Cloudcroft</span>
               <span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span>
@@ -598,13 +598,13 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
                 </div>
               </div>
               <div class="wt-sheet__body wt-tl">
-                <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-stay)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
+                <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-hotel)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
                 <div class="wt-tl-drive is-past"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>10 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#sheet" aria-label="Directions to New Mexico Museum of Space History in your maps app"><i data-icon="directions"></i></a></div>
-                <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-sight)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span><span class="wt-tl-name">New Mexico Museum of Space History</span><span class="wt-tl-time">9:30<span class="wt-tl-meridiem">AM</span></span></button>
+                <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-museum)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span><span class="wt-tl-name">New Mexico Museum of Space History</span><span class="wt-tl-time">9:30<span class="wt-tl-meridiem">AM</span></span></button>
                 <div class="wt-tl-drive is-now"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>34 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#sheet" aria-label="Directions to Cloudcroft in your maps app"><i data-icon="directions"></i></a></div>
-                <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-food)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span><span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span><span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span></button>
+                <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-restaurant)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span><span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span><span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span></button>
                 <div class="wt-tl-drive"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>35 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#sheet" aria-label="Directions to Holiday Inn Express Alamogordo in your maps app"><i data-icon="directions"></i></a></div>
-                <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-stay)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
+                <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-hotel)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
               </div>
               <div class="wt-add-bar"><button class="wt-btn wt-btn--primary wt-btn--block" type="button"><i data-icon="plus"></i>Add stop</button></div>
             </section>
@@ -683,15 +683,15 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
           <ul class="wt-day-list">
             <li><button class="wt-day-list__item" type="button">
               <span class="wt-day-list__name">Fri, Nov 20</span>
-              <span class="wt-day-list__kinds"><i class="wt-marker wt-marker--sm" role="img" aria-label="Airport" style="--wt-kind-color: var(--wt-kind-travel)"><i data-icon="plane"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Attraction" style="--wt-kind-color: var(--wt-kind-sight)"><i data-icon="star"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-stay)"><i data-icon="bed"></i></i></span>
+              <span class="wt-day-list__kinds"><i class="wt-marker wt-marker--sm" role="img" aria-label="Airport" style="--wt-kind-color: var(--wt-kind-airport)"><i data-icon="plane"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Attraction" style="--wt-kind-color: var(--wt-kind-attraction)"><i data-icon="star"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-hotel)"><i data-icon="bed"></i></i></span>
             </button></li>
             <li><button class="wt-day-list__item" type="button" aria-current="date">
               <span class="wt-day-list__name">Today, Nov 21</span>
-              <span class="wt-day-list__kinds"><i class="wt-marker wt-marker--sm" role="img" aria-label="Museum" style="--wt-kind-color: var(--wt-kind-sight)"><i data-icon="museum"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="utensils"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-stay)"><i data-icon="bed"></i></i></span>
+              <span class="wt-day-list__kinds"><i class="wt-marker wt-marker--sm" role="img" aria-label="Museum" style="--wt-kind-color: var(--wt-kind-museum)"><i data-icon="museum"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)"><i data-icon="utensils"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-hotel)"><i data-icon="bed"></i></i></span>
             </button></li>
             <li><button class="wt-day-list__item" type="button">
               <span class="wt-day-list__name">Sun, Nov 22</span>
-              <span class="wt-day-list__kinds"><i class="wt-marker wt-marker--sm" role="img" aria-label="Café" style="--wt-kind-color: var(--wt-kind-food)"><i data-icon="cup"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Gas" style="--wt-kind-color: var(--wt-kind-travel)"><i data-icon="fuel"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Airport" style="--wt-kind-color: var(--wt-kind-travel)"><i data-icon="plane"></i></i></span>
+              <span class="wt-day-list__kinds"><i class="wt-marker wt-marker--sm" role="img" aria-label="Café" style="--wt-kind-color: var(--wt-kind-cafe)"><i data-icon="cup"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Gas" style="--wt-kind-color: var(--wt-kind-gas)"><i data-icon="fuel"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Airport" style="--wt-kind-color: var(--wt-kind-airport)"><i data-icon="plane"></i></i></span>
             </button></li>
           </ul>
         </div>
@@ -735,10 +735,10 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <text class="town" x="20" y="285">EL PASO</text><text class="town" x="380" y="190">ALAMOGORDO</text>
             </svg>
             <div class="pin-layer wt-pins">
-              <div class="wt-pin wt-pin--muted" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="left:10%; top:83.3%; --wt-kind-color: var(--wt-kind-stay)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><i class="wt-pin__dot"></i></div>
-              <div class="wt-pin wt-pin--muted" role="img" aria-label="1. New Mexico Museum of Space History, Museum" style="left:35%; top:46.7%; --wt-kind-color: var(--wt-kind-sight)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">1</b></div>
+              <div class="wt-pin wt-pin--muted" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="left:10%; top:83.3%; --wt-kind-color: var(--wt-kind-hotel)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><i class="wt-pin__dot"></i></div>
+              <div class="wt-pin wt-pin--muted" role="img" aria-label="1. New Mexico Museum of Space History, Museum" style="left:35%; top:46.7%; --wt-kind-color: var(--wt-kind-museum)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">1</b></div>
               <div class="wt-pin" role="img" aria-label="2. Oliver Lee State Park, Nature" style="left:66.7%; top:50%; --wt-kind-color: var(--wt-kind-nature)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">2</b></div>
-              <div class="wt-pin wt-pin--selected" role="img" aria-label="3. Cloudcroft, Restaurant" style="left:90%; top:23.3%; --wt-kind-color: var(--wt-kind-food)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">3</b></div>
+              <div class="wt-pin wt-pin--selected" role="img" aria-label="3. Cloudcroft, Restaurant" style="left:90%; top:23.3%; --wt-kind-color: var(--wt-kind-restaurant)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">3</b></div>
             </div>
           </div>
           <div class="stage" style="height: 300px; margin-top: var(--wt-space-3)">
@@ -749,14 +749,14 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <path class="casing" d="M400 150 C450 130 480 90 540 70"/><path class="route route--muted" d="M400 150 C450 130 480 90 540 70"/>
             </svg>
             <div class="pin-layer wt-pins">
-              <div class="wt-pin wt-pin--muted" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="left:10%; top:83.3%; --wt-kind-color: var(--wt-kind-stay)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><i class="wt-pin__dot"></i></div>
-              <div class="wt-pin wt-pin--selected" role="img" aria-label="1. New Mexico Museum of Space History, Museum" style="left:35%; top:46.7%; --wt-kind-color: var(--wt-kind-sight)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">1</b></div>
+              <div class="wt-pin wt-pin--muted" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="left:10%; top:83.3%; --wt-kind-color: var(--wt-kind-hotel)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><i class="wt-pin__dot"></i></div>
+              <div class="wt-pin wt-pin--selected" role="img" aria-label="1. New Mexico Museum of Space History, Museum" style="left:35%; top:46.7%; --wt-kind-color: var(--wt-kind-museum)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">1</b></div>
               <div class="wt-pin wt-pin--selected" role="img" aria-label="2. Oliver Lee State Park, Nature" style="left:66.7%; top:50%; --wt-kind-color: var(--wt-kind-nature)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">2</b></div>
-              <div class="wt-pin wt-pin--muted" role="img" aria-label="3. Cloudcroft, Restaurant" style="left:90%; top:23.3%; --wt-kind-color: var(--wt-kind-food)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">3</b></div>
+              <div class="wt-pin wt-pin--muted" role="img" aria-label="3. Cloudcroft, Restaurant" style="left:90%; top:23.3%; --wt-kind-color: var(--wt-kind-restaurant)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">3</b></div>
             </div>
           </div>
         </div>
-        <details><summary>Markup and script</summary><pre><code>&lt;div class="wt-pin wt-pin--selected" role="img" aria-label="3. Cloudcroft, Restaurant" style="--wt-kind-color: var(--wt-kind-food)"&gt;
+        <details><summary>Markup and script</summary><pre><code>&lt;div class="wt-pin wt-pin--selected" role="img" aria-label="3. Cloudcroft, Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)"&gt;
   &lt;svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"&gt;&lt;path d="M15 1.5C7.8 …z"/&gt;&lt;/svg&gt;
   &lt;b class="wt-pin__num"&gt;3&lt;/b&gt;   &lt;!-- or &lt;i class="wt-pin__dot"&gt;&lt;/i&gt; for the hotel at either end of a day --&gt;
 &lt;/div&gt;
@@ -849,9 +849,9 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
             <text class="town" x="40" y="225">ALAMOGORDO</text>
           </svg>
           <div class="pin-layer wt-pins">
-            <div class="wt-pin" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="left:16%; top:38.9%; --wt-kind-color: var(--wt-kind-stay)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><i class="wt-pin__dot"></i></div>
-            <div class="wt-pin wt-pin--muted" role="img" aria-label="1. New Mexico Museum of Space History, Museum" style="left:40%; top:23.6%; --wt-kind-color: var(--wt-kind-sight)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">1</b></div>
-            <div class="wt-pin" role="img" aria-label="2. Cloudcroft, Restaurant" style="left:77.3%; top:18.1%; --wt-kind-color: var(--wt-kind-food)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">2</b></div>
+            <div class="wt-pin" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="left:16%; top:38.9%; --wt-kind-color: var(--wt-kind-hotel)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><i class="wt-pin__dot"></i></div>
+            <div class="wt-pin wt-pin--muted" role="img" aria-label="1. New Mexico Museum of Space History, Museum" style="left:40%; top:23.6%; --wt-kind-color: var(--wt-kind-museum)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">1</b></div>
+            <div class="wt-pin" role="img" aria-label="2. Cloudcroft, Restaurant" style="left:77.3%; top:18.1%; --wt-kind-color: var(--wt-kind-restaurant)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">2</b></div>
             <div class="wt-pin" role="img" aria-label="3. Oliver Lee State Park, Nature" style="left:61.3%; top:31.9%; --wt-kind-color: var(--wt-kind-nature)"><svg class="wt-pin__shape" viewBox="0 0 30 39" aria-hidden="true"><use href="#pin-drop"/></svg><b class="wt-pin__num">3</b></div>
           </div>
           <header class="wt-trip-head">
@@ -868,15 +868,15 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
               </div>
             </div>
             <div class="wt-sheet__body wt-tl">
-              <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-stay)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
+              <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-hotel)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
               <div class="wt-tl-drive is-past"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>10 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#patterns" aria-label="Directions to New Mexico Museum of Space History in your maps app"><i data-icon="directions"></i></a></div>
-              <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-sight)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span><span class="wt-tl-name">New Mexico Museum of Space History</span><span class="wt-tl-time">9:30<span class="wt-tl-meridiem">AM</span></span></button>
+              <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-museum)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span><span class="wt-tl-name">New Mexico Museum of Space History</span><span class="wt-tl-time">9:30<span class="wt-tl-meridiem">AM</span></span></button>
               <div class="wt-tl-drive is-now"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>34 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#patterns" aria-label="Directions to Cloudcroft in your maps app"><i data-icon="directions"></i></a></div>
-              <button class="wt-tl-stop is-flash" type="button" id="flash-stop" style="--wt-kind-color: var(--wt-kind-food)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span><span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span><span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span></button>
+              <button class="wt-tl-stop is-flash" type="button" id="flash-stop" style="--wt-kind-color: var(--wt-kind-restaurant)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span><span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span><span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span></button>
               <div class="wt-tl-drive is-late"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>58 min</b> drive</span><span class="wt-tl-drive__late">Arrives 13 min late</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#patterns" aria-label="Directions to Oliver Lee Memorial State Park in your maps app"><i data-icon="directions"></i></a></div>
               <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-nature)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Nature"><i data-icon="tree"></i></i></span><span class="wt-tl-name">Oliver Lee Memorial State Park</span><span class="wt-tl-time">1:15<span class="wt-tl-meridiem">PM</span></span></button>
               <div class="wt-tl-drive"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>20 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#patterns" aria-label="Directions to Holiday Inn Express Alamogordo in your maps app"><i data-icon="directions"></i></a></div>
-              <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-stay)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
+              <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-hotel)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
             </div>
             <div class="wt-add-bar"><button class="wt-btn wt-btn--primary wt-btn--block" type="button"><i data-icon="plus"></i>Add stop</button></div>
           </section>
@@ -936,7 +936,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v6.5.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v6.6.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -1037,12 +1037,16 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ]],
     ['Stop types', [
       ['--wt-kind-place', 'A plain place.'],
-      ['--wt-kind-travel', 'Airports, gas.'],
-      ['--wt-kind-stay', 'Hotels.'],
-      ['--wt-kind-food', 'Restaurants, cafés.'],
-      ['--wt-kind-sight', 'Attractions, museums, viewpoints.'],
-      ['--wt-kind-nature', 'Parks, trails.'],
-      ['--wt-kind-shop', 'Shopping.'],
+      ['--wt-kind-hotel', 'Hotels. Purple.'],
+      ['--wt-kind-airport', 'Airports. Indigo: maps apps’ blue is the route’s.'],
+      ['--wt-kind-gas', 'Gas. Petrol, a deep teal.'],
+      ['--wt-kind-restaurant', 'Restaurants. Orange.'],
+      ['--wt-kind-cafe', 'Cafés. Coffee brown.'],
+      ['--wt-kind-attraction', 'Attractions. Teal.'],
+      ['--wt-kind-viewpoint', 'Viewpoints. Lime.'],
+      ['--wt-kind-nature', 'Parks, trails. Green.'],
+      ['--wt-kind-museum', 'Museums. Pink.'],
+      ['--wt-kind-shopping', 'Shopping. Yellow.'],
       ['--wt-kind-drive', 'The car marker on a drive.'],
       ['--wt-kind-drive-current', 'The car on the selected drive.'],
       ['--wt-kind-past', 'Markers, cars and pins of what’s over.'],
@@ -1080,11 +1084,11 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ['--wt-type-input', 'Search a place', 'Form fields'],
   ];
   const SPACE = [1, 2, 3, 4, 5, 6, 8, 10];
-  // Stop types: [color group, icon, label], as the prototype's KINDS lists them.
+  // Stop types: [key, icon, label], in the prototype's Type list order. Each has its own color, --wt-kind-<key>.
   const KINDS = [
-    ['place', 'pin', 'Place'], ['travel', 'plane', 'Airport'], ['travel', 'fuel', 'Gas'], ['stay', 'bed', 'Hotel'],
-    ['food', 'utensils', 'Restaurant'], ['food', 'cup', 'Café'], ['sight', 'star', 'Attraction'], ['sight', 'museum', 'Museum'],
-    ['sight', 'camera', 'Viewpoint'], ['nature', 'tree', 'Nature'], ['shop', 'bag', 'Shopping'],
+    ['place', 'pin', 'Place'], ['hotel', 'bed', 'Hotel'], ['airport', 'plane', 'Airport'], ['gas', 'fuel', 'Gas'],
+    ['restaurant', 'utensils', 'Restaurant'], ['cafe', 'cup', 'Café'], ['attraction', 'star', 'Attraction'], ['viewpoint', 'camera', 'Viewpoint'],
+    ['nature', 'tree', 'Nature'], ['museum', 'museum', 'Museum'], ['shopping', 'bag', 'Shopping'],
   ];
   const RADII = [['sm', 'Pin labels'], ['md', 'Cards, inputs, rows'], ['lg', 'Sheets'], ['pill', 'Buttons, toasts'], ['round', 'Avatars, markers']];
   const SIZES = [
@@ -1115,7 +1119,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ...[1, 2, 3, 4, 5, 6].map(n => ['--wt-identity-text', `--wt-identity-${n}`, 4.5]),
     ['--wt-route', '--wt-surface-map', 3],
     ['--wt-border-focus', '--wt-surface-raised', 3],
-    ...['place', 'travel', 'stay', 'food', 'sight', 'nature', 'shop'].map(k => ['--wt-marker-ink', `--wt-kind-${k}`, 3]),
+    ...KINDS.map(([k]) => ['--wt-marker-ink', `--wt-kind-${k}`, 3]),
     ['--wt-marker-ink', '--wt-kind-drive', 3],
     ['--wt-marker-ink', '--wt-kind-drive-current', 3],
     ['--wt-marker-ink', '--wt-route', 3],
@@ -1136,9 +1140,9 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     document.getElementById('shadow-scale').innerHTML = SHADOWS.map(([n, use]) => `
       <div class="tile"><div class="tile__shadow" style="box-shadow: var(--wt-shadow-${n})"></div><code>--wt-shadow-${n}</code><span>${use}</span></div>`).join('');
     document.getElementById('icon-grid').innerHTML = WaythreadIcons.names.map(n => `<div class="icon-cell">${WaythreadIcons.svg(n, 24)}<code>${n}</code></div>`).join('');
-    document.getElementById('marker-row').innerHTML = `<div class="marker-row">${KINDS.map(([group, icon, label]) => {
-      const m = sm => `<i class="wt-marker${sm ? ' wt-marker--sm' : ''}" role="img" aria-label="${label}" style="--wt-kind-color: var(--wt-kind-${group})">${WaythreadIcons.svg(icon, 16)}</i>`;
-      return `<div class="marker-cell"><div class="marker-cell__pair">${m(false)}${m(true)}</div><code>${icon}</code><span>${label} · ${group}</span></div>`;
+    document.getElementById('marker-row').innerHTML = `<div class="marker-row">${KINDS.map(([key, icon, label]) => {
+      const m = sm => `<i class="wt-marker${sm ? ' wt-marker--sm' : ''}" role="img" aria-label="${label}" style="--wt-kind-color: var(--wt-kind-${key})">${WaythreadIcons.svg(icon, 16)}</i>`;
+      return `<div class="marker-cell"><div class="marker-cell__pair">${m(false)}${m(true)}</div><code>${icon}</code><span>${label}</span></div>`;
     }).join('')}</div>`;
     document.getElementById('identity-row').innerHTML = [1, 2, 3, 4, 5, 6].map(n => `<span class="wt-avatar wt-avatar--lg" style="--wt-avatar-color: var(--wt-identity-${n})" title="--wt-identity-${n}">${'ASJMRK'[n - 1]}</span>`).join('');
   }
