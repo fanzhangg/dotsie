@@ -727,6 +727,7 @@ Say what can go here, in the user's words. No illustrations.
 
 ### Changed in 6.3.0
 
+- The `fit` icon is simpler (icons 1.2.1): just the four corners of a frame, without the route line inside.
 - `.wt-map-btn:disabled`: Whole day now stays on the map and is disabled, rather than hidden, while the map already shows the whole day. It keeps its solid background, greys its icon and has no hover or press state.
 - Nothing was renamed or removed.
 
