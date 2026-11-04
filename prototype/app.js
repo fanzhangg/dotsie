@@ -475,12 +475,28 @@ function dropBackgroundRoutes() {
   }
   bgRouteFailed.clear();
 }
-// Directions open in the phone's own maps app: Apple Maps on iOS, Google Maps everywhere else.
-const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+// Directions and places open in one maps app, the one you pick in Account: Google Maps unless you choose Apple Maps.
+// A web page can't ask which maps app is the default, so it's a setting. It's kept on this device, not the account,
+// since which apps you have is up to the phone.
+const MAPS_KEY = 'waythread:maps';
+const MAPS_APPS = { google: 'Google Maps', apple: 'Apple Maps' };
+let mapsApp = 'google';
+try { if (localStorage.getItem(MAPS_KEY) === 'apple') mapsApp = 'apple'; } catch {}
+function setMapsApp(app) {
+  mapsApp = app;
+  try { localStorage.setItem(MAPS_KEY, app); } catch {}
+}
 function directionsURL(from, to) {
-  return IS_APPLE
+  return mapsApp === 'apple'
     ? `https://maps.apple.com/?saddr=${from.lat},${from.lng}&daddr=${to.lat},${to.lng}&dirflg=d`
     : `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}&travelmode=driving`;
+}
+// A place, to see that it's the right one and whether it's worth going: photos, reviews, hours. Found by name and
+// address, which opens the place itself (Apple Maps searches near its coordinates); coordinates alone would open
+// only a dropped pin.
+function placeURL(p) {
+  const q = encodeURIComponent([p.name, p.address].filter(Boolean).join(', '));
+  return mapsApp === 'apple' ? `https://maps.apple.com/?q=${q}&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
 
 // ---------- Trips ----------
@@ -1159,16 +1175,31 @@ function driveItem(day, leg) {
     </div>`,
   };
 }
+// Links in a note can be tapped. Each shows only its site (booking.com), so a long link doesn't fill the row;
+// punctuation right after one ("see https://…).") stays text.
+const LINK_RE = /\bhttps?:\/\/[^\s<>"']+/gi;
+function noteHTML(text) {
+  let html = '', at = 0;
+  for (const m of text.matchAll(LINK_RE)) {
+    const url = m[0].replace(/[.,;:!?)\]}，。；：！？）】」』]+$/, '');
+    let site;
+    try { site = new URL(url).hostname.replace(/^www\./, ''); } catch { continue; }
+    html += `${esc(text.slice(at, m.index))}<a href="${esc(url)}" target="_blank" rel="noopener">${esc(site)}</a>`;
+    at = m.index + url.length;
+  }
+  return html + esc(text.slice(at));
+}
 // A stop row: marker · name · time, with its notes below across the name and time. A hotel on its check-in day says how many nights.
 // A row from another day than the one on screen can say which day in place of the time.
 // Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Edit stop. Tapping it again keeps it selected.
+// It's a div acting as a button, like a drive, since a link in its note can't sit inside a <button>.
 function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
   const notes = note.filter(Boolean);
-  return `<button class="wt-tl-stop${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${esc(s.id)}" data-row="${esc(key)}" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
+  return `<div class="wt-tl-stop${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${esc(s.id)}" data-row="${esc(key)}" tabindex="0" role="button" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
       <span class="wt-tl-rail">${markerHTML(s, 'wt-tl-marker')}</span>
-      <span class="wt-tl-name">${esc(s.name)}</span>${notes.length ? `<span class="wt-tl-notes">${notes.map(n => `<span class="wt-tl-note">${esc(n)}</span>`).join('')}</span>` : ''}
+      <span class="wt-tl-name">${esc(s.name)}</span>${notes.length ? `<span class="wt-tl-notes">${notes.map(n => `<span class="wt-tl-note">${noteHTML(n)}</span>`).join('')}</span>` : ''}
       <span class="wt-tl-time">${time ? timeHTML(time) : ''}${timeDay ? `<span class="wt-tl-time__day">${esc(timeDay)}</span>` : ''}</span>
-    </button>`;
+    </div>`;
 }
 // `note` false leaves out the stop's own note (the overview), keeping a hotel's nights.
 function stopItem(trip, s, { note = true } = {}) {
@@ -1192,14 +1223,14 @@ function fromItem(day, entry) {
 }
 // The selected stop, if it's still in the trip (a co-editor may have deleted it).
 const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.sel)) || null;
-// Below the list, always in reach: Add stop; with a stop selected, Edit stop; with a drive's route shown, Directions
-// to the drive's end in the maps app. Either way a small + beside it keeps adding one tap away.
+// Below the list, always in reach: Add stop; with a stop selected, Edit stop, and Maps (the place in the maps app) to see what the place is;
+// with a drive's route shown, Directions to the drive's end in the maps app. Either way a small + beside it keeps adding one tap away.
 function addBarHTML(trip) {
   const s = selectedStop(trip);
   const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
   if (leg) return `<a class="wt-btn wt-btn--primary wt-btn--block" href="${directionsURL(leg.from, leg.to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
   return s
-    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${esc(s.id)}">${ICON.edit}Edit stop</button><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
+    ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="edit" data-id="${esc(s.id)}">${ICON.edit}Edit stop</button><a class="wt-btn wt-btn--secondary" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="${esc(s.name)} in your maps app" title="See it in your maps app">${ICON.map}Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`
     : `<button class="wt-btn wt-btn--primary wt-btn--block" data-action="add">${ICON.plus}Add stop</button>`;
 }
 function renderAddBar(trip) {
@@ -1543,7 +1574,7 @@ for (const t of ['touchend', 'touchcancel']) document.addEventListener(t, () => 
 document.addEventListener('click', e => {
   if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
   // Peeking, the sheet is the day bar: its buttons work, and a tap anywhere else on it opens it to half.
-  if (state.snap === 'peek' && !isWide() && e.target.closest('.wt-sheet') && !e.target.closest('button, a')) { e.stopPropagation(); setSnap('half'); }
+  if (state.snap === 'peek' && !isWide() && e.target.closest('.wt-sheet') && !e.target.closest('button, a, .wt-tl-stop')) { e.stopPropagation(); setSnap('half'); }
 }, true);
 addEventListener('resize', () => {
   $sheets.classList.toggle('wt-modal-root--side', isWide());
@@ -1942,15 +1973,18 @@ function openSettings(trip) {
 // trips; everyone can sign out.
 function openAccount() {
   const upgrade = me.isGuest && canSignIn();
-  openSheet(`${modalHead('Account')}
+  openSheet(`<div class="account-main">${modalHead('Account')}
     <form class="account-name">
       <label class="wt-field"><span class="wt-field__label">Your name${me.isGuest ? ' (guest)' : ''}</span>
         <input class="wt-input" name="name" autocomplete="name" maxlength="40" required></label>
     </form>
+    <div class="wt-field"><span class="wt-field__label" id="maps-label">Maps app</span>
+      <button type="button" class="wt-picker wt-picker--text" data-maps-open aria-describedby="maps-label"></button></div>
     ${upgrade ? `<h3 class="account-keep">Keep your trips</h3>
     <p class="wt-modal__text">As a guest, you can only reach your trips from this browser. Sign in to keep them on any device.</p>
     <div class="signin"></div>` : ''}
-    <div class="wt-modal__actions"><button class="wt-btn wt-btn--danger" data-action="sign-out">Sign out</button></div>`, el => {
+    <div class="wt-modal__actions"><button class="wt-btn wt-btn--danger" data-action="sign-out">Sign out</button></div></div>
+    ${choicePageHTML('account-maps', 'Maps app', Object.entries(MAPS_APPS).map(([k, label]) => optionHTML(k, label)).join(''), 'Places and directions open in this app. Saved on this device.')}`, el => {
     const f = el.querySelector('.account-name');
     f.elements.name.value = me.name;
     // Saves when you leave the field or press Return; no separate button
@@ -1966,6 +2000,14 @@ function openAccount() {
     };
     f.onsubmit = e => { e.preventDefault(); f.elements.name.blur(); };
     f.elements.name.addEventListener('change', saveName);
+    // Maps app: the picker row, and its page
+    const mapsPicker = el.querySelector('[data-maps-open]');
+    const maps = choicePage(el, { main: el.querySelector('.account-main'), page: el.querySelector('.account-maps'), picker: mapsPicker, onPick: app => { setMapsApp(app); showMaps(); } });
+    const showMaps = () => {
+      mapsPicker.innerHTML = `<span class="wt-picker__value">${MAPS_APPS[mapsApp]}</span>${ICON.forward}`;
+      maps.mark(mapsApp);
+    };
+    showMaps();
     if (upgrade) authFlow(el.querySelector('.signin'));
   });
 }
@@ -1992,6 +2034,76 @@ function nearParam(trip) {
 const HOTEL_CHECK_IN = '15:00', HOTEL_CHECK_OUT = '11:00';
 const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
 
+// ---------- Choices: every pick from a list is a picker row that opens its options ----------
+// The row shows the current choice. On a phone, tapping it slides the sheet to the options, with Back in the head;
+// picking one applies it and slides back, and Back slides back with nothing changed. On a computer (768px and up)
+// the same options drop down under the row as a menu: one click to open, one to pick, Esc or a click outside to
+// close. A stop's Type and Account's Maps app both work this way, however few the options. See "Picker" in the
+// design system.
+const optionHTML = (value, label, { marker = '', detail = '' } = {}) =>
+  `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${ICON.check}</button></li>`;
+// `intro` is one line on what the choice affects, when the label alone doesn't say
+const choicePageHTML = (cls, title, options, intro = '') => `<div class="${cls}" hidden>
+      <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-choice-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">${esc(title)}</h2></div>
+      ${intro ? `<p class="wt-modal__text">${esc(intro)}</p>` : ''}
+      <ul class="wt-options" role="radiogroup" aria-label="${esc(title)}">${options}</ul>
+    </div>`;
+// Wires a picker to its options, inside `sheet`. On a phone the page takes `main`'s place while it's open, and the
+// sheet's scroll comes back on return. On a computer the page moves under the picker and shows as a menu (.wt-menu),
+// with the rest of the sheet still there. Focus goes to the checked option on the way in, and to the picker on the
+// way out. Returns mark(value), which checks the current option.
+const wideScreen = matchMedia(`(min-width: ${WIDE}px)`);
+function choicePage(sheet, { main, page, picker, onPick }) {
+  const home = page.parentElement, field = picker.parentElement;
+  let scrollBack = 0, menu = false;
+  picker.setAttribute('aria-haspopup', 'true');
+  picker.setAttribute('aria-expanded', 'false');
+  const outside = e => { if (!page.contains(e.target) && !picker.contains(e.target)) open(false, false); };
+  const open = (on, refocus = true) => {
+    if (on) {
+      menu = wideScreen.matches;
+      // The page lives beside `main` for a phone, and inside the field, under the picker, for a menu
+      if (menu) field.append(page); else home.append(page);
+      page.classList.toggle('wt-menu', menu);
+      if (menu) document.addEventListener('pointerdown', outside, true);
+      else { scrollBack = sheet.scrollTop; main.hidden = true; }
+    } else {
+      if (page.hidden) return;
+      if (menu) document.removeEventListener('pointerdown', outside, true);
+      else main.hidden = false;
+    }
+    page.hidden = !on;
+    picker.setAttribute('aria-expanded', on);
+    if (!menu) sheet.scrollTop = on ? 0 : scrollBack;
+    if (on) (page.querySelector('[aria-checked="true"]') || page.querySelector('[data-value]')).focus();
+    else if (refocus) picker.focus();
+  };
+  picker.addEventListener('click', () => open(page.hidden));
+  // A menu closes on Esc (without closing the sheet), or when focus leaves it
+  page.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && menu && !page.hidden) { e.stopPropagation(); open(false); }
+  });
+  page.addEventListener('focusout', e => {
+    if (menu && !page.hidden && e.relatedTarget && !page.contains(e.relatedTarget) && e.relatedTarget !== picker) open(false, false);
+  });
+  // ↑ ↓ move between options, as in any radio group
+  page.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const all = [...page.querySelectorAll('[data-value]')], i = all.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    all[(i + (e.key === 'ArrowDown' ? 1 : all.length - 1)) % all.length].focus();
+  });
+  page.addEventListener('click', e => {
+    if (e.target.closest('[data-choice-back]')) return open(false);
+    const b = e.target.closest('[data-value]');
+    if (!b) return;
+    onPick(b.dataset.value);
+    open(false);
+  });
+  return { mark: value => { for (const b of page.querySelectorAll('[data-value]')) b.setAttribute('aria-checked', b.dataset.value === value); } };
+}
+
 // The stop sheet is a panel: the map stays in view (above it on a phone, beside it on a wide screen) and shows
 // the stop as you edit it, at the place you picked, with the type you chose.
 // The first line is the place, a row like a calendar's Location: tapping it opens a search page, as in a maps app.
@@ -2008,7 +2120,7 @@ function openStopSheet(trip, stop) {
   state.draft = draft;
   $app.querySelector('.trip')?.classList.add('is-editing');
   render();
-  const option = k => `<li><button type="button" class="wt-option" role="radio" data-kind="${k}">${markerHTML({ kind: k }, '')}<span class="wt-option__text"><span class="wt-option__label">${KINDS[k].label}</span>${KIND_HINTS[k] ? `<span class="wt-option__detail">${KIND_HINTS[k]}</span>` : ''}</span>${ICON.check}</button></li>`;
+  const option = k => optionHTML(k, KINDS[k].label, { marker: markerHTML({ kind: k }, ''), detail: KIND_HINTS[k] });
   openSheet(`<div class="stop-main">${modalHead(stop ? 'Edit stop' : 'Add stop', true)}
     <form>
       <div class="wt-field"><span class="wt-field__label" id="place-label">Place</span>
@@ -2020,10 +2132,7 @@ function openStopSheet(trip, stop) {
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="2000" placeholder="Confirmation #, tickets, tips…"></textarea></label>
       <div class="wt-modal__actions wt-modal__actions--sticky">${stop ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${stop ? 'Save' : 'Add'}</button></div>
     </form></div>
-    <div class="stop-kinds" hidden>
-      <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-kind-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">Type</h2></div>
-      <ul class="wt-options" role="radiogroup" aria-label="Type">${KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>')}</ul>
-    </div>
+    ${choicePageHTML('stop-kinds', 'Type', KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>'))}
     <div class="stop-place" hidden>
       <div class="wt-search-bar">
         <label class="wt-input wt-input-group wt-search">${ICON.search}<input id="stop-place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="place-results" aria-label="Search a place" placeholder="Search a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="200"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden>${ICON.close}</button></label>
@@ -2042,33 +2151,9 @@ function openStopSheet(trip, stop) {
     // ----- Type: the picker row, and its page -----
     const showKind = () => {
       picker.innerHTML = `${markerHTML(draft, '')}<span class="wt-picker__value">${KINDS[draft.kind].label}</span>${ICON.forward}`;
-      for (const b of kindsPage.querySelectorAll('[data-kind]')) b.setAttribute('aria-checked', b.dataset.kind === draft.kind);
+      kinds.mark(draft.kind);
     };
-    let scrollBack = 0;
-    const showKinds = open => {
-      if (open) scrollBack = el.scrollTop;
-      main.hidden = open;
-      kindsPage.hidden = !open;
-      el.scrollTop = open ? 0 : scrollBack;
-      (open ? kindsPage.querySelector('[aria-checked="true"]') : picker).focus();
-    };
-    picker.addEventListener('click', () => showKinds(true));
-    // ↑ ↓ move between types, as in any radio group
-    kindsPage.addEventListener('keydown', e => {
-      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-      const all = [...kindsPage.querySelectorAll('[data-kind]')], i = all.indexOf(document.activeElement);
-      if (i < 0) return;
-      e.preventDefault();
-      all[(i + (e.key === 'ArrowDown' ? 1 : all.length - 1)) % all.length].focus();
-    });
-    kindsPage.addEventListener('click', e => {
-      if (e.target.closest('[data-kind-back]')) return showKinds(false);
-      const b = e.target.closest('[data-kind]');
-      if (!b) return;
-      chosen = true;
-      setKind(b.dataset.kind);
-      showKinds(false);
-    });
+    const kinds = choicePage(el, { main, page: kindsPage, picker, onPick: k => { chosen = true; setKind(k); } });
     function setKind(kind) {
       draft.kind = kind;
       // A new hotel starts at check-in time; anything else goes back to the usual default.
@@ -2316,7 +2401,7 @@ document.addEventListener('click', e => {
   switch (el.dataset.action) {
     case 'new-trip': openNewTrip(); break;
     case 'add': openStopSheet(trip); break;
-    case 'select': if (stop) selectStop(stop, el.dataset.row); break;
+    case 'select': if (stop && !e.target.closest('a')) selectStop(stop, el.dataset.row); break; // a link in its note opens on its own
     case 'edit': if (stop) openStopSheet(trip, stop); break;
     case 'settings': openSettings(trip); break;
     case 'prev-day': stepDay(-1); break;
@@ -2347,8 +2432,8 @@ document.addEventListener('keydown', e => {
     }
     closeSheet();
   }
-  // A drive row is focusable: Enter or Space shows its route, like a tap
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.wt-tl-drive')) { e.preventDefault(); e.target.click(); }
+  // Stop and drive rows are focusable: Enter or Space selects the stop or shows the drive's route, like a tap
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.wt-tl-stop, .wt-tl-drive')) { e.preventDefault(); e.target.click(); }
   // ← → change day on the trip screen, unless typing or a sheet is open
   if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && $app.dataset.trip && !$sheets.innerHTML && !e.target.closest('input, textarea')) stepDay(e.key === 'ArrowRight' ? 1 : -1);
 });

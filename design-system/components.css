@@ -1,4 +1,4 @@
-/* Waythread design system — components v4.8.1
+/* Waythread design system — components v4.9.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -187,6 +187,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-name { grid-column: 2; grid-row: 1; min-width: 0; padding: var(--wt-tl-pad) var(--wt-space-2) 0 0; font: var(--wt-type-name); line-height: 1.3; overflow-wrap: anywhere; }
 .wt-tl-notes { grid-column: 2 / -1; grid-row: 2; min-width: 0; display: grid; gap: 2px; padding: 3px var(--wt-space-3) 0 0; }
 .wt-tl-note { font: var(--wt-type-caption); line-height: 19px; color: var(--wt-text-secondary); white-space: pre-line; overflow-wrap: anywhere; }
+/* A link in a note: its site's name in blue, the one thing in the row that isn't the row's own tap. Regular weight:
+   the blue says it's a link (see the README's rule on weight) */
+.wt-tl-note a { color: var(--wt-text-link); text-decoration: none; }
 .wt-tl-time { grid-column: 3; grid-row: 1; padding: calc(var(--wt-tl-pad) + 1px) var(--wt-space-3) 0 0; text-align: right; white-space: nowrap; font: var(--wt-type-time); font-variant-numeric: tabular-nums; color: var(--wt-text-secondary); }
 .wt-tl-meridiem { font: var(--wt-type-micro); margin-left: 2px; color: var(--wt-text-tertiary); }
 .wt-tl-time__day { display: block; font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
@@ -297,8 +300,10 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-day-list__kinds { display: flex; gap: 3px; }
 
 /* ---------- Picker: a field that shows the current choice and opens the options on a page of their own ---------- */
-/* The stop sheet's Type: one row (marker · Hotel · ›) instead of a grid of every type. Tapping it slides the
-   sheet to the options, with a back button in the sheet's head (.wt-modal__head--sub); picking one comes back. */
+/* Every choice from a list is one: a stop's Type (marker · Hotel · ›), Account's Maps app (--text: Google Maps · ›).
+   On a phone, tapping it slides the sheet to the options, with a back button in the sheet's head (.wt-modal__head--sub);
+   picking one applies it and comes back. On a computer the options drop down as a menu (.wt-menu, below).
+   Never inline radios, selects or segmented controls between named choices. */
 .wt-picker {
   /* 7px + the 1px border puts the marker and the chevron on the options' columns, so the row and the page it opens line up. */
   display: flex; align-items: center; gap: var(--wt-space-3); width: 100%; min-height: 50px; padding: 9px calc(var(--wt-space-2) - 1px);
@@ -313,6 +318,26 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-picker__name, .wt-picker__detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wt-picker__detail { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-picker > .wt-icon:last-child { width: 18px; height: 18px; color: var(--wt-text-tertiary); }
+
+/* Menu: on a computer (768px and up), a picker's options drop down under it instead of taking over the sheet.
+   The options page itself becomes the menu: it moves into the field, under the picker, and gets .wt-menu. Its
+   Back head goes; a one-line intro stays, smaller. Rows are 36px, a mouse's size, not a finger's. */
+.wt-field:has(> .wt-menu) { position: relative; }
+.wt-menu {
+  position: absolute; z-index: 2; top: calc(100% + var(--wt-space-1)); left: 0; right: 0;
+  max-height: 360px; overflow-y: auto; padding: var(--wt-space-1);
+  background: var(--wt-surface-raised); border-radius: var(--wt-radius-md);
+  box-shadow: var(--wt-shadow-hairline), var(--wt-shadow-card);
+}
+.wt-menu[hidden] { display: none; }
+.wt-menu > .wt-modal__head { display: none; }
+.wt-menu > .wt-modal__text { margin: 0; padding: var(--wt-space-1) var(--wt-space-2) var(--wt-space-2); font: var(--wt-type-caption); }
+.wt-menu .wt-option { min-height: 36px; padding-top: 4px; padding-bottom: 4px; }
+.wt-menu .wt-option .wt-marker { transform: scale(.85); }
+/* A picker that drops a menu down points down there: its › turns to ⌄ (the Place row, which opens a search page, keeps ›) */
+@media (min-width: 768px) {
+  .wt-picker[aria-haspopup] > .wt-icon:last-child { transform: rotate(90deg); }
+}
 
 /* ---------- Option: one row for every choice in a list, a place to go as much as a type to be ---------- */
 /* marker · label over detail · check. Search results and the type list are both made of it, so a place and its
@@ -441,13 +466,15 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-sheet__body.is-more-above { --wt-fade-top: 24px; }
 .wt-sheet__body.is-more-below { --wt-fade-bottom: 24px; }
-/* The sheet's main action, below the list: Add stop, or, with a stop selected, Edit stop and a small round + beside it,
+/* The sheet's main action, below the list: Add stop, or, with a stop selected, Edit stop, Maps and a small round + beside it,
    so adding is always one tap away. Static, not sticky: a sticky bar pinned itself to the screen's bottom and covered a pulled-down sheet's top. */
 .wt-add-bar {
   flex: none; display: flex; gap: var(--wt-space-2);
   padding: var(--wt-space-3) var(--wt-space-3) calc(var(--wt-space-3) + env(safe-area-inset-bottom, 0px)); background: var(--wt-surface-raised);
 }
 .wt-add-bar .wt-btn--block { flex: 1; min-width: 0; }
+/* Beside the pill, a secondary button (Maps) is a pill too, and the round + stays round: one shape along the bar */
+.wt-add-bar .wt-btn--secondary { border-radius: var(--wt-radius-pill); }
 
 /* ---------- Map buttons: round icon buttons floating over the map. Whole day is one; .wt-map-bar (home and settings) is unused since 3.0.1 ---------- */
 .wt-map-bar {
