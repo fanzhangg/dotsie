@@ -49,12 +49,12 @@ With a stop selected, the bottom button becomes `[██████ ✎ Edit st
 
 **The sheet** is white and, on a phone, has three heights, following Google Maps' directions sheet:
 - **Peek:** just the day bar, so the map has the screen. The day bar's arrows still step through the days, and the map follows. Add stop isn't shown here: alone under an empty-looking sheet, it read as if the day had no stops.
-- **Half** the screen: the default. On a short screen it grows (up to about 60%) so the list fits three stops and the drives between them: a selected stop, with the stops before and after it. Drive rows are compact for the same reason: the stops are what you read, the drives join them.
+- **Half** the screen: the default. On a short screen it grows (up to about 60%) so the list fits three stops and the drives between them: a selected stop, with the stops before and after it. Drive rows are compact for the same reason: the stops are what you read, the drives join them. **The half list is about one row, kept in its middle** (see [The focused row](#the-focused-row)), and you can't scroll it by hand: a finger moves the sheet, and a wheel or trackpad does nothing. To browse the day, pull it up to the whole day, or tap a pin.
 - **The whole day:** the sheet fills the screen up to the header, and the header card docks, flat across the top, so the two read as one page. Home and settings stay in reach.
 - **It never hides.**
 
 **Moving the sheet is dragging,** as in Google Maps, from anywhere on it: the grab handle, the day bar, or the list.
-- Dragging the list up grows the sheet first; once it's the whole day, the list scrolls.
+- Dragging the list up grows the sheet; once it's the whole day, the list scrolls. Below the whole day it never scrolls by hand.
 - With the whole day showing, pulling the list down from its top shrinks the sheet.
 - A flick goes on to the next height its way; a slower drag settles at the nearest one.
 - **Taps:** tapping the grab handle goes from half to the whole day, and back to half from the other two. Peeking, a tap anywhere on the sheet but its buttons opens it to half. No other tap resizes the sheet, so a missed day-bar button can't hide the list.
@@ -62,8 +62,15 @@ With a stop selected, the bottom button becomes `[██████ ✎ Edit st
 
 Why: the sheet used to have three heights reached by taps, and any tap on its top that missed a button pulled it down, so it was easy to hide the list by accident. Then it had two heights and a Map/List button in the header, which felt unlike any maps app. Dragging between three heights, the way Google Maps does it, gives a map view, a half view and the whole day, with nothing to mis-tap.
 
-- Anything that needs the list, like tapping a pin, opens the sheet to half. Showing a route from the whole day brings it down to half; from a peek, it stays a peek.
-- **The selected row sits in the middle of the list,** whether you tapped its pin or the row itself, so the stops before and after it are in view on both sides and one tap away. The same goes for a drive you tap. At the ends of the day the list can't scroll past its first or last row, so those stay near the edge.
+- Anything that needs the list, like tapping a pin or a route, opens the sheet to half, from a peek or from the whole day.
+
+#### The focused row
+
+The half list is about one row, its **focus**: the selected stop; or else the drive whose route is on show; or else, on today, the row happening now. With none of these (another day, nothing selected), the list starts at the top.
+- **The focus sits in the middle of the half list,** so the rows before and after it are in view and one tap away. At the ends of the day the list can't scroll past its first or last row, so those stay near the edge. A stop taller than the list (a long note) shows from its top, so its name stays in view.
+- **It's put there whenever it changes or the sheet comes to half:** opening a day, tapping a stop, a pin, a drive or a route, clearing the selection (the focus falls back to the row happening now), saving or adding a stop (the stop you saved is selected, wherever its time put it), the row happening now moving on, a co-editor's change that moves it, coming to half from a peek or the whole day, and turning the phone. The whole day doesn't pull the list back while you scroll it; going back to half does.
+- **It moves once.** When the sheet changes height and the list has to scroll, both move together, in the same quarter second, so the row goes straight to the middle and never leaves the screen. (The list used to scroll after the sheet had settled, so a stop tapped on the whole day slid off the list and back.)
+- **Going down to a peek,** the list stays on the sheet as it slides down, and hides once it's there.
 - **The list fades out at an edge with more of the day past it,** top or bottom, so it's clear there are stops you can't see.
 - The map zooms to fit the day's stops in what's left above the sheet and below the header. When the sheet changes height, the map re-fits for the new space, unless you've moved the map yourself. Then **Whole day** (see [The map](#the-map)) brings the day back.
 

@@ -527,9 +527,11 @@ function render() {
   const topH = el.querySelector('.wt-sheet__top').offsetHeight;
   bar.innerHTML = dayBarHTML(trip);
   bar.hidden = !trip.stops.length;
-  renderList(trip);
+  const newDay = renderList(trip);
   renderAddBar(trip);
   if (!el.querySelector('.wt-sheet').style.height || topH !== el.querySelector('.wt-sheet__top').offsetHeight) applySnap();
+  // the focused row in the middle of the list: at once on a new day, or else moved there if the plan moved it
+  centerFocus(newDay ? { force: true, animate: false } : {});
   for (const id of state.flash) el.querySelector(`.wt-tl-stop[data-id="${id}"]`)?.classList.add('is-flash');
   state.flash.clear();
   drawMap(trip);
@@ -1277,15 +1279,11 @@ function renderList(trip) {
   const body = $app.querySelector('.wt-sheet__body'), day = currentDay(trip);
   body.innerHTML = listHTML(trip, day);
   updateFades();
-  if (body.dataset.day === day) return;
-  // a new day starts at the top, or, on today, at what's happening now, a little above center
+  if (body.dataset.day === day) return false;
+  // a new day starts at the top, or, on today, with what's happening now in the middle (render centers it)
   body.dataset.day = day;
   body.scrollTop = 0;
-  // after this render sizes the sheet, so the sheet's height is known
-  setTimeout(() => {
-    const row = body.querySelector('.is-now');
-    if (row) body.scrollTop += row.getBoundingClientRect().top - body.getBoundingClientRect().top - body.clientHeight / 3;
-  });
+  return true;
 }
 // Keep the highlight and the dimming current while the trip is open.
 setInterval(() => { if ($app.dataset.trip) scheduleRender(); }, 60000);
@@ -1335,6 +1333,7 @@ const isWide = () => ($app.querySelector('.trip')?.clientWidth || 0) >= WIDE;
 // screen), half (the default), and full (the whole day, docked under the header). It never hides.
 // You move it by dragging: the grab handle, the day bar, or the list itself. Dragging the list up grows the sheet
 // before the list scrolls; at full, pulling the list down from its top shrinks the sheet again.
+// At half the list doesn't scroll by hand at all: the app keeps its focused row in the middle (see centerFocus).
 const SNAPS = ['peek', 'half', 'full'];
 // Half is about half the screen, but tall enough for the list to show a stop with the stops before and after it
 // (three stops and the two drives between them), so a selected stop, centered, has its neighbors in view.
@@ -1347,29 +1346,37 @@ function snaps() {
   // under an empty sheet looked like a day with no stops
   const pad = parseFloat(getComputedStyle($app.querySelector('.wt-add-bar')).paddingBottom) || 0;
   const half = Math.min(Math.max(H * 0.48, chrome + HALF_LIST), H * HALF_MAX, H - headBottom());
-  return { peek: Math.round($app.querySelector('.wt-sheet__top').offsetHeight + pad), half: Math.round(half), full: H - headBottom() };
+  return { peek: Math.round($app.querySelector('.wt-sheet__top').offsetHeight + pad), half: Math.round(half), full: H - headBottom(), chrome };
 }
 const GRAB_LABEL = { peek: "Show the day's plan", half: 'Show the whole day', full: 'Show more of the map' };
-function applySnap() {
+// `animate`: slide to the new height (a new snap); otherwise it's placed there at once (a first render, a resize).
+function applySnap(animate = false) {
   const trip = $app.querySelector('.trip'), sheet = trip?.querySelector('.wt-sheet');
   if (!sheet) return;
   const wide = isWide(), h = wide ? 0 : snaps()[state.snap];
-  sheet.style.height = h ? `${h}px` : '';
+  if (wide) { stopMotion(); sheet.style.height = ''; setBottom(0); }
+  else if (animate) moveSheet({ h });
+  else { stopMotion(); setSheetHeight(h); }
   sheet.classList.toggle('is-full', !wide && state.snap === 'full');
   sheet.classList.toggle('is-peek', !wide && state.snap === 'peek');
   // The header floats over the map as a card; with the whole day showing, it docks and joins the list.
   trip.querySelector('.wt-trip-head').classList.toggle('is-docked', !wide && state.snap === 'full');
-  trip.style.setProperty('--bottom-h', `${h}px`);
   trip.querySelector('.wt-sheet__grab').setAttribute('aria-label', GRAB_LABEL[state.snap]);
   // the day's view depends on the room the list leaves; a re-frame (setSnap) puts the camera there again
   if (map) { dayShown = dayFramed(); updateFitBtn(); }
 }
 // A new height re-frames the map for what's left of it, unless you've moved the map yourself since.
-function setSnap(snap) {
+// `draw` false: the caller renders next, and that render frames the map, so it isn't drawn twice.
+// Arriving at half puts the focused row in the middle of the list, in the same movement as the sheet's.
+function setSnap(snap, draw = true) {
   const changed = state.snap !== snap;
   state.snap = snap;
-  applySnap();
-  if (changed && snap !== 'full') reframe();
+  applySnap(true);
+  if (changed && snap !== 'full') {
+    if (draw) reframe();
+    else if (!camFree && !state.draft) fitKey = '';
+  }
+  if (snap === 'half') centerFocus();
 }
 let camFree = false; // you've touched the map since it was last framed
 function reframe() {
@@ -1378,31 +1385,136 @@ function reframe() {
   fitKey = '';
   drawMap(trip);
 }
-const drag = { active: false, moved: false, list: null, mode: null, y0: 0, h0: 0, lastY: 0, lastT: 0, v: 0, suppressClick: false };
-function dragStart(y, list) {
-  const sheet = $app.querySelector('.wt-sheet');
-  Object.assign(drag, { active: true, moved: false, list, mode: list ? null : 'sheet', y0: y, h0: sheet.offsetHeight, lastY: y, lastT: performance.now(), v: 0 });
+
+// ---------- Sheet motion ----------
+// The sheet's height and the list's scroll move together, frame by frame, on one timeline (--wt-duration-base,
+// --wt-ease-out). A row being centered while the sheet changes height goes straight to the middle and never leaves
+// the list: both are the same blend of where they start and where they end. (The sheet used to slide by a CSS
+// transition and the list scrolled after it, so a row tapped on the whole day slid off the list and came back.)
+// A new target mid-way keeps the timeline: everything goes the rest of the way from where it is.
+function cubicBezier(x1, y1, x2, y2) {
+  const at = (a, b, u) => 3 * a * u * (1 - u) * (1 - u) + 3 * b * u * u * (1 - u) + u * u * u;
+  return t => {
+    if (t <= 0 || t >= 1) return Math.max(0, Math.min(1, t));
+    let lo = 0, hi = 1, u = t;
+    for (let i = 0; i < 24; i++) { u = (lo + hi) / 2; if (at(x1, x2, u) < t) lo = u; else hi = u; }
+    return at(y1, y2, u);
+  };
 }
-function dragMove(y) {
-  const now = performance.now(), dy = drag.y0 - y;
-  drag.v = (drag.lastY - y) / Math.max(1, now - drag.lastT); // px per ms, up is positive
-  drag.lastY = y;
-  drag.lastT = now;
-  if (!drag.moved && Math.abs(dy) < 6) return;
-  drag.moved = true;
-  const sheet = $app.querySelector('.wt-sheet'), s = snaps();
-  sheet.classList.add('is-dragging');
-  const h = Math.max(s.peek, Math.min(s.full, drag.h0 + dy));
+const sheetEase = cubicBezier(0.2, 0.8, 0.2, 1); // --wt-ease-out
+const motion = { raf: 0, t0: 0, dur: 0, base: 0, h0: 0, h1: null, s0: 0, s1: null };
+// What floats over the map (Whole day) rides with the sheet.
+const setBottom = h => $app.querySelector('.trip-fit')?.style.setProperty('--bottom-h', `${h}px`);
+function setSheetHeight(h) {
+  const sheet = $app.querySelector('.wt-sheet');
+  if (!sheet) return;
   sheet.style.height = `${h}px`;
-  $app.querySelector('.trip').style.setProperty('--bottom-h', `${h}px`); // what floats over the map rides with the sheet
+  setBottom(h);
+}
+function stopMotion() {
+  cancelAnimationFrame(motion.raf);
+  motion.raf = 0;
+}
+// Move the sheet to height `h` and/or the list to scroll position `s`; leave either out to keep where it's going.
+function moveSheet({ h, s }) {
+  const sheet = $app.querySelector('.wt-sheet'), body = sheet?.querySelector('.wt-sheet__body');
+  if (!sheet) return;
+  const now = performance.now();
+  let p = motion.raf && motion.dur ? (now - motion.t0) / motion.dur : 1;
+  if (p >= 1) { // a new movement
+    stopMotion();
+    Object.assign(motion, { t0: now, dur: parseFloat(token('--wt-duration-base')) || 0, h1: null, s1: null });
+    p = 0;
+  }
+  if (h !== undefined) motion.h1 = h;
+  if (s !== undefined) motion.s1 = s;
+  Object.assign(motion, { base: sheetEase(Math.max(0, p)), h0: sheet.offsetHeight, s0: body.scrollTop });
+  if (!motion.dur) { // reduced motion: straight there
+    if (motion.h1 != null) setSheetHeight(motion.h1);
+    if (motion.s1 != null) body.scrollTop = motion.s1;
+    return;
+  }
+  if (!motion.raf) motion.raf = requestAnimationFrame(motionFrame);
+}
+function motionFrame(now) {
+  const sheet = $app.querySelector('.wt-sheet'), body = sheet?.querySelector('.wt-sheet__body');
+  if (!sheet) { motion.raf = 0; return; }
+  const p = Math.max(0, Math.min(1, (now - motion.t0) / motion.dur));
+  const q = motion.base >= 1 ? 1 : Math.max(0, Math.min(1, (sheetEase(p) - motion.base) / (1 - motion.base)));
+  // height first, then the scroll, so the frame is laid out once
+  if (motion.h1 != null) setSheetHeight(motion.h0 + (motion.h1 - motion.h0) * q);
+  if (motion.s1 != null) body.scrollTop = motion.s0 + (motion.s1 - motion.s0) * q;
+  motion.raf = p < 1 ? requestAnimationFrame(motionFrame) : 0;
+}
+
+// ---------- The focused row ----------
+// The half list is about one row, its focus: the selected stop, or else the drive on show, or else, on today,
+// the row happening now. Whenever the sheet is at half (or peeking, ready for half), the focus sits in the middle
+// of the list, with the rows before and after it in view: on opening a day, selecting a stop or a drive, clearing it,
+// saving a stop, coming to half from peek or full, and when the plan changes under it. The list can't scroll past
+// its ends, so a first or last row stays near its edge; a row taller than the list shows from its top.
+// At full the list is yours to scroll; `force` centers it there too (a new day, a stop just saved), and on a wide screen.
+const FADE = 24; // the list's edge fades (.is-more-above, .is-more-below)
+function centerFocus({ force = false, animate = true } = {}) {
+  const sheet = $app.querySelector('.wt-sheet'), body = sheet?.querySelector('.wt-sheet__body');
+  if (!body || drag.moved) return;
+  const wide = isWide(), snap = state.snap;
+  if (!wide && !force && snap === 'full') return;
+  if (wide && !force) return;
+  const row = body.querySelector('.is-selected, .is-active') || body.querySelector('.is-now');
+  if (!row) return;
+  // the list's height once the sheet has settled; peeking, the half it opens to
+  const s = wide ? null : snaps();
+  const listH = wide ? body.clientHeight : s[snap === 'peek' ? 'half' : snap] - s.chrome;
+  const top = row.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop, h = row.offsetHeight;
+  const want = h > listH - 2 * FADE ? top - FADE : top + h / 2 - listH / 2;
+  const to = Math.round(Math.max(0, Math.min(want, body.scrollHeight - listH)));
+  if (!animate || (!wide && snap === 'peek')) {
+    if (motion.raf) motion.s1 = null; // a sheet movement under way carries on without scrolling
+    body.scrollTop = to;
+    return;
+  }
+  if (Math.abs(to - body.scrollTop) < 1 && (!motion.raf || motion.s1 == null)) return;
+  moveSheet({ s: to });
+}
+
+// ---------- Dragging the sheet ----------
+// The sheet follows the finger once a frame. The height range is measured once, when the drag starts.
+const drag = { active: false, moved: false, list: null, mode: null, y0: 0, h0: 0, y: 0, s: null, pts: [], frame: 0, suppressClick: false };
+function dragStart(y, list) {
+  cancelAnimationFrame(drag.frame);
+  Object.assign(drag, { active: true, moved: false, list, mode: list ? null : 'sheet', y0: y, y, h0: 0, s: null, pts: [], frame: 0 });
+}
+const dragHeight = () => Math.max(drag.s.peek, Math.min(drag.s.full, drag.h0 + drag.y0 - drag.y));
+function dragMove(y) {
+  const now = performance.now();
+  drag.pts.push([now, y]);
+  while (drag.pts.length > 2 && now - drag.pts[0][0] > 100) drag.pts.shift();
+  drag.y = y;
+  if (!drag.moved) {
+    if (Math.abs(drag.y0 - y) < 6) return;
+    // From here the sheet follows the finger: stop any movement under way and pick it up where it is.
+    const sheet = $app.querySelector('.wt-sheet');
+    stopMotion();
+    Object.assign(drag, { moved: true, h0: sheet.offsetHeight, y0: y, s: snaps() });
+    sheet.classList.add('is-dragging');
+  }
+  if (!drag.frame) drag.frame = requestAnimationFrame(() => { drag.frame = 0; if (drag.active) setSheetHeight(dragHeight()); });
 }
 function dragEnd() {
   drag.active = false;
+  cancelAnimationFrame(drag.frame);
+  drag.frame = 0;
   const sheet = $app.querySelector('.wt-sheet');
   if (!sheet || !drag.moved) return;
+  const s = drag.s, h = dragHeight();
+  setSheetHeight(h);
+  drag.moved = false;
   sheet.classList.remove('is-dragging');
+  // The finger's speed over its last 100ms (none if it rested before letting go), up is positive.
   // A flick goes on to the next height its way; a slower drag settles at the nearest one.
-  const s = snaps(), h = sheet.offsetHeight, v = performance.now() - drag.lastT > 100 ? 0 : drag.v;
+  const now = performance.now(), pts = drag.pts.filter(p => now - p[0] <= 100);
+  const v = pts.length > 1 ? (pts[0][1] - pts.at(-1)[1]) / Math.max(1, pts.at(-1)[0] - pts[0][0]) : 0;
   const snap = v > 0.4 ? SNAPS.find(k => s[k] > h + 1) || 'full'
     : v < -0.4 ? [...SNAPS].reverse().find(k => s[k] < h - 1) || 'peek'
       : SNAPS.reduce((a, k) => (Math.abs(s[k] - h) < Math.abs(s[a] - h) ? k : a));
@@ -1416,9 +1528,9 @@ document.addEventListener('pointerdown', e => {
   dragStart(e.clientY, null);
 });
 document.addEventListener('pointermove', e => { if (drag.active && !drag.list) dragMove(e.clientY); });
-document.addEventListener('pointerup', () => { if (drag.active && !drag.list) dragEnd(); });
-// The list, with a finger: below full it moves the sheet; at full, only a pull down from its top does,
-// and otherwise it scrolls as usual.
+for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () => { if (drag.active && !drag.list) dragEnd(); });
+// The list, with a finger: below full it moves the sheet (it can't scroll there); at full, only a pull down from
+// its top does, and otherwise it scrolls as usual.
 document.addEventListener('touchstart', e => {
   const list = e.target.closest?.('.wt-sheet__body');
   if (!list || e.touches.length > 1 || isWide()) return;
@@ -1428,8 +1540,11 @@ document.addEventListener('touchmove', e => {
   if (!drag.active || !drag.list) return;
   const y = e.touches[0].clientY, dy = drag.y0 - y;
   if (!drag.mode) {
+    const pullDown = state.snap === 'full' && dy < 0 && drag.list.scrollTop <= 0;
+    // claim a pull down from the top at once, before the browser starts its own scroll (and, on iPhone, its bounce)
+    if (pullDown && e.cancelable) e.preventDefault();
     if (Math.abs(dy) < 6) return;
-    drag.mode = state.snap !== 'full' || (dy < 0 && drag.list.scrollTop <= 0) ? 'sheet' : 'scroll';
+    drag.mode = state.snap !== 'full' || pullDown ? 'sheet' : 'scroll';
   }
   if (drag.mode !== 'sheet') return;
   if (e.cancelable) e.preventDefault();
@@ -1445,6 +1560,7 @@ addEventListener('resize', () => {
   $sheets.classList.toggle('wt-modal-root--side', isWide());
   if (!$app.dataset.trip) return;
   applySnap();
+  centerFocus({ animate: false });
   map?.invalidateSize();
   fitKey = '';
   scheduleRender();
@@ -1638,22 +1754,10 @@ function fitLeg(l, onlyIfHidden = false) {
 function previewLeg(l, { fromMap = false } = {}) {
   state.leg = l.key;
   state.sel = state.selRow = null;
-  const resizing = state.snap !== 'half' && !isWide();
-  setSnap('half'); // the whole-day list covers the map; peeking, it's opened so Directions shows below the list
+  setSnap('half', false); // the whole-day list covers the map; peeking, it's opened so Directions shows below the list
   render();
   fitLeg(l, fromMap);
-  centerRow(`.wt-tl-drive[data-leg="${CSS.escape(l.key)}"]`, resizing);
-}
-// Scroll the list so a row sits in its middle, with what comes before and after it in view on both sides
-// (the list's ends can't scroll past, so a first or last row stays near its end). When the sheet is changing
-// height, wait for it to settle, or the middle is measured from the old height.
-function centerRow(selector, resizing) {
-  setTimeout(() => {
-    const body = $app.querySelector('.wt-sheet__body'), row = body?.querySelector(selector);
-    if (!row) return;
-    const off = row.getBoundingClientRect().top - body.getBoundingClientRect().top;
-    body.scrollTo({ top: body.scrollTop + off - (body.clientHeight - row.offsetHeight) / 2, behavior: 'smooth' });
-  }, resizing ? 260 : 0);
+  centerFocus({ force: true }); // the drive in the middle of the list, as the sheet comes to half
 }
 // Hovering a drive in the list previews its route on the map, without moving the map.
 document.addEventListener('mouseover', e => {
@@ -1671,17 +1775,16 @@ function selectStop(s, row = null) {
   state.leg = null;
   state.sel = s.id;
   state.selRow = row;
-  const shrink = state.snap === 'full', resizing = state.snap !== 'half' && !isWide();
   // coming down from the whole day re-frames the map for the day, which already shows this stop
-  const framed = shrink && !camFree && !isWide();
-  setSnap('half'); // the whole-day list covers the map; peeking, it's opened to show the stop's row
+  const framed = state.snap === 'full' && !camFree && !isWide();
+  setSnap('half', false); // the whole-day list covers the map; peeking, it's opened to show the stop's row
   render();
   if (row && !framed && map && s.lat != null && !inView([s.lat, s.lng])) {
     const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
     moveCamera(map.unproject(p, z), z);
   }
   // in the middle of the list, so the stops before and after it show too
-  centerRow('.wt-tl-stop.is-selected', resizing);
+  centerFocus({ force: true });
 }
 // Move a place into the middle of the map you can see: above the stop sheet on a phone, the whole map on a wide screen.
 function focusStop(s) {
@@ -1692,9 +1795,14 @@ function focusStop(s) {
 }
 
 // ---------- Edits ----------
+// The new stop is selected, so it's the list's focus and its pin is named.
 function addStop(trip, data) {
   const stop = { id: uid(), ...data, done: false, by: me.id, updatedAt: Date.now() };
   openTripOf(trip.id)?.stops.push(stop);
+  if (state.leg) fitKey = '';
+  state.leg = null;
+  state.sel = stop.id;
+  state.selRow = null;
   render();
   writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: data }));
 }
@@ -2035,6 +2143,7 @@ function openStopSheet(trip, stop) {
       state.draft = null; // so the list and map show the saved stop, not the draft
       if (stop) editStop(trip, stop, data); else addStop(trip, data);
       closeSheet();
+      centerFocus({ force: true, animate: false }); // the saved stop, wherever its time put it, in the middle of the list
     };
     f.querySelector('[data-del]')?.addEventListener('click', () => {
       saved = true;

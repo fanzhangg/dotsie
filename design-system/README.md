@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 4.4.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 4.5.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -418,14 +418,15 @@ With a stop selected, the add bar holds Edit stop and a round `+` beside it:
   - The list (`.wt-sheet__body`) fades out at an edge with more past it: `.is-more-above` and `.is-more-below`, which the app sets from the scroll position.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
   - It never hides.
-- **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it (`touch-action: none` on the list), so dragging up grows the sheet first. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the next height its way; a slower drag settles at the nearest. Add `.is-dragging` while a finger is moving it.
+- **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it, and the list can't be scrolled by hand at all (`touch-action: none` and `overflow: hidden`): your code scrolls it, to keep the focused row in its middle. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the next height its way; a slower drag settles at the nearest. Add `.is-dragging` while a finger is moving it.
 - **Taps:** the grab handle is a button: half goes to full, peek and full go to half. Peeking, the day bar's buttons still work, and a tap anywhere else on the sheet opens it to half. No other tap resizes the sheet.
-- **The map:** zooming it (pinch, double-tap, wheel) means you're looking at the map, so a half sheet goes down to peek. A new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin opens the sheet to half; showing a route from the whole day goes to half.
+- **The map:** zooming it (pinch, double-tap, wheel) means you're looking at the map, so a half sheet goes down to peek. A new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route opens the sheet to half.
+- **Peeking**, the list and the add bar hide `--wt-duration-base` after `.is-peek` goes on, so a sheet sliding down to its peek keeps its list until it's there. Animate the height over that same duration.
 - The top holds the grab handle and the day bar. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
 - **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes Edit stop with a round `+` beside it, so adding is always one tap away. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`) with the same `+`. It's still one primary button.
 - Tapping a selected stop or a shown drive again keeps it selected.
-- On today, scroll the list so the `is-now` row sits a little above the middle.
+- **One row is the half list's focus**, and it sits in the middle of the list: the selected row (`.is-selected` or `.is-active`), or else, on today, the `is-now` row. When the sheet changes height and the list has to scroll, move both together, on one timeline, so the row goes straight to the middle. The app does this frame by frame and turns off the sheet's height transition.
 
 **On a wide screen it's a side panel.** Make the element that holds the header, map and sheet a size container named `wt-trip`:
 
@@ -598,6 +599,12 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Fixed in 4.5.1
+
+- Below full, `.wt-sheet__body` is `overflow: hidden`, so a wheel or trackpad can't scroll the half list either; the app scrolls it. From 768px wide it scrolls as before.
+- Peeking, the list and the add bar hide once the sheet has slid down, instead of as it starts.
+- Nothing was renamed or removed.
 
 ### Added in 4.5.0
 
