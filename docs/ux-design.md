@@ -110,7 +110,7 @@ The half list is about one row, its **focus**: the selected stop; or else the dr
 
 **Trip settings** holds the trip's name, the people on it, the share link, and **Delete trip**.
 
-**Account** (your picture on the trip list) holds your name, **Maps app** (Google Maps or Apple Maps, for every place and directions, on this device), and **Sign out**.
+**Account** (your picture on the trip list) holds your name, **Maps app** (Google Maps or Apple Maps, for every place and directions, on this device), and **Sign out**. Maps app is a picker, like a stop's Type: a row with the current app that opens the two on a page of the sheet. Every choice from a list works this way, however few the options, so they all look and behave the same.
 
 ## The list
 

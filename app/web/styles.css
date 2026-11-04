@@ -44,7 +44,6 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
   padding: var(--wt-space-2); font: var(--wt-type-label); color: var(--wt-text-secondary);
   background: none; border: 0; cursor: pointer;
 }
-.account-maps__hint { margin: var(--wt-space-2) 0 0; }
 .account-keep { margin: var(--wt-space-6) 0 var(--wt-space-1); font: var(--wt-type-heading); }
 .home-guest { color: var(--wt-text-secondary); }
 

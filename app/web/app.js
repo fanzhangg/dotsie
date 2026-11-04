@@ -2022,19 +2022,18 @@ function openSettings(trip) {
 // trips; everyone can sign out.
 function openAccount() {
   const upgrade = me.isGuest && canSignIn();
-  openSheet(`${modalHead('Account')}
+  openSheet(`<div class="account-main">${modalHead('Account')}
     <form class="account-name">
       <label class="wt-field"><span class="wt-field__label">Your name${me.isGuest ? ' (guest)' : ''}</span>
         <input class="wt-input" name="name" autocomplete="name" maxlength="40" required></label>
     </form>
     <div class="wt-field"><span class="wt-field__label" id="maps-label">Maps app</span>
-      <ul class="wt-options account-maps" role="radiogroup" aria-labelledby="maps-label">${Object.entries(MAPS_APPS).map(([k, label]) =>
-        `<li><button type="button" class="wt-option" role="radio" aria-checked="${k === mapsApp}" data-maps="${k}"><span class="wt-option__label">${label}</span>${ICON.check}</button></li>`).join('')}</ul>
-      <p class="wt-modal__text account-maps__hint">Places and directions open here. Saved on this device.</p></div>
+      <button type="button" class="wt-picker wt-picker--text" data-maps-open aria-describedby="maps-label"></button></div>
     ${upgrade ? `<h3 class="account-keep">Keep your trips</h3>
     <p class="wt-modal__text">As a guest, you can only reach your trips from this browser. Sign in to keep them on any device.</p>
     <div class="signin"></div>` : ''}
-    <div class="wt-modal__actions"><button class="wt-btn wt-btn--danger" data-action="sign-out">Sign out</button></div>`, el => {
+    <div class="wt-modal__actions"><button class="wt-btn wt-btn--danger" data-action="sign-out">Sign out</button></div></div>
+    ${choicePageHTML('account-maps', 'Maps app', Object.entries(MAPS_APPS).map(([k, label]) => optionHTML(k, label)).join(''), 'Places and directions open in this app. Saved on this device.')}`, el => {
     const f = el.querySelector('.account-name');
     f.elements.name.value = me.name;
     // Saves when you leave the field or press Return; no separate button
@@ -2050,13 +2049,14 @@ function openAccount() {
     };
     f.onsubmit = e => { e.preventDefault(); f.elements.name.blur(); };
     f.elements.name.addEventListener('change', saveName);
-    el.querySelector('.account-maps').addEventListener('click', e => {
-      const b = e.target.closest('[data-maps]');
-      if (!b || b.dataset.maps === mapsApp) return;
-      setMapsApp(b.dataset.maps);
-      for (const o of el.querySelectorAll('[data-maps]')) o.setAttribute('aria-checked', o === b);
-      toast(`Opens in ${MAPS_APPS[mapsApp]}`);
-    });
+    // Maps app: the picker row, and its page
+    const mapsPicker = el.querySelector('[data-maps-open]');
+    const maps = choicePage(el, { main: el.querySelector('.account-main'), page: el.querySelector('.account-maps'), picker: mapsPicker, onPick: app => { setMapsApp(app); showMaps(); } });
+    const showMaps = () => {
+      mapsPicker.innerHTML = `<span class="wt-picker__value">${MAPS_APPS[mapsApp]}</span>${ICON.forward}`;
+      maps.mark(mapsApp);
+    };
+    showMaps();
     if (upgrade) authFlow(el.querySelector('.signin'));
   });
 }
@@ -2083,6 +2083,49 @@ function nearParam(trip) {
 const HOTEL_CHECK_IN = '15:00', HOTEL_CHECK_OUT = '11:00';
 const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
 
+// ---------- Choices: every pick from a list is a picker row that opens its options on a page of the sheet ----------
+// The row shows the current choice; tapping it slides the sheet to the options, with Back in the head. Picking one
+// applies it and slides back; so does Back, with nothing changed. A stop's Type and Account's Maps app both work
+// this way, however few the options. See "Picker" in the design system.
+const optionHTML = (value, label, { marker = '', detail = '' } = {}) =>
+  `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${ICON.check}</button></li>`;
+// `intro` is one line on what the choice affects, when the label alone doesn't say
+const choicePageHTML = (cls, title, options, intro = '') => `<div class="${cls}" hidden>
+      <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-choice-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">${esc(title)}</h2></div>
+      ${intro ? `<p class="wt-modal__text">${esc(intro)}</p>` : ''}
+      <ul class="wt-options" role="radiogroup" aria-label="${esc(title)}">${options}</ul>
+    </div>`;
+// Wires a picker to its page, inside `sheet`: the page takes `main`'s place while it's open, and the sheet's scroll
+// comes back on return. Focus goes to the checked option on the way in, and to the picker on the way out.
+// Returns mark(value), which checks the current option.
+function choicePage(sheet, { main, page, picker, onPick }) {
+  let scrollBack = 0;
+  const open = on => {
+    if (on) scrollBack = sheet.scrollTop;
+    main.hidden = on;
+    page.hidden = !on;
+    sheet.scrollTop = on ? 0 : scrollBack;
+    (on ? page.querySelector('[aria-checked="true"]') || page.querySelector('[data-value]') : picker).focus();
+  };
+  picker.addEventListener('click', () => open(true));
+  // ↑ ↓ move between options, as in any radio group
+  page.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const all = [...page.querySelectorAll('[data-value]')], i = all.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    all[(i + (e.key === 'ArrowDown' ? 1 : all.length - 1)) % all.length].focus();
+  });
+  page.addEventListener('click', e => {
+    if (e.target.closest('[data-choice-back]')) return open(false);
+    const b = e.target.closest('[data-value]');
+    if (!b) return;
+    onPick(b.dataset.value);
+    open(false);
+  });
+  return { mark: value => { for (const b of page.querySelectorAll('[data-value]')) b.setAttribute('aria-checked', b.dataset.value === value); } };
+}
+
 // The stop sheet is a panel: the map stays in view (above it on a phone, beside it on a wide screen) and shows
 // the stop as you edit it, at the place you picked, with the type you chose.
 // The first line is the place, a row like a calendar's Location: tapping it opens a search page, as in a maps app.
@@ -2099,7 +2142,7 @@ function openStopSheet(trip, stop) {
   state.draft = draft;
   $app.querySelector('.trip')?.classList.add('is-editing');
   render();
-  const option = k => `<li><button type="button" class="wt-option" role="radio" data-kind="${k}">${markerHTML({ kind: k }, '')}<span class="wt-option__text"><span class="wt-option__label">${KINDS[k].label}</span>${KIND_HINTS[k] ? `<span class="wt-option__detail">${KIND_HINTS[k]}</span>` : ''}</span>${ICON.check}</button></li>`;
+  const option = k => optionHTML(k, KINDS[k].label, { marker: markerHTML({ kind: k }, ''), detail: KIND_HINTS[k] });
   openSheet(`<div class="stop-main">${modalHead(stop ? 'Edit stop' : 'Add stop', true)}
     <form>
       <div class="wt-field"><span class="wt-field__label" id="place-label">Place</span>
@@ -2111,10 +2154,7 @@ function openStopSheet(trip, stop) {
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="2000" placeholder="Confirmation #, tickets, tips…"></textarea></label>
       <div class="wt-modal__actions wt-modal__actions--sticky">${stop ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${stop ? 'Save' : 'Add'}</button></div>
     </form></div>
-    <div class="stop-kinds" hidden>
-      <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-kind-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">Type</h2></div>
-      <ul class="wt-options" role="radiogroup" aria-label="Type">${KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>')}</ul>
-    </div>
+    ${choicePageHTML('stop-kinds', 'Type', KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>'))}
     <div class="stop-place" hidden>
       <div class="wt-search-bar">
         <label class="wt-input wt-input-group wt-search">${ICON.search}<input id="stop-place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="place-results" aria-label="Search a place" placeholder="Search a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="200"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden>${ICON.close}</button></label>
@@ -2133,33 +2173,9 @@ function openStopSheet(trip, stop) {
     // ----- Type: the picker row, and its page -----
     const showKind = () => {
       picker.innerHTML = `${markerHTML(draft, '')}<span class="wt-picker__value">${KINDS[draft.kind].label}</span>${ICON.forward}`;
-      for (const b of kindsPage.querySelectorAll('[data-kind]')) b.setAttribute('aria-checked', b.dataset.kind === draft.kind);
+      kinds.mark(draft.kind);
     };
-    let scrollBack = 0;
-    const showKinds = open => {
-      if (open) scrollBack = el.scrollTop;
-      main.hidden = open;
-      kindsPage.hidden = !open;
-      el.scrollTop = open ? 0 : scrollBack;
-      (open ? kindsPage.querySelector('[aria-checked="true"]') : picker).focus();
-    };
-    picker.addEventListener('click', () => showKinds(true));
-    // ↑ ↓ move between types, as in any radio group
-    kindsPage.addEventListener('keydown', e => {
-      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-      const all = [...kindsPage.querySelectorAll('[data-kind]')], i = all.indexOf(document.activeElement);
-      if (i < 0) return;
-      e.preventDefault();
-      all[(i + (e.key === 'ArrowDown' ? 1 : all.length - 1)) % all.length].focus();
-    });
-    kindsPage.addEventListener('click', e => {
-      if (e.target.closest('[data-kind-back]')) return showKinds(false);
-      const b = e.target.closest('[data-kind]');
-      if (!b) return;
-      chosen = true;
-      setKind(b.dataset.kind);
-      showKinds(false);
-    });
+    const kinds = choicePage(el, { main, page: kindsPage, picker, onPick: k => { chosen = true; setKind(k); } });
     function setKind(kind) {
       draft.kind = kind;
       // A new hotel starts at check-in time; anything else goes back to the usual default.

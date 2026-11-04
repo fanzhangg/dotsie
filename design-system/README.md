@@ -398,7 +398,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 
 ### Picker `.wt-picker`, options `.wt-options` and check-out
 
-All live in the stop sheet.
+**Every choice from a list is a picker.** A field that takes one of a set of named options is a row that shows the current choice; tapping it opens the options on a page of the sheet. A stop's **Type** (11 options) and Account's **Maps app** (2) work the same way. However few the options, there are no inline radio lists, `<select>`s, segmented controls or switches between named choices: one pattern, so every choice looks and behaves the same, and a sheet stays one column of fields.
 
 ```html
 <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
@@ -422,12 +422,38 @@ All live in the stop sheet.
   <!-- one per type -->
 </ul>
 
+<!-- A picker whose options have no marker: .wt-picker--text, and options without one -->
+<div class="wt-field"><span class="wt-field__label" id="maps-label">Maps app</span>
+  <button class="wt-picker wt-picker--text" aria-describedby="maps-label">
+    <span class="wt-picker__value">Google Maps</span>${icon('forward', 18)}</button></div>
+
+<div class="wt-modal__head wt-modal__head--sub">
+  <button class="wt-icon-btn" aria-label="Back">${icon('back')}</button>
+  <h2 class="wt-modal__title">Maps app</h2>
+</div>
+<p class="wt-modal__text">Places and directions open in this app. Saved on this device.</p>
+<ul class="wt-options" role="radiogroup" aria-label="Maps app">
+  <li><button class="wt-option" role="radio" aria-checked="true">
+    <span class="wt-option__text"><span class="wt-option__label">Google Maps</span></span>${icon('check', 18)}</button></li>
+  <li><button class="wt-option" role="radio" aria-checked="false">
+    <span class="wt-option__text"><span class="wt-option__label">Apple Maps</span></span>${icon('check', 18)}</button></li>
+</ul>
+
 <label class="wt-field">   <!-- hidden unless it's a hotel -->
   <span class="wt-field__label">Check-out</span>
   <input class="wt-input" type="datetime-local" value="2026-11-22T11:00" min="2026-11-21T00:00" max="2026-12-20T23:59"></label>
 ```
 
-- **Type** is one row that shows the current type. Tapping it slides the sheet to the types; picking one, or Back, slides back. It keeps the sheet short, so the map stays in view above it. Focus the checked option when the page opens, and the picker when it closes.
+- **The row** (`.wt-picker`) has the field's label above it, like any field, and shows the current choice with a `forward` chevron. If the options have markers (the types), the row shows the current one's; if not, use `.wt-picker--text`.
+- **The page** takes the place of everything else in the sheet (hide it; don't remove it), and the sheet scrolls to its top:
+  - A sub-head (`.wt-modal__head--sub`) with **Back** and the field's label as its title.
+  - Optionally, one `.wt-modal__text` line on what the choice affects, when the label alone doesn't say ("Places and directions open in this app").
+  - A `ul.wt-options` with `role="radiogroup"`, one `.wt-option` with `role="radio"` per choice; the current one is `aria-checked="true"` (grey, with its check).
+- **Picking applies it at once** and slides back to the sheet, which shows the new choice in the row; there's no Save or Done, and no toast. **Back** slides back with nothing changed. The sheet returns to where it was scrolled.
+- **Focus** goes to the checked option when the page opens, and back to the row when it closes. ↑ ↓ move between options.
+- **Markers and details:** give options a marker only when every option has one (types do; maps apps don't). A detail line only where a choice changes something else: Hotel's "Adds check-out".
+- **Type** keeps the stop sheet short this way, so the map stays in view above it.
+- In the app, `optionHTML`, `choicePageHTML` and `choicePage` in `app/web/app.js` build and wire any picker; use them for a new one.
 - Type starts as a guess from the place's name and category, until someone picks one.
 - **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
 - **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Adds check-out". ↑ ↓ move between types.
@@ -608,6 +634,7 @@ Say what can go here, in the user's words. No illustrations.
   - The hotel you go back to tonight stays bright.
 - **Doesn't fit.** If a drive takes longer than the gap between its two stops, the drive gets `is-late` and says "Arrives 13 min late". That red text is the only warning.
 - **Handing off to maps.** Every drive's Directions button, and a stop's Maps button, opens the maps app the person picked in Account: Google Maps unless they chose Apple Maps. Both always open the same one. Directions are never rebuilt in-app.
+- **Choosing from a list.** Every choice of one from a set of named options is a [picker](#picker-wt-picker-options-wt-options-and-check-out): a row with the current choice that opens the options on a page of the sheet. Picking applies it and comes back. A stop's Type and Account's Maps app both work this way; a new choice should too, even with two options.
 - **Changes from others.** When a co-editor changes a stop, show a toast naming them ("Sam updated Cloudcroft") and flash the stop once with `is-flash`.
 - **Deleting.** Delete right away, then show a toast with Undo. Ask first only when undo isn't possible, such as deleting a whole trip.
 
@@ -657,6 +684,7 @@ Say what can go here, in the user's words. No illustrations.
 ### Added in 4.8.0
 
 - The add bar with a stop selected gains **Maps** (`a.wt-btn.wt-btn--secondary`) between Edit stop and `+`. No new class.
+- **Every choice from a list is a picker** ([Picker](#picker-wt-picker-options-wt-options-and-check-out)): a row showing the current choice that opens the options on a page of the sheet. Account's Maps app, first a list in the sheet, became one, like a stop's Type. No new class.
 - In the add bar a secondary button is a pill, like the primary beside it, instead of the 12px corners it has elsewhere; the `+` stays round.
 - `.wt-tl-note a`: a link in a stop's note, in blue. Stop rows are now a `div` with `role="button"` (a link can't sit in a `<button>`); `.wt-tl-stop` styles either.
 - Nothing was renamed or removed.

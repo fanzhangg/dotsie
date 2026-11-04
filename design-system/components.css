@@ -287,8 +287,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-day-list__kinds { display: flex; gap: 3px; }
 
 /* ---------- Picker: a field that shows the current choice and opens the options on a page of their own ---------- */
-/* The stop sheet's Type: one row (marker · Hotel · ›) instead of a grid of every type. Tapping it slides the
-   sheet to the options, with a back button in the sheet's head (.wt-modal__head--sub); picking one comes back. */
+/* Every choice from a list is one: a stop's Type (marker · Hotel · ›), Account's Maps app (--text: Google Maps · ›).
+   Tapping it slides the sheet to the options, with a back button in the sheet's head (.wt-modal__head--sub); picking
+   one applies it and comes back. Never inline radios, selects or segmented controls between named choices. */
 .wt-picker {
   display: flex; align-items: center; gap: var(--wt-space-3); width: 100%; min-height: 50px; padding: 9px var(--wt-space-3) 9px 9px;
   font: var(--wt-type-input); color: var(--wt-text-primary);
