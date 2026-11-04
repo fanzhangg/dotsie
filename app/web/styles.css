@@ -52,7 +52,11 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 
 /* ---------- Trip: full-screen map with the list sheet on top ---------- */
 /* From 768px wide the sheet is a side panel (see the design system's wt-trip container), and the map sits beside it. */
-.trip { position: relative; height: 100dvh; overflow: hidden; container: wt-trip / inline-size; }
+/* Pinned to the window, not sized by 100dvh: Chrome on iPhone kept the page scrolled from Home (or sized dvh for
+   collapsed toolbars), which hid the header under the address bar and left a gap under the sheet. The page itself
+   never scrolls while a trip is open. */
+.trip { position: fixed; inset: 0; overflow: hidden; container: wt-trip / inline-size; }
+html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overflow: hidden; overscroll-behavior: none; }
 /* On a phone the map fills the screen, under the floating header card; from 768px wide the header tops the side panel, and the map sits beside it. */
 #map { position: absolute; inset: 0; background: var(--wt-surface-map); }
 @container wt-trip (min-width: 768px) { #map { left: var(--wt-size-panel); } }
