@@ -557,7 +557,7 @@ function render() {
   renderAddBar(trip);
   el.querySelector('.wt-sheet__grab').setAttribute('aria-label', grabLabel());
   if (!el.querySelector('.wt-sheet').style.height || topH !== el.querySelector('.wt-sheet__top').offsetHeight) applySnap();
-  // a new day, or stops with longer notes, can change the half height (see halfList): slide there
+  // a taller add bar can change the half height: slide there
   else if (!isWide() && state.snap === 'half' && !drag.active && Math.abs(snaps().half - sheetTarget()) >= 1) applySnap(true);
   // the focused row in the middle of the list: at once on a new day, or else moved there if the plan moved it
   centerFocus(newDay ? { force: true, animate: false } : {});
@@ -1411,28 +1411,16 @@ const isWide = () => ($app.querySelector('.trip')?.clientWidth || 0) >= WIDE;
 // before the list scrolls; at full, pulling the list down from its top shrinks the sheet again.
 // At half the list doesn't scroll by hand at all: the app keeps its focused row in the middle (see centerFocus).
 const SNAPS = ['half', 'full'];
-// Half is about half the screen, but tall enough for the list to show a stop with the stops before and after it
-// (three stops and the two drives between them), so a selected stop, centered, has its neighbors in view.
-// That's measured from the list's own rows (halfList), so a day whose stops have notes gets the room they take.
-// On a short screen that's taller than half, though never more than HALF_MAX of it, so the map keeps some room.
-const HALF_ROWS = 5, HALF_FADE = 16, HALF_MAX = 0.62; // + a little room for the fades at its edges
-// The tallest run of HALF_ROWS rows in the list. A selected stop counts as if its notes were one line, as they are
-// unselected, so selecting a stop opens its notes without resizing the sheet.
-function halfList() {
-  const rows = [...$app.querySelectorAll('.wt-sheet__body.wt-tl > *')].map(row => {
-    const notes = row.classList.contains('is-selected') && row.querySelector('.wt-tl-notes');
-    if (!notes) return row.offsetHeight;
-    const line = parseFloat(getComputedStyle(notes.firstElementChild).lineHeight) || 19;
-    return row.offsetHeight - notes.offsetHeight + (parseFloat(getComputedStyle(notes).paddingTop) || 0) + line;
-  });
-  let most = 0;
-  for (let i = 0; i <= Math.max(0, rows.length - HALF_ROWS); i++) most = Math.max(most, rows.slice(i, i + HALF_ROWS).reduce((a, b) => a + b, 0));
-  return most + HALF_FADE;
-}
+// Half is one fixed height, the same on every day: the list fits exactly three stops and the two drives between
+// them, so a selected stop, centered, has its neighbors in view. A stop is counted with one line of notes, as a phone
+// shows them unselected (.wt-tl-stop: 12px padding, the name, a 19px note line; .wt-tl-drive: 32px). It used to be
+// measured from each day's rows and was at least 48% of the screen, so it changed from day to day.
+// On a short screen it's never more than HALF_MAX of it, so the map keeps some room.
+const HALF_STOP = 68, HALF_DRIVE = 32, HALF_LIST = 3 * HALF_STOP + 2 * HALF_DRIVE, HALF_MAX = 0.62;
 function snaps() {
   const H = $app.querySelector('.trip').clientHeight;
   const chrome = $app.querySelector('.wt-sheet__top').offsetHeight + $app.querySelector('.wt-add-bar').offsetHeight;
-  const half = Math.min(Math.max(H * 0.48, chrome + halfList()), H * HALF_MAX, H - headBottom());
+  const half = Math.min(chrome + HALF_LIST, H * HALF_MAX, H - headBottom());
   return { half: Math.round(half), full: H - headBottom(), chrome };
 }
 const GRAB_LABEL = { half: 'Show the whole day', full: 'Show more of the map' };
