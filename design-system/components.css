@@ -1,4 +1,4 @@
-/* Waythread design system — components v5.2.0
+/* Waythread design system — components v6.0.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -437,8 +437,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 @media (hover: hover) { .wt-view-toggle:hover, .wt-trip-head .wt-icon-btn:hover { background: var(--wt-surface-hover); } }
 
 /* ---------- Bottom sheet (the list over the map) ---------- */
-/* Two heights on a phone: compact (.is-peek: the day bar, one row and the add bar) and full (.is-full: docked under the
-   trip header). It never hides. Drag the top or the list to move it; tap the grab handle to switch. */
+/* Two heights on a phone: half, the default, and full (.is-full: docked under the trip header). It never hides.
+   Drag the top or the list to move it; tap the grab handle to switch. */
 .wt-sheet {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--wt-z-sheet);
   display: flex; flex-direction: column;
@@ -450,15 +450,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* Full: square and flush under the header, so the two read as one page: the trip, then the whole day. */
 .wt-sheet.is-full { border-radius: 0; box-shadow: none; }
 /* Below full, dragging the list moves the sheet (up first, then it scrolls once full), and the list can't be scrolled
-   by hand at all, not by a finger, a wheel or a trackpad: the app scrolls it, to keep the focused row at its top. */
+   by hand at all, not by a finger, a wheel or a trackpad: the app scrolls it, to keep the focused row in the middle. */
 .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: none; overflow: hidden; }
-.wt-sheet.is-peek .wt-sheet__top { cursor: pointer; }
-/* Compact shows the day bar, one row of the list (.is-peek-row, set by the app: its focus, or a drive and the two stops
-   either side of it), which the app scrolls to the list's top and sizes the sheet to, and the add bar under it: the map
-   has the screen, and the row says what you're looking at. The list has no fades there. The other rows hide once the
-   sheet is down (after --wt-duration-base), so it slides down with the list on it; going up, they show at once. */
-.wt-sheet.is-peek .wt-sheet__body { --wt-fade-top: 0px; --wt-fade-bottom: 0px; }
-.wt-sheet.is-peek:not(.is-dragging) .wt-sheet__body > :not(.is-peek-row) { visibility: hidden; transition: visibility 0s var(--wt-duration-base); }
 /* The grab handle sits in the top margin, over the day bar's top edge, rather than on a row of its own, as in a maps app's sheet.
    A hairline under the day bar divides it from the list (not when there's no day bar: an empty trip). */
 .wt-sheet__top {
