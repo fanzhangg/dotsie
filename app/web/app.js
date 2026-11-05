@@ -175,9 +175,8 @@ function dayPlan(trip, day) {
   if (night && plan.at(-1)?.place !== night.s) plan.push({ key: `night:${night.s.id}:${day}`, place: night.s, role: 'night' });
   return plan;
 }
-// The day's drives, between consecutive places in the plan. Arrival is the next stop's time. You set off when you
-// leave the stop before, if it says; if not, that long before you arrive. The drive back to the hotel has no times
-// unless the day's last stop says when you leave it.
+// The day's drives, between consecutive places in the plan. Arrival is the next stop's time; you leave that long before it.
+// The drive back to the hotel has no times: the day's last stop has no end.
 function dayLegs(trip, day) {
   const plan = dayPlan(trip, day), legs = [];
   for (let i = 1; i < plan.length; i++) {
@@ -185,7 +184,7 @@ function dayLegs(trip, day) {
     if (samePlace(a.place, b.place)) continue;
     const r = getRoute(a.place, b.place);
     const arrive = b.role === 'stop' ? b.place.time : null;
-    const leave = (a.role === 'stop' && leaveOf(a.place)) || (arrive && r ? toInput(new Date(toDate(arrive) - r.duration * 1000)) : null);
+    const leave = arrive && r ? toInput(new Date(toDate(arrive) - r.duration * 1000)) : null;
     legs.push({ key: b.key, from: a.place, to: b.place, fromEntry: a, toEntry: b, r, arrive, leave });
   }
   return legs;
@@ -237,12 +236,21 @@ const kindColor = s => `var(--wt-kind-${kindOf(s)})`;
 const kindIcon = (s, size = 16) => WaythreadIcons.svg(KINDS[kindOf(s)].icon, size);
 
 // ---------- Session ----------
+// An assistant connecting through OAuth sends you here to sign in (/?next=/api/oauth/authorize?…): once you're
+// signed in, back to that page to allow it. Only that page, so the link can't send you anywhere else.
+function nextURL() {
+  const next = params.get('next');
+  if (!next) return null;
+  const u = new URL(next, location.origin);
+  return u.origin === location.origin && u.pathname === '/api/oauth/authorize' ? u.pathname + u.search : null;
+}
 async function boot() {
   // With no connection, whoever saved trips on this device is still signed in (see Offline)
   [config, me] = await Promise.all([
     api('/config').catch(e => (e.code === 'offline' && offline.config) || config),
     api('/me').catch(e => (e.code === 'offline' && offline.me) || null),
   ]);
+  if (me && nextURL()) { location.replace(nextURL()); return; }
   if (anySaved()) { rememberSession(); registerOffline(); }
   render();
   const msg = socialErrorMessage();
@@ -261,8 +269,8 @@ async function signOut() {
   location.hash = '#/';
   signedOut();
 }
-// Come back to the same screen (a share link, say) after Google, whether it worked or not.
-const callbackURL = () => location.pathname + location.hash;
+// Come back to the same screen (a share link, say, or connecting an assistant) after Google, whether it worked or not.
+const callbackURL = () => location.pathname + location.search + location.hash;
 async function signInSocial(provider) {
   try {
     const { url } = await api('/auth/sign-in/social', { method: 'POST', body: { provider, callbackURL: callbackURL(), errorCallbackURL: callbackURL() } });
@@ -274,7 +282,9 @@ async function signInSocial(provider) {
 function socialErrorMessage() {
   const code = params.get('error');
   if (!code) return null;
-  history.replaceState(null, '', location.pathname + location.hash);
+  params.delete('error');
+  const rest = params.toString();
+  history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
   if (code === 'access_denied') return null; // they cancelled
   if (code === 'account_not_linked' || code === 'unable_to_link_account') return 'This email already has a Waythread password. Use Continue with email to sign in.';
   return 'Couldn’t sign in with Google. Try again.';
@@ -821,11 +831,12 @@ function render() {
    saves their trips (without the guest option, and without asking their name again). */
 let invite = { token: null, name: null };
 function renderSignIn(r) {
-  const joining = r.page === 'join';
+  const joining = r.page === 'join', connecting = !joining && !!nextURL();
   $app.innerHTML = `
-    <header class="home-head"><h1 class="signin-title">${joining ? esc(invite.token === r.token && invite.name ? `Join ${invite.name}` : 'Join the trip') : 'Waythread'}</h1></header>
+    <header class="home-head"><h1 class="signin-title">${joining ? esc(invite.token === r.token && invite.name ? `Join ${invite.name}` : 'Join the trip') : connecting ? 'Connect your assistant' : 'Waythread'}</h1></header>
     <main class="signin"></main>`;
-  authFlow($app.querySelector('.signin'), { joining, guest: true });
+  // Connecting an assistant needs an account: a guest's trips are only reachable from this browser
+  authFlow($app.querySelector('.signin'), { joining, connecting, guest: !connecting });
   if (joining && invite.token !== r.token) {
     invite = { token: r.token, name: null };
     api(`/invite/${encodeURIComponent(r.token)}`).then(({ name }) => {
@@ -856,7 +867,7 @@ const AUTH_ERRORS = {
   invalid: 'That email address doesn’t look right.',
 };
 
-function authFlow(root, { joining = false, guest = false } = {}) {
+function authFlow(root, { joining = false, connecting = false, guest = false } = {}) {
   const s = { step: 'start', email: '' };
   const head = (title, back) => `<div class="signin__head">
     <button type="button" class="wt-icon-btn signin__back" data-to="${back}" aria-label="Back">${ICON.back}</button>
@@ -865,6 +876,7 @@ function authFlow(root, { joining = false, guest = false } = {}) {
   const errorHTML = '<p class="signin__error" role="alert" hidden></p>';
   const STEPS = {
     start: () => `
+      ${connecting ? '<p class="signin__text">Sign in to Waythread, then allow your assistant to see and change your trips.</p>' : ''}
       ${guest ? `<p class="signin__text">${joining ? 'Everyone on the trip can see and edit the plan.' : 'Plan a trip together, in one place.'}</p>` : ''}
       ${config.google ? googleBtnHTML : ''}
       ${config.apple ? appleBtnHTML : ''}
@@ -901,6 +913,7 @@ function authFlow(root, { joining = false, guest = false } = {}) {
   };
   // Signed in: a guest who saved their trips lands back where they were, now with an account
   const done = async msg => {
+    if (connecting && nextURL()) { location.replace(nextURL()); return; }
     me = await api('/me');
     trips = null;
     closeSheet();
@@ -1483,7 +1496,7 @@ function driveItem(day, leg) {
   const { r, to, fromEntry, toEntry } = leg, late = lateMin(leg);
   const cls = ['wt-tl-drive', state.leg === leg.key ? 'is-active' : '', late > 0 ? 'is-late' : ''];
   return {
-    // when you set off (until the route is in, no earlier than you arrive); a drive back to the hotel with no time comes last
+    // when you set off (until the route is in, no earlier than you arrive); the drive back to the hotel has no time, so it comes last
     start: leg.leave || leg.arrive || (toEntry.role === 'night' ? `${day}T23:58` : fromEntry.place.time),
     html: ({ past, now }) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="button" aria-pressed="${state.leg === leg.key}" aria-label="${r ? fmtDur(r.duration) : ''} drive to ${esc(to.name)}. Show the route on the map">
       <span class="wt-tl-rail"><i class="wt-tl-car">${ICON.car}</i></span>
@@ -1509,8 +1522,7 @@ function noteHTML(text) {
   return html + esc(text.slice(at));
 }
 // A stop row: marker · name · time, with its notes below across the name and time. A hotel on its check-in day says how many nights.
-// Under the time, a second line: when you leave (`to 4:15 PM`), or, for a row from another day than the one on
-// screen, which day (in place of the time).
+// A row from another day than the one on screen can say which day in place of the time.
 // Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Open in Maps and Edit stop. Tapping it again keeps it selected.
 // It's a div acting as a button, like a drive, since a link in its note can't sit inside a <button>.
 function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
@@ -1522,19 +1534,16 @@ function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
     </div>`;
 }
 // `note` false leaves out the stop's own note (the overview), keeping a hotel's nights.
-// A stop's time is when you get there; a hotel's nights or any other stop's leave time say how long you're there.
 function stopItem(trip, s, { note = true } = {}) {
   const stay = kindOf(s) === 'hotel' && staysOf(trip).find(st => st.s === s);
-  const nights = stay && `${stay.nights} ${stay.nights === 1 ? 'night' : 'nights'}`, leave = leaveOf(s);
-  return { start: s.time, html: row => stopRow(s, row, [nights, note && s.note], s.time, leave && `to ${fmtTime(leave)}`) };
+  const nights = stay && `${stay.nights} ${stay.nights === 1 ? 'night' : 'nights'}`;
+  return { start: s.time, html: row => stopRow(s, row, [nights, note && s.note], s.time) };
 }
 // The hotel at either end of a day: where you wake up, and where you go back to at night. It has no time,
 // except on check-out morning, the one with something to do: `Check out`, at the check-out time. Tapping it selects the hotel.
-// At night it starts when the drive back gets you there, if the day's last stop says when you leave; else at midnight.
-function hotelItem(day, entry, leg) {
-  const back = entry.role === 'night' && leg?.leave && leg.r && toInput(new Date(+toDate(leg.leave) + leg.r.duration * 1000));
+function hotelItem(day, entry) {
   return {
-    start: back || (entry.role === 'night' ? `${day}T23:59` : `${day}T00:00`),
+    start: entry.role === 'night' ? `${day}T23:59` : `${day}T00:00`,
     html: row => stopRow(entry.place, row, [entry.role === 'checkout' && 'Check out'], entry.role === 'checkout' ? `${day}T${checkoutOf(entry.place)}` : null),
   };
 }
@@ -1628,7 +1637,7 @@ function dayItems(trip, day, { note = true } = {}) {
     if (e.role === 'stop') items.push({ entry: e, ...stopItem(trip, e.place, { note }) });
     // where you start, unless the day's first stop is the same place
     else if (e.role === 'from') { if (!samePlace(e.place, plan[i + 1].place)) items.push({ entry: e, ...fromItem(day, e) }); }
-    else items.push({ entry: e, ...hotelItem(day, e, leg) });
+    else items.push({ entry: e, ...hotelItem(day, e) });
   });
   const cur = day === today ? items.findLastIndex(it => it.start <= now) : -1;
   items.forEach((it, i) => { it.past = day < today || i < cur; it.now = i === cur; });
@@ -2242,9 +2251,8 @@ function drawDraft() {
   }), 16);
 }
 const legCoords = l => (l.r ? l.r.coords : [[l.from.lat, l.from.lng], [l.to.lat, l.to.lng]]);
-// Minutes a drive runs past the next stop's time, between two of the day's stops: from when you leave the first,
-// or, if it doesn't say, from when you get there
-const lateMin = l => (l.r && l.fromEntry.role === 'stop' && l.toEntry.role === 'stop' ? Math.round(l.r.duration / 60 - gapMin(leaveOf(l.from) || l.from.time, l.to.time)) : 0);
+// Minutes a drive runs past the next stop's time, between two of the day's stops
+const lateMin = l => (l.r && l.fromEntry.role === 'stop' && l.toEntry.role === 'stop' ? Math.round(l.r.duration / 60 - gapMin(l.from.time, l.to.time)) : 0);
 // Fit a route into the part of the map you can see, with room around its ends for their pins.
 // From a tap on the map, only when an end is out of view, so the map doesn't jump under your finger.
 function fitLeg(l, onlyIfHidden = false) {
@@ -2467,8 +2475,8 @@ function openSettings(trip) {
   });
 }
 
-// Your name as others on your trips see it; guests are offered a real sign-in, which keeps their
-// trips; everyone can sign out.
+// Your name as others on your trips see it, the maps app, and AI assistants (not for guests); guests are
+// offered a real sign-in, which keeps their trips; everyone can sign out.
 function openAccount() {
   const upgrade = me.isGuest && canSignIn();
   openSheet(`<div class="account-main">${modalHead('Account')}
@@ -2478,6 +2486,9 @@ function openAccount() {
     </form>
     <div class="wt-field"><span class="wt-field__label" id="maps-label">Maps app</span>
       <button type="button" class="wt-picker wt-picker--text" data-maps-open aria-describedby="maps-label"></button></div>
+    ${me.isGuest ? '' : `<div class="wt-field"><span class="wt-field__label">AI assistant</span>
+      <p class="wt-modal__text">Connect Claude or another assistant that supports MCP, so it can see your trips’ stops and change them for you.</p>
+      <div class="account-mcp"></div></div>`}
     ${upgrade ? `<h3 class="account-keep">Keep your trips</h3>
     <p class="wt-modal__text">As a guest, you can only reach your trips from this browser. Sign in to keep them on any device.</p>
     <div class="signin"></div>` : ''}
@@ -2506,8 +2517,33 @@ function openAccount() {
       maps.mark(mapsApp);
     };
     showMaps();
+    if (!me.isGuest) assistantField(el.querySelector('.account-mcp'));
     if (upgrade) authFlow(el.querySelector('.signin'));
   });
+}
+
+// AI assistant, in Account: how to connect one (Waythread's MCP server address, which an assistant adds as a
+// connector; it then sends you to sign in and allow it), and the assistants you've connected, each with Disconnect.
+async function assistantField(box) {
+  const day = ms => { const d = new Date(ms); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; };
+  const show = ({ url, connections }) => {
+    box.innerHTML = `<p class="wt-modal__text">In Claude, add a custom connector with this address (Customize → Connectors → Add custom connector), then sign in here when it asks.</p>
+      <div class="wt-copy-row"><input class="wt-input" readonly value="${esc(url)}" aria-label="Server address">
+        <button class="wt-btn wt-btn--primary" data-action="copy" data-text="${esc(url)}" data-copied="Address copied">Copy</button></div>
+      ${connections.length ? `<ul class="account-mcp__list">${connections.map(c => `<li class="account-mcp__item">
+        <span class="account-mcp__name">${esc(c.name)}<span class="account-mcp__meta">${c.domain ? `${esc(c.domain)} · ` : ''}connected ${day(c.createdAt)}</span></span>
+        <button class="wt-btn wt-btn--danger" data-mcp-off="${esc(c.id)}">Disconnect</button></li>`).join('')}</ul>` : ''}`;
+    for (const btn of box.querySelectorAll('[data-mcp-off]')) btn.onclick = async () => {
+      const c = connections.find(x => x.id === btn.dataset.mcpOff);
+      if (!confirm(`Disconnect ${c.name}? It can’t see or change your trips anymore.`)) return;
+      try {
+        await api(`/assistants/${encodeURIComponent(c.id)}`, { method: 'DELETE' });
+        show({ url, connections: connections.filter(x => x !== c) });
+        toast(`${c.name} disconnected`);
+      } catch (err) { if (err.status !== 401) toast(failMsg(err, 'Couldn’t disconnect.')); }
+    };
+  };
+  try { show(await api('/assistants')); } catch { box.innerHTML = '<p class="wt-modal__text">Couldn’t load this. Check your connection.</p>'; }
 }
 
 // Two hours after the day's last stop; 9 AM on a day with none yet (a hotel day), or 9 AM tomorrow for an empty trip.
@@ -2531,9 +2567,6 @@ function nearParam(trip) {
 // A hotel you add starts at a 3 PM check-in, and checks out at 11 AM unless you set another time.
 const HOTEL_CHECK_IN = '15:00', HOTEL_CHECK_OUT = '11:00';
 const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
-// Any other stop can say when you leave it, later the same day: the drive after it sets off then. It's kept where a
-// hotel keeps its check-out time, since both are when you leave.
-const leaveOf = s => (kindOf(s) !== 'hotel' && s.checkout && s.checkout > s.time.slice(11) ? `${dayOf(s)}T${s.checkout}` : null);
 
 // ---------- Choices: every pick from a list is a picker row that opens its options ----------
 // The row shows the current choice. On a phone, tapping it slides the sheet to the options, with Back in the head;
@@ -2629,7 +2662,6 @@ function openStopSheet(trip, stop) {
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
       <label class="wt-field"><span class="wt-field__label" data-when>Arrive</span><input class="wt-input" name="time" type="datetime-local" required></label>
-      <label class="wt-field wt-leave"><span class="wt-field__label">Leave (optional)</span><input class="wt-input" name="leave" type="time"></label>
       <label class="wt-field wt-stay" hidden><span class="wt-field__label">Check-out</span><input class="wt-input" name="checkout" type="datetime-local"></label>
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="2000" placeholder="Confirmation #, tickets, tips…"></textarea></label>
       <div class="wt-modal__actions wt-modal__actions--sticky">${stop ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${stop ? 'Save' : 'Add'}</button></div>
@@ -2647,7 +2679,7 @@ function openStopSheet(trip, stop) {
     const main = el.querySelector('.stop-main'), kindsPage = el.querySelector('.stop-kinds'), picker = el.querySelector('[data-kind-open]');
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!stop;
-    if (stop) { F.time.value = stop.time; F.leave.value = leaveOf(stop)?.slice(11) || ''; F.note.value = stop.note || ''; }
+    if (stop) { F.time.value = stop.time; F.note.value = stop.note || ''; }
     else F.time.value = defaultTime(trip);
 
     // ----- Type: the picker row, and its page -----
@@ -2665,12 +2697,12 @@ function openStopSheet(trip, stop) {
       if (cur?.stops) drawMap(cur);
     }
 
-    // ----- Every stop has two times: when you get there, and when you leave. Anything but a hotel: Arrive, and an
-    // optional Leave, a time later the same day. A hotel is a stay: Check-in, then Check-out, a day and time. The
-    // nights are the days between them. Left alone, check-out follows the trip (the next hotel, or the last day). -----
+    // ----- A stop has one time, when you get there: Arrive. A hotel is a stay: Arrive becomes Check-in, then
+    // Check-out, a day and time. The nights are the days between them. Left alone, check-out follows the trip (the
+    // next hotel, or the last day). -----
     let nights = stop?.nights >= 1 ? stop.nights : null, outTime = stop && kindOf(stop) === 'hotel' ? checkoutOf(stop) : HOTEL_CHECK_OUT;
-    const stay = el.querySelector('.wt-stay'), leave = el.querySelector('.wt-leave'), inDay = () => F.time.value.slice(0, 10);
-    let shownIn = inDay(), shownAt = F.time.value;
+    const stay = el.querySelector('.wt-stay'), inDay = () => F.time.value.slice(0, 10);
+    let shownIn = inDay();
     function autoNights() {
       const day = inDay(), later = stopsOf(trip).filter(s => s.id !== stop?.id && dayOf(s) > day);
       const nextHotel = later.find(s => kindOf(s) === 'hotel');
@@ -2679,12 +2711,9 @@ function openStopSheet(trip, stop) {
     function showNights() {
       const hotel = draft.kind === 'hotel', day = inDay();
       stay.hidden = !hotel;
-      leave.hidden = hotel;
       F.checkout.disabled = !hotel; // so a hidden field can't block saving
-      F.leave.disabled = hotel;
       el.querySelector('[data-when]').textContent = hotel ? 'Check-in' : 'Arrive';
       if (!day) return;
-      F.leave.min = F.time.value.slice(11, 16); // you leave after you get there
       // Check-out is at least a night after check-in, and at most 30.
       F.checkout.min = `${addDays(day, 1)}T00:00`;
       F.checkout.max = `${addDays(day, 30)}T23:59`;
@@ -2708,13 +2737,6 @@ function openStopSheet(trip, stop) {
         if (n >= 1 && n <= 30) nights = n;
       }
       if (day) shownIn = day;
-      // Moving Arrive keeps how long you stay, while you still leave the same day.
-      const at = F.time.value;
-      if (at && shownAt && F.leave.value) {
-        const out = toInput(new Date(+toDate(`${shownAt.slice(0, 10)}T${F.leave.value}`) + (toDate(at) - toDate(shownAt))));
-        if (out.slice(0, 10) === at.slice(0, 10)) F.leave.value = out.slice(11);
-      }
-      if (at) shownAt = at;
       showNights();
     });
     showKind();
@@ -2866,8 +2888,7 @@ function openStopSheet(trip, stop) {
       const hotel = draft.kind === 'hotel';
       const data = {
         name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
-        kind: draft.kind, nights: hotel ? nights : null,
-        checkout: hotel ? outTime : F.leave.value > F.time.value.slice(11) ? F.leave.value : null,
+        kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? outTime : null,
       };
       if (state.day !== ALL) state.day = dayOf(data); // follow the stop to its day; the overview has every day
       saved = true;
@@ -2934,7 +2955,7 @@ document.addEventListener('click', e => {
     case 'close-sheet': closeSheet(); break;
     case 'fit-day': showWholeDay(); break;
     case 'grab': setSnap(state.snap === 'half' ? 'full' : 'half'); break;
-    case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast('Link copied'), () => toast('Copy failed')); break;
+    case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast(el.dataset.copied || 'Link copied'), () => toast('Copy failed')); break;
   }
 });
 document.addEventListener('keydown', e => {
