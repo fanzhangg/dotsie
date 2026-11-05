@@ -45,7 +45,7 @@ The trip is a single screen: a **header** with the trip's name, the **map**, and
 
 With a stop selected, the bottom button becomes `[████ ▢ Open in Maps ████] (✎) (+)`: the place in your maps app, then Edit stop as a round white pencil, and a small round + so adding is still one tap away. With a drive's route on show, it becomes `[██████ ◇ Directions ██████] (+)`. Changing from one to another morphs rather than swaps: Add stop shrinks to the right into the +, and Open in Maps and Edit stop grow in beside it (see [Adding and editing a stop](#adding-and-editing-a-stop)).
 
-**The header** is one row: **home** (back to the trip list), the **trip's name**, and **trip settings**. On a phone it's a card floating over the top of the map, like the from/to card in Google Maps' directions, and the map runs under it. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings. It's kept quiet, since the plan is what you read: a 44px row, the name at 15px in grey, below the stop names, grey icons, and over the map a frosted, slightly see-through card with a light shadow. (It started as a 56px solid white card with a 17px name, which competed with the list.)
+**The header** is one row: **home** (back to the trip list), the **trip's name**, and **trip settings**. Between the name and settings, a small grey icon shows the trip's [offline](#offline) status, and tapping it explains what it means in a toast. On a phone it's a card floating over the top of the map, like the from/to card in Google Maps' directions, and the map runs under it. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings. It's kept quiet, since the plan is what you read: a 44px row, the name at 15px in grey, below the stop names, grey icons, and over the map a frosted, slightly see-through card with a light shadow. (It started as a 56px solid white card with a 17px name, which competed with the list.)
 
 **The sheet** is white and, on a phone, has two heights:
 - **Half**: the default. One fixed height, the same on every day: the list fits exactly three stops and the drives between them, a selected stop with the stops before and after it, each stop counted with its one line of notes. On a short screen it's never more than about 60% of it. (It used to be at least half the screen and measured from each day's own rows, so it changed height from one day to the next; a fixed height is steadier and leaves more of the map.) Selecting a stop opens its notes without resizing the sheet. Drive rows are compact for the same reason: the stops are what you read, the drives join them. **The half list is about one row, kept in its middle** (see [The focused row](#the-focused-row)), and you can't scroll it by hand: a finger moves the sheet, and a wheel or trackpad does nothing. To browse the day, pull it up to the whole day, or tap a pin.
@@ -108,7 +108,31 @@ The half list is about one row, its **focus**: the selected stop; or else the dr
 ```
 - **Each day starts and ends at the hotel** (see [Hotel stays](#hotel-stays)). With no hotel the night before, the day starts from the day before's last stop: the list opens with that stop, and it's a faded pin on the map. Tapping that pin goes back to the day before.
 
-**Trip settings** holds the trip's name, the people on it, the share link, and **Delete trip**.
+**Trip settings** holds the trip's name, the people on it, the share link, **Offline** (see below), and **Delete trip**.
+
+#### Offline
+
+A trip can be saved on the device so it's there with no signal: on the road, in a park, on a plane. In trip settings, **Offline** has one button, **Save for offline**, which saves:
+- the plan, as the server last sent it;
+- every drive's route;
+- the map around each day, a zoom level in and out, and a street-level patch around each stop;
+- the app itself.
+
+A phone saves about 1–5 MB a day, a few tiles at a time, and the field shows how far it has got ("Saving the map: 40%"). Once saved, the field says how much space it takes and when it was last updated, and offers **Remove from this device**. A saved trip keeps itself up to date: while it's open with a connection, every change is saved again, and each visit fetches any map it now needs. Only what's missing is downloaded, so this costs little.
+
+The header shows the trip's status:
+
+| Icon | When | Tap says |
+| --- | --- | --- |
+| Tick on a line (`saved`) | Saved on this device | Available offline. Saved on this device. |
+| Arrow down (`download`) | Saving | Saving for offline: 40% |
+| Crossed-out cloud (`cloud-off`) | No connection, or the server didn't answer and this is the saved copy | Offline. This is the copy saved on this device 2 hr ago. Changes need a connection. |
+
+When the trip isn't saved and there's a connection, the header has no status icon.
+
+With no connection, Home lists the saved trips and a saved trip opens from its copy. A weak signal counts too: if the server hasn't answered after 4 seconds, the saved copy shows, and the server's copy replaces it when it comes. Edits still need a connection: an edit made offline gets the usual "Couldn't save" toast. When the connection comes back, the trip reloads from the server. Signing out removes everything saved on the device.
+
+On iPhone, Safari clears a site's saved data after about a week without a visit, but not for an app added to the Home Screen. The field says so in a Safari tab. An app added to the Home Screen has its own storage, so you sign in there and save the trip again.
 
 **Account** (your picture on the trip list) holds your name, **Maps app** (Google Maps or Apple Maps, for every place and directions, on this device), and **Sign out**. Maps app is a picker, like a stop's Type: a row with the current app that opens the two on a page of the sheet. Every choice from a list works this way, however few the options, so they all look and behave the same. On a computer (768px and up) the options drop down under the row as a menu instead: one click to open, one to pick, Esc or a click outside to close. A page with a Back button suits a thumb and a phone's small screen, but it's slow with a mouse, and a computer has room to show the menu beside everything else.
 
@@ -329,6 +353,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
 
   None of these are meant for production traffic.
 - **Data:** saved in the browser, one browser only. The app's server is answered in the browser, so share links, deleting with Undo and the rest work as in the app. Open tabs sync with each other, which simulates co-editing. There's no sign-in: you're Alex unless `?as=` says otherwise.
+- **Offline:** the prototype's pretend server can't be reached with no connection either. Save a trip for offline, then turn the network off (DevTools → Network → Offline) and reload. Saving needs `localhost` or https, since service workers need a secure page.
 - **Simulating other people and dates:**
 
   | Add to the address | Effect |
@@ -346,7 +371,8 @@ The full visual language (tokens, components, light and dark themes, accessibili
 - **Day view in the app:** shipped. The day bar, timeline, hotel stays, stop types and floating buttons are in `app/web`, with their styles in the design system (v2.0.0). Stops store `kind` and `nights` on the server. Trip settings also holds Make a new link, and the trip name saves when you leave the field.
 - **How long a stop lasts:** shipped as an optional Leave time on every stop (see [Stop times](#stop-times)). A stop left without one still assumes you leave just in time for the next. Default lengths per type (a meal 1 hour, a museum 2) could fill the gap, without showing durations in the list.
 - **The map and list:** the header, the half/whole-day sheet, route previews, the stop sheet that leaves the map in view, the Type page and hotel check-out times are in `app/web` and `prototype/`, with their styles in the design system (v3.0.0).
-- **From the UX review, not yet done:** quick time choices in Add stop, showing who's on the trip at a glance and what changed while you were away, working offline, and marking estimated drive times with `≈`.
+- **From the UX review, not yet done:** quick time choices in Add stop, showing who's on the trip at a glance and what changed while you were away, and marking estimated drive times with `≈`.
 - **Map credits:** Stadia's and OpenStreetMap's terms ask for attribution on or next to the map. The app now shows them only in trip settings, like the prototype. Check the terms before this deploys; if needed, bring back a small ⓘ button on the map that shows the credits.
+- **Offline:** shipped as read-only (see [Offline](#offline)). Edits made offline could wait in a queue and save once the connection is back, rather than failing. The map is only saved with Stadia: OpenStreetMap's tile policy doesn't allow bulk downloads. Each saved tile counts against the Stadia plan, and the terms on keeping tiles offline should be checked before this deploys.
 - **People at a glance:** with the header gone, who's on the trip is one tap away. If that hides co-editing too much, a small stack of faces could go back on the settings button.
 - **Accessibility:** a full review, including focus handling in the sheets and screen-reader labels for pins.

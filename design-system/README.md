@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 7.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 7.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -213,6 +213,8 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
 `back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `directions` `map` `list` `fit`
+
+Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
 
 Stop types: `plane` `bed` `utensils` `cup` `star` `museum` `tree` `camera` `bag` `fuel` (with `pin` for a plain place).
 
@@ -530,6 +532,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 <header class="wt-trip-head">
   <a class="wt-icon-btn" href="#/" aria-label="All trips">${icon('home')}</a>
   <h1 class="wt-trip-head__name">White Sands, NM</h1>
+  <button class="wt-icon-btn wt-trip-head__status" aria-label="Available offline">${icon('saved')}</button>   <!-- .is-offline with cloud-off -->
   <button class="wt-icon-btn" aria-label="Trip settings and sharing">${icon('settings')}</button>
 </header>
 <section class="wt-sheet" aria-label="Plan">   <!-- .is-full, or half with no class -->
@@ -558,6 +561,7 @@ With a stop selected, the add bar holds Open in Maps, a round Edit stop and a ro
   - The list (`.wt-sheet__body`) fades out at an edge with more past it: `.is-more-above` and `.is-more-below`, which the app sets from the scroll position.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
   - It never hides.
+- **The offline status** (`.wt-trip-head__status`) sits between the name and settings, and only while it has something to say: `saved` when the trip is saved on this device, `download` while it's saving, and `cloud-off` with `.is-offline` when there's no connection. It's quieter than home and settings (18px, `--wt-text-tertiary`); offline is a step louder (`--wt-text-secondary`), since changes won't save. Its `aria-label` names the status ("Available offline", "Saving for offline", "Offline"), and a tap explains it in a toast. It isn't an action, so it's the one icon-only button whose icon isn't a universal one.
 - **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it, and the list can't be scrolled by hand at all (`touch-action: none` and `overflow: hidden`): your code scrolls it, to keep the focused row in its middle. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the other height; a slower drag settles at the nearer. Add `.is-dragging` while a finger is moving it.
 - **Taps:** the grab handle is a button that switches between half and full. Choosing a stop or a drive on the whole day brings the sheet down to half. No other tap resizes the sheet.
 - **The map:** a new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route opens the sheet to half. Zooming doesn't move the sheet.
@@ -746,6 +750,14 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 7.2.0
+
+Trips can be saved on the device for offline use, and the trip header says when one is.
+
+- New: `.wt-trip-head__status` and `.is-offline` (see [Trip header](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)).
+- New icons (icons 1.4.0): `download`, `saved`, `cloud-off`.
+- Tokens are unchanged.
 
 ### Changed in 7.1.0
 

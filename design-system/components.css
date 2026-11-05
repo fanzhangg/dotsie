@@ -1,4 +1,4 @@
-/* Waythread design system — components v7.1.0
+/* Waythread design system — components v7.2.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -464,6 +464,11 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-trip-head .wt-icon-btn { color: var(--wt-text-secondary); }
 .wt-trip-head .wt-icon-btn .wt-icon { width: 20px; height: 20px; }
 .wt-trip-head__name { flex: 1; min-width: 0; margin: 0; padding-right: var(--wt-space-1); font: var(--wt-type-context); color: var(--wt-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Offline status, between the name and settings: saved on this device or saving (quiet), or no connection (louder).
+   Hidden when there's nothing to say. A tap explains it in a toast. */
+.wt-trip-head .wt-trip-head__status { width: 36px; color: var(--wt-text-tertiary); }
+.wt-trip-head .wt-trip-head__status .wt-icon { width: 18px; height: 18px; }
+.wt-trip-head .wt-trip-head__status.is-offline { color: var(--wt-text-secondary); }
 /* Map / List (unused since 4.1.0: the sheet's three heights are reached by dragging it, as in a maps app) */
 .wt-view-toggle {
   display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px 0 11px;
