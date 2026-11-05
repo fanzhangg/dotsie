@@ -77,6 +77,9 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
    never scrolls while a trip is open. */
 .trip { position: fixed; inset: 0; overflow: hidden; container: wt-trip / inline-size; }
 html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overflow: hidden; overscroll-behavior: none; }
+/* On a phone a toast shows just below the trip header, not over it, so Home and settings stay in reach while it's up.
+   From 768px the header is in the side panel and the toast is clear of it at the top. */
+@media (max-width: 767.98px) { html:has(#app[data-page="trip"]) { --wt-toast-top: calc(var(--wt-space-2) + var(--wt-size-trip-head) + var(--wt-space-2)); } }
 /* On a phone the map fills the screen, under the floating header card; from 768px wide the header tops the side panel, and the map sits beside it. */
 #map { position: absolute; inset: 0; background: var(--wt-surface-map); }
 @container wt-trip (min-width: 768px) { #map { left: var(--wt-size-panel); } }
