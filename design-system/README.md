@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 7.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 7.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -212,7 +212,7 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `directions` `map` `list` `fit`
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `directions` `map` `list` `fit`
 
 Stop types: `plane` `bed` `utensils` `cup` `star` `museum` `tree` `camera` `bag` `fuel` (with `pin` for a plain place).
 
@@ -224,6 +224,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke
 - An icon next to a label is decoration (`aria-hidden`).
 - An icon-only button needs an `aria-label`.
 - `external` means "opens another app or site". Use it only for that.
+- `chevron-up-down` means "tap for a list to choose from" (the day bar's day). `forward` and `back` step or go to another page; don't put two controls that look alike but do different things next to each other.
 
 ## Components
 
@@ -414,7 +415,7 @@ The overview: every day of the trip on one page, before the first day. Each day'
 ```html
 <div class="wt-tl">
   <button class="wt-tl-day" aria-label="Fri, Nov 20. Open this day">
-    <span class="wt-tl-day__name">Fri, Nov 20</span>${icon('forward')}
+    <span class="wt-tl-day__name">Fri, Nov 20</span><span class="wt-tl-day__open" aria-hidden="true">View day</span>
   </button>
   <button class="wt-tl-stop">…</button>   <!-- the day's stops… -->
   <div class="wt-tl-drive">…</div>       <!-- …and the drives between them -->
@@ -423,7 +424,7 @@ The overview: every day of the trip on one page, before the first day. Each day'
 </div>
 ```
 
-- **The heading** is a row in the timeline with a `forward` icon on the right: tapping it opens that day. It's a label, not a name: `--wt-type-overline` in grey capitals (`text-transform` and `--wt-tracking-caps`; the text stays "Fri, Nov 20" for screen readers), starting at the list's left edge, where the markers start. Stop names are larger, black and indented past the rail, so a date never reads as a stop. It's at least `--wt-size-touch` tall, with its text at the bottom, next to the day's first stop.
+- **The heading** is a row in the timeline with **View day** on the right (`.wt-tl-day__open`, caption size in `--wt-text-link`; secondary ink on a past day): tapping it opens that day. It's in words, not a `forward` icon, since the day bar's ‹ › sit just above it and step through days instead. It's a label, not a name: `--wt-type-overline` in grey capitals (`text-transform` and `--wt-tracking-caps`; the text stays "Fri, Nov 20" for screen readers), starting at the list's left edge, where the markers start. Stop names are larger, black and indented past the rail, so a date never reads as a stop. It's at least `--wt-size-touch` tall, with its text at the bottom, next to the day's first stop.
 - **It isn't on the rail.** Each day's rail runs from its first stop's marker to its last; a day with one stop has no rail.
 - **Stops and the drives between them,** as on a day: marker, name, time, and `1 hr 36 min drive`. Notes are left to the day's own page, and so are the hotel you wake up at and go back to, with the drives to and from it (the map still draws every drive). A day's rows start and end with a place, never a drive, so its rail runs from marker to marker. A hotel keeps its nights on its check-in day, and check-out morning is a row with `Check out`. A day with no stops of its own, in the middle of a stay, shows the hotel you wake up at.
 - `is-selected`, `is-now` and `is-past` work as on a day. A past day's heading gets `is-past` and turns `--wt-text-past` with its stops.
@@ -436,7 +437,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 <div class="wt-day-bar">
   <button class="wt-icon-btn wt-day-bar__step" aria-label="Previous day">${icon('back')}</button>
   <button class="wt-day-bar__title" aria-label="Today, Nov 21. Pick a day">
-    <span class="wt-day-bar__label">Today, Nov 21${icon('chevron-down')}</span>
+    <span class="wt-day-bar__label">Today, Nov 21${icon('chevron-up-down')}</span>
   </button>
   <button class="wt-icon-btn wt-day-bar__step" aria-label="Next day">${icon('forward')}</button>
 </div>
@@ -450,6 +451,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 ```
 
 - The title says "Today, Nov 21" on today, so it's easy to find your way back. Other days are "Sat, Nov 21", and the overview is "All days".
+- **‹ and › are round buttons on a grey disc** (32px of `--wt-surface-hover`, drawn by `::before` inside the 44px button, so the button keeps its size and its place on the columns). The day has a `chevron-up-down` picker glyph. The two look different because they do different things: step, or pick from a list.
 - Disable the previous arrow on All days and the next arrow on the last day.
 - The day list shows All days, then every day, with up to six small markers: the day's stops in order, then the hotel you sleep at. `aria-current="date"` marks the open day (`"page"` on All days).
 
@@ -667,7 +669,7 @@ The name and dates only: enough to pick a trip.
 - **A round dot, centered on its place,** like a stop on a transit map: place the element at the place and its center lands there. 24px, ring included (`--wt-pin-size`). It covers its place and little else, so the routes running into it stay visible.
 - **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), shaded like a marker, in a 2px `--wt-pin-fill` ring that keeps it apart from the route under it.
 - **It holds one thing: the stop's number,** in the day's order (on All days, the trip's), in `--wt-marker-ink`. A place that isn't a numbered stop has `.wt-pin__dot` instead.
-- **Crowded pins are small dots.** `--dot` is 14px with no number. Give it to a pin that's too close to another for both to show their numbers: the app checks every pin after each zoom (two numbered pins' radii plus 4px). Zoomed out, a day is a line of small dots along its route instead of a pile of pins; zoom in and the numbers come back. A selected pin always keeps its number.
+- **Crowded pins are small dots, all or none.** `--dot` is 14px with no number. If any two pins in view are too close for both to show their numbers (two numbered pins' radii plus 4px), give it to every pin; the app checks after each zoom and pan. Zoomed out, a day is a line of small dots along its route instead of a pile of pins; zoom in and every number comes back at once. Never mix numbered pins and dots: a lone number among dots reads as special. A selected pin always keeps its number.
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal.
 - Variants: `--selected` (32px, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (20px and grey, `--wt-kind-past`, 10px as a `--dot`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). The pins still in color are the ones that matter now.
 - **A tap target of 36px**, centered on the dot (`::after`), so a small dot is still easy to tap.
@@ -689,7 +691,7 @@ Say what can go here, in the user's words. No illustrations.
   - On a phone: `.wt-trip-head` across the top, the map under it, and `.wt-sheet` over the map, at half height or the whole day.
   - From 768px wide: the header and the sheet are a side panel on the left, and the map fills the rest. Modal sheets cover the panel. Fit the map with even padding: nothing covers it.
   - One day at a time, after All days. The day bar steps through them, and the map shows only the open day; on All days, the whole trip.
-  - A stop's pin is a dot in its marker's color with its number in the day; where pins crowd, they're small dots with no number. The map has no text. The list says what each pin is: the half list keeps the row in focus in its middle.
+  - A stop's pin is a dot in its marker's color with its number in the day; where pins in view crowd, they're all small dots with no number. The map has no text. The list says what each pin is: the half list keeps the row in focus in its middle.
   - Tapping a pin selects its stop (`is-selected`). Tapping a route, or its drive in the list, marks the drive `is-active` and shows the route: both ends' pins larger, the map fitted to it, and the drive in the middle of the half list, between its two stops. Tapping the drive again goes back to the whole day.
   - Editing a stop leaves the map in view (a panel), with the stop's pin showing the edit as it happens.
 - **Today.** During the trip, the trip opens on today. On any other day, it opens on All days.
@@ -744,6 +746,15 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 7.1.0
+
+The day bar and the All days list had four look-alike chevrons in view, and a lone numbered pin among dots looked special.
+
+- **Day bar:** `.wt-day-bar__step` draws a 32px `--wt-surface-hover` disc behind its arrow (`::before`), and its arrow is in primary ink. The day's chevron is the new `chevron-up-down` icon (icons 1.3.0).
+- **Day heading:** `.wt-tl-day` ends in `.wt-tl-day__open` ("View day", in link blue) instead of a `forward` icon.
+- **Map pins:** `.wt-pin--dot` goes on every pin or on none (see [Map pin](#map-pin-wt-pin)). The class is unchanged; only how the app uses it.
+- Tokens are unchanged.
 
 ### Changed in 7.0.0
 

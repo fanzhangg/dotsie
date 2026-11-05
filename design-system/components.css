@@ -1,4 +1,4 @@
-/* Waythread design system — components v7.0.0
+/* Waythread design system — components v7.1.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -296,13 +296,15 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-day {
   font: inherit; color: var(--wt-text-secondary); background: none; border: 0; margin: 0; cursor: pointer; text-align: left;
   width: 100%; min-height: var(--wt-size-touch); display: grid; grid-template-columns: 1fr auto; align-items: end; gap: var(--wt-space-2);
-  /* The text starts where the markers do; the › is centred on the Directions column, like the day bar's › above it. */
+  /* The text starts where the markers do; "View day" ends where the times do. */
   padding: 0 var(--wt-space-4) var(--wt-space-1) calc((var(--wt-tl-rail) - 30px) / 2);
   border-radius: var(--wt-radius-md); transition: background var(--wt-duration-fast);
 }
 .wt-tl > * + .wt-tl-day { margin-top: var(--wt-space-2); }
 .wt-tl-day__name { min-width: 0; font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; overflow-wrap: anywhere; }
-.wt-tl-day > .wt-icon { width: 16px; height: 16px; }
+/* Said in words, in link blue, rather than with a ›, so it isn't one more arrow under the day bar's ‹ › */
+.wt-tl-day__open { font: var(--wt-type-caption); color: var(--wt-text-link); white-space: nowrap; }
+.wt-tl .wt-tl-day.is-past .wt-tl-day__open { color: var(--wt-text-secondary); }
 .wt-tl-day:active { background: var(--wt-surface-hover); }
 @media (hover: hover) { .wt-tl-day:hover { background: var(--wt-surface-sunken); } }
 .wt-tl .wt-tl-day.is-past { color: var(--wt-text-past); }
@@ -311,10 +313,20 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-day + :is(:last-child, :has(+ .wt-tl-day)) .wt-tl-rail::before { display: none; }
 
 /* ---------- Day bar: ‹ day › at the top of the sheet; tap the day for the list of days ---------- */
-/* The arrows are centred on the timeline's columns: ‹ on the rail, › on the Directions column (with the sheet top's padding). */
+/* The arrows are centred on the timeline's columns: ‹ on the rail, › on the Directions column (with the sheet top's padding).
+   Three controls sit close together here, each with its own look: ‹ and › are round buttons on a grey disc (step),
+   the day has a ⌃⌄ picker glyph (choose from a list), and a day heading below says "View day" in words. */
 .wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) 0 var(--wt-space-2); }
 .wt-day-bar[hidden] { display: none; }
-.wt-day-bar__step { color: var(--wt-text-secondary); }
+.wt-day-bar__step { color: var(--wt-text-primary); }
+/* The disc is drawn inside the 44px tap target, so the button keeps its size and its place on the columns */
+.wt-day-bar__step::before {
+  content: ''; grid-area: 1 / 1; width: 32px; height: 32px; border-radius: var(--wt-radius-round);
+  background: var(--wt-surface-hover); transition: background var(--wt-duration-fast);
+}
+.wt-day-bar__step > .wt-icon { grid-area: 1 / 1; width: 18px; height: 18px; position: relative; }
+.wt-day-bar__step:active { background: none; }
+.wt-day-bar__step:active::before { background: var(--wt-border-strong); }
 .wt-day-bar__title {
   font: inherit; color: inherit; background: none; border: 0; margin: 0; cursor: pointer;
   display: grid; justify-items: center; padding: 2px var(--wt-space-3); border-radius: var(--wt-radius-md);
@@ -559,7 +571,10 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   .wt-sheet__grab { display: none; }
   .wt-map-bar { display: none; }
 }
-@media (hover: hover) { .wt-day-bar__step:hover:not(:disabled), .wt-day-bar__title:hover { background: var(--wt-surface-hover); } }
+@media (hover: hover) {
+  .wt-day-bar__title:hover { background: var(--wt-surface-hover); }
+  .wt-day-bar__step:hover:not(:disabled)::before { background: var(--wt-border-strong); }
+}
 
 /* ---------- Modal sheet ---------- */
 .wt-modal-root .wt-modal__backdrop {

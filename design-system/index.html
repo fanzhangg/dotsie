@@ -539,7 +539,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       <div class="demo">
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
           <div class="wt-tl">
-            <button class="wt-tl-day" type="button" aria-label="Fri, Nov 20. Open this day"><span class="wt-tl-day__name">Fri, Nov 20</span><i data-icon="forward"></i></button>
+            <button class="wt-tl-day" type="button" aria-label="Fri, Nov 20. Open this day"><span class="wt-tl-day__name">Fri, Nov 20</span><span class="wt-tl-day__open" aria-hidden="true">View day</span></button>
             <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-airport)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Airport"><i data-icon="plane"></i></i></span>
               <span class="wt-tl-name">El Paso International Airport</span>
@@ -550,7 +550,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-notes"><span class="wt-tl-note">2 nights</span></span>
               <span class="wt-tl-time">3:00<span class="wt-tl-meridiem">PM</span></span>
             </button>
-            <button class="wt-tl-day" type="button" aria-label="Sat, Nov 21. Open this day"><span class="wt-tl-day__name">Sat, Nov 21</span><i data-icon="forward"></i></button>
+            <button class="wt-tl-day" type="button" aria-label="Sat, Nov 21. Open this day"><span class="wt-tl-day__name">Sat, Nov 21</span><span class="wt-tl-day__open" aria-hidden="true">View day</span></button>
             <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-museum)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span>
               <span class="wt-tl-name">New Mexico Museum of Space History</span>
@@ -565,7 +565,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         </div>
       </div>
       <ul class="rules">
-        <li><b>Day headings</b> sit in the timeline, between the days' stops, with a <code>forward</code> icon: tapping one opens that day. They're a label, not a name: small grey capitals (<code>--wt-type-overline</code>), starting at the list's left edge, where the markers start, so a date never reads as a stop. They're not on the rail, so each day's rail runs from its first stop to its last.</li>
+        <li><b>Day headings</b> sit in the timeline, between the days' stops, ending in <i>View day</i> (<code>.wt-tl-day__open</code>) in words rather than a <code>forward</code> icon, so it isn't one more arrow under the day bar's: tapping one opens that day. They're a label, not a name: small grey capitals (<code>--wt-type-overline</code>), starting at the list's left edge, where the markers start, so a date never reads as a stop. They're not on the rail, so each day's rail runs from its first stop to its last.</li>
         <li><b>Stops only.</b> Drives and notes stay on the day's own page; a hotel keeps its nights, and check-out morning its <i>Check out</i>. Selecting, <code>is-now</code> and <code>is-past</code> work as on a day. A past day's heading dims with its stops (<code>is-past</code>).</li>
       </ul>
     </section>
@@ -592,7 +592,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <div class="wt-sheet__top"><button class="wt-sheet__grab" type="button" data-sheet-toggle aria-label="Show the whole day"></button>
                 <div class="wt-day-bar">
                   <button class="wt-icon-btn wt-day-bar__step" type="button" aria-label="Previous day"><i data-icon="back"></i></button>
-                  <button class="wt-day-bar__title" type="button" aria-label="Today, Nov 21. Pick a day"><span class="wt-day-bar__label">Today, Nov 21<i data-icon="chevron-down"></i></span></button>
+                  <button class="wt-day-bar__title" type="button" aria-label="Today, Nov 21. Pick a day"><span class="wt-day-bar__label">Today, Nov 21<i data-icon="chevron-up-down"></i></span></button>
                   <button class="wt-icon-btn wt-day-bar__step" type="button" aria-label="Next day"><i data-icon="forward"></i></button>
                 </div>
               </div>
@@ -624,7 +624,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
     &lt;div class="wt-day-bar"&gt;
       &lt;button class="wt-icon-btn wt-day-bar__step" aria-label="Previous day"&gt;${icon('back')}&lt;/button&gt;
       &lt;button class="wt-day-bar__title" aria-label="Today, Nov 21. Pick a day"&gt;
-        &lt;span class="wt-day-bar__label"&gt;Today, Nov 21${icon('chevron-down')}&lt;/span&gt;
+        &lt;span class="wt-day-bar__label"&gt;Today, Nov 21${icon('chevron-up-down')}&lt;/span&gt;
       &lt;/button&gt;
       &lt;button class="wt-icon-btn wt-day-bar__step" aria-label="Next day"&gt;${icon('forward')}&lt;/button&gt;
     &lt;/div&gt;
@@ -720,7 +720,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 
     <section id="map">
       <h2>Map pins, routes and buttons</h2>
-      <p class="intro">A pin is a round dot in the stop's type color, centered on the place, with the stop's number inside; the hotel at either end of a day has a smaller dot inside. Where pins crowd (zoomed out, or places close together) each is a small dot with no number, so places and routes stay visible. A selected pin grows; a muted one (over, or off the route on show) shrinks and turns grey. The map carries no text: names and times are in the list. It shows only the open day. Routes are the only blue on screen, and turn grey once they're over. Map libraries draw with script, so they read the route tokens at draw time.</p>
+      <p class="intro">A pin is a round dot in the stop's type color, centered on the place, with the stop's number inside; the hotel at either end of a day has a smaller dot inside. Where pins in view crowd (zoomed out, or places close together) they're all small dots with no number, so places and routes stay visible; zoom in and every number comes back at once. A selected pin grows; a muted one (over, or off the route on show) shrinks and turns grey. The map carries no text: names and times are in the list. It shows only the open day. Routes are the only blue on screen, and turn grey once they're over. Map libraries draw with script, so they read the route tokens at draw time.</p>
       <div class="demo">
         <div class="demo__live demo__live--column">
           <div class="stage" style="height: 300px">
@@ -759,7 +759,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
   &lt;b class="wt-pin__num"&gt;3&lt;/b&gt;   &lt;!-- or &lt;i class="wt-pin__dot"&gt;&lt;/i&gt; for the hotel at either end of a day --&gt;
 &lt;/div&gt;
 
-// Leaflet: the pin's center lands on the marker's position. Add .wt-pin--dot to a pin too close to another to show its number. The pane holding the pins is .wt-pins, so the rest fade while one is selected.
+// Leaflet: the pin's center lands on the marker's position. If any two pins in view are too close to show their numbers, add .wt-pin--dot to every pin (all or none). The pane holding the pins is .wt-pins, so the rest fade while one is selected.
 map.getPane('markerPane').classList.add('wt-pins');
 L.marker(latlng, { icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML }) });
 
@@ -861,7 +861,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
             <div class="wt-sheet__top"><button class="wt-sheet__grab" type="button" aria-label="Show the whole day"></button>
               <div class="wt-day-bar">
                 <button class="wt-icon-btn wt-day-bar__step" type="button" aria-label="Previous day"><i data-icon="back"></i></button>
-                <button class="wt-day-bar__title" type="button" aria-label="Today, Nov 21. Pick a day"><span class="wt-day-bar__label">Today, Nov 21<i data-icon="chevron-down"></i></span></button>
+                <button class="wt-day-bar__title" type="button" aria-label="Today, Nov 21. Pick a day"><span class="wt-day-bar__label">Today, Nov 21<i data-icon="chevron-up-down"></i></span></button>
                 <button class="wt-icon-btn wt-day-bar__step" type="button" aria-label="Next day"><i data-icon="forward"></i></button>
               </div>
             </div>
@@ -934,7 +934,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v7.0.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v7.1.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 

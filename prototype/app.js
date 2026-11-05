@@ -36,7 +36,7 @@ const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(-
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // ---------- Icons (design system) ----------
-const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin']
+const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'chevron-up-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin']
   .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
@@ -1047,7 +1047,7 @@ function mountTrip(trip) {
     zoomAnim = false;
     if (drawPending && cur?.stops) { drawPending = false; drawMap(cur); }
   });
-  map.on('zoom zoomend', fitPins); // a pin gets its number back as you zoom in, and gives it up as you zoom out
+  map.on('zoom zoomend moveend', fitPins); // pins get their numbers back as you zoom in, and give them up as you zoom out or pan to a crowd
   // A quiet basemap so routes lead. Stadia needs no key on localhost; in production, register the
   // domain with Stadia. Fall back to OpenStreetMap if it's refused.
   const m = map, dark = matchMedia('(prefers-color-scheme: dark)').matches;
@@ -1341,8 +1341,9 @@ function overviewItems(trip) {
   }
   return items;
 }
+// Its action is said in words, "View day", not with a ›: the day bar's ‹ › just above it step through the days.
 const dayHeadHTML = (d, past) => `<button class="wt-tl-day${past ? ' is-past' : ''}" data-action="pick-day" data-day="${d}" aria-label="${dayName(d)}. Open this day">
-    <span class="wt-tl-day__name">${dayName(d)}</span>${ICON.forward}</button>`;
+    <span class="wt-tl-day__name">${dayName(d)}</span><span class="wt-tl-day__open" aria-hidden="true">View day</span></button>`;
 function listHTML(trip, day) {
   if (!day) return '<p class="wt-empty">Add a flight, a hotel, or a place to see.</p>';
   const items = day === ALL ? overviewItems(trip) : dayItems(trip, day);
@@ -1381,7 +1382,7 @@ function dayBarHTML(trip) {
   if (!d) return '';
   return `<button class="wt-icon-btn wt-day-bar__step" data-action="prev-day" aria-label="Previous day"${i > 0 ? '' : ' disabled'}>${ICON.back}</button>
     <button class="wt-day-bar__title" data-action="days" aria-label="${dayName(d)}. Pick a day">
-      <span class="wt-day-bar__label">${dayName(d)}${ICON.chevronDown}</span>
+      <span class="wt-day-bar__label">${dayName(d)}${ICON.chevronUpDown}</span>
     </button>
     <button class="wt-icon-btn wt-day-bar__step" data-action="next-day" aria-label="Next day"${i < days.length - 1 ? '' : ' disabled'}>${ICON.forward}</button>`;
 }
@@ -1897,8 +1898,9 @@ function dayView(trip, day) {
 const pinHTML = (s, n, cls = '') => `<div class="wt-pin ${cls}" role="img" aria-label="${n ? `${n}. ` : ''}${esc(s.name)}, ${KINDS[kindOf(s)].label}" style="--wt-kind-color: ${kindColor(s)}">`
   + `${n ? `<b class="wt-pin__num">${n}</b>` : '<i class="wt-pin__dot"></i>'}</div>`;
 let draftNum = null; // the number of the stop being edited, so its pin keeps it
-// Where pins crowd, the map shows where each place is rather than a pile of numbers: a pin too close to another for
-// both to show their numbers becomes a small dot (.wt-pin--dot), and gets its number back once you zoom in far enough.
+// Where pins crowd, the map shows where each place is rather than a pile of numbers: if any two pins in view are too
+// close for both to show their numbers, every pin becomes a small dot (.wt-pin--dot), and they all get their numbers
+// back once you zoom in far enough. All or none: a lone number among dots (the one pin with room) read as special.
 // A selected pin always keeps its number. `r` is the pin's radius with its number (selected 16, normal 12, muted 10).
 let pins = []; // { ll, r, el } for each pin on the map
 const PIN_GAP = 4; // px of map between two numbered pins
@@ -1909,10 +1911,14 @@ function addPin(marker, r) {
 function fitPins() {
   if (!map || !pins.length) return;
   // During a flight, where it's going: the pins settle once instead of flickering through every zoom on the way
-  const z = camTarget && performance.now() < camTarget.until ? camTarget.zoom : map.getZoom();
-  const pts = pins.map(p => map.project(p.ll, z));
-  pins.forEach((p, i) => p.el?.classList.toggle('wt-pin--dot',
-    pins.some((q, j) => j !== i && pts[i].distanceTo(pts[j]) < p.r + q.r + PIN_GAP)));
+  const flying = camTarget && performance.now() < camTarget.until;
+  const z = flying ? camTarget.zoom : map.getZoom();
+  // Only the pins in view count: two places a street apart at the other end of the trip don't take the numbers away here
+  const mid = map.project(flying ? camTarget.center : map.getCenter(), z), half = map.getSize().divideBy(2);
+  const view = L.bounds(mid.subtract(half), mid.add(half));
+  const seen = pins.map(p => ({ r: p.r, pt: map.project(p.ll, z) })).filter(p => view.contains(p.pt));
+  const crowded = seen.some((p, i) => seen.some((q, j) => j > i && p.pt.distanceTo(q.pt) < p.r + q.r + PIN_GAP));
+  pins.forEach(p => p.el?.classList.toggle('wt-pin--dot', crowded));
 }
 // The stop being edited, where it would go: its new place and type.
 function drawDraft() {

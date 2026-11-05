@@ -30,7 +30,7 @@ The trip is a single screen: a **header** with the trip's name, the **map**, and
 │╭ ⌂  White Sands, NM       ⚙ ╮│  ← header card: home · trip · settings
 │  map: numbered pins + routes │  ← what's over is grey
 ├──────────────────────────────┤  ← grab handle
-│ ‹       Today, Nov 21 ⌄    › │  ← day bar: step, or tap the day
+│ (‹)     Today, Nov 21 ⌃⌄  (›)│  ← day bar: step, or tap the day
 │ (🛏) Holiday Inn              │  ← last night's hotel
 │  ⊖   10 min drive            │  ← car on the rail; tap it for the route
 │ (🏛) Museum of Space   9:30 AM│  ← marker · stop · time
@@ -79,7 +79,7 @@ The half list is about one row, its **focus**: the selected stop; or else the dr
 ```
 ┌─────────────────────┬──────────────────────────────────┐
 │ ⌂  White Sands, NM ⚙│                                  │
-│ ‹   Today, Nov 21 ⌄ ›│                                  │
+│(‹) Today, Nov 21 ⌃⌄(›)│                                  │
 │ (🛏) Holiday Inn     │        map: pins + routes        │
 │  ⊖  10 min drive   ◇│                                  │
 │ (🏛) Museum   9:30 AM│                                  │
@@ -90,18 +90,19 @@ The half list is about one row, its **focus**: the selected stop; or else the dr
 
 **One day at a time, after All days.** The list and the map show a single day: a day is the unit you plan and travel by. Before the first day comes **All days**, an overview of the whole trip.
 - **The day bar** tops the sheet, so it stays visible when the sheet is pulled down. Like the trip's name, it's context, not the plan: 15px in grey, quieter than the stop names under it (it used to be the largest, boldest text on screen). It shows the day (`Fri, Nov 20`, or `Today, Nov 21` on a trip day, so today is easy to find again) between **‹** and **›** buttons that step to the previous and next day. From the first day, **‹** goes to All days.
+- **Each control near the day has its own look,** so the top of the sheet isn't a row of look-alike arrows (it once had four chevrons in view: ‹, ⌄, › and a › on each day heading, and the two ›s did different things). **‹ ›** sit on grey discs, as buttons that step. The day's **⌃⌄** is a picker glyph: tap for a list to choose from. On All days, a day heading says **View day** in blue, in words rather than with one more ›.
 - **Picking a day:** tap the day to open a list of All days and every day of the trip, each day with the type icons of its stops and of the hotel you sleep at, so you can see what a day holds before you jump to it. On a computer, ← → also step through days.
 - There's no swipe between days: the arrows and the day list replace it.
 - **Which day opens:** today, when it's one of the trip's days; otherwise All days, so a trip you're planning or looking back on opens on the whole of it. Saving a stop switches to that stop's day (on All days, it stays there). If a day loses its last stop, the list moves to the next day.
 - **All days** lists every day under its name, with each day's stops and their times, and the drives between them, as on a day (`1 hr 36 min drive`). The date is a small grey label in capitals (`FRI, NOV 20`) at the list's left edge, so it reads as a heading and never as one of the stops, which are larger, black and indented past the rail. Notes are left out, so the trip reads at a glance, and so are the hotel you wake up at and go back to, with the drives to and from it: they're on each day's page, and the map still draws every drive. A hotel says how many nights on its check-in day, and check-out morning has its `Check out` row; a day in the middle of a stay with no stops of its own shows the hotel. **Tapping a day's name opens that day.** Tapping a stop selects it, as on a day, and the bottom button becomes Open in Maps, with Edit stop beside it; tapping a drive shows its route and offers Directions. The map shows the whole trip: every stop and every drive, and Whole day becomes **Whole trip**. Tapping a route shows it and offers Directions, as on a day. Add stop starts two hours after the trip's last stop. (A whole trip on one page was tried early on and dropped as too much to take in, when it was the only page; as an overview next to the days, without the notes, it gives the shape of the trip a day can't. It first left out the drives too; they came back, since how long you drive between stops is part of that shape.)
 
 ```
-│ ‹         All days ⌄       › │  ← ‹ is off: this is the first page
-│ FRI, NOV 20                › │  ← tap to open the day
+│ (‹)       All days ⌃⌄     (›)│  ← ‹ is off: this is the first page
+│ FRI, NOV 20         View day │  ← tap to open the day
 │ (✈) El Paso Airport   10:30 AM│
 │ (🛏) Holiday Inn       3:00 PM│
 │      2 nights                │
-│ SAT, NOV 21                › │
+│ SAT, NOV 21         View day │
 │ (🏛) Museum of Space   9:30 AM│
 │ …                            │
 ```
@@ -253,7 +254,7 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 
 - **Markers and pins are glossy,** like a maps app's: each is shaded from its own color, a little lighter and richer at the top and darker at the bottom in the same hue (a white and black overlay was tried first and made the colors look dirty), so it reads as an object on the map or the rail rather than a flat dot. A drive's car stays flat, so drives stay quieter than stops. The gradient is the same for every type and gentle enough that the icon or number stays readable.
 - **Pins** are round dots centered on their place, like stops on a transit map. The pin is the stop's [type](#stop-types) color, in a white ring that keeps it apart from the route running into it, and it holds one thing, the stop's **number**: 1, 2, 3 in the day's order, or on All days in the trip's, as its list reads. A place that isn't a numbered stop (the hotel you wake up in or come back to, or the day before's last stop) has a white dot instead; the hotel you check in to that day is a stop, so it's numbered. A selected stop's pin, and both ends of a route on show, grow to a larger dot with a deeper shadow, and the other pins fade, keeping their colors (fading, not grey, since grey means over). Growing a quarter alone was tried first: among pins of every color, the selected one was hard to find. A stop that's over shrinks and turns grey, and so do the pins a route on show doesn't start or end at. Stops at the same place share one pin, with the first one's number; for example, flying in and out of the same airport. (Pins used to be round, with the type's icon, no numbers, and a name label when selected: the icon and the label repeated the list, and the map couldn't show the order. Teardrops with numbers came next. Each stood well above its place, so zoomed out, a day's pins piled into one blob that hid the places and the routes between them.)
-- **Where pins crowd, they shrink to small dots.** A pin too close to another for both to show their numbers (zoomed out, or places a few hundred meters apart) is a small dot with no number, so a day zoomed out reads as a line of colored dots along its route. Zoom in and each gets its number back once it has room, as you pinch. A selected pin, and both ends of a route on show, always keep their numbers, and a tap still selects a small dot: its tap target is larger than the dot.
+- **Where pins crowd, they shrink to small dots, all together.** If any two pins in view are too close for both to show their numbers (zoomed out, or places a few hundred meters apart), every pin is a small dot with no number, so a day zoomed out reads as a line of colored dots along its route. Zoom in until every pin in view has room and they all get their numbers back at once. Only the pins in view count, so a crowd at the other end of the trip doesn't take the numbers away from the place you're looking at. (Each pin used to decide for itself: zoomed out, the one pin with room kept its number among dots, and that lone number read as something special about that stop.) A selected pin, and both ends of a route on show, always keep their numbers, and a tap still selects a small dot: its tap target is larger than the dot.
 - **Routes** are drawn as driving routes in blue; on a trip day, past ones are grey. **Blue means routes and nothing else**: a selected stop is grey, no stop type is blue, and the list uses no blue at all: the drive you're on or have selected gets a darker grey car.
 - **The background map** is a light, low-contrast style (Stadia "Alidade Smooth"), so the routes stand out. Its credits are at the bottom of trip settings, not over the map.
 
