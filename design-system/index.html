@@ -200,6 +200,7 @@
       <li class="group">Components</li>
       <li><a href="#buttons">Buttons</a></li>
       <li><a href="#people">People</a></li>
+      <li><a href="#settings">Settings sections</a></li>
       <li><a href="#forms">Forms, type and nights</a></li>
       <li><a href="#timeline">Timeline and marker</a></li>
       <li><a href="#sheet">Bottom sheet and day bar</a></li>
@@ -313,6 +314,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
           <button class="wt-btn wt-btn--secondary" type="button">Copy</button>
           <button class="wt-btn wt-btn--ghost" type="button">Cancel</button>
           <button class="wt-btn wt-btn--danger" type="button">Delete</button>
+          <button class="wt-btn wt-btn--quiet" type="button">Make a new link</button>
           <button class="wt-btn wt-btn--secondary wt-btn--icon" type="button" aria-label="Add stop"><i data-icon="plus"></i></button>
           <button class="wt-icon-btn" type="button" aria-label="Close"><i data-icon="close"></i></button>
           <button class="wt-icon-btn wt-icon-btn--sm wt-icon-btn--muted" type="button" aria-label="Edit trip"><i data-icon="edit"></i></button>
@@ -323,6 +325,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li><b>Secondary</b> is a quiet action next to content, like Copy beside the trip link.</li>
         <li><b>Icon</b> (<code>--icon</code>) is a round button as tall as the others, for an action that sits beside a bigger one, like Edit stop and the + beside Open in Maps. Give it an <code>aria-label</code>.</li>
         <li><b>Danger</b> always leaves a way back: an Undo toast, or a confirmation when undo isn't possible.</li>
+        <li><b>Quiet</b> (<code>--quiet</code>) is a grey text button for a rare action under what it's about: Make a new link, Remove from this device, Sign out.</li>
         <li><b>Icon buttons</b> only where the icon is universally understood: back, close, edit, home, settings, the day arrows and Directions. Everything else gets words.</li>
       </ul>
     </section>
@@ -341,6 +344,36 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       </div>
       <div class="demo"><div class="demo__live" id="identity-row"></div></div>
       <ul class="rules"><li>With only one person on the trip, show the <code>person-add</code> icon instead of a lone avatar.</li></ul>
+    </section>
+
+    <section id="settings">
+      <h2>Settings sections</h2>
+      <p class="intro">Trip settings and Account are a column of sections, one thing each, divided by hairlines. Every section has the same order: its title, a line on what it does, its controls, then a hint or a quiet text button.</p>
+      <div class="demo">
+        <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
+          <div>
+            <form class="wt-section" onsubmit="return false">
+              <label class="wt-section__title" for="demo-trip-name">Name</label>
+              <input class="wt-input" id="demo-trip-name" value="White Sands, NM">
+            </form>
+            <section class="wt-section"><h3 class="wt-section__title">People</h3>
+              <ul class="wt-people">
+                <li class="wt-people__item"><span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-1)">A</span><span>Alex <span class="wt-people__meta">(you)</span></span></li>
+                <li class="wt-people__item"><span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-2)">S</span><span>Sam</span></li>
+              </ul></section>
+            <section class="wt-section"><h3 class="wt-section__title">Share link</h3>
+              <p class="wt-section__text">Anyone with the link can join and edit this trip.</p>
+              <div class="wt-copy-row"><input class="wt-input" readonly value="https://waythread.app/#/join/4f9a2c" aria-label="Trip link"><button class="wt-btn wt-btn--secondary" type="button">Copy</button></div>
+              <button class="wt-btn wt-btn--quiet" type="button">Make a new link</button></section>
+            <div class="wt-section"><button class="wt-btn wt-btn--danger" type="button">Delete trip</button></div>
+          </div>
+        </div>
+      </div>
+      <ul class="rules">
+        <li>The title is <code>--wt-type-heading</code>. A section that is one field is its <code>&lt;form&gt;</code>, with the title as the field's <code>&lt;label&gt;</code>.</li>
+        <li><code>__text</code>, under the title, says what the section does. <code>__hint</code>, under a control, says how to use it.</li>
+        <li>No primary button: every change saves on its own. Copy and Save for offline are secondary; rare actions are quiet text buttons; the destructive one is last, in a section of its own.</li>
+      </ul>
     </section>
 
     <section id="forms">
@@ -967,7 +1000,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v8.1.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v8.2.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 

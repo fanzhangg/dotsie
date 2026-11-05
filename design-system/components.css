@@ -1,4 +1,4 @@
-/* Waythread design system — components v8.1.0
+/* Waythread design system — components v8.2.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -42,8 +42,12 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 }
 .wt-btn--secondary:active { background: var(--wt-surface-hover); }
 .wt-btn--ghost:hover, .wt-btn--ghost:active { background: var(--wt-surface-hover); }
-/* A text button: its padding hangs outside the content edge, so its word lines up with the labels above it. */
-.wt-btn--danger { color: var(--wt-text-danger); padding: 0 var(--wt-space-1); margin-left: calc(-1 * var(--wt-space-1)); }
+/* A text button: its padding hangs outside the content edge, so its word lines up with the labels above it.
+   --danger destroys something; --quiet is a rare, low-key action under what it's about (Make a new link, Sign out). */
+.wt-btn--danger, .wt-btn--quiet { padding: 0 var(--wt-space-1); margin-left: calc(-1 * var(--wt-space-1)); }
+.wt-btn--danger { color: var(--wt-text-danger); }
+.wt-btn--quiet { color: var(--wt-text-secondary); }
+.wt-btn--quiet:hover { color: var(--wt-text-primary); }
 .wt-btn--block { width: 100%; }
 /* Icon only: a round button as tall as the others, like Edit stop and the + beside Open in Maps. Give it an aria-label. */
 .wt-btn--icon { width: var(--wt-size-touch); padding: 0; flex: none; border-radius: var(--wt-radius-round); }
@@ -154,6 +158,33 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* ---------- People list ---------- */
 .wt-people { list-style: none; margin: var(--wt-space-4) 0 0; padding: 0; }
 .wt-people__item { display: flex; align-items: center; gap: var(--wt-space-3); padding: 6px 0; }
+.wt-people__meta { color: var(--wt-text-secondary); }
+
+/* ---------- Section: a settings sheet is a column of sections ---------- */
+/* Trip settings and Account. Each section is one thing: a title, then a line on what it does (__text), then its
+   controls, then a hint under a control (__hint) or a text button. Hairlines divide the sections, and every section
+   has the same rhythm, so the sheet reads top to bottom with nothing to tell apart but the words. A section can be
+   the <form> of its field, with its title as the field's <label>. */
+.wt-section { padding: var(--wt-space-5) 0; }
+.wt-section + .wt-section { border-top: 1px solid var(--wt-border-default); }
+.wt-modal__head + .wt-section { padding-top: var(--wt-space-2); }
+.wt-section > * { margin: var(--wt-space-3) 0 0; }
+.wt-section > :first-child { margin-top: 0; }
+.wt-section[hidden], .wt-section > [hidden] { display: none; }
+.wt-section__title { display: block; font: var(--wt-type-heading); color: var(--wt-text-primary); }
+.wt-section > .wt-section__text { margin-top: var(--wt-space-1); }
+.wt-section__text { color: var(--wt-text-secondary); }
+.wt-section > .wt-section__hint { margin-top: var(--wt-space-2); }
+.wt-section__hint { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.wt-section > .wt-btn { display: flex; width: fit-content; }
+.wt-section > .wt-btn--block { width: 100%; }
+/* A text button keeps its touch height but not its air: it sits as close as text would */
+.wt-section > :is(.wt-btn--quiet, .wt-btn--danger) { margin: var(--wt-space-1) 0 0 calc(-1 * var(--wt-space-1)); }
+.wt-section > :is(.wt-btn--quiet, .wt-btn--danger):first-child { margin-top: calc(-1 * var(--wt-space-3)); }
+.wt-section > :is(.wt-btn--quiet, .wt-btn--danger):last-child { margin-bottom: calc(-1 * var(--wt-space-3)); }
+.wt-section > .wt-people { margin-top: var(--wt-space-2); }
+.wt-section > .wt-field { margin-top: var(--wt-space-3); }
+.wt-section > .wt-section__title + .wt-field, .wt-section > .wt-section__title + .wt-input, .wt-section > .wt-section__title + .wt-copy-row { margin-top: var(--wt-space-2); }
 
 /* ---------- Marker: a stop's type icon on its type's color ---------- */
 /* A stop's marker and pin are shaded from their own color (--wt-marker-fill), as a maps app's are: lighter and a touch
@@ -798,4 +829,5 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 
 /* ---------- Credit: the map's credits, at the bottom of trip settings ---------- */
 .wt-credit { margin: var(--wt-space-5) 0 0; font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+.wt-section + .wt-credit { margin-top: var(--wt-space-2); }
 .wt-credit a { color: inherit; }
