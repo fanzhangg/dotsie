@@ -3,14 +3,16 @@
   "name": "waythread",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-15",
-  "compatibility_flags": ["nodejs_compat"],
+  // global_fetch_strictly_public: the OAuth provider fetches assistants' Client ID Metadata Documents, and this
+  // keeps those fetches on the public internet (SSRF protection)
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
 
   // The frontend: web/ plus the shared ../design-system, copied into public/ by the build
   "build": { "command": "node scripts/build.mjs", "watch_dir": ["web", "../design-system"] },
   "assets": {
     "directory": "public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/.well-known/*"]
   },
 
   // Users, sessions, trip membership and the home-screen trip summaries
@@ -24,14 +26,20 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripRoom"] }],
 
-  // Drive routes, keyed by their endpoints
-  "kv_namespaces": [{ "binding": "ROUTES", "id": "975e7b4349dc41db85e0b5d325f8182d" }],
+  // Drive routes, keyed by their endpoints ("drive:…"). OAUTH_KV is the MCP server's OAuth records (clients, grants,
+  // tokens, all under their own prefixes); it shares the namespace so there's nothing to create before deploying.
+  "kv_namespaces": [
+    { "binding": "ROUTES", "id": "975e7b4349dc41db85e0b5d325f8182d" },
+    { "binding": "OAUTH_KV", "id": "975e7b4349dc41db85e0b5d325f8182d" }
+  ],
 
-  // Sign-in steps per IP (an email lookup plus a sign-in counts twice), and place searches plus route lookups per person, per minute.
+  // Sign-in steps per IP (an email lookup plus a sign-in counts twice), place searches plus route lookups per person,
+  // and MCP calls per person (an assistant's), per minute.
   // namespace_id is any number unique to this account's rate limiters.
   "ratelimits": [
     { "name": "SIGNIN_LIMIT", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
-    { "name": "MAPS_LIMIT", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } }
+    { "name": "MAPS_LIMIT", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
+    { "name": "MCP_LIMIT", "namespace_id": "1003", "simple": { "limit": 60, "period": 60 } }
   ],
 
   // BETTER_AUTH_URL (the app's own origin) isn't set here: .dev.vars sets it for local dev, and

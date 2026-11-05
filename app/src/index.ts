@@ -3,6 +3,7 @@ import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
 import { cachedRoute, driveRoute, searchPlaces, staticMap, type StaticMap } from './maps';
+import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
 import { ERR, type Preview } from './trip';
 
 export { TripRoom } from './trip';
@@ -70,6 +71,17 @@ app.get('/invite/:token', async c => {
   if (!row) throw new Error(ERR.notFound);
   return c.json(row);
 });
+
+// ---------- Connecting an AI assistant (OAuth's authorize step; see src/oauth.ts) ----------
+// A page, not an API call: without a session it sends you to sign in rather than answering 401.
+const signedIn = async (c: Context<AppEnv>) => {
+  const session = await getAuth(c.env).api.getSession({ headers: c.req.raw.headers });
+  if (!session) return null;
+  const u = session.user as typeof session.user & { isAnonymous?: boolean | null };
+  return { id: u.id, name: u.name, email: u.isAnonymous ? null : u.email, guest: !!u.isAnonymous };
+};
+app.get(AUTHORIZE_PATH.slice(4), async c => authorizePage(c.req.raw, c.env, await signedIn(c)));
+app.post(AUTHORIZE_PATH.slice(4), async c => authorizeDecision(c.req.raw, c.env, await signedIn(c)));
 
 // Everything below needs a signed-in user (a guest session counts).
 app.use(async (c, next) => {
@@ -157,6 +169,15 @@ app.patch('/trips/:id/stops/:stopId', async c =>
   c.json(await room(c.env, c.req.param('id')).patchStop(c.get('user').id, c.req.param('stopId'), await body(c.req.raw))));
 app.delete('/trips/:id/stops/:stopId', async c => {
   await room(c.env, c.req.param('id')).deleteStop(c.get('user').id, c.req.param('stopId'));
+  return c.body(null, 204);
+});
+
+// ---------- Connected assistants, in Account ----------
+// Not under /api/mcp: everything there needs an assistant's token, and these take your session.
+app.get('/assistants', async c => c.json({ url: mcpURL(c.env), connections: await listConnections(c.env, c.get('user').id) }));
+// Ends that assistant's access at once: its tokens stop working
+app.delete('/assistants/:id', async c => {
+  await oauthApi(c.env).revokeGrant(c.req.param('id'), c.get('user').id);
   return c.body(null, 204);
 });
 
@@ -249,7 +270,9 @@ function thin(coords: [number, number][]) {
   return out;
 }
 
-export default app;
+// The OAuth provider sees every request first: it answers discovery (/.well-known/*) and its own endpoints
+// (/api/oauth/token, /api/oauth/register), checks the token on /api/mcp, and hands the rest to the app.
+export default { fetch: (req, env, ctx) => oauthProvider(env, app).fetch(req, env, ctx) } satisfies ExportedHandler<Env>;
 
 // ---------- Helpers ----------
 function randomId(len: number) {

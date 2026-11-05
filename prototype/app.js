@@ -187,6 +187,8 @@ async function api(path, { method = 'GET', body, signal } = {}) {
     if (!t.members.includes(ME)) { t.members.push(ME); broadcast(t.id, { type: 'member.joined', member: userOf(d, ME) }); }
     return out(snapshotOf(d, t));
   }
+  // Connected assistants, in Account. There's no MCP server here, so there's nothing to connect.
+  if (p[0] === 'assistants') return out(method === 'GET' ? { url: `${location.origin}/api/mcp`, connections: [] } : undefined);
   if (p[0] !== 'trips') fail(404, 'not_found');
   const t = d.trips[p[1]];
   if (!t) fail(404, 'not_found');
@@ -2230,8 +2232,8 @@ function openSettings(trip) {
   });
 }
 
-// Your name as others on your trips see it; guests are offered a real sign-in, which keeps their
-// trips; everyone can sign out.
+// Your name as others on your trips see it, the maps app, and AI assistants (not for guests); guests are
+// offered a real sign-in, which keeps their trips; everyone can sign out.
 function openAccount() {
   const upgrade = me.isGuest && canSignIn();
   openSheet(`<div class="account-main">${modalHead('Account')}
@@ -2241,6 +2243,9 @@ function openAccount() {
     </form>
     <div class="wt-field"><span class="wt-field__label" id="maps-label">Maps app</span>
       <button type="button" class="wt-picker wt-picker--text" data-maps-open aria-describedby="maps-label"></button></div>
+    ${me.isGuest ? '' : `<div class="wt-field"><span class="wt-field__label">AI assistant</span>
+      <p class="wt-modal__text">Connect Claude or another assistant that supports MCP, so it can see your trips’ stops and change them for you.</p>
+      <div class="account-mcp"></div></div>`}
     ${upgrade ? `<h3 class="account-keep">Keep your trips</h3>
     <p class="wt-modal__text">As a guest, you can only reach your trips from this browser. Sign in to keep them on any device.</p>
     <div class="signin"></div>` : ''}
@@ -2269,8 +2274,33 @@ function openAccount() {
       maps.mark(mapsApp);
     };
     showMaps();
+    if (!me.isGuest) assistantField(el.querySelector('.account-mcp'));
     if (upgrade) authFlow(el.querySelector('.signin'));
   });
+}
+
+// AI assistant, in Account: how to connect one (Waythread's MCP server address, which an assistant adds as a
+// connector; it then sends you to sign in and allow it), and the assistants you've connected, each with Disconnect.
+async function assistantField(box) {
+  const day = ms => { const d = new Date(ms); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; };
+  const show = ({ url, connections }) => {
+    box.innerHTML = `<p class="wt-modal__text">In Claude, add a custom connector with this address (Customize → Connectors → Add custom connector), then sign in here when it asks.</p>
+      <div class="wt-copy-row"><input class="wt-input" readonly value="${esc(url)}" aria-label="Server address">
+        <button class="wt-btn wt-btn--primary" data-action="copy" data-text="${esc(url)}" data-copied="Address copied">Copy</button></div>
+      ${connections.length ? `<ul class="account-mcp__list">${connections.map(c => `<li class="account-mcp__item">
+        <span class="account-mcp__name">${esc(c.name)}<span class="account-mcp__meta">${c.domain ? `${esc(c.domain)} · ` : ''}connected ${day(c.createdAt)}</span></span>
+        <button class="wt-btn wt-btn--danger" data-mcp-off="${esc(c.id)}">Disconnect</button></li>`).join('')}</ul>` : ''}`;
+    for (const btn of box.querySelectorAll('[data-mcp-off]')) btn.onclick = async () => {
+      const c = connections.find(x => x.id === btn.dataset.mcpOff);
+      if (!confirm(`Disconnect ${c.name}? It can’t see or change your trips anymore.`)) return;
+      try {
+        await api(`/assistants/${encodeURIComponent(c.id)}`, { method: 'DELETE' });
+        show({ url, connections: connections.filter(x => x !== c) });
+        toast(`${c.name} disconnected`);
+      } catch (err) { if (err.status !== 401) toast(failMsg(err, 'Couldn’t disconnect.')); }
+    };
+  };
+  try { show(await api('/assistants')); } catch { box.innerHTML = '<p class="wt-modal__text">Couldn’t load this. Check your connection.</p>'; }
 }
 
 // Two hours after the day's last stop; 9 AM on a day with none yet (a hotel day), or 9 AM tomorrow for an empty trip.
@@ -2681,7 +2711,7 @@ document.addEventListener('click', e => {
     case 'close-sheet': closeSheet(); break;
     case 'fit-day': showWholeDay(); break;
     case 'grab': setSnap(state.snap === 'half' ? 'full' : 'half'); break;
-    case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast('Link copied'), () => toast('Copy failed')); break;
+    case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast(el.dataset.copied || 'Link copied'), () => toast('Copy failed')); break;
   }
 });
 document.addEventListener('keydown', e => {
