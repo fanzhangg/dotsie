@@ -1,4 +1,4 @@
-/* Waythread design system — icons v1.2.1
+/* Waythread design system — icons v1.3.0
  *
  * Line icons on a 24px grid, 2px stroke, round caps and joins, drawn in currentColor.
  * Usage: WaythreadIcons.svg('car')            -> default size and stroke
@@ -20,6 +20,7 @@
     home: 'M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-5h4v5',
     settings: 'M4 7h9M19 7h1M4 17h1M11 17h9M16 9.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 19.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z',
     'chevron-down': 'M6 9l6 6 6-6',
+    'chevron-up-down': 'M8 9.5l4-4 4 4M8 14.5l4 4 4-4',   // a picker: tap for a list to choose from
     map: 'M9 4.5L3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2zM9 4.5v13M15 6.5v13',
     list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
     fit: 'M4 9V6a2 2 0 012-2h3M15 4h3a2 2 0 012 2v3M20 15v3a2 2 0 01-2 2h-3M9 20H6a2 2 0 01-2-2v-3',
