@@ -1,6 +1,6 @@
 import { ERR, KINDS, type Stop, type TripRoom } from './trip';
 
-/* An MCP server, so an AI assistant can read a trip's stops and change them for you. It speaks MCP's
+/* An MCP server, so an AI assistant can read a trip's stops and add, change or remove them for you. It speaks MCP's
    Streamable HTTP transport without sessions: every POST to /api/mcp is one JSON-RPC message, answered with
    plain JSON (no event stream, since no tool here runs long or sends progress).
    It acts as the token's owner and goes through their TripRoom calls like the app does, so membership,
@@ -17,13 +17,20 @@ type Tool = {
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 const SERVER = { name: 'waythread', title: 'Waythread', version: '1.0.0' };
 const INSTRUCTIONS = `Waythread plans road trips. A trip is a list of stops, each with a trip-local time ("YYYY-MM-DDTHH:MM", no time zone).
-Call list_trips to find a trip, list_stops to see its plan, and edit_stop to change a stop. Edits show at once for everyone on the trip.`;
+Call list_trips to find a trip and list_stops to see its plan; add_stop, edit_stop and delete_stop change it. Changes show at once for everyone on the trip.`;
 
 const ID = /^[A-Za-z0-9_-]{6,40}$/;
 const room = (env: Env, tripId: unknown) => {
   if (typeof tripId !== 'string' || !ID.test(tripId)) throw new ToolError('trip_id isn’t a trip id. Call list_trips for one.');
   return env.TRIP.get(env.TRIP.idFromName(tripId)) as DurableObjectStub<TripRoom>;
 };
+const stopId = (v: unknown) => {
+  if (typeof v !== 'string' || !ID.test(v)) throw new ToolError('stop_id isn’t a stop id. Call list_stops for one.');
+  return v;
+};
+// Like the app's ids for the stops it adds (uid in web/app.js)
+const newStopId = () => [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join('');
+const fieldsOf = (args: Record<string, unknown>) => Object.fromEntries(Object.entries(args).filter(([k]) => k in EDITABLE));
 // What a tool error says to the assistant, which can then fix its call
 class ToolError extends Error {}
 const ERROR_TEXT: Record<string, string> = {
@@ -91,6 +98,24 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    name: 'add_stop',
+    title: 'Add a stop',
+    description: 'Add a stop to a trip. It needs a name, where it is (lat, lng) and when (time); the rest is optional. Everyone on the trip sees it at once. Returns the stop as saved, with its new id.',
+    inputSchema: {
+      type: 'object',
+      properties: { trip_id: { type: 'string', description: 'From list_trips' }, ...EDITABLE },
+      required: ['trip_id', 'name', 'lat', 'lng', 'time'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    async run(env, user, { trip_id, ...fields }) {
+      const missing = ['name', 'lat', 'lng', 'time'].filter(k => fields[k] === undefined);
+      if (missing.length) throw new ToolError(`A new stop needs ${missing.join(', ')}.`);
+      const stop = await room(env, trip_id).putStop(user.id, newStopId(), fieldsOf(fields));
+      return { stop: stopOut(stop, new Map([[user.id, user.name]])) };
+    },
+  },
+  {
     name: 'edit_stop',
     title: 'Edit a stop',
     description: 'Change some of a stop’s fields; the rest stay as they are. Everyone on the trip sees the change at once. Returns the stop as saved.',
@@ -106,11 +131,32 @@ const TOOLS: Tool[] = [
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     async run(env, user, { trip_id, stop_id, ...fields }) {
-      if (typeof stop_id !== 'string' || !ID.test(stop_id)) throw new ToolError('stop_id isn’t a stop id. Call list_stops for one.');
-      const changes = Object.fromEntries(Object.entries(fields).filter(([k]) => k in EDITABLE));
+      const id = stopId(stop_id), changes = fieldsOf(fields);
       if (!Object.keys(changes).length) throw new ToolError(`Give at least one field to change: ${Object.keys(EDITABLE).join(', ')}.`);
-      const stop = await room(env, trip_id).patchStop(user.id, stop_id, changes);
+      const stop = await room(env, trip_id).patchStop(user.id, id, changes);
       return { stop: stopOut(stop, new Map([[user.id, user.name]])) };
+    },
+  },
+  {
+    name: 'delete_stop',
+    title: 'Delete a stop',
+    description: 'Remove a stop from a trip, for everyone on it. Returns the stop as it was, so add_stop can put it back.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        trip_id: { type: 'string', description: 'From list_trips' },
+        stop_id: { type: 'string', description: 'From list_stops' },
+      },
+      required: ['trip_id', 'stop_id'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    async run(env, user, { trip_id, stop_id }) {
+      const r = room(env, trip_id), id = stopId(stop_id);
+      const names = memberNames((await r.snapshot(user.id)).members); // who last changed it, as list_stops says
+      const stop = await r.deleteStop(user.id, id);
+      if (!stop) throw new Error(ERR.notFound);
+      return { deleted: stopOut(stop, names) };
     },
   },
 ];

@@ -175,13 +175,15 @@ export class TripRoom extends DurableObject<Env> {
     return this.afterStopWrite(stopId);
   }
 
+  // Returns the stop as it was (null if it was already gone), so the MCP server can say what it removed.
   async deleteStop(userId: string, stopId: string) {
     this.check(userId);
-    const row = this.sql.exec<{ name: string }>('select name from stops where id = ?', stopId).toArray()[0];
-    if (!row) return;
+    const row = this.sql.exec<StopRow>('select * from stops where id = ?', stopId).toArray()[0];
+    if (!row) return null;
     this.sql.exec('delete from stops where id = ?', stopId);
     await this.syncSummary();
     this.broadcast({ type: 'stop.removed', id: stopId, name: row.name }, userId);
+    return toStop(row);
   }
 
   // ---------- People ----------

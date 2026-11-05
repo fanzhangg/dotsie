@@ -8,7 +8,7 @@ One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`Tri
 | [src/trip.ts](src/trip.ts) | `TripRoom`: trip data, validation, membership, live events |
 | [src/auth.ts](src/auth.ts) | Better Auth: Google, Apple, email and password, guests |
 | [src/maps.ts](src/maps.ts) | Stadia place search and drive routes, routes cached in KV |
-| [src/mcp.ts](src/mcp.ts) | The MCP server: tools for an AI assistant to list trips and stops and edit stops |
+| [src/mcp.ts](src/mcp.ts) | The MCP server: tools for an AI assistant to list trips and stops, and add, edit and delete stops |
 | [migrations/](migrations) | D1 schema |
 | [web/](web) | The frontend: plain HTML, CSS and JS. `../prototype` is the same frontend with no server |
 | [scripts/build.mjs](scripts/build.mjs) | Copies `web/` and `../design-system/` into `public/`, which Wrangler serves. Runs on `dev` and `deploy` |
@@ -83,7 +83,7 @@ Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member` 
 
 ## MCP server
 
-`/api/mcp` lets an AI assistant (Claude, or any client that speaks [MCP](https://modelcontextprotocol.io)) read your trips and edit their stops as you. Make a token under **AI assistant** in Account, then give the client the address and token:
+`/api/mcp` lets an AI assistant (Claude, or any client that speaks [MCP](https://modelcontextprotocol.io)) read your trips and add, edit and delete their stops as you. Make a token under **AI assistant** in Account, then give the client the address and token:
 
 ```bash
 claude mcp add --transport http waythread https://<app URL>/api/mcp --header "Authorization: Bearer wt_…"
@@ -95,13 +95,15 @@ Other clients take the same two things: a Streamable HTTP server at that URL, an
 | --- | --- | --- |
 | `list_trips` | none | `{ trips: [{ id, name, start, end }] }`, newest edit first |
 | `list_stops` | `trip_id`, optional `day` (`YYYY-MM-DD`) | `{ trip, stops }`, in time order |
+| `add_stop` | `trip_id`, `name`, `lat`, `lng`, `time`, and any of `address`, `checkout`, `kind`, `nights`, `note` | `{ stop }`, as saved, with its new id |
 | `edit_stop` | `trip_id`, `stop_id`, and any of `name`, `address`, `lat`, `lng`, `time`, `checkout`, `kind`, `nights`, `note` | `{ stop }`, as saved |
+| `delete_stop` | `trip_id`, `stop_id` | `{ deleted }`: the stop as it was, so `add_stop` can put it back |
 
-A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Edits go through `TripRoom.patchStop`, like the app's: the same checks, and everyone with the trip open sees them live.
+A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Changes go through `TripRoom`'s `putStop`, `patchStop` and `deleteStop`, like the app's: the same checks, and everyone with the trip open sees them live.
 
 How it's built, in [src/mcp.ts](src/mcp.ts):
 
 - **Transport:** Streamable HTTP without sessions. Each POST is one JSON-RPC message, answered with JSON (or 202 for a notification). There's no event stream, so GET is 405. It answers `initialize`, `ping`, `tools/list` and `tools/call`.
 - **Tokens:** one per person, in D1's `mcp_tokens`, stored as a SHA-256 hash, so it's shown only when made. A new one replaces the old; Disconnect deletes it. "Last used" updates at most once an hour.
 - **Errors:** a bad id, a field that fails validation, or a trip you're not on comes back as a tool result with `isError`, so the assistant can read why and try again. A missing or wrong token is 401 with `WWW-Authenticate: Bearer`.
-- **Not yet:** OAuth sign-in, which clients such as Claude's web and desktop connectors need instead of a pasted token, and tools to add or delete stops.
+- **Not yet:** OAuth sign-in, which clients such as Claude's web and desktop connectors need instead of a pasted token, and place search, so `add_stop` has to be given a place's coordinates.
