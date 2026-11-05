@@ -48,6 +48,9 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 /* Icon only: a round button as tall as the others, like Edit stop and the + beside Open in Maps. Give it an aria-label. */
 .wt-btn--icon { width: var(--wt-size-touch); padding: 0; flex: none; border-radius: var(--wt-radius-round); }
 .wt-btn .wt-icon { width: 18px; height: 18px; }
+/* Unavailable for now, such as adding a stop while offline: grey, with no shadow, but still tappable, so a tap can say why.
+   Use aria-disabled="true", not disabled, which would swallow the tap. */
+.wt-btn[aria-disabled="true"], .wt-btn[aria-disabled="true"]:active { background: var(--wt-surface-sunken); color: var(--wt-text-tertiary); box-shadow: none; font-weight: 500; cursor: default; }
 
 /* ---------- Icon button ---------- */
 .wt-icon-btn {

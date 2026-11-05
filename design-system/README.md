@@ -251,6 +251,8 @@ Each entry shows the minimum markup. Your code supplies the content and the beha
 | `--block` | Full width, at the bottom of a sheet or form. |
 | `--icon` | Icon only: a round button as tall as the others, for an action that sits beside a bigger one, like Edit stop and the `+` beside Open in Maps. White (`--secondary`). Needs an `aria-label`. |
 
+**Unavailable for now:** `aria-disabled="true"` on any variant makes it grey (`--wt-surface-sunken`, `--wt-text-tertiary`, no shadow) but leaves it tappable, so the tap can say why in a toast. Offline, Add stop, the round `+` and Edit stop work this way: "Offline. Adding and editing stops need a connection." Use `disabled` only where the reason is plain on screen, since a disabled button does nothing when tapped.
+
 Labels are verbs that say exactly what happens.
 
 ### Icon button `.wt-icon-btn`
@@ -756,6 +758,7 @@ Say what can go here, in the user's words. No illustrations.
 Trips can be saved on the device for offline use, and the trip header says when one is.
 
 - New: `.wt-trip-head__status` and `.is-offline` (see [Trip header](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)).
+- New: `.wt-btn[aria-disabled="true"]`, a button that's unavailable for now but still explains itself when tapped (see [Button](#button-wt-btn)).
 - New icons (icons 1.4.0): `download`, `saved`, `cloud-off`.
 - Tokens are unchanged.
 

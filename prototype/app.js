@@ -724,9 +724,17 @@ function showOffline() {
   const pct = f.el.querySelector('[data-offline-pct]');
   if (pct && offlineJob) pct.textContent = pctOf(offlineJob);
 }
-// Back online: a trip showing its saved copy loads the server's, and the header stops saying offline
-addEventListener('online', () => { if (cur?.offline) reloadTrip(); showOffline(); });
-addEventListener('offline', showOffline);
+// Adding, editing and deleting stops need a connection: offline, their buttons are greyed out, and a tap says why
+// rather than opening a stop that couldn't be saved. Deleting is in the stop sheet, so it's covered too.
+function needsConnection() {
+  if (!offlineNow()) return true;
+  toast('Offline. Adding and editing stops need a connection.');
+  return false;
+}
+// Back online: a trip showing its saved copy loads the server's, and the header stops saying offline.
+// Either way, the add bar's buttons follow.
+addEventListener('online', () => { if (cur?.offline) reloadTrip(); showOffline(); if (cur?.stops) scheduleRender(); });
+addEventListener('offline', () => { showOffline(); if (cur?.stops) scheduleRender(); });
 
 // ---------- Trips ----------
 let tripLoad = null; // the id being fetched, so a slow reply for a trip you've left is dropped
@@ -1490,14 +1498,15 @@ const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.s
 // Below the list, always in reach: Add stop; with a stop selected, Open in Maps (the place in the maps app, to see what it is)
 // and a round Edit stop; with a drive's route shown, Directions to the drive's end in the maps app. Either way a small + at the
 // end keeps adding one tap away. Each button has a `data-key`, the same in every set, so a change of set can morph (morphRow).
+// Offline, adding and editing are greyed out (aria-disabled), and a tap says why (see needsConnection).
 function addBarHTML(trip) {
-  const s = selectedStop(trip);
+  const s = selectedStop(trip), off = offlineNow() ? ' aria-disabled="true"' : '';
   const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
-  const plus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
+  const plus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add"${off} aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
   if (leg) return `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${directionsURL(leg.from, leg.to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a>${plus}`;
   return s
-    ? `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="Open ${esc(s.name)} in your maps app">${ICON.map}Open in Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="edit" data-id="${esc(s.id)}" aria-label="Edit stop" title="Edit stop">${ICON.edit}</button>${plus}`
-    : `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="add" data-action="add">${ICON.plus}Add stop</button>`;
+    ? `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="Open ${esc(s.name)} in your maps app">${ICON.map}Open in Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="edit" data-id="${esc(s.id)}"${off} aria-label="Edit stop" title="Edit stop">${ICON.edit}</button>${plus}`
+    : `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="add" data-action="add"${off}>${ICON.plus}Add stop</button>`;
 }
 function renderAddBar(trip) {
   const bar = $app.querySelector('.wt-add-bar'), html = addBarHTML(trip);
@@ -2854,9 +2863,9 @@ document.addEventListener('click', e => {
   const stop = trip && el.dataset.id && trip.stops.find(s => s.id === el.dataset.id);
   switch (el.dataset.action) {
     case 'new-trip': openNewTrip(); break;
-    case 'add': openStopSheet(trip); break;
+    case 'add': if (needsConnection()) openStopSheet(trip); break;
     case 'select': if (stop && !e.target.closest('a')) selectStop(stop, el.dataset.row); break; // a link in its note opens on its own
-    case 'edit': if (stop) openStopSheet(trip, stop); break;
+    case 'edit': if (stop && needsConnection()) openStopSheet(trip, stop); break;
     case 'settings': openSettings(trip); break;
     case 'offline-status': if (statusSay) toast(statusSay); break;
     case 'prev-day': stepDay(-1); break;
