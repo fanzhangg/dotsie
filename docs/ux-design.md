@@ -18,8 +18,13 @@ One more rule came out of the iterations: **don't rebuild what Google Maps and A
 
 ### Home
 
-- The app name, then one card per trip showing its **name** and **date range**, then a **New trip** button.
-- The cards leave out stop counts, "next stop", and avatars. You can see those after opening a trip, and they don't help you pick one.
+- The app name, with **New trip** and the account beside it, so New trip stays in reach however many trips there are.
+- One card per trip: a **sketch of its route** on top, then its **name**, **date range**, and **who's on it**. Where a trip goes and who's going are how people tell trips apart, more than a name they typed in a hurry.
+  - The sketch is the trip's drives, every day, like the trip's All days map without the map: a line for each drive and a dot for each place, in its type's color, with north up. A drive follows the roads once this browser has looked it up (opening the trip does that); until then it's a straight line. Home never looks routes up itself, so a long list of trips can't use up the per-person limit that place search shares with routes. A trip with no stops says so in the sketch's place.
+  - The people are avatars, as in trip settings, up to four; past that, three and a "+N".
+- Trips that are over (their last day is before today) go under **Past**, below the rest, with their route in grey, like a past drive on the map. With nothing past, there are no headings. Each group keeps the order of the last edit first.
+- The cards leave out stop counts and "next stop": you can see those after opening a trip, and they don't help you pick one.
+- With no trips yet, the page says how to start one.
 
 ### Trip
 

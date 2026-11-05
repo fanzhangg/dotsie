@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 7.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 8.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -272,8 +272,9 @@ Labels are verbs that say exactly what happens.
 ```
 
 - The stack shows who's on the trip. Trip settings lists everyone by name (`.wt-people`).
-- With only one person on the trip, show the `person-add` icon instead.
+- With only one person on the trip, show the `person-add` icon instead. (A trip card shows its one person: there, the stack says who's on the trip, not how to add someone.)
 - Set `--wt-avatar-ring` to the surface behind the stack.
+- Out of room: `<span class="wt-avatar wt-avatar--more">+3</span>` stands for the rest, in quiet grey.
 
 ### Field `.wt-field`, input `.wt-input`, search page `.wt-search-bar`, `.wt-search`, results `.wt-results`
 
@@ -643,11 +644,31 @@ Pad the top when you fit the map on a phone, so pins stay clear of the header ca
 
 ```html
 <a class="wt-trip-card" href="#/trip/white-sands">
-  <span class="wt-trip-card__name">White Sands, NM</span><span class="wt-trip-card__dates">Nov 20 – 22</span>
+  <span class="wt-trip-card__map" aria-hidden="true">
+    <svg viewBox="0 0 320 120" preserveAspectRatio="xMidYMid meet">
+      <path class="wt-trip-card__casing" d="M…"/><path class="wt-trip-card__route" d="M…"/>
+      <path class="wt-trip-card__ring" d="M160 40h0M180 90h0"/>
+      <path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-hotel)" d="M160 40h0"/>
+      <path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-airport)" d="M180 90h0"/>
+    </svg>
+  </span>
+  <span class="wt-trip-card__body">
+    <span class="wt-trip-card__text"><span class="wt-trip-card__name">White Sands, NM</span><span class="wt-trip-card__dates">Nov 20 – 22</span></span>
+    <span class="wt-avatar-stack wt-trip-card__people" aria-hidden="true">${avatars}</span>
+    <span class="wt-visually-hidden">, with Alex, Sam</span>
+  </span>
 </a>
+<!-- no stops yet -->
+<span class="wt-trip-card__map wt-trip-card__map--empty">No stops yet</span>
 ```
 
-The name and dates only: enough to pick a trip.
+What you need to pick a trip: where it goes, its name and dates, and who's on it.
+
+- `__map` is a sketch of the route, inset in the card like a photo, on `--wt-surface-map`. Draw it in any units with `preserveAspectRatio="xMidYMid meet"`: lines and dots keep their pixel widths at any card size (`vector-effect: non-scaling-stroke`).
+  - `__casing` then `__route`: the drives, one path, in `--wt-route` over `--wt-route-casing`, like routes on the map.
+  - `__ring` then one `__stop` per place: a dot is a path of no length (`M x y h0`), drawn by its round cap. `__ring` holds every dot, in the casing color; each `__stop` sets `--wt-kind-color`.
+- `__body`: the name (one line, cut off with an ellipsis) and dates, and the people as a `.wt-avatar-stack` on the right. The stack's ring follows the card's surface, hovered too. Hide the stack from screen readers and say the names in a `.wt-visually-hidden` span, so the link reads "White Sands, NM, Nov 20 – 22, with Alex, Sam".
+- `.is-past`: the trip is over. Its route turns `--wt-route-done`; the dots keep their colors.
 
 ### Map pin `.wt-pin`
 
@@ -745,6 +766,14 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 8.0.0
+
+Home's cards showed only a trip's name and dates. They now show where the trip goes and who's on it.
+
+- **`.wt-trip-card` is a column**: a route sketch (`__map`) on top, then `__body` with `__text` (the name and dates) and `__people`. The name and dates must now be inside `__body` and `__text`: a card with them directly inside no longer has its padding. New: `__casing`, `__route`, `__ring`, `__stop`, `__map--empty`, and `.is-past`. See [Trip card](#trip-card-wt-trip-card).
+- New: `.wt-avatar--more`, the "+N" at the end of a stack that's out of room.
+- Tokens are unchanged.
 
 ### Changed in 7.1.0
 

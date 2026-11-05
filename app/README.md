@@ -1,6 +1,6 @@
 # Waythread app (Cloudflare)
 
-One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`TripRoom`) that owns its stops and members and pushes live edits over WebSockets. D1 holds accounts, sessions, trip membership, and the home-screen summaries.
+One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`TripRoom`) that owns its stops and members and pushes live edits over WebSockets. D1 holds accounts, sessions, trip membership, and the home-screen summaries: each trip's name, dates, people and stop places, which its `TripRoom` writes whenever they change.
 
 | File | What it does |
 | --- | --- |
@@ -59,7 +59,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `POST /api/sign-in-options` `{ email }` | Where an address leads: `{ account: 'password' \| 'google' \| 'none' }`, so sign-in asks for the right thing next |
 | `GET /api/invite/:token` | The trip name for a share link, for the sign-in screen |
 | `GET /api/me` | `{ id, name, image, isGuest }` |
-| `GET /api/trips` | Home cards: `[{ id, name, start, end }]` |
+| `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights }`, for the card's route sketch (at most 300) |
 | `POST /api/trips` `{ name }` | Create; returns the trip snapshot |
 | `GET /api/trips/:id` | `{ trip, members, stops }` |
 | `PATCH /api/trips/:id` `{ name }` | Rename |

@@ -10,21 +10,30 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 #app[data-page="trip"] { max-width: none; }
 @media (min-width: 520px) { #app:not([data-page="trip"]) { box-shadow: 0 0 0 1px var(--wt-border-default); } }
 
-/* ---------- Wide screens: Home is a grid of trips on the page; sign-in is a card ---------- */
+/* ---------- Wide screens: Home's trips are a grid of cards on the page; sign-in is a card ---------- */
 @media (min-width: 768px) {
-  #app[data-page="home"] { max-width: 920px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
+  #app[data-page="home"] { max-width: 1040px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
   #app[data-page="home"] .home-head { padding: var(--wt-space-10) 0 var(--wt-space-5); }
-  #app[data-page="home"] .home { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); padding: 0 0 var(--wt-space-10); }
-  #app[data-page="home"] .home > .wt-btn { grid-column: 1 / -1; justify-self: start; width: auto; }
-  #app[data-page="home"] .wt-trip-card { flex-direction: column; gap: var(--wt-space-1); min-height: 96px; justify-content: space-between; align-items: stretch; }
+  #app[data-page="home"] .home { padding: 0 0 var(--wt-space-10); }
+  #app[data-page="home"] .home-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--wt-space-4); }
+  #app[data-page="home"] .home-guest { justify-self: start; width: auto; }
 
   #app[data-page="signin"] { max-width: 420px; min-height: 0; margin: max(var(--wt-space-10), 12vh) auto var(--wt-space-10); padding: var(--wt-space-3) var(--wt-space-3) 0; border-radius: var(--wt-radius-lg); }
 }
 
-/* ---------- Home ---------- */
-.home-head { display: flex; align-items: center; justify-content: space-between; padding: var(--wt-space-6) var(--wt-space-4) var(--wt-space-3); }
+/* ---------- Home: the app name with New trip and the account, then the trips, with what's over under Past ---------- */
+.home-head { display: flex; align-items: center; justify-content: space-between; gap: var(--wt-space-3); padding: var(--wt-space-6) var(--wt-space-4) var(--wt-space-3); }
 .home-head h1 { margin: 0; font: var(--wt-type-display); letter-spacing: var(--wt-tracking-display); }
-.home { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }
+.home-head__actions { display: flex; align-items: center; gap: var(--wt-space-2); margin-right: calc(-1 * var(--wt-space-1)); }
+/* Too narrow for the label (an iPhone SE in zoomed display): just the + */
+@media (max-width: 359px) {
+  .home-new { width: var(--wt-size-touch); padding: 0; }
+  .home-new__label { display: none; }
+}
+.home { display: grid; gap: var(--wt-space-6); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }
+.home-group { display: grid; gap: var(--wt-space-3); }
+.home-group__title { margin: 0; font: var(--wt-type-heading); color: var(--wt-text-secondary); }
+.home-grid { display: grid; gap: var(--wt-space-3); }
 
 /* ---------- Sign in: one choice per step ---------- */
 .signin { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }

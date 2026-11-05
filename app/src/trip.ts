@@ -35,6 +35,9 @@ const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const KINDS = ['place', 'airport', 'hotel', 'restaurant', 'cafe', 'attraction', 'museum', 'viewpoint', 'nature', 'shopping', 'gas'] as const;
 type Kind = typeof KINDS[number];
 const MAX_NIGHTS = 30;
+// The home card's route sketch needs only where the stops are; a trip longer than this is cut off there.
+const PREVIEW_STOPS = 300;
+export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights'>[] };
 
 // Checks a full stop (create) or a partial one (patch); unknown keys are dropped.
 export function cleanStop(input: unknown, partial: boolean): Partial<StopFields> {
@@ -116,6 +119,7 @@ export class TripRoom extends DurableObject<Env> {
       this.env.DB.prepare('insert into trip_members (trip_id, user_id, joined_at) values (?, ?, ?)').bind(id, user.id, now),
     ]);
     this.addMember(user);
+    await this.syncPreview();
     return this.snapshot(user.id);
   }
 
@@ -205,6 +209,7 @@ export class TripRoom extends DurableObject<Env> {
     await this.env.DB.prepare('insert or ignore into trip_members (trip_id, user_id, joined_at) values (?, ?, ?)')
       .bind(trip.id, user.id, Date.now()).run();
     const member = this.addMember(user);
+    await this.syncPreview();
     this.broadcast({ type: 'member.joined', member }, user.id);
     return this.snapshot(user.id);
   }
@@ -221,14 +226,23 @@ export class TripRoom extends DurableObject<Env> {
       this.env.DB.prepare('insert or ignore into trip_members (trip_id, user_id, joined_at) values (?, ?, ?)').bind(trip.id, to.id, Date.now()),
       this.env.DB.prepare('delete from trip_members where trip_id = ? and user_id = ?').bind(trip.id, fromId),
     ]);
+    await this.syncPreview();
   }
 
   // Keep names and photos current when someone updates their profile, live for anyone looking.
-  updateMember(user: Omit<Member, 'identity'>) {
+  async updateMember(user: Omit<Member, 'identity'>) {
     if (!this.isMember(user.id)) return;
     this.sql.exec('update members set name = ?, image = ? where id = ?', user.name, user.image, user.id);
     const member = this.sql.exec<Member>('select id, name, image, identity from members where id = ?', user.id).one();
+    await this.syncPreview();
     this.broadcast({ type: 'member.updated', member }, user.id);
+  }
+
+  // The home card's people and stops, for a trip whose D1 row doesn't have them yet (written before they were kept).
+  async summary(): Promise<Preview | null> {
+    if (!this.trip()) return null;
+    await this.syncPreview();
+    return this.preview();
   }
 
   // ---------- Live edits ----------
@@ -275,14 +289,24 @@ export class TripRoom extends DurableObject<Env> {
     this.broadcast({ type: 'stop.upserted', stop }, stop.by);
     return stop;
   }
-  // Mirror the home-card fields to D1 (name, date range, last edit for sorting). The trip ends at its
-  // last stop, or later if a hotel's nights run past it.
+  // Mirror the home-card fields to D1 (name, date range, people and stops, last edit for sorting). The trip ends at
+  // its last stop, or later if a hotel's nights run past it.
   private async syncSummary() {
     const trip = this.trip()!;
     const r = this.sql.exec<{ first: string | null; last: string | null }>(
       `select min(time) as first, max(max(time), coalesce((select max(date(time, '+' || nights || ' days')) from stops where nights is not null), '')) as last from stops`).one();
-    await this.env.DB.prepare('update trips set name = ?, first_stop = ?, last_stop = ?, updated_at = ? where id = ?')
-      .bind(trip.name, r.first, r.last, Date.now(), trip.id).run();
+    await this.env.DB.prepare('update trips set name = ?, first_stop = ?, last_stop = ?, preview = ?, updated_at = ? where id = ?')
+      .bind(trip.name, r.first, r.last, JSON.stringify(this.preview()), Date.now(), trip.id).run();
+  }
+  // Someone joined or renamed themselves: the card's people change, but the trip doesn't move up everyone's list.
+  private async syncPreview() {
+    await this.env.DB.prepare('update trips set preview = ? where id = ?').bind(JSON.stringify(this.preview()), this.trip()!.id).run();
+  }
+  private preview(): Preview {
+    return {
+      members: this.sql.exec<Member>('select id, name, image, identity from members order by joined_at').toArray(),
+      stops: this.sql.exec<Preview['stops'][number]>('select id, name, lat, lng, time, kind, nights from stops order by time, id limit ?', PREVIEW_STOPS).toArray(),
+    };
   }
   private broadcast(event: TripEvent, by?: string) {
     const msg = JSON.stringify({ ...event, by });

@@ -1,4 +1,4 @@
-/* Waythread design system — components v7.1.0
+/* Waythread design system — components v8.0.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -67,6 +67,8 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
   font: var(--wt-type-micro); font-weight: 600;
 }
 .wt-avatar--lg { width: 32px; height: 32px; font-size: 13px; }
+/* "+2": the rest of a stack that's out of room */
+.wt-avatar--more { --wt-avatar-color: var(--wt-surface-hover); color: var(--wt-text-secondary); }
 .wt-avatar-stack { display: flex; align-items: center; padding: 6px var(--wt-space-1); flex: none; }
 .wt-avatar-stack .wt-avatar { margin-left: -6px; box-shadow: 0 0 0 2px var(--wt-avatar-ring, var(--wt-surface-sheet)); }
 .wt-avatar-stack .wt-avatar:first-child { margin-left: 0; }
@@ -660,14 +662,33 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-toast__action { color: var(--wt-text-inverse-action); font-weight: 500; }
 
 /* ---------- Trip card (Home) ---------- */
+/* A sketch of the trip's route on top, inset like a photo, then the name and dates, and who's on the trip. */
 .wt-trip-card {
-  display: flex; justify-content: space-between; align-items: baseline; gap: var(--wt-space-3);
-  padding: 18px var(--wt-space-4); border-radius: 14px; box-shadow: inset 0 0 0 1px var(--wt-border-default);
+  --wt-avatar-ring: var(--wt-surface-raised);
+  display: flex; flex-direction: column; overflow: hidden;
+  border-radius: 14px; box-shadow: inset 0 0 0 1px var(--wt-border-default);
   background: var(--wt-surface-raised);
 }
-.wt-trip-card:hover, .wt-trip-card:active { background: var(--wt-surface-sunken); }
-.wt-trip-card__name { font: var(--wt-type-name); font-size: 17px; }
+.wt-trip-card:hover, .wt-trip-card:active { background: var(--wt-surface-sunken); --wt-avatar-ring: var(--wt-surface-sunken); }
+.wt-trip-card__map {
+  display: grid; place-items: center; height: 120px; margin: 4px 4px 0;
+  border-radius: 10px; background: var(--wt-surface-map); overflow: hidden;
+}
+.wt-trip-card__map svg { display: block; width: 100%; height: 100%; }
+/* Drawn in the sketch's own units, but every line and dot keeps its width in pixels at any card size. A dot is a
+   path of no length, so its round cap draws it. */
+.wt-trip-card__map path { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.wt-trip-card__casing { stroke: var(--wt-route-casing); stroke-width: 6px; stroke-opacity: .9; }
+.wt-trip-card__route { stroke: var(--wt-route); stroke-width: 3px; }
+.wt-trip-card__ring { stroke: var(--wt-route-casing); stroke-width: 12px; }
+.wt-trip-card__stop { stroke: var(--wt-kind-color, var(--wt-kind-place)); stroke-width: 8px; }
+.wt-trip-card.is-past .wt-trip-card__route { stroke: var(--wt-route-done); }
+.wt-trip-card__map--empty { font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+.wt-trip-card__body { display: flex; align-items: center; gap: var(--wt-space-3); min-height: 64px; padding: 10px var(--wt-space-3) 10px var(--wt-space-4); }
+.wt-trip-card__text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.wt-trip-card__name { font: var(--wt-type-name); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wt-trip-card__dates { font: var(--wt-type-caption); font-size: 14px; color: var(--wt-text-secondary); white-space: nowrap; }
+.wt-trip-card__people { padding: 0; }
 
 /* ---------- Map pin ---------- */
 /* A round dot centered on its place, like a stop on a transit map: the stop's type color, shaded like a marker, in a

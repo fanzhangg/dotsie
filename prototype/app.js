@@ -115,6 +115,19 @@ function seed() {
           s('airport', 'El Paso International Airport', '6701 Convair Rd, El Paso, TX', 31.8072, -106.3779, '2026-11-22T11:00', 'Fly home · return car by 10:00', 'alex'),
         ],
       },
+      'big-bend': {
+        id: 'big-bend', name: 'Big Bend in spring', members: ['alex', 'jo', 'sam'], createdBy: 'jo', updatedAt: t - 1,
+        spots: [
+          s('airport', 'Midland International Air & Space Port', '9506 Laforce Blvd, Midland, TX', 31.9425, -102.2019, '2026-03-13T09:40', 'WN 2210 lands', 'jo'),
+          s('restaurant', 'Marfa', 'Highland Ave, Marfa, TX', 30.3094, -104.0206, '2026-03-13T13:00', 'Lunch', 'sam'),
+          { ...s('hotel', 'Chisos Mountains Lodge', '1 Basin Rural Station, Big Bend National Park, TX', 29.2700, -103.3005, '2026-03-13T17:30', '', 'jo'), nights: 3 },
+          s('nature', 'Lost Mine Trail', 'Basin Junction Rd, Big Bend National Park, TX', 29.2728, -103.2858, '2026-03-14T08:00', 'Start early, it gets hot', 'alex'),
+          s('nature', 'Santa Elena Canyon', 'Ross Maxwell Scenic Dr, Big Bend National Park, TX', 29.1672, -103.6089, '2026-03-14T14:00', '', 'sam'),
+          s('nature', 'Boquillas Hot Springs', 'Hot Springs Rd, Big Bend National Park, TX', 29.1776, -102.9530, '2026-03-15T10:00', 'Bring a towel', 'jo'),
+          s('attraction', 'Terlingua Ghost Town', 'Ivey St, Terlingua, TX', 29.3216, -103.6160, '2026-03-15T18:00', 'Dinner at the Starlight Theatre', 'alex'),
+          s('airport', 'Midland International Air & Space Port', '9506 Laforce Blvd, Midland, TX', 31.9425, -102.2019, '2026-03-16T15:00', 'Fly home', 'jo'),
+        ],
+      },
     },
   };
 }
@@ -158,7 +171,8 @@ async function api(path, { method = 'GET', body, signal } = {}) {
   if (call === 'GET trips' && !p[1]) {
     return Object.values(d.trips).filter(t => !t.deleted && t.members.includes(ME)).sort((a, b) => b.updatedAt - a.updatedAt).map(t => {
       const times = t.spots.map(s => s.time).sort();
-      return { id: t.id, name: t.name, start: times[0] || null, end: times.at(-1) || null };
+      const stops = t.spots.map(({ id, name, lat, lng, time, kind, nights }) => ({ id, name, lat, lng, time, kind, nights }));
+      return { id: t.id, name: t.name, start: times[0] || null, end: times.at(-1) || null, members: snapshotOf(d, t).members, stops };
     });
   }
   if (call === 'POST trips' && !p[1]) {
@@ -673,15 +687,78 @@ function render() {
 
 
 // ---------- Home ----------
+// One card per trip: a sketch of its route, its name and dates, and who's on it. Trips that are over go under Past,
+// below the rest; each group keeps the server's order, last edited first.
 function homeHTML() {
+  const today = nowStamp().slice(0, 10), list = trips || [];
+  const over = t => !!t.end && t.end.slice(0, 10) < today;
+  const ahead = list.filter(t => !over(t)), past = list.filter(over);
+  const group = (title, ts, done) => `<section class="home-group" aria-label="${title}">${past.length ? `<h2 class="home-group__title">${title}</h2>` : ''}
+    <div class="home-grid">${ts.map(t => tripCardHTML(t, done)).join('')}</div></section>`;
   return `
     <header class="home-head"><h1>Waythread</h1>
-      <button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, identity: 1 })}</button></header>
+      <div class="home-head__actions">
+        <button class="wt-btn wt-btn--primary home-new" data-action="new-trip" aria-label="New trip">${ICON.plus}<span class="home-new__label">New trip</span></button>
+        <button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, identity: 1 })}</button>
+      </div></header>
     <main class="home">
-      ${(trips || []).map(t => `<a class="wt-trip-card" href="#/trip/${esc(t.id)}"><span class="wt-trip-card__name">${esc(t.name)}</span><span class="wt-trip-card__dates">${fmtRange(t.start, t.end)}</span></a>`).join('')}
-      <button class="wt-btn wt-btn--primary wt-btn--block" data-action="new-trip">${ICON.plus}New trip</button>
+      ${trips && !list.length ? '<p class="wt-empty">No trips yet. Start one with New trip, or open the link a friend sent you.</p>' : ''}
+      ${ahead.length ? group('Upcoming', ahead, false) : ''}
+      ${past.length ? group('Past', past, true) : ''}
       ${me.isGuest && trips?.length && canSignIn() ? '<button class="wt-btn wt-btn--ghost wt-btn--block home-guest" data-action="account">Sign in to keep your trips</button>' : ''}
     </main>`;
+}
+const HOME_AVATARS = 4; // past this, the rest are a "+N"
+function tripCardHTML(t, past) {
+  const people = t.members || [], shown = people.slice(0, people.length > HOME_AVATARS ? HOME_AVATARS - 1 : HOME_AVATARS);
+  const more = people.length - shown.length;
+  return `<a class="wt-trip-card${past ? ' is-past' : ''}" href="#/trip/${esc(t.id)}">
+    ${routeSketchHTML(t.stops || [])}
+    <span class="wt-trip-card__body">
+      <span class="wt-trip-card__text"><span class="wt-trip-card__name">${esc(t.name)}</span><span class="wt-trip-card__dates">${t.start ? fmtRange(t.start, t.end) : 'No dates yet'}</span></span>
+      ${people.length ? `<span class="wt-avatar-stack wt-trip-card__people" aria-hidden="true">${shown.map(avatarHTML).join('')}${more ? `<span class="wt-avatar wt-avatar--more">+${more}</span>` : ''}</span>
+      <span class="wt-visually-hidden">, with ${esc(people.map(m => m.name).join(', '))}</span>` : ''}
+    </span></a>`;
+}
+// A trip's route, drawn small for its card, like the overview's map without the map: each day's drives, along the
+// roads where this browser has looked them up already (Home never looks routes up, so as not to use up the limit),
+// straight otherwise, and a dot for each place in its type's color. North is up; the sketch is scaled to fit its box.
+const SKETCH_W = 320, SKETCH_H = 120, SKETCH_PAD = 16, SKETCH_MIN_SPAN = 0.01; // the drawing's own units; degrees
+const mercY = lat => -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * 180 / Math.PI; // down the page
+function routeSketchHTML(stops) {
+  if (!stops.length) return '<span class="wt-trip-card__map wt-trip-card__map--empty">No stops yet</span>';
+  const trip = { stops }, lines = [];
+  for (const d of daysOf(trip)) {
+    const plan = dayPlan(trip, d);
+    for (let i = 1; i < plan.length; i++) {
+      const a = plan[i - 1].place, b = plan[i].place, r = routes[legKey(a, b)];
+      if (!samePlace(a, b)) lines.push(r?.ok && r.coords.length > 1 ? r.coords : [[a.lat, a.lng], [b.lat, b.lng]]);
+    }
+  }
+  const places = stops.filter((s, i) => stops.findIndex(o => samePlace(o, s)) === i);
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [lat, lng] of [...places.map(s => [s.lat, s.lng]), ...lines.flat()]) {
+    const y = mercY(lat);
+    x0 = Math.min(x0, lng); x1 = Math.max(x1, lng); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const k = Math.min((SKETCH_W - 2 * SKETCH_PAD) / Math.max(x1 - x0, SKETCH_MIN_SPAN), (SKETCH_H - 2 * SKETCH_PAD) / Math.max(y1 - y0, SKETCH_MIN_SPAN));
+  const at = (lat, lng) => [SKETCH_W / 2 + (lng - (x0 + x1) / 2) * k, SKETCH_H / 2 + (mercY(lat) - (y0 + y1) / 2) * k];
+  const xy = ([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`;
+  // A road's points closer together than a unit or so don't show at this size
+  const path = lines.map(l => {
+    const pts = [at(...l[0])];
+    for (let i = 1; i < l.length; i++) {
+      const p = at(...l[i]), q = pts.at(-1);
+      if (i === l.length - 1 || Math.hypot(p[0] - q[0], p[1] - q[1]) >= 1.5) pts.push(p);
+    }
+    return `M${pts.map(xy).join('L')}`;
+  }).join('');
+  const dots = places.map(s => `M${xy(at(s.lat, s.lng))}h0`);
+  return `<span class="wt-trip-card__map" aria-hidden="true"><svg viewBox="0 0 ${SKETCH_W} ${SKETCH_H}" preserveAspectRatio="xMidYMid meet">
+    ${path ? `<path class="wt-trip-card__casing" d="${path}"/><path class="wt-trip-card__route" d="${path}"/>` : ''}
+    <path class="wt-trip-card__ring" d="${dots.join('')}"/>
+    ${places.map((s, i) => `<path class="wt-trip-card__stop" style="--wt-kind-color: ${kindColor(s)}" d="${dots[i]}"/>`).join('')}
+  </svg></span>`;
 }
 
 // ---------- Trip screen: map + one day of the plan ----------

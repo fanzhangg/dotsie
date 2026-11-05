@@ -3,7 +3,7 @@ import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
 import { driveRoute, searchPlaces } from './maps';
-import { ERR } from './trip';
+import { ERR, type Preview } from './trip';
 
 export { TripRoom } from './trip';
 
@@ -92,14 +92,19 @@ const tripName = (v: unknown) => (typeof v === 'string' && v.trim() && v.length 
 // Guests have no email; the client asks them for a name (POST /api/auth/update-user) and offers sign-in later.
 app.get('/me', c => c.json({ ...c.get('user'), isGuest: c.get('guest') }));
 
-// Home screen: one card per trip, newest edit first
+// Home screen: one card per trip, newest edit first, with its people and stops for the card's avatars and route sketch
 app.get('/trips', async c => {
   const { results } = await c.env.DB.prepare(
-    `select t.id, t.name, t.first_stop as start, t.last_stop as end from trips t
+    `select t.id, t.name, t.first_stop as start, t.last_stop as end, t.preview from trips t
      join trip_members m on m.trip_id = t.id
      where m.user_id = ? and t.deleted_at is null order by t.updated_at desc`,
-  ).bind(c.get('user').id).all();
-  return c.json(results);
+  ).bind(c.get('user').id).all<{ id: string; name: string; start: string | null; end: string | null; preview: string | null }>();
+  // A trip last written before previews were kept gets one from its TripRoom, once
+  const cards = await Promise.all(results.map(async ({ preview, ...t }) => {
+    const p: Preview | null = preview ? JSON.parse(preview) : await room(c.env, t.id).summary().catch(() => null);
+    return { ...t, members: p?.members ?? [], stops: p?.stops ?? [] };
+  }));
+  return c.json(cards);
 });
 
 app.post('/trips', async c => {
