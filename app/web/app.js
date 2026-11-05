@@ -412,7 +412,7 @@ const offlineCopy = id => (savedTrip(id) ? { ...fromSnapshot(savedTrip(id).snap)
 // Home's cards for the saved trips, as /api/trips sends them
 const offlineCards = () => Object.values(offline.trips).sort((a, b) => b.savedAt - a.savedAt).map(({ snap }) => {
   const times = snap.stops.map(s => s.time).sort();
-  return { id: snap.trip.id, name: snap.trip.name, start: times[0] || null, end: times.at(-1) || null };
+  return { id: snap.trip.id, name: snap.trip.name, start: times[0] || null, end: times.at(-1) || null, members: snap.members, stops: snap.stops };
 });
 // No connection, or the trip on screen is its saved copy because the server didn't answer
 const offlineNow = () => !navigator.onLine || !!cur?.offline;
@@ -999,13 +999,15 @@ function authFlow(root, { joining = false, connecting = false, guest = false } =
 function homeHTML() {
   const today = nowStamp().slice(0, 10), list = trips || [];
   const over = t => !!t.end && t.end.slice(0, 10) < today;
-  const ahead = list.filter(t => !over(t)), past = list.filter(over);
-  const group = (title, ts, done) => `<section class="home-group" aria-label="${title}">${past.length ? `<h2 class="home-group__title">${title}</h2>` : ''}
-    <div class="home-grid">${ts.map(t => tripCardHTML(t, done)).join('')}</div></section>`;
+  // What's next first: under way, then soonest; trips with no dates yet last. What's over: the latest first.
+  const ahead = list.filter(t => !over(t)).sort((a, b) => (a.start ? 0 : 1) - (b.start ? 0 : 1) || (a.start || '').localeCompare(b.start || ''));
+  const past = list.filter(over).sort((a, b) => b.end.localeCompare(a.end));
+  const group = (title, ts, done) => `<section class="home-group"><h2 class="home-group__title">${title}</h2>
+    <div class="home-grid">${ts.map(t => tripCardHTML(t, done, today)).join('')}</div></section>`;
+  const newTrip = cls => `<button class="wt-btn wt-btn--primary ${cls}" data-action="new-trip">${ICON.plus}New trip</button>`;
   return `
     <header class="home-head"><h1>Waythread</h1>
-      <div class="home-head__actions">
-        <button class="wt-btn wt-btn--primary home-new" data-action="new-trip" aria-label="New trip">${ICON.plus}<span class="home-new__label">New trip</span></button>
+      <div class="home-head__actions">${newTrip('home-new')}
         <button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, identity: 1 })}</button>
       </div></header>
     <main class="home">
@@ -1013,16 +1015,31 @@ function homeHTML() {
       ${ahead.length ? group('Upcoming', ahead, false) : ''}
       ${past.length ? group('Past', past, true) : ''}
       ${me.isGuest && trips?.length && canSignIn() ? '<button class="wt-btn wt-btn--ghost wt-btn--block home-guest" data-action="account">Sign in to keep your trips</button>' : ''}
-    </main>`;
+    </main>
+    <div class="wt-add-bar home-add">${newTrip('wt-btn--block')}</div>`;
 }
 const HOME_AVATARS = 4; // past this, the rest are a "+N"
-function tripCardHTML(t, past) {
+// When a trip is, next to its dates: how soon, or which day of it today is (in primary ink, like the row happening now)
+function tripWhen(t, today) {
+  if (!t.start) return null;
+  const start = t.start.slice(0, 10), end = (t.end || t.start).slice(0, 10);
+  if (end < today) return null;
+  if (start <= today) return { now: true, text: `Day ${daysBetween(start, today) + 1} of ${daysBetween(start, end) + 1}` };
+  const d = daysBetween(today, start);
+  return { text: d === 1 ? 'Tomorrow' : d < 14 ? `In ${d} days` : d < 60 ? `In ${Math.round(d / 7)} weeks` : `In ${Math.round(d / 30.4)} months` };
+}
+function tripCardHTML(t, past, today) {
   const people = t.members || [], shown = people.slice(0, people.length > HOME_AVATARS ? HOME_AVATARS - 1 : HOME_AVATARS);
-  const more = people.length - shown.length;
-  return `<a class="wt-trip-card${past ? ' is-past' : ''}" href="#/trip/${esc(t.id)}">
+  const more = people.length - shown.length, when = tripWhen(t, today);
+  // Another year's trip says which; one over New Year says both
+  const end = t.end || t.start, y1 = t.start?.slice(0, 4), y2 = end?.slice(0, 4);
+  const dates = !t.start ? 'No dates yet' : y1 !== y2 ? `${fmtRange(t.start, t.start)}, ${y1} – ${fmtRange(end, end)}, ${y2}`
+    : `${fmtRange(t.start, end)}${y1 !== today.slice(0, 4) ? `, ${y1}` : ''}`;
+  return `<a class="wt-trip-card${past ? ' is-past' : ''}${when?.now ? ' is-now' : ''}" href="#/trip/${esc(t.id)}">
     ${tripMapHTML(t, past)}
     <span class="wt-trip-card__body">
-      <span class="wt-trip-card__text"><span class="wt-trip-card__name">${esc(t.name)}</span><span class="wt-trip-card__dates">${t.start ? fmtRange(t.start, t.end) : 'No dates yet'}</span></span>
+      <span class="wt-trip-card__text"><span class="wt-trip-card__name">${esc(t.name)}</span>
+        <span class="wt-trip-card__dates">${dates}${when ? ` · <span class="wt-trip-card__when">${when.text}</span>` : ''}</span></span>
       ${people.length ? `<span class="wt-avatar-stack wt-trip-card__people" aria-hidden="true">${shown.map(avatarHTML).join('')}${more ? `<span class="wt-avatar wt-avatar--more">+${more}</span>` : ''}</span>
       <span class="wt-visually-hidden">, with ${esc(people.map(m => m.name).join(', '))}</span>` : ''}
     </span></a>`;
@@ -1047,16 +1064,16 @@ function tripMapHTML(t, past) {
     theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
     route: hex(past ? '--wt-route-done' : '--wt-route'),
     legs: legs.map(([a, b]) => `${stops.indexOf(a)}-${stops.indexOf(b)}`).join(','),
-    dots: places.map(s => `${stops.indexOf(s)}:${hex(`--wt-kind-${kindOf(s)}`)}`).join(','),
+    dots: places.map(s => `${stops.indexOf(s)}:${hex(past ? '--wt-kind-past' : `--wt-kind-${kindOf(s)}`)}`).join(','),
     v: stops.map(s => `${s.lat},${s.lng}`).join(';').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0).toString(36), // a new picture when a place moves
   }).toString().replace(/%2C/g, ',').replace(/%3A/g, ':');
   const src = mapImageURL(t.id, query);
-  return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG(legs, places)}${src ? `<img class="wt-trip-card__photo" src="${esc(src)}" alt="" loading="lazy" decoding="async">` : ''}</span>`;
+  return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG(legs, places, past)}${src ? `<img class="wt-trip-card__photo" src="${esc(src)}" alt="" loading="lazy" decoding="async">` : ''}</span>`;
 }
-function routeSketchSVG(legs, places) {
-  const lines = legs.map(([a, b]) => { const r = routes[legKey(a, b)]; return r?.ok && r.coords.length > 1 ? r.coords : [[a.lat, a.lng], [b.lat, b.lng]]; });
+function routeSketchSVG(legs, places, past) {
+  const lines = legs.map(([a, b]) => { const r = routes[legKey(a, b)]; return r?.ok && r.coords.length > 1 ? { road: true, coords: r.coords } : { road: false, coords: [[a.lat, a.lng], [b.lat, b.lng]] }; });
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const [lat, lng] of [...places.map(s => [s.lat, s.lng]), ...lines.flat()]) {
+  for (const [lat, lng] of [...places.map(s => [s.lat, s.lng]), ...lines.flatMap(l => l.coords)]) {
     const y = mercY(lat);
     x0 = Math.min(x0, lng); x1 = Math.max(x1, lng); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
   }
@@ -1064,7 +1081,7 @@ function routeSketchSVG(legs, places) {
   const at = (lat, lng) => [SKETCH_W / 2 + (lng - (x0 + x1) / 2) * k, SKETCH_H / 2 + (mercY(lat) - (y0 + y1) / 2) * k];
   const xy = ([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`;
   // A road's points closer together than a unit or so don't show at this size
-  const path = lines.map(l => {
+  const pathOf = ls => ls.map(({ coords: l }) => {
     const pts = [at(...l[0])];
     for (let i = 1; i < l.length; i++) {
       const p = at(...l[i]), q = pts.at(-1);
@@ -1072,11 +1089,13 @@ function routeSketchSVG(legs, places) {
     }
     return `M${pts.map(xy).join('L')}`;
   }).join('');
-  const dots = places.map(s => `M${xy(at(s.lat, s.lng))}h0`);
+  const roads = pathOf(lines.filter(l => l.road)), guesses = pathOf(lines.filter(l => !l.road));
+  const dots = places.map(s => `M${xy(at(s.lat, s.lng))}h0`); // a dot is a path of no length, drawn by its round cap
+  const line = (d, cls) => (d ? `<path class="wt-trip-card__casing${cls}" d="${d}"/><path class="wt-trip-card__route${cls}" d="${d}"/>` : '');
   return `<svg viewBox="0 0 ${SKETCH_W} ${SKETCH_H}" preserveAspectRatio="xMidYMid meet">
-    ${path ? `<path class="wt-trip-card__casing" d="${path}"/><path class="wt-trip-card__route" d="${path}"/>` : ''}
+    ${line(roads, '')}${line(guesses, ' is-estimate')}
     <path class="wt-trip-card__ring" d="${dots.join('')}"/>
-    ${places.map((s, i) => `<path class="wt-trip-card__stop" style="--wt-kind-color: ${kindColor(s)}" d="${dots[i]}"/>`).join('')}
+    ${places.map((s, i) => `<path class="wt-trip-card__stop" style="--wt-kind-color: ${past ? 'var(--wt-kind-past)' : kindColor(s)}" d="${dots[i]}"/>`).join('')}
   </svg>`;
 }
 // The picture fades in over the sketch once it's loaded; if it can't load, the sketch stays.

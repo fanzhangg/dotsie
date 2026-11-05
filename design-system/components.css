@@ -681,18 +681,19 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-toast__detail { font: var(--wt-type-caption); color: var(--wt-text-inverse-secondary); }
 
 /* ---------- Trip card (Home) ---------- */
-/* The trip's route on top, inset like a photo, then the name and dates, and who's on the trip. The route is a map
-   picture (__photo) over a sketch (the svg), which shows until the picture has loaded, or instead of it. */
+/* The trip's route across the top, then its name, dates and people. Set apart from the page by its surface alone, as
+   the list's rows are. The route is a map picture (__photo) over a sketch (the svg), which shows until the picture has
+   loaded, or instead of it; the sketch draws routes and pins as the trip's map does. */
 .wt-trip-card {
   --wt-avatar-ring: var(--wt-surface-raised);
   display: flex; flex-direction: column; overflow: hidden;
-  border-radius: 14px; box-shadow: inset 0 0 0 1px var(--wt-border-default);
-  background: var(--wt-surface-raised);
+  border-radius: var(--wt-radius-md); background: var(--wt-surface-raised);
+  transition: background var(--wt-duration-fast);
 }
 .wt-trip-card:hover, .wt-trip-card:active { background: var(--wt-surface-sunken); --wt-avatar-ring: var(--wt-surface-sunken); }
 .wt-trip-card__map {
-  position: relative; display: grid; place-items: center; aspect-ratio: 5 / 2; margin: 4px 4px 0;
-  border-radius: 10px; background: var(--wt-surface-map); overflow: hidden;
+  position: relative; display: grid; place-items: center; aspect-ratio: 5 / 2;
+  background: var(--wt-surface-map); overflow: hidden;
 }
 .wt-trip-card__map svg { display: block; width: 100%; height: 100%; }
 /* Made at the box's 5:2, so nothing is cut off */
@@ -704,16 +705,24 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* Drawn in the sketch's own units, but every line and dot keeps its width in pixels at any card size. A dot is a
    path of no length, so its round cap draws it. */
 .wt-trip-card__map path { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.wt-trip-card__casing { stroke: var(--wt-route-casing); stroke-width: 6px; stroke-opacity: .9; }
-.wt-trip-card__route { stroke: var(--wt-route); stroke-width: 3px; }
-.wt-trip-card__ring { stroke: var(--wt-route-casing); stroke-width: 12px; }
-.wt-trip-card__stop { stroke: var(--wt-kind-color, var(--wt-kind-place)); stroke-width: 8px; }
+.wt-trip-card__casing { stroke: var(--wt-route-casing); stroke-width: 7px; }
+.wt-trip-card__route { stroke: var(--wt-route); stroke-width: 4px; }
+/* A drive not looked up yet: dotted, as on the map */
+.wt-trip-card__casing.is-estimate, .wt-trip-card__route.is-estimate { stroke-dasharray: 0 9; }
 .wt-trip-card.is-past .wt-trip-card__route { stroke: var(--wt-route-done); }
+/* Pins, as on the map: a dot in the type's color (--wt-kind-past once the trip is over) in a ring, standing off the map */
+.wt-trip-card__ring { stroke: var(--wt-pin-fill); stroke-width: 14px; filter: drop-shadow(var(--wt-shadow-pin)); }
+.wt-trip-card__stop { stroke: var(--wt-kind-color, var(--wt-kind-place)); stroke-width: 10px; }
 .wt-trip-card__map--empty { font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
-.wt-trip-card__body { display: flex; align-items: center; gap: var(--wt-space-3); min-height: 64px; padding: 10px var(--wt-space-3) 10px var(--wt-space-4); }
+.wt-trip-card__body { display: flex; align-items: center; gap: var(--wt-space-3); padding: var(--wt-space-3) var(--wt-space-3) var(--wt-space-3) var(--wt-space-4); }
 .wt-trip-card__text { flex: 1; min-width: 0; display: grid; gap: 2px; }
-.wt-trip-card__name { font: var(--wt-type-name); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wt-trip-card__dates { font: var(--wt-type-caption); font-size: 14px; color: var(--wt-text-secondary); white-space: nowrap; }
+.wt-trip-card__name { font: var(--wt-type-name); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-trip-card__dates {
+  font: var(--wt-type-caption); font-size: 14px; color: var(--wt-text-secondary); font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Under way: which day it is reads first, in primary ink, like the row happening now */
+.wt-trip-card.is-now .wt-trip-card__when { color: var(--wt-text-primary); }
 .wt-trip-card__people { padding: 0; }
 
 /* ---------- Map pin ---------- */
