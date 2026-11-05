@@ -173,6 +173,13 @@ async function api(path, { method = 'GET', body, signal } = {}) {
     if (!t.members.includes(ME)) { t.members.push(ME); broadcast(t.id, { type: 'member.joined', member: userOf(d, ME) }); }
     return out(snapshotOf(d, t));
   }
+  // The AI assistant's token, in Account. There's no MCP server here, so it's made up and connects nothing.
+  if (p[0] === 'mcp' && p[1] === 'token') {
+    const url = `${location.origin}/api/mcp`, tokens = (d.mcp ||= {});
+    if (method === 'POST') { tokens[ME] = { createdAt: now, lastUsedAt: null }; return out({ url, token: `wt_${newToken()}` }); }
+    if (method === 'DELETE') { delete tokens[ME]; return out(); }
+    return out({ url, token: tokens[ME] || null });
+  }
   if (p[0] !== 'trips') fail(404, 'not_found');
   const t = d.trips[p[1]];
   if (!t) fail(404, 'not_found');
@@ -2141,8 +2148,8 @@ function openSettings(trip) {
   });
 }
 
-// Your name as others on your trips see it; guests are offered a real sign-in, which keeps their
-// trips; everyone can sign out.
+// Your name as others on your trips see it, the maps app, and an AI assistant's token (not for guests); guests are
+// offered a real sign-in, which keeps their trips; everyone can sign out.
 function openAccount() {
   const upgrade = me.isGuest && canSignIn();
   openSheet(`<div class="account-main">${modalHead('Account')}
@@ -2152,6 +2159,9 @@ function openAccount() {
     </form>
     <div class="wt-field"><span class="wt-field__label" id="maps-label">Maps app</span>
       <button type="button" class="wt-picker wt-picker--text" data-maps-open aria-describedby="maps-label"></button></div>
+    ${me.isGuest ? '' : `<div class="wt-field"><span class="wt-field__label">AI assistant</span>
+      <p class="wt-modal__text">Connect Claude or another assistant that supports MCP, so it can see your trips’ stops and change them for you.</p>
+      <div class="account-mcp"></div></div>`}
     ${upgrade ? `<h3 class="account-keep">Keep your trips</h3>
     <p class="wt-modal__text">As a guest, you can only reach your trips from this browser. Sign in to keep them on any device.</p>
     <div class="signin"></div>` : ''}
@@ -2180,8 +2190,37 @@ function openAccount() {
       maps.mark(mapsApp);
     };
     showMaps();
+    if (!me.isGuest) assistantField(el.querySelector('.account-mcp'));
     if (upgrade) authFlow(el.querySelector('.signin'));
   });
+}
+
+// AI assistant, in Account: a token for Waythread's MCP server (/api/mcp), which lets an assistant list your trips'
+// stops and edit them as you. The token is shown once, when it's made; after that the field says when it was made
+// and last used. One token at a time: a new one replaces the old, like the share link.
+async function assistantField(box) {
+  const day = ms => { const d = new Date(ms); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; };
+  const copyRow = (label, text) => `<div class="wt-copy-row"><input class="wt-input" readonly value="${esc(text)}" aria-label="${label}">
+    <button class="wt-btn wt-btn--primary" data-action="copy" data-text="${esc(text)}" data-copied="${label} copied">Copy</button></div>`;
+  const show = ({ url, token }) => {
+    if (typeof token === 'string') {
+      box.innerHTML = `<p class="wt-modal__text">Give your assistant this server address and token. Copy the token now: it’s shown only once.</p>
+        ${copyRow('Server address', url)}${copyRow('Token', token)}`;
+    } else if (token) {
+      box.innerHTML = `<p class="wt-modal__text">Connected ${day(token.createdAt)} · ${token.lastUsedAt ? `last used ${day(token.lastUsedAt)}` : 'not used yet'}</p>
+        <div class="account-mcp__actions"><button class="wt-btn wt-btn--ghost account-mcp__new" data-mcp-make>Make a new token</button>
+        <button class="wt-btn wt-btn--danger" data-mcp-off>Disconnect</button></div>`;
+    } else box.innerHTML = '<button class="wt-btn wt-btn--secondary" data-mcp-make>Connect an assistant</button>';
+    box.querySelector('[data-mcp-make]')?.addEventListener('click', async () => {
+      if (token && !confirm('Make a new token? The current one stops working, so give your assistant the new one.')) return;
+      try { show(await api('/mcp/token', { method: 'POST' })); } catch (err) { if (err.status !== 401) toast(failMsg(err, 'Couldn’t make a token.')); }
+    });
+    box.querySelector('[data-mcp-off]')?.addEventListener('click', async () => {
+      if (!confirm('Disconnect your assistant? Its token stops working.')) return;
+      try { await api('/mcp/token', { method: 'DELETE' }); show({ url, token: null }); toast('Assistant disconnected'); } catch (err) { if (err.status !== 401) toast(failMsg(err, 'Couldn’t disconnect.')); }
+    });
+  };
+  try { show(await api('/mcp/token')); } catch { box.innerHTML = '<p class="wt-modal__text">Couldn’t load this. Check your connection.</p>'; }
 }
 
 // Two hours after the day's last stop; 9 AM on a day with none yet (a hotel day), or 9 AM tomorrow for an empty trip.
@@ -2607,7 +2646,7 @@ document.addEventListener('click', e => {
     case 'close-sheet': closeSheet(); break;
     case 'fit-day': showWholeDay(); break;
     case 'grab': setSnap(state.snap === 'half' ? 'full' : 'half'); break;
-    case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast('Link copied'), () => toast('Copy failed')); break;
+    case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast(el.dataset.copied || 'Link copied'), () => toast('Copy failed')); break;
   }
 });
 document.addEventListener('keydown', e => {

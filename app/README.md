@@ -8,6 +8,7 @@ One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`Tri
 | [src/trip.ts](src/trip.ts) | `TripRoom`: trip data, validation, membership, live events |
 | [src/auth.ts](src/auth.ts) | Better Auth: Google, Apple, email and password, guests |
 | [src/maps.ts](src/maps.ts) | Stadia place search and drive routes, routes cached in KV |
+| [src/mcp.ts](src/mcp.ts) | The MCP server: tools for an AI assistant to list trips and stops and edit stops |
 | [migrations/](migrations) | D1 schema |
 | [web/](web) | The frontend: plain HTML, CSS and JS. `../prototype` is the same frontend with no server |
 | [scripts/build.mjs](scripts/build.mjs) | Copies `web/` and `../design-system/` into `public/`, which Wrangler serves. Runs on `dev` and `deploy` |
@@ -47,11 +48,11 @@ Only the secrets you set are uploaded, and a feature whose keys are missing stay
 
 `BETTER_AUTH_URL` isn't in `wrangler.jsonc`: `.dev.vars` sets it locally and the workflow sets it for production, so deploy through the workflow rather than `npm run deploy`.
 
-Rate limits (in `wrangler.jsonc`): 20 sign-in steps per minute per IP (an email lookup and a sign-in count as two), and 120 place searches plus route lookups per minute per person. Over the limit, the API returns 429 `rate_limited`. The app looks up the other days' drives at most one a second, behind any the screen needs, so preloading a long trip leaves room for search; it pauses for a minute if it hits the limit. All days, the overview a trip opens on outside its dates, shows every drive of the trip, so it asks for all of them at once, one after another; the browser keeps them, so that's once per trip per browser. A trip with more than about 100 drives can reach the limit the first time: the rest show as straight lines until the next visit. Sessions last 90 days from the last visit.
+Rate limits (in `wrangler.jsonc`): 20 sign-in steps per minute per IP (an email lookup and a sign-in count as two), 120 place searches plus route lookups per minute per person, and 60 MCP calls per minute per person. Over the limit, the API returns 429 `rate_limited`. The app looks up the other days' drives at most one a second, behind any the screen needs, so preloading a long trip leaves room for search; it pauses for a minute if it hits the limit. All days, the overview a trip opens on outside its dates, shows every drive of the trip, so it asks for all of them at once, one after another; the browser keeps them, so that's once per trip per browser. A trip with more than about 100 drives can reach the limit the first time: the rest show as straight lines until the next visit. Sessions last 90 days from the last visit.
 
 ## API
 
-All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sign-in-options` and `/api/invite/:token`.
+All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sign-in-options`, `/api/invite/:token`, and `/api/mcp`, which takes an MCP token instead.
 
 | Route | |
 | --- | --- |
@@ -72,7 +73,35 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
 | `GET /api/route?from=lat,lng&to=lat,lng` | `{ duration, distance, coords }` |
+| `GET /api/mcp/token` | `{ url, token: { createdAt, lastUsedAt } \| null }`: the MCP server's address, and whether you have a token |
+| `POST /api/mcp/token` · `DELETE …` | Make a token, replacing any old one: `{ url, token: 'wt_…' }`, the only time it's shown. Or turn it off. Not for guests (403 `guest`) |
+| `POST /api/mcp` | The MCP server (below), with `Authorization: Bearer wt_…` |
 
 A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is when you leave, `HH:MM`: for a hotel, its check-out time on the day its nights end, or `null` (the app shows 11:00 AM); for any other stop, a time later the same day, or `null` for none. Stops still carry `done`, which older clients set; the app no longer shows it.
 
-Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
+Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member` or `guest`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
+
+## MCP server
+
+`/api/mcp` lets an AI assistant (Claude, or any client that speaks [MCP](https://modelcontextprotocol.io)) read your trips and edit their stops as you. Make a token under **AI assistant** in Account, then give the client the address and token:
+
+```bash
+claude mcp add --transport http waythread https://<app URL>/api/mcp --header "Authorization: Bearer wt_…"
+```
+
+Other clients take the same two things: a Streamable HTTP server at that URL, and the token as a bearer `Authorization` header.
+
+| Tool | Arguments | Returns |
+| --- | --- | --- |
+| `list_trips` | none | `{ trips: [{ id, name, start, end }] }`, newest edit first |
+| `list_stops` | `trip_id`, optional `day` (`YYYY-MM-DD`) | `{ trip, stops }`, in time order |
+| `edit_stop` | `trip_id`, `stop_id`, and any of `name`, `address`, `lat`, `lng`, `time`, `checkout`, `kind`, `nights`, `note` | `{ stop }`, as saved |
+
+A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Edits go through `TripRoom.patchStop`, like the app's: the same checks, and everyone with the trip open sees them live.
+
+How it's built, in [src/mcp.ts](src/mcp.ts):
+
+- **Transport:** Streamable HTTP without sessions. Each POST is one JSON-RPC message, answered with JSON (or 202 for a notification). There's no event stream, so GET is 405. It answers `initialize`, `ping`, `tools/list` and `tools/call`.
+- **Tokens:** one per person, in D1's `mcp_tokens`, stored as a SHA-256 hash, so it's shown only when made. A new one replaces the old; Disconnect deletes it. "Last used" updates at most once an hour.
+- **Errors:** a bad id, a field that fails validation, or a trip you're not on comes back as a tool result with `isError`, so the assistant can read why and try again. A missing or wrong token is 401 with `WWW-Authenticate: Bearer`.
+- **Not yet:** OAuth sign-in, which clients such as Claude's web and desktop connectors need instead of a pasted token, and tools to add or delete stops.
