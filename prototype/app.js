@@ -23,9 +23,11 @@ const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, s
 let me = null, config = { google: false, apple: false, password: false }, trips = null, cur = null;
 // Whether any real sign-in is set up; without one, guests aren't offered an upgrade they can't do.
 const canSignIn = () => config.google || config.apple || config.password;
-// What to say when a request fails: the server's rate limit, no connection, or anything else
-const failMsg = (err, what) => err?.code === 'rate_limited' ? 'Too many tries. Wait a minute, then try again.'
-  : err?.code === 'offline' ? `${what} Check your connection.` : `${what} Try again.`;
+// What to do when a request fails: wait out the server's rate limit, get a connection, or try again
+const failHint = err => err?.code === 'rate_limited' ? 'Too many tries. Wait a minute, then try again.'
+  : err?.code === 'offline' ? 'Check your connection, then try again.' : 'Try again in a moment.';
+// As one line, for a form's error text: what failed, then what to do
+const failMsg = (err, what) => (err?.code === 'rate_limited' ? failHint(err) : `${what} ${failHint(err)}`);
 
 const uid = () => crypto.randomUUID().replace(/-/g, '').slice(0, 16);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -36,7 +38,7 @@ const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(-
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // ---------- Icons (design system) ----------
-const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'chevron-up-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin', 'download', 'saved', 'cloud-off']
+const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'chevron-up-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin', 'download', 'saved', 'cloud-off', 'alert']
   .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
@@ -258,10 +260,10 @@ const fromSnapshot = s => ({ id: s.trip.id, name: s.trip.name, members: s.member
 
 // Writes show at once and save in the background. If one fails, reload the trip so the screen
 // matches what's saved.
-async function save(req, msg = "Couldn't save. Check your connection.") {
+async function save(req, title = 'Couldn’t save your change') {
   try { return await req; } catch (e) {
     if (e.status === 401) return;
-    toast(msg);
+    failToast(e, title);
     if (cur && !cur.error) reloadTrip();
   }
 }
@@ -406,7 +408,7 @@ async function boot() {
   if (anySaved()) { rememberSession(); registerOffline(); }
   render();
 }
-function signOut() { toast('The prototype has no sign-in. To be Sam or Jo, add ?as=sam or ?as=jo to the address.'); }
+function signOut() { toast({ title: 'The prototype has no sign-in', detail: 'To be Sam or Jo, add ?as=sam or ?as=jo to the address.' }); }
 
 // ---------- Routes: only the line and drive time; navigation is handed to the maps app ----------
 const routes = (() => { try { return JSON.parse(localStorage.getItem(ROUTE_KEY)) || {}; } catch { return {}; } })();
@@ -2350,7 +2352,7 @@ function openNewTrip() {
         location.hash = `#/trip/${cur.id}`;
       } catch (err) {
         f.elements[1].disabled = false;
-        if (err.status !== 401) toast('Couldn’t create the trip. Check your connection.');
+        if (err.status !== 401) failToast(err, 'Couldn’t create the trip');
       }
     };
   });
@@ -2399,24 +2401,24 @@ function openSettings(trip) {
     });
     // Deleting is for everyone, so it asks first; it can still be undone from the notice.
     el.querySelector('[data-del]').onclick = async () => {
-      if (!confirm(`Delete “${trip.name}” for everyone?`)) return;
+      if (!(await ask({ title: `Delete “${trip.name}”?`, detail: 'It’s deleted for everyone on the trip. You can undo right after.', action: 'Delete trip', danger: true }))) return;
       try { await api(`/trips/${trip.id}`, { method: 'DELETE' }); } catch (err) {
-        if (err.status !== 401) toast('Couldn’t delete the trip. Check your connection.');
+        if (err.status !== 401) failToast(err, 'Couldn’t delete the trip');
         return;
       }
       closeSheet();
       closeTrip();
       location.hash = '#/';
       toast(`Deleted ${trip.name}`, 'Undo', async () => {
-        try { await api(`/trips/${trip.id}/restore`, { method: 'POST' }); location.hash = `#/trip/${trip.id}`; } catch { toast('Couldn’t restore the trip'); }
+        try { await api(`/trips/${trip.id}/restore`, { method: 'POST' }); location.hash = `#/trip/${trip.id}`; } catch (err) { failToast(err, 'Couldn’t restore the trip'); }
       });
     };
     const input = el.querySelector('.wt-copy-row input'), copy = el.querySelector('[data-action="copy"]');
     const show = url => { input.value = url; copy.dataset.text = url; copy.disabled = false; };
     // A new link is for when the old one went somewhere it shouldn't have: the old one stops working.
     el.querySelector('[data-new-link]').onclick = async () => {
-      if (!confirm('Make a new link? The current link stops working. Everyone already on the trip stays on it.')) return;
-      try { show((await api(`/trips/${trip.id}/invite/rotate`, { method: 'POST' })).url); toast('New link ready'); } catch { toast('Couldn’t make a new link'); }
+      if (!(await ask({ title: 'Make a new link?', detail: 'The current link stops working. Everyone already on the trip stays on it.', action: 'Make new link' }))) return;
+      try { show((await api(`/trips/${trip.id}/invite/rotate`, { method: 'POST' })).url); toast('New link ready'); } catch (err) { failToast(err, 'Couldn’t make a new link'); }
     };
     try { show((await api(`/trips/${trip.id}/invite`)).url); } catch { input.placeholder = 'Couldn’t load the link'; }
   });
@@ -2452,7 +2454,7 @@ function openAccount() {
         me.name = name;
         toast('Name saved');
         render();
-      } catch (err) { toast(failMsg(err, 'Couldn’t save your name.')); }
+      } catch (err) { failToast(err, 'Couldn’t save your name'); }
     };
     f.onsubmit = e => { e.preventDefault(); f.elements.name.blur(); };
     f.elements.name.addEventListener('change', saveName);
@@ -2482,12 +2484,12 @@ async function assistantField(box) {
         <button class="wt-btn wt-btn--danger" data-mcp-off="${esc(c.id)}">Disconnect</button></li>`).join('')}</ul>` : ''}`;
     for (const btn of box.querySelectorAll('[data-mcp-off]')) btn.onclick = async () => {
       const c = connections.find(x => x.id === btn.dataset.mcpOff);
-      if (!confirm(`Disconnect ${c.name}? It can’t see or change your trips anymore.`)) return;
+      if (!(await ask({ title: `Disconnect ${c.name}?`, detail: 'It won’t be able to see or change your trips. You can connect it again anytime.', action: 'Disconnect', danger: true }))) return;
       try {
         await api(`/assistants/${encodeURIComponent(c.id)}`, { method: 'DELETE' });
         show({ url, connections: connections.filter(x => x !== c) });
         toast(`${c.name} disconnected`);
-      } catch (err) { if (err.status !== 401) toast(failMsg(err, 'Couldn’t disconnect.')); }
+      } catch (err) { if (err.status !== 401) failToast(err, `Couldn’t disconnect ${c.name}`); }
     };
   };
   try { show(await api('/assistants')); } catch { box.innerHTML = '<p class="wt-modal__text">Couldn’t load this. Check your connection.</p>'; }
@@ -2862,21 +2864,128 @@ function openStopSheet(trip, stop) {
   if (stop) focusStop(stop);
 }
 
-// ---------- Toast ----------
-const $toast = Object.assign(document.createElement('div'), { className: 'wt-toast', role: 'status' });
+// ---------- Notices: toasts and questions (see "Messages" in the design system) ----------
+// A toast is news at the top of the screen. `msg` is a line of text, or { icon, title, detail, error } for one that needs
+// a second line (.wt-toast--rich): what happened, then what still works or what to do. An error gets the alert icon (or
+// its own, such as offline) in red, and is read out at once. `label` and `onAction` add an action, such as Undo.
+// - It stays long enough to read: a quarter second a word on top of a second, at least 3 seconds (5 with an action,
+//   which takes time to reach), at most 8. The pointer on it, or focus in it, holds it there.
+// - A tap or a swipe up puts it away.
+// - One at a time: a new toast replaces the one showing, except that news waits behind a toast with an action, so a
+//   co-editor's change arriving doesn't take Undo away.
+// On the trip screen it shows below the header (--wt-toast-top in styles.css), so Home and settings stay in reach.
+const $toast = Object.assign(document.createElement('div'), { className: 'wt-toast' });
+$toast.setAttribute('role', 'status');
 document.body.append($toast);
-let toastTimer;
-// `msg` is a line of text, or { icon, title, detail } for a notice that needs a second line (.wt-toast--rich),
-// which stays a little longer so the detail can be read.
+let toastNow = null, toastNext = null, toastTimer = 0, toastLeft = 0, toastStart = 0;
+const toastHold = new Set(); // 'hover', 'focus': what's holding the toast on screen
 function toast(msg, label, onAction) {
-  const rich = typeof msg === 'object';
-  const text = rich ? `${msg.icon ? `<span class="wt-toast__icon">${msg.icon}</span>` : ''}<span class="wt-toast__text"><b class="wt-toast__title">${esc(msg.title)}</b>${msg.detail ? `<span class="wt-toast__detail">${esc(msg.detail)}</span>` : ''}</span>` : `<span>${esc(msg)}</span>`;
-  $toast.innerHTML = `${text}${label ? `<button class="wt-toast__action">${esc(label)}</button>` : ''}`;
-  $toast.classList.toggle('wt-toast--rich', rich);
-  if (label) $toast.querySelector('button').onclick = () => { $toast.classList.remove('is-visible'); onAction(); };
-  $toast.classList.add('is-visible');
+  const n = { ...(typeof msg === 'object' ? msg : { title: msg }), label, onAction };
+  if (toastNow?.label && !n.label) { toastNext = n; return; }
+  showToast(n);
+}
+// A request failed: what failed, as the heading, and what to do about it. Offline has its own icon.
+function failToast(err, title) {
+  toast({ error: true, icon: err?.code === 'offline' ? ICON.cloudOff : null, title, detail: failHint(err) });
+}
+function showToast(n) {
+  toastNow = n;
+  const rich = !!(n.detail || n.icon || n.error), icon = n.icon || (n.error ? ICON.alert : '');
+  $toast.className = `wt-toast${rich ? ' wt-toast--rich' : ''}${n.error ? ' wt-toast--error' : ''} is-visible`;
+  $toast.setAttribute('role', n.error ? 'alert' : 'status');
+  $toast.innerHTML = (rich
+    ? `${icon ? `<span class="wt-toast__icon">${icon}</span>` : ''}<span class="wt-toast__text"><b class="wt-toast__title">${esc(n.title)}</b>${n.detail ? `<span class="wt-toast__detail">${esc(n.detail)}</span>` : ''}</span>`
+    : `<span>${esc(n.title)}</span>`) + (n.label ? `<button class="wt-toast__action">${esc(n.label)}</button>` : '');
+  if (n.label) $toast.querySelector('.wt-toast__action').onclick = () => { hideToast(); n.onAction(); };
+  const words = `${n.title} ${n.detail || ''}`.trim().split(/\s+/).length;
+  toastLeft = Math.min(8000, Math.max(n.label ? 5000 : 3000, 1000 + words * 250));
+  toastHold.delete('hover'); // a new toast hasn't been pointed at yet
+  runToast();
+}
+function runToast() {
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $toast.classList.remove('is-visible'), label ? 5000 : rich ? 4000 : 2800);
+  if (!toastNow || toastHold.size) return;
+  toastStart = Date.now();
+  toastTimer = setTimeout(hideToast, toastLeft);
+}
+function hideToast() {
+  clearTimeout(toastTimer);
+  $toast.classList.remove('is-visible');
+  const next = toastNext;
+  toastNow = toastNext = null;
+  toastHold.clear();
+  // the news that waited: now, or after whatever took its place (Undo's own notice, say)
+  if (next) setTimeout(() => { if (!toastNow) showToast(next); else toastNext ||= next; }, 300);
+}
+function holdToast(why, on) {
+  const was = toastHold.size;
+  if (on) toastHold.add(why); else toastHold.delete(why);
+  if (!was && toastHold.size) { clearTimeout(toastTimer); toastLeft = Math.max(1500, toastLeft - (Date.now() - toastStart)); }
+  if (was && !toastHold.size) runToast();
+}
+$toast.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') holdToast('hover', true); });
+$toast.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') holdToast('hover', false); });
+$toast.addEventListener('focusin', () => holdToast('focus', true));
+$toast.addEventListener('focusout', () => holdToast('focus', false));
+// A tap puts it away; so does a swipe up, which it follows (and resists going down)
+let toastDrag = null;
+$toast.addEventListener('pointerdown', e => {
+  if (!toastNow || e.target.closest('button')) return;
+  toastDrag = { id: e.pointerId, y: e.clientY, dy: 0, moved: 0 };
+  $toast.setPointerCapture(e.pointerId);
+  $toast.classList.add('is-dragging');
+});
+$toast.addEventListener('pointermove', e => {
+  if (toastDrag?.id !== e.pointerId) return;
+  const dy = e.clientY - toastDrag.y;
+  toastDrag.dy = dy < 0 ? dy : dy / 4;
+  toastDrag.moved = Math.max(toastDrag.moved, Math.abs(dy));
+  $toast.style.setProperty('--wt-toast-drag', `${toastDrag.dy}px`);
+});
+const endToastDrag = e => {
+  if (toastDrag?.id !== e.pointerId) return;
+  const { dy, moved } = toastDrag;
+  toastDrag = null;
+  $toast.classList.remove('is-dragging');
+  $toast.style.removeProperty('--wt-toast-drag');
+  if (e.type === 'pointerup' && (dy < -24 || moved < 6)) hideToast();
+};
+$toast.addEventListener('pointerup', endToastDrag);
+$toast.addEventListener('pointercancel', endToastDrag);
+
+// A question before an action that can't be undone, or that others will notice (.wt-dialog): the title asks it, a line
+// under it says what happens, and the buttons are Cancel and one that names the action. It sits over everything, so a
+// sheet can ask without closing. When the action destroys something its button is red and Cancel has the focus;
+// otherwise the action has it. Esc or a tap outside cancels; Tab stays inside. Resolves to true if the action is chosen.
+function ask({ title, detail = '', action, danger = false }) {
+  return new Promise(resolve => {
+    const back = document.activeElement, id = `ask-${uid()}`;
+    const root = Object.assign(document.createElement('div'), { className: 'wt-dialog-root' });
+    root.innerHTML = `<div class="wt-dialog__backdrop" data-answer="no"></div>
+      <div class="wt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="${id}-t"${detail ? ` aria-describedby="${id}-d"` : ''}>
+        <h2 class="wt-dialog__title" id="${id}-t">${esc(title)}</h2>${detail ? `<p class="wt-dialog__text" id="${id}-d">${esc(detail)}</p>` : ''}
+        <div class="wt-dialog__actions"><button type="button" class="wt-btn wt-btn--secondary" data-answer="no">Cancel</button>
+          <button type="button" class="wt-btn ${danger ? 'wt-btn--destructive' : 'wt-btn--primary'}" data-answer="yes">${esc(action)}</button></div>
+      </div>`;
+    document.body.append(root);
+    const btns = [...root.querySelectorAll('button')];
+    const answer = yes => {
+      document.removeEventListener('keydown', onKey, true);
+      root.classList.remove('is-open');
+      setTimeout(() => root.remove(), parseFloat(token('--wt-duration-base')) || 0);
+      if (back?.isConnected) back.focus({ preventScroll: true });
+      resolve(yes);
+    };
+    // Before the page's own keys: Esc here cancels the question, not the sheet under it
+    const onKey = e => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); answer(false); }
+      if (e.key === 'Tab') { e.preventDefault(); btns[(btns.indexOf(document.activeElement) + 1) % btns.length].focus(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    root.addEventListener('click', e => { const a = e.target.closest('[data-answer]'); if (a) answer(a.dataset.answer === 'yes'); });
+    btns[danger ? 0 : 1].focus({ preventScroll: true });
+    requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('is-open')));
+  });
 }
 
 // ---------- Events ----------
@@ -2907,7 +3016,7 @@ document.addEventListener('click', e => {
     case 'close-sheet': closeSheet(); break;
     case 'fit-day': showWholeDay(); break;
     case 'grab': setSnap(state.snap === 'half' ? 'full' : 'half'); break;
-    case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast(el.dataset.copied || 'Link copied'), () => toast('Copy failed')); break;
+    case 'copy': copyText(el); break;
   }
 });
 document.addEventListener('keydown', e => {
@@ -2926,5 +3035,14 @@ document.addEventListener('keydown', e => {
   if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && $app.dataset.trip && !$sheets.innerHTML && !e.target.closest('input, textarea')) stepDay(e.key === 'ArrowRight' ? 1 : -1);
 });
 addEventListener('hashchange', render);
+// Copy buttons sit beside the text they copy. If the browser won't copy, the text is selected, so it's one step by hand.
+function copyText(el) {
+  const done = () => toast(el.dataset.copied || 'Link copied');
+  const failed = () => {
+    el.parentElement.querySelector('input')?.select();
+    toast({ error: true, title: 'Couldn’t copy', detail: 'It’s selected: copy it from the menu or with your keyboard.' });
+  };
+  if (navigator.clipboard) navigator.clipboard.writeText(el.dataset.text).then(done, failed); else failed();
+}
 
 boot();

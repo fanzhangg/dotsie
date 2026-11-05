@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.11.0
+/* Waythread design system — tokens v1.12.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -85,6 +85,7 @@
   --wt-text-placeholder: var(--wt-color-gray-400);
   --wt-text-inverse: var(--wt-color-gray-0);
   --wt-text-inverse-secondary: var(--wt-color-gray-300); /* a toast's detail line */
+  --wt-text-inverse-danger: var(--wt-color-red-300);    /* an error toast's icon */
   --wt-text-inverse-action: var(--wt-color-blue-400);
   --wt-text-link: var(--wt-color-blue-500);
   --wt-text-danger: var(--wt-color-red-600);
@@ -118,6 +119,8 @@
 
   /* Status, loudest first: red needs fixing; black is now; grey is over. */
   --wt-danger: var(--wt-color-red-600);
+  --wt-action-danger: var(--wt-color-red-600);       /* the confirm button of a dialog that destroys something */
+  --wt-action-danger-text: var(--wt-color-gray-0);
   --wt-danger-surface: var(--wt-color-red-50);
   --wt-highlight: #fff1b8;                          /* a co-editor's change, flashed once */
   --wt-now: var(--wt-color-gray-950);               /* the ring on the stop you're at, the car on the drive you're on: the blackest ink */
@@ -193,6 +196,7 @@
     --wt-text-placeholder: var(--wt-color-gray-500);
     --wt-text-inverse: var(--wt-color-gray-950);
   --wt-text-inverse-secondary: var(--wt-color-gray-600);
+  --wt-text-inverse-danger: var(--wt-color-red-600);
     --wt-text-inverse-action: var(--wt-color-blue-600);
     --wt-text-link: var(--wt-color-blue-400);
     --wt-text-danger: var(--wt-color-red-300);
@@ -217,6 +221,8 @@
     --wt-pin-ring-muted: var(--wt-color-blue-800);
     --wt-pin-ring-done: var(--wt-color-gray-600);
     --wt-danger: var(--wt-color-red-300);
+  --wt-action-danger: var(--wt-color-red-300);
+  --wt-action-danger-text: var(--wt-color-gray-950);
     --wt-danger-surface: var(--wt-color-red-900);
     --wt-highlight: #4a3f12;
     --wt-now: var(--wt-color-gray-100);
@@ -259,6 +265,7 @@
   --wt-text-placeholder: var(--wt-color-gray-500);
   --wt-text-inverse: var(--wt-color-gray-950);
   --wt-text-inverse-secondary: var(--wt-color-gray-600);
+  --wt-text-inverse-danger: var(--wt-color-red-600);
   --wt-text-inverse-action: var(--wt-color-blue-600);
   --wt-text-link: var(--wt-color-blue-400);
   --wt-text-danger: var(--wt-color-red-300);
@@ -283,6 +290,8 @@
   --wt-pin-ring-muted: var(--wt-color-blue-800);
   --wt-pin-ring-done: var(--wt-color-gray-600);
   --wt-danger: var(--wt-color-red-300);
+  --wt-action-danger: var(--wt-color-red-300);
+  --wt-action-danger-text: var(--wt-color-gray-950);
   --wt-danger-surface: var(--wt-color-red-900);
   --wt-highlight: #4a3f12;
   --wt-now: var(--wt-color-gray-100);
@@ -380,6 +389,7 @@
   --wt-z-raised: 1;
   --wt-z-sheet: 500;        /* above Leaflet panes (400) */
   --wt-z-modal: 1000;
+  --wt-z-dialog: 1500;      /* a confirmation, over any sheet */
   --wt-z-toast: 2000;
 }
 

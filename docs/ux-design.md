@@ -314,6 +314,17 @@ Tapping a drive turns the bottom button into Directions, which opens directions 
 - **Live edits** appear right away. When a co-editor adds, changes, or removes a stop, a short notice appears at the top (for example, "Sam updated Cloudcroft") and the changed stop flashes.
 - Edits always build on the latest saved version, so two people editing don't overwrite each other's changes.
 
+## Messages
+
+What the app says when something happens follows one pattern (see **Messages** in the [design system's patterns](../design-system/README.md#patterns)):
+
+- **Toasts** show news at the top of the screen. On a phone's trip screen they show just below the header, so Home and settings stay in reach. A toast stays as long as it takes to read (3 to 8 seconds, at least 5 with Undo). It stays while you point at it or tab into it, and a tap or a swipe up puts it away. News waits until an Undo toast has gone, so a co-editor's change doesn't take Undo away.
+  - **Plain** for something short: "Link copied", "Sam updated Cloudcroft", "Deleted Cloudcroft · Undo".
+  - **Rich**, with an icon, a heading and a detail line, for anything that needs explaining: being offline, a trip saved for offline, signing in as a guest and what happened to your trips.
+  - **Errors** are rich with a red icon, and screen readers announce them straight away. The heading says what failed, and the detail says what to do: **Couldn't save your change** · Check your connection, then try again. With no connection the icon is the crossed-out cloud. A link that won't copy is selected, so it can be copied by hand.
+- **Dialogs** ask before something that can't be undone or that reaches other people: deleting a trip, a guest signing out, making a new share link, disconnecting an AI assistant. The title asks the question, a line says what happens, and the buttons are **Cancel** and one that names the action ("Delete trip"). When it destroys something, that button is red and Cancel has the focus. These replaced the browser's own `confirm()`, which named the website rather than the action and couldn't match the app.
+- Deleting a stop doesn't ask, since its toast has Undo.
+
 ## Visual language
 
 The full visual language (tokens, components, light and dark themes, accessibility rules) is the [Waythread design system](../design-system/README.md). Its live demo page is at `/design-system/` on the preview server. In short:

@@ -139,6 +139,7 @@
     .stage .wt-modal { position: absolute; max-width: 100%; }
     .stage .wt-modal__backdrop { position: absolute; }
     .stage .wt-toast { position: absolute; }
+    .stage .wt-dialog-root { position: absolute; }
     .stage-controls { display: flex; flex-wrap: wrap; gap: var(--wt-space-2); margin-top: var(--wt-space-3); }
 
     /* Map art for the pattern demos: a schematic map drawn with tokens */
@@ -204,6 +205,7 @@
       <li><a href="#sheet">Bottom sheet and day bar</a></li>
       <li><a href="#modal">Modal sheet and day list</a></li>
       <li><a href="#toast">Toast</a></li>
+      <li><a href="#dialog">Dialog</a></li>
       <li><a href="#map">Map pins, routes, buttons</a></li>
       <li><a href="#misc">Trip card, empty state</a></li>
       <li class="group">Guidance</li>
@@ -705,7 +707,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 
     <section id="toast">
       <h2>Toast</h2>
-      <p class="intro">News at the top of the screen: a co-editor's change, a confirmation, an undo. About 3 seconds, or 5 with an action. One at a time. A notice that needs a second line, such as being offline, is rich: an icon, a heading and a detail line, on a card instead of a pill.</p>
+      <p class="intro">News at the top of the screen: a confirmation, a co-editor's change, an undo, a failure. It stays as long as it takes to read (3 to 8 seconds, at least 5 with an action), holds while you point at it, and goes with a tap or a swipe up. One at a time, and news waits behind Undo. A notice that needs a second line is rich: an icon, a heading and a detail line, on a card. An error is rich, with its icon in red.</p>
       <div class="demo">
         <div class="demo__live demo__live--column">
           <div class="stage" style="height: 140px" id="toast-stage">
@@ -715,10 +717,37 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <button class="wt-btn wt-btn--secondary" type="button" data-toast="Sam updated Cloudcroft">A co-editor's change</button>
             <button class="wt-btn wt-btn--secondary" type="button" data-toast="Deleted Cloudcroft" data-toast-action="Undo">Delete with undo</button>
             <button class="wt-btn wt-btn--secondary" type="button" data-toast="You’re offline" data-toast-detail="Showing the plan saved 2 hr ago. To add or change stops, reconnect." data-toast-icon="cloud-off">Offline (rich)</button>
+            <button class="wt-btn wt-btn--secondary" type="button" data-toast="Couldn’t save your change" data-toast-detail="Check your connection, then try again." data-toast-icon="alert" data-toast-error>A failure (error)</button>
           </div>
         </div>
       </div>
-      <ul class="rules"><li>Name the person and the stop: <i>Sam added Oliver Lee Memorial State Park</i>. Several changes at once: <i>Sam updated Cloudcroft + 2 more</i>.</li></ul>
+      <ul class="rules"><li>Name the person and the stop: <i>Sam added Oliver Lee Memorial State Park</i>. Several changes at once: <i>Sam updated Cloudcroft + 2 more</i>.</li>
+        <li>An error's heading says what failed, its detail what to do: <i>Couldn’t save your change · Check your connection, then try again.</i> Never “Error” or “Something went wrong”.</li></ul>
+    </section>
+
+    <section id="dialog">
+      <h2>Dialog</h2>
+      <p class="intro">A question before an action that can't be undone, or that other people will notice. Small, in the middle, over everything, so a sheet can ask without closing. The title asks it, a line says what happens, and the buttons are Cancel and one that names the action. When it destroys something the action is red and Cancel has the focus.</p>
+      <div class="demo">
+        <div class="demo__live demo__live--column">
+          <div class="stage" style="height: 280px" id="dialog-stage">
+            <div class="wt-dialog-root is-open">
+              <div class="wt-dialog__backdrop"></div>
+              <div class="wt-dialog" role="alertdialog" aria-modal="false" aria-labelledby="demo-dialog-t" aria-describedby="demo-dialog-d">
+                <h2 class="wt-dialog__title" id="demo-dialog-t">Delete “White Sands, NM”?</h2>
+                <p class="wt-dialog__text" id="demo-dialog-d">It’s deleted for everyone on the trip. You can undo right after.</p>
+                <div class="wt-dialog__actions"><button class="wt-btn wt-btn--secondary" type="button">Cancel</button><button class="wt-btn wt-btn--destructive" type="button" id="demo-dialog-go">Delete trip</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="stage-controls">
+            <button class="wt-btn wt-btn--secondary" type="button" data-dialog="danger">Destroys something</button>
+            <button class="wt-btn wt-btn--secondary" type="button" data-dialog="plain">Doesn't</button>
+          </div>
+        </div>
+      </div>
+      <ul class="rules"><li>The action names what happens: <i>Delete trip</i>, <i>Make new link</i>, never <i>OK</i>.</li>
+        <li>Ask only when there's no undo, or the change reaches others. Deleting a stop doesn't ask: it has Undo.</li></ul>
     </section>
 
     <section id="map">
@@ -937,7 +966,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v7.2.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v7.3.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -1214,7 +1243,17 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     if (e.target.closest('[data-close-modal]')) { document.getElementById('modal-root').classList.remove('is-open'); return; }
     if (e.target.closest('#modal-open')) { document.getElementById('modal-root').classList.add('is-open'); return; }
     const t = e.target.closest('[data-toast]');
-    if (t) { showToast(t.dataset.toast, t.dataset.toastAction, t.dataset.toastDetail, t.dataset.toastIcon); return; }
+    if (t) { showToast(t.dataset.toast, t.dataset.toastAction, t.dataset.toastDetail, t.dataset.toastIcon, 'toastError' in t.dataset); return; }
+    const dq = e.target.closest('[data-dialog]');
+    if (dq) {
+      const danger = dq.dataset.dialog === 'danger', stage = document.getElementById('dialog-stage');
+      stage.querySelector('.wt-dialog__title').textContent = danger ? 'Delete “White Sands, NM”?' : 'Make a new link?';
+      stage.querySelector('.wt-dialog__text').textContent = danger ? 'It’s deleted for everyone on the trip. You can undo right after.' : 'The current link stops working. Everyone already on the trip stays on it.';
+      const go = document.getElementById('demo-dialog-go');
+      go.className = `wt-btn ${danger ? 'wt-btn--destructive' : 'wt-btn--primary'}`;
+      go.textContent = danger ? 'Delete trip' : 'Make new link';
+      return;
+    }
     if (e.target.closest('#motion-play')) { document.getElementById('motion-track').classList.toggle('is-up'); return; }
     if (e.target.closest('#morph-bar a')) { e.preventDefault(); return; } // a demo: Open in Maps and Directions go nowhere
     const m = e.target.closest('[data-morph]');
@@ -1241,9 +1280,10 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
   document.getElementById('demo-checkin').addEventListener('change', () => setNights(nights));
   setNights(nights);
   let toastTimer;
-  function showToast(msg, action, detail, icon) {
+  function showToast(msg, action, detail, icon, error) {
     const el = document.getElementById('demo-toast');
     el.classList.toggle('wt-toast--rich', !!detail);
+    el.classList.toggle('wt-toast--error', !!error);
     el.innerHTML = detail
       ? `<span class="wt-toast__icon">${WaythreadIcons.svg(icon)}</span><span class="wt-toast__text"><b class="wt-toast__title">${esc(msg)}</b><span class="wt-toast__detail">${esc(detail)}</span></span>`
       : `<span>${esc(msg)}</span>${action ? `<button class="wt-toast__action" type="button">${esc(action)}</button>` : ''}`;

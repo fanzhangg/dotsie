@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 7.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 7.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -109,7 +109,7 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-text-tertiary` | Drives, AM/PM, "Yesterday" in the time column, the credit line, chevrons. Detail that's there when you look for it. It passes 4.5:1 on raised, sheet and sunken surfaces, not on `--wt-surface-current`: a highlighted timeline row steps it up to secondary. |
 | `--wt-text-past` | The fourth ink: every line of a row that's over, links included. About 2.5:1, as faded on purpose as the old 45% opacity, but the same grey on any background. |
 | `--wt-text-placeholder` | Placeholder text only. |
-| `--wt-text-inverse`, `--wt-text-inverse-action`, `--wt-text-inverse-secondary` | Text, the action, and a rich toast's detail line, on a toast. |
+| `--wt-text-inverse`, `--wt-text-inverse-action`, `--wt-text-inverse-secondary`, `--wt-text-inverse-danger` | On a toast: text, the action, a rich toast's detail line, and an error's icon. |
 | `--wt-text-link` | Links in running text. |
 | `--wt-text-danger` | A late drive, destructive buttons. |
 | `--wt-border-subtle` | Card hairlines. |
@@ -119,6 +119,7 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-border-control` | Control borders that must meet 3:1 on cards. No component uses it since 2.0.0. |
 | `--wt-border-focus` | Focus rings, the focused input. |
 | `--wt-action-primary`, `--wt-action-primary-text` | The one main action in a view, like Add stop. |
+| `--wt-action-danger`, `--wt-action-danger-text` | The confirm button of a dialog that destroys something (`.wt-btn--destructive`). |
 | `--wt-action-secondary`, `--wt-action-secondary-text` | Quiet actions, like Copy. |
 | `--wt-action-done`, `--wt-action-done-text` | Unused since 2.0.0, when checks were removed. Kept until the next major version. |
 | `--wt-route`, `--wt-route-active`, `--wt-route-muted`, `--wt-route-done`, `--wt-route-casing` | Route lines: normal, selected, the others while one is selected, past (on today: the same grey as `--wt-kind-past`), and the outline under each line. |
@@ -206,13 +207,13 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
   - **A button that's gone fades out where it was,** under the rest, which slide over it.
   - Give each button a key that's the same in every set (the app uses `data-key`). Mark the row `.is-morphing` while it runs: its buttons are placed absolutely, from where they'll end up, and it keeps its height. The fading copies are `.is-ghost` and take no taps. The add bar is the only such row so far; a new one should work the same way.
   - With reduced motion the new set just appears.
-- **Layers:** `--wt-z-raised` (sticky parts inside a scroll area) · `sheet` (500, above the map; also the map buttons) · `modal` (1000) · `toast` (2000).
+- **Layers:** `--wt-z-raised` (sticky parts inside a scroll area) · `sheet` (500, above the map; also the map buttons) · `modal` (1000) · `dialog` (1500, a question over any sheet) · `toast` (2000).
 
 ## Icons
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `directions` `map` `list` `fit`
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `directions` `map` `list` `fit` `alert` (something failed)
 
 Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
 
@@ -248,6 +249,7 @@ Each entry shows the minimum markup. Your code supplies the content and the beha
 | `--secondary` | A quiet action next to content, like Copy beside the trip link. |
 | `--ghost` | Low-emphasis actions next to content. |
 | `--danger` | Destructive actions. Always leave a way back: an Undo toast or a confirmation. |
+| `--destructive` | Filled red, only for the confirm button of a [dialog](#dialog-wt-dialog) that destroys something: "Delete trip". |
 | `--block` | Full width, at the bottom of a sheet or form. |
 | `--icon` | Icon only: a round button as tall as the others, for an action that sits beside a bigger one, like Edit stop and the `+` beside Open in Maps. White (`--secondary`). Needs an `aria-label`. |
 
@@ -639,21 +641,60 @@ Pad the top when you fit the map on a phone, so pins stay clear of the header ca
 <div class="wt-toast is-visible" role="status">
   <span>Deleted Cloudcroft</span><button class="wt-toast__action">Undo</button>
 </div>
+
+<div class="wt-toast wt-toast--rich is-visible" role="status">
+  <span class="wt-toast__icon">${icon('cloud-off')}</span>
+  <span class="wt-toast__text"><b class="wt-toast__title">You’re offline</b>
+    <span class="wt-toast__detail">Showing the plan saved 2 hr ago. To add or change stops, reconnect.</span></span>
+</div>
+
+<div class="wt-toast wt-toast--rich wt-toast--error is-visible" role="alert">
+  <span class="wt-toast__icon">${icon('alert')}</span>
+  <span class="wt-toast__text"><b class="wt-toast__title">Couldn’t save your change</b>
+    <span class="wt-toast__detail">Try again in a moment.</span></span>
+</div>
 ```
 
-- Shows at the top of the screen, for news: a co-editor's change, a confirmation, an undo.
-- **Rich** (`.wt-toast--rich`), for a notice that needs a second line, such as being offline: an icon, a short heading (what's happening) and a detail line (what still works, or how to fix it). It's a card with `--wt-radius-lg` rather than a pill, at most 360px wide, so two lines sit well in it. The detail is `--wt-type-caption` in `--wt-text-inverse-secondary`. It stays about 4 seconds.
+News at the top of the screen, for a moment: a confirmation, a co-editor's change, an undo, a failure. See **Messages** under [Patterns](#patterns) for which kind to use and how to word it.
 
-  ```html
-  <div class="wt-toast wt-toast--rich is-visible" role="status">
-    <span class="wt-toast__icon">${icon('cloud-off')}</span>
-    <span class="wt-toast__text"><b class="wt-toast__title">You’re offline</b>
-      <span class="wt-toast__detail">Showing the plan saved 2 hr ago. To add or change stops, reconnect.</span></span>
+| Kind | Looks like | Use for |
+| --- | --- | --- |
+| Plain | A pill with one short line, maybe an action | "Link copied", "Sam updated Cloudcroft", "Deleted Cloudcroft · Undo" |
+| Rich (`--rich`) | A card: an icon, a bold heading, a quieter detail line | A notice that needs a second line: offline, a trip saved for offline, signed in and what happened to your trips |
+| Error (`--rich --error`) | Rich, with the icon in red (`alert`, or `cloud-off` with no connection) and `role="alert"` | Something failed: the heading says what, the detail says what to do |
+
+- **Where:** top center. Set `--wt-toast-top` to keep it below something that must stay in reach: on a phone's trip screen it shows just below the trip header.
+- **How long:** long enough to read, about a quarter second a word plus a second: at least 3 seconds, 5 with an action (it takes time to reach), at most 8.
+- **Held:** while the pointer is on it or focus is in it (reaching for Undo), it stays.
+- **Put away:** a tap, or a swipe up, which it follows (it resists going down). The app sets `--wt-toast-drag` and `.is-dragging` while a finger is on it.
+- **One at a time.** A new toast replaces the one showing, except that news waits until a toast with an action has gone, so Undo isn't lost to a co-editor's change.
+- **Rich:** a card with `--wt-radius-lg`, at most 360px wide, so two lines sit well in it. The detail is `--wt-type-caption` in `--wt-text-inverse-secondary`.
+- A plain toast is one short line. If it needs more, make it rich rather than letting a pill wrap.
+
+### Dialog `.wt-dialog`
+
+```html
+<div class="wt-dialog-root is-open">
+  <div class="wt-dialog__backdrop"></div>   <!-- a tap cancels -->
+  <div class="wt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="t" aria-describedby="d">
+    <h2 class="wt-dialog__title" id="t">Delete “White Sands, NM”?</h2>
+    <p class="wt-dialog__text" id="d">It’s deleted for everyone on the trip. You can undo right after.</p>
+    <div class="wt-dialog__actions">
+      <button class="wt-btn wt-btn--secondary">Cancel</button>
+      <button class="wt-btn wt-btn--destructive">Delete trip</button>   <!-- or --primary when nothing is destroyed -->
+    </div>
   </div>
-  ```
-- Keep a plain toast to one short line. If it needs more, make it rich rather than letting a pill wrap.
-- Stays about 3 seconds, or 5 with an action.
-- One at a time. A new toast replaces the old one.
+</div>
+```
+
+A question before an action that can't be undone, or that other people will notice. It replaces the browser's `confirm()`, which can't be styled, names the site instead of the action, and on a phone looks like a system warning.
+
+- **Small, in the middle, over everything** (`--wt-z-dialog`), sheets included, so a sheet can ask without closing.
+- **The title is the question,** naming the thing: "Delete “White Sands, NM”?". The line under it says what happens, and what can still be done ("You can undo right after").
+- **Two buttons, the same width:** Cancel on the left, and on the right a button that names the action: "Delete trip", "Make new link", never "OK" or "Yes".
+- **Destroys something** (a trip, a guest's trips, an assistant's access): the action is `.wt-btn--destructive` and **Cancel has the focus**, so Return doesn't destroy anything. Otherwise the action is `--primary` and has the focus.
+- **Esc** or a tap on the backdrop cancels. Tab stays between the two buttons. Focus goes back where it was.
+- Ask only when there's no undo, or when the change reaches other people. Deleting a stop doesn't ask: it has Undo.
 
 ### Trip card `.wt-trip-card`
 
@@ -718,6 +759,22 @@ Say what can go here, in the user's words. No illustrations.
 - **Choosing from a list.** Every choice of one from a set of named options is a [picker](#picker-wt-picker-options-wt-options-and-check-out): a row with the current choice that opens the options on a page of the sheet. Picking applies it and comes back. On a computer the options drop down as a menu instead. A stop's Type and Account's Maps app both work this way; a new choice should too, even with two options.
 - **Changes from others.** When a co-editor changes a stop, show a toast naming them ("Sam updated Cloudcroft") and flash the stop once with `is-flash`.
 - **Deleting.** Delete right away, then show a toast with Undo. Ask first only when undo isn't possible, such as deleting a whole trip.
+- **Messages.** Tell people what happened and what to do next, in the place that fits it:
+
+  | Situation | Where | Example |
+  | --- | --- | --- |
+  | It worked, quietly | Plain toast, or nothing if the screen already shows it | "Link copied", "Name saved" |
+  | It's done, with a way back | Plain toast with an action | "Deleted Cloudcroft · Undo" |
+  | Someone else changed something | Plain toast, naming them | "Sam updated Cloudcroft + 2 more" |
+  | Something needs explaining | Rich toast | **You're offline** · Showing the plan saved 2 hr ago… |
+  | Something failed | Error toast | **Couldn't save your change** · Check your connection, then try again. |
+  | A field's input is wrong | Under the field, in red | "Enter a valid email address" |
+  | Can't be undone, or reaches others | Dialog | **Delete “White Sands, NM”?** · Cancel / Delete trip |
+  | Not available right now | The control greyed out (`aria-disabled`), and a tap explains in a toast | Add stop while offline |
+
+  - An error's heading says what failed ("Couldn't save your change", "Couldn't copy"), never "Error" or "Something went wrong". Its detail says what to do: "Check your connection, then try again", "Too many tries. Wait a minute, then try again", "Try again in a moment". No apologies, no codes.
+  - When a failure leaves something to do by hand, set it up: a link that wouldn't copy is selected.
+  - Keep headings to a few words, and details to one sentence or two short ones.
 
 ## Content
 
@@ -734,7 +791,7 @@ Say what can go here, in the user's words. No illustrations.
   | Late drive | `Arrives h hr m min late` | Arrives 13 min late |
   | Notice | `<Person> <did> <stop>` | Sam updated Cloudcroft |
 - **Labels:** say what happens. "Add stop", "Save", "Copy", "Delete trip". Avoid "Submit", "OK" and "Confirm".
-- **Errors** say what went wrong and how to fix it, with no apology.
+- **Errors** say what went wrong and how to fix it, with no apology. See **Messages** under [Patterns](#patterns).
 
 ## Accessibility
 
@@ -761,6 +818,17 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 7.3.0
+
+Messages work the same everywhere, and confirmations no longer use the browser's `confirm()`.
+
+- New: `.wt-dialog` (`-root`, `__backdrop`, `__title`, `__text`, `__actions`), a question before an action that can't be undone (see [Dialog](#dialog-wt-dialog)).
+- New: `.wt-btn--destructive`, the filled red confirm button of a dialog.
+- New: `.wt-toast--error`; the toast's `--wt-toast-top` (where it shows), `--wt-toast-drag` and `.is-dragging` (a swipe to put it away). Toasts last as long as they take to read, are held while pointed at or focused, and put away with a tap or a swipe up (see [Toast](#toast-wt-toast)).
+- New: the [Messages](#patterns) pattern: which kind of message for which situation, and how to word an error.
+- New tokens (tokens 1.12.0): `--wt-action-danger`, `--wt-action-danger-text`, `--wt-text-inverse-danger`, `--wt-z-dialog`.
+- New icon (icons 1.5.0): `alert`.
 
 ### Added in 7.2.0
 
