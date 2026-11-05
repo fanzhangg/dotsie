@@ -9,8 +9,8 @@ import { DurableObject } from 'cloudflare:workers';
 export type Member = { id: string; name: string; image: string | null; identity: number };
 // kind is the stop's type ('' until someone picks one; the app guesses from the name). nights is for a
 // hotel: how many nights from its check-in, or null to last until the next hotel or the trip's last day.
-// checkout is when you leave ("HH:MM"): a hotel's check-out time (the day comes from nights; null for the app's
-// default), or any other stop's leave time later the same day (null for none).
+// checkout is a hotel's check-out time ("HH:MM"; the day comes from nights), or null for the app's default.
+// Other stops are null; some older clients saved a leave time there, which the app ignores.
 // done is no longer shown; it's kept so older clients' writes still validate.
 export type Stop = {
   id: string; name: string; address: string; lat: number; lng: number;
