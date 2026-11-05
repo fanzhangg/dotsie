@@ -122,15 +122,17 @@ A phone saves about 1–5 MB a day, a few tiles at a time, and the field shows h
 
 The header shows the trip's status:
 
-| Icon | When | Tap says |
+| Icon | When | A tap says (heading, then detail) |
 | --- | --- | --- |
-| Tick on a line (`saved`) | Saved on this device | Available offline. Saved on this device. |
-| Arrow down (`download`) | Saving | Saving for offline: 40% |
-| Crossed-out cloud (`cloud-off`) | No connection, or the server didn't answer and this is the saved copy | Offline. This is the copy saved on this device 2 hr ago. Changes need a connection. |
+| Tick on a line (`saved`) | Saved on this device | **Available offline** · The plan and map are saved on this device, so they open without a signal. |
+| Arrow down (`download`) | Saving | **Saving for offline** · 40% done. Keep the app open until it finishes. |
+| Crossed-out cloud (`cloud-off`) | No connection, or the server didn't answer and this is the saved copy | **You're offline** · Showing the plan saved 2 hr ago. To add or change stops, reconnect. |
+
+These notices are two-line toasts (`.wt-toast--rich`): the status's icon, a short heading saying what's happening, and a quieter line saying what still works and what to do. One line of text squeezed into the usual pill wrapped to three lines and covered the header.
 
 When the trip isn't saved and there's a connection, the header has no status icon.
 
-With no connection, Home lists the saved trips and a saved trip opens from its copy. A weak signal counts too: if the server hasn't answered after 4 seconds, the saved copy shows, and the server's copy replaces it when it comes. Offline, the plan is read-only: **Add stop**, the round **+** and **Edit stop** turn grey, and tapping one says "Offline. Adding and editing stops need a connection." instead of opening the stop sheet (so deleting a stop, which is in that sheet, waits too). They come back as soon as the connection does. Other edits, such as renaming the trip, still try and get the usual "Couldn't save" toast. When the connection comes back, the trip reloads from the server. Signing out removes everything saved on the device.
+With no connection, Home lists the saved trips and a saved trip opens from its copy. A weak signal counts too: if the server hasn't answered after 4 seconds, the saved copy shows, and the server's copy replaces it when it comes. Offline, the plan is read-only: **Add stop**, the round **+** and **Edit stop** turn grey, and tapping one shows the **You're offline** notice above instead of opening the stop sheet (so deleting a stop, which is in that sheet, waits too). They come back as soon as the connection does. Other edits, such as renaming the trip, still try and get the usual "Couldn't save" toast. When the connection comes back, the trip reloads from the server. Signing out removes everything saved on the device.
 
 On iPhone, Safari clears a site's saved data after about a week without a visit, but not for an app added to the Home Screen. The field says so in a Safari tab. An app added to the Home Screen has its own storage, so you sign in there and save the trip again.
 

@@ -639,7 +639,10 @@ async function saveOffline(trip, { quiet = false } = {}) {
   t.missing = cache ? missing : urls.length;
   storeOffline();
   showOffline();
-  if (!quiet) toast(t.missing ? 'Saved, but part of the map didn’t download. Try again when you have a better connection.' : `${trip.name} is available offline`);
+  if (!quiet) {
+    toast(t.missing ? { icon: ICON.download, title: 'Part of the map didn’t download', detail: 'The plan is saved. Try again in trip settings when the signal is better.' }
+      : { icon: ICON.saved, title: 'Available offline', detail: `${trip.name} is saved on this device.` });
+  }
 }
 // A saved trip, brought up to date once a visit, after the day on screen has loaded
 function topUpOffline(trip) {
@@ -673,21 +676,28 @@ const fmtAgo = t => {
 const pctOf = job => (job.total ? Math.floor((job.done / job.total) * 100) : 0);
 function offlineStatus(trip) {
   const t = savedTrip(trip.id);
-  if (offlineNow()) {
-    return t ? { icon: ICON.cloudOff, label: 'Offline', say: `Offline. This is the copy saved on this device ${fmtAgo(t.savedAt)}. Changes need a connection.` }
-      : { icon: ICON.cloudOff, label: 'Offline', say: 'Offline. Changes need a connection.' };
+  if (offlineNow()) return { icon: ICON.cloudOff, label: 'Offline', say: offlineNotice(trip) };
+  if (offlineJob?.id === trip.id && !offlineJob.quiet) {
+    return { icon: ICON.download, label: 'Saving for offline', say: { icon: ICON.download, title: 'Saving for offline', detail: `${pctOf(offlineJob)}% done. Keep the app open until it finishes.` } };
   }
-  if (offlineJob?.id === trip.id && !offlineJob.quiet) return { icon: ICON.download, label: 'Saving for offline', say: `Saving for offline: ${pctOf(offlineJob)}%` };
-  if (t) return { icon: ICON.saved, label: 'Available offline', say: 'Available offline. Saved on this device.' };
+  if (t) return { icon: ICON.saved, label: 'Available offline', say: { icon: ICON.saved, title: 'Available offline', detail: 'The plan and map are saved on this device, so they open without a signal.' } };
   return null;
 }
-let statusSay = '';
+// What being offline means for this trip: what you can still do, and what has to wait
+function offlineNotice(trip) {
+  const t = savedTrip(trip.id);
+  return {
+    icon: ICON.cloudOff, title: 'You’re offline',
+    detail: t ? `Showing the plan saved ${fmtAgo(t.savedAt)}. To add or change stops, reconnect.` : 'To add or change stops, reconnect.',
+  };
+}
+let statusSay = null;
 function renderOfflineStatus(trip) {
   const btn = $app.dataset.trip === trip.id && $app.querySelector('.wt-trip-head__status');
   if (!btn) return;
   const st = offlineStatus(trip);
   btn.hidden = !st;
-  statusSay = st?.say || '';
+  statusSay = st?.say || null;
   if (!st || btn.dataset.label === st.label) return;
   btn.dataset.label = st.label;
   btn.classList.toggle('is-offline', st.icon === ICON.cloudOff);
@@ -729,7 +739,7 @@ function showOffline() {
 // rather than opening a stop that couldn't be saved. Deleting is in the stop sheet, so it's covered too.
 function needsConnection() {
   if (!offlineNow()) return true;
-  toast('Offline. Adding and editing stops need a connection.');
+  toast(offlineNotice(cur));
   return false;
 }
 // Back online: a trip showing its saved copy loads the server's, and the header stops saying offline.
@@ -2856,12 +2866,17 @@ function openStopSheet(trip, stop) {
 const $toast = Object.assign(document.createElement('div'), { className: 'wt-toast', role: 'status' });
 document.body.append($toast);
 let toastTimer;
+// `msg` is a line of text, or { icon, title, detail } for a notice that needs a second line (.wt-toast--rich),
+// which stays a little longer so the detail can be read.
 function toast(msg, label, onAction) {
-  $toast.innerHTML = `<span>${esc(msg)}</span>${label ? `<button class="wt-toast__action">${esc(label)}</button>` : ''}`;
+  const rich = typeof msg === 'object';
+  const text = rich ? `${msg.icon ? `<span class="wt-toast__icon">${msg.icon}</span>` : ''}<span class="wt-toast__text"><b class="wt-toast__title">${esc(msg.title)}</b>${msg.detail ? `<span class="wt-toast__detail">${esc(msg.detail)}</span>` : ''}</span>` : `<span>${esc(msg)}</span>`;
+  $toast.innerHTML = `${text}${label ? `<button class="wt-toast__action">${esc(label)}</button>` : ''}`;
+  $toast.classList.toggle('wt-toast--rich', rich);
   if (label) $toast.querySelector('button').onclick = () => { $toast.classList.remove('is-visible'); onAction(); };
   $toast.classList.add('is-visible');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $toast.classList.remove('is-visible'), label ? 5000 : 2800);
+  toastTimer = setTimeout(() => $toast.classList.remove('is-visible'), label ? 5000 : rich ? 4000 : 2800);
 }
 
 // ---------- Events ----------

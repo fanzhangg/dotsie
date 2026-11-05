@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.10.0
+/* Waythread design system — tokens v1.11.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -84,6 +84,7 @@
   --wt-text-past: var(--wt-color-gray-400);         /* rows that are over */
   --wt-text-placeholder: var(--wt-color-gray-400);
   --wt-text-inverse: var(--wt-color-gray-0);
+  --wt-text-inverse-secondary: var(--wt-color-gray-300); /* a toast's detail line */
   --wt-text-inverse-action: var(--wt-color-blue-400);
   --wt-text-link: var(--wt-color-blue-500);
   --wt-text-danger: var(--wt-color-red-600);
@@ -191,6 +192,7 @@
     --wt-text-past: var(--wt-color-gray-600);
     --wt-text-placeholder: var(--wt-color-gray-500);
     --wt-text-inverse: var(--wt-color-gray-950);
+  --wt-text-inverse-secondary: var(--wt-color-gray-600);
     --wt-text-inverse-action: var(--wt-color-blue-600);
     --wt-text-link: var(--wt-color-blue-400);
     --wt-text-danger: var(--wt-color-red-300);
@@ -256,6 +258,7 @@
   --wt-text-past: var(--wt-color-gray-600);
   --wt-text-placeholder: var(--wt-color-gray-500);
   --wt-text-inverse: var(--wt-color-gray-950);
+  --wt-text-inverse-secondary: var(--wt-color-gray-600);
   --wt-text-inverse-action: var(--wt-color-blue-600);
   --wt-text-link: var(--wt-color-blue-400);
   --wt-text-danger: var(--wt-color-red-300);
