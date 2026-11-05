@@ -1,9 +1,10 @@
+import type { McpProps } from './oauth';
 import { ERR, KINDS, type Stop, type TripRoom } from './trip';
 
 /* An MCP server, so an AI assistant can read a trip's stops and add, change or remove them for you. It speaks MCP's
    Streamable HTTP transport without sessions: every POST to /api/mcp is one JSON-RPC message, answered with
    plain JSON (no event stream, since no tool here runs long or sends progress).
-   It acts as the token's owner and goes through their TripRoom calls like the app does, so membership,
+   Clients sign in with OAuth (src/oauth.ts). It acts as the person who allowed it and goes through their TripRoom calls like the app does, so membership,
    validation and live updates to anyone with the trip open are the same as an edit made in the app. */
 
 export type McpUser = { id: string; name: string };
@@ -167,7 +168,7 @@ const result = (id: Message['id'], r: unknown) => ({ jsonrpc: '2.0', id, result:
 const failure = (id: Message['id'], code: number, message: string) => ({ jsonrpc: '2.0', id: id ?? null, error: { code, message } });
 
 // One JSON-RPC message in, its reply out (null for a notification, which gets none)
-export async function handleMcp(env: Env, user: McpUser, msg: unknown) {
+async function handleMcp(env: Env, user: McpUser, msg: unknown) {
   if (!msg || typeof msg !== 'object' || Array.isArray(msg) || (msg as Message).jsonrpc !== '2.0' || typeof (msg as Message).method !== 'string')
     return failure(null, -32600, 'Invalid request');
   const { id, method, params = {} } = msg as Message;
@@ -204,10 +205,18 @@ export async function handleMcp(env: Env, user: McpUser, msg: unknown) {
   }
 }
 
-// ---------- Tokens ----------
-// One token per person, sent as "Authorization: Bearer wt_…". Only its hash is kept, so it's shown once,
-// when it's made; a new one replaces the old.
-export function newMcpToken() {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return 'wt_' + btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
+// ---------- HTTP ----------
+// The OAuth provider (src/oauth.ts) has checked the access token before this runs; ctx.props is who it acts for.
+export const mcpApi = {
+  async fetch(req: Request, env: Env, ctx: ExecutionContext) {
+    if (req.method !== 'POST') return new Response(null, { status: 405, headers: { Allow: 'POST' } }); // no event stream to open, no session to end
+    // Their current name, for updatedBy; a deleted account's grant stops working
+    const user = await env.DB.prepare('select id, name from "user" where id = ?').bind((ctx.props as McpProps).userId).first<McpUser>();
+    if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 });
+    if (!(await env.MCP_LIMIT.limit({ key: user.id })).success) return Response.json({ error: 'rate_limited' }, { status: 429 });
+    const msg = await req.json().catch(() => undefined);
+    if (msg === undefined) return Response.json(failure(null, -32700, 'Parse error'), { status: 400 });
+    const reply = await handleMcp(env, user, msg);
+    return reply ? Response.json(reply) : new Response(null, { status: 202 });
+  },
+};

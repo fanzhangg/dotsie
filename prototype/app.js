@@ -173,13 +173,8 @@ async function api(path, { method = 'GET', body, signal } = {}) {
     if (!t.members.includes(ME)) { t.members.push(ME); broadcast(t.id, { type: 'member.joined', member: userOf(d, ME) }); }
     return out(snapshotOf(d, t));
   }
-  // The AI assistant's token, in Account. There's no MCP server here, so it's made up and connects nothing.
-  if (p[0] === 'mcp' && p[1] === 'token') {
-    const url = `${location.origin}/api/mcp`, tokens = (d.mcp ||= {});
-    if (method === 'POST') { tokens[ME] = { createdAt: now, lastUsedAt: null }; return out({ url, token: `wt_${newToken()}` }); }
-    if (method === 'DELETE') { delete tokens[ME]; return out(); }
-    return out({ url, token: tokens[ME] || null });
-  }
+  // Connected assistants, in Account. There's no MCP server here, so there's nothing to connect.
+  if (p[0] === 'assistants') return out(method === 'GET' ? { url: `${location.origin}/api/mcp`, connections: [] } : undefined);
   if (p[0] !== 'trips') fail(404, 'not_found');
   const t = d.trips[p[1]];
   if (!t) fail(404, 'not_found');
@@ -2148,7 +2143,7 @@ function openSettings(trip) {
   });
 }
 
-// Your name as others on your trips see it, the maps app, and an AI assistant's token (not for guests); guests are
+// Your name as others on your trips see it, the maps app, and AI assistants (not for guests); guests are
 // offered a real sign-in, which keeps their trips; everyone can sign out.
 function openAccount() {
   const upgrade = me.isGuest && canSignIn();
@@ -2195,32 +2190,28 @@ function openAccount() {
   });
 }
 
-// AI assistant, in Account: a token for Waythread's MCP server (/api/mcp), which lets an assistant list your trips'
-// stops and edit them as you. The token is shown once, when it's made; after that the field says when it was made
-// and last used. One token at a time: a new one replaces the old, like the share link.
+// AI assistant, in Account: how to connect one (Waythread's MCP server address, which an assistant adds as a
+// connector; it then sends you to sign in and allow it), and the assistants you've connected, each with Disconnect.
 async function assistantField(box) {
   const day = ms => { const d = new Date(ms); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; };
-  const copyRow = (label, text) => `<div class="wt-copy-row"><input class="wt-input" readonly value="${esc(text)}" aria-label="${label}">
-    <button class="wt-btn wt-btn--primary" data-action="copy" data-text="${esc(text)}" data-copied="${label} copied">Copy</button></div>`;
-  const show = ({ url, token }) => {
-    if (typeof token === 'string') {
-      box.innerHTML = `<p class="wt-modal__text">Give your assistant this server address and token. Copy the token now: it’s shown only once.</p>
-        ${copyRow('Server address', url)}${copyRow('Token', token)}`;
-    } else if (token) {
-      box.innerHTML = `<p class="wt-modal__text">Connected ${day(token.createdAt)} · ${token.lastUsedAt ? `last used ${day(token.lastUsedAt)}` : 'not used yet'}</p>
-        <div class="account-mcp__actions"><button class="wt-btn wt-btn--ghost account-mcp__new" data-mcp-make>Make a new token</button>
-        <button class="wt-btn wt-btn--danger" data-mcp-off>Disconnect</button></div>`;
-    } else box.innerHTML = '<button class="wt-btn wt-btn--secondary" data-mcp-make>Connect an assistant</button>';
-    box.querySelector('[data-mcp-make]')?.addEventListener('click', async () => {
-      if (token && !confirm('Make a new token? The current one stops working, so give your assistant the new one.')) return;
-      try { show(await api('/mcp/token', { method: 'POST' })); } catch (err) { if (err.status !== 401) toast(failMsg(err, 'Couldn’t make a token.')); }
-    });
-    box.querySelector('[data-mcp-off]')?.addEventListener('click', async () => {
-      if (!confirm('Disconnect your assistant? Its token stops working.')) return;
-      try { await api('/mcp/token', { method: 'DELETE' }); show({ url, token: null }); toast('Assistant disconnected'); } catch (err) { if (err.status !== 401) toast(failMsg(err, 'Couldn’t disconnect.')); }
-    });
+  const show = ({ url, connections }) => {
+    box.innerHTML = `<p class="wt-modal__text">In Claude, add a custom connector with this address (Customize → Connectors → Add custom connector), then sign in here when it asks.</p>
+      <div class="wt-copy-row"><input class="wt-input" readonly value="${esc(url)}" aria-label="Server address">
+        <button class="wt-btn wt-btn--primary" data-action="copy" data-text="${esc(url)}" data-copied="Address copied">Copy</button></div>
+      ${connections.length ? `<ul class="account-mcp__list">${connections.map(c => `<li class="account-mcp__item">
+        <span class="account-mcp__name">${esc(c.name)}<span class="account-mcp__meta">${c.domain ? `${esc(c.domain)} · ` : ''}connected ${day(c.createdAt)}</span></span>
+        <button class="wt-btn wt-btn--danger" data-mcp-off="${esc(c.id)}">Disconnect</button></li>`).join('')}</ul>` : ''}`;
+    for (const btn of box.querySelectorAll('[data-mcp-off]')) btn.onclick = async () => {
+      const c = connections.find(x => x.id === btn.dataset.mcpOff);
+      if (!confirm(`Disconnect ${c.name}? It can’t see or change your trips anymore.`)) return;
+      try {
+        await api(`/assistants/${encodeURIComponent(c.id)}`, { method: 'DELETE' });
+        show({ url, connections: connections.filter(x => x !== c) });
+        toast(`${c.name} disconnected`);
+      } catch (err) { if (err.status !== 401) toast(failMsg(err, 'Couldn’t disconnect.')); }
+    };
   };
-  try { show(await api('/mcp/token')); } catch { box.innerHTML = '<p class="wt-modal__text">Couldn’t load this. Check your connection.</p>'; }
+  try { show(await api('/assistants')); } catch { box.innerHTML = '<p class="wt-modal__text">Couldn’t load this. Check your connection.</p>'; }
 }
 
 // Two hours after the day's last stop; 9 AM on a day with none yet (a hotel day), or 9 AM tomorrow for an empty trip.

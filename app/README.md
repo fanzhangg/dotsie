@@ -9,6 +9,7 @@ One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`Tri
 | [src/auth.ts](src/auth.ts) | Better Auth: Google, Apple, email and password, guests |
 | [src/maps.ts](src/maps.ts) | Stadia place search and drive routes, routes cached in KV |
 | [src/mcp.ts](src/mcp.ts) | The MCP server: tools for an AI assistant to list trips and stops, and add, edit and delete stops |
+| [src/oauth.ts](src/oauth.ts) | OAuth sign-in for the MCP server, and its Allow page |
 | [migrations/](migrations) | D1 schema |
 | [web/](web) | The frontend: plain HTML, CSS and JS. `../prototype` is the same frontend with no server |
 | [scripts/build.mjs](scripts/build.mjs) | Copies `web/` and `../design-system/` into `public/`, which Wrangler serves. Runs on `dev` and `deploy` |
@@ -52,7 +53,7 @@ Rate limits (in `wrangler.jsonc`): 20 sign-in steps per minute per IP (an email 
 
 ## API
 
-All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sign-in-options`, `/api/invite/:token`, and `/api/mcp`, which takes an MCP token instead.
+All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sign-in-options`, `/api/invite/:token`, the OAuth routes, and `/api/mcp`, which takes an OAuth access token instead.
 
 | Route | |
 | --- | --- |
@@ -73,23 +74,31 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
 | `GET /api/route?from=lat,lng&to=lat,lng` | `{ duration, distance, coords }` |
-| `GET /api/mcp/token` | `{ url, token: { createdAt, lastUsedAt } \| null }`: the MCP server's address, and whether you have a token |
-| `POST /api/mcp/token` · `DELETE …` | Make a token, replacing any old one: `{ url, token: 'wt_…' }`, the only time it's shown. Or turn it off. Not for guests (403 `guest`) |
-| `POST /api/mcp` | The MCP server (below), with `Authorization: Bearer wt_…` |
+| `GET /api/assistants` | For Account: `{ url, connections: [{ id, name, domain, createdAt }] }`, the MCP server's address and the assistants you've allowed |
+| `DELETE /api/assistants/:id` | Disconnect one: its tokens stop working at once |
+| `POST /api/mcp` | The MCP server (below), with an OAuth access token |
+| `GET`·`POST /api/oauth/authorize` | The Allow page an assistant sends you to (a page, not JSON) |
+| `/api/oauth/token`, `/api/oauth/register`, `/.well-known/oauth-*` | OAuth's token, client registration and discovery endpoints, answered by the library |
 
 A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is when you leave, `HH:MM`: for a hotel, its check-out time on the day its nights end, or `null` (the app shows 11:00 AM); for any other stop, a time later the same day, or `null` for none. Stops still carry `done`, which older clients set; the app no longer shows it.
 
-Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member` or `guest`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
+Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
 
 ## MCP server
 
-`/api/mcp` lets an AI assistant (Claude, or any client that speaks [MCP](https://modelcontextprotocol.io)) read your trips and add, edit and delete their stops as you. Make a token under **AI assistant** in Account, then give the client the address and token:
+`/api/mcp` lets an AI assistant (Claude, or any client that speaks [MCP](https://modelcontextprotocol.io)) read your trips and add, edit and delete their stops as you. It signs in with OAuth, so all an assistant needs is the address, `https://<app URL>/api/mcp`, which Account shows under **AI assistant**.
 
-```bash
-claude mcp add --transport http waythread https://<app URL>/api/mcp --header "Authorization: Bearer wt_…"
-```
+- **Claude (web, iOS, Android, Desktop):** in Claude on the web, Customize → Connectors → Add custom connector, paste the address, then Connect. Claude opens Waythread: sign in if you aren't, then Allow. Connectors belong to your Claude account, so one added on the web works in the mobile apps too, and in Claude Code sessions on the web and in the app.
+- **Claude Code in a terminal:**
 
-Other clients take the same two things: a Streamable HTTP server at that URL, and the token as a bearer `Authorization` header.
+  ```bash
+  claude mcp add --transport http waythread https://<app URL>/api/mcp
+  ```
+
+  then run `/mcp` in Claude Code and pick waythread to sign in.
+- **Other clients:** a Streamable HTTP server at that address, with OAuth sign-in.
+
+Claude reaches the server from Anthropic's cloud, so a connector needs the deployed app; `wrangler dev` works with Claude Code on the same machine. Locally, use `http://localhost:8787` (what `BETTER_AUTH_URL` says), not `127.0.0.1`, since the OAuth issuer and resource are that address.
 
 | Tool | Arguments | Returns |
 | --- | --- | --- |
@@ -101,9 +110,11 @@ Other clients take the same two things: a Streamable HTTP server at that URL, an
 
 A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Changes go through `TripRoom`'s `putStop`, `patchStop` and `deleteStop`, like the app's: the same checks, and everyone with the trip open sees them live.
 
-How it's built, in [src/mcp.ts](src/mcp.ts):
+How it's built:
 
-- **Transport:** Streamable HTTP without sessions. Each POST is one JSON-RPC message, answered with JSON (or 202 for a notification). There's no event stream, so GET is 405. It answers `initialize`, `ping`, `tools/list` and `tools/call`.
-- **Tokens:** one per person, in D1's `mcp_tokens`, stored as a SHA-256 hash, so it's shown only when made. A new one replaces the old; Disconnect deletes it. "Last used" updates at most once an hour.
-- **Errors:** a bad id, a field that fails validation, or a trip you're not on comes back as a tool result with `isError`, so the assistant can read why and try again. A missing or wrong token is 401 with `WWW-Authenticate: Bearer`.
-- **Not yet:** OAuth sign-in, which clients such as Claude's web and desktop connectors need instead of a pasted token, and place search, so `add_stop` has to be given a place's coordinates.
+- **Transport** ([src/mcp.ts](src/mcp.ts)): Streamable HTTP without sessions. Each POST is one JSON-RPC message, answered with JSON (or 202 for a notification). There's no event stream, so GET is 405. It answers `initialize`, `ping`, `tools/list` and `tools/call`.
+- **Sign-in** ([src/oauth.ts](src/oauth.ts)): OAuth 2.1 by [`@cloudflare/workers-oauth-provider`](https://www.npmjs.com/package/@cloudflare/workers-oauth-provider), which wraps the Worker. It publishes the discovery documents (`/.well-known/oauth-protected-resource/api/mcp`, `/.well-known/oauth-authorization-server`), registers clients by Client ID Metadata Document (what Claude uses) or dynamic registration, issues and refreshes tokens (PKCE S256 only), and checks the token on every `/api/mcp` call. One scope, `trips`. An access token lasts an hour; a connection lasts while it's used and ends after 90 days without, like a session.
+- **The Allow page** is ours: `/api/oauth/authorize` uses the app's session cookie. Signed out, it sends you to the app's sign-in (`/?next=…`), which comes back once you're in. It names the assistant (with its verified domain when it has one), what it can do, where access goes, and who you're signed in as. Guests can't connect one, since their trips are only reachable from their own browser.
+- **Storage:** clients, grants and tokens live in KV as `OAUTH_KV`, with tokens and codes stored only as hashes. It's the same namespace as `ROUTES` (their keys don't overlap), so a deploy needs nothing created first; give it its own namespace whenever you like (existing connections then have to connect again). `global_fetch_strictly_public` keeps the library's fetches of client metadata on the public internet.
+- **Errors:** a bad id, a field that fails validation, or a trip you're not on comes back as a tool result with `isError`, so the assistant can read why and try again. A missing, expired or revoked token is 401 with a `WWW-Authenticate` challenge that points to the discovery document.
+- **Not yet:** place search, so `add_stop` has to be given a place's coordinates.

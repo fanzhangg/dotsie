@@ -3,7 +3,7 @@ import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
 import { driveRoute, searchPlaces } from './maps';
-import { handleMcp, newMcpToken } from './mcp';
+import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
 import { ERR } from './trip';
 
 export { TripRoom } from './trip';
@@ -71,25 +71,16 @@ app.get('/invite/:token', async c => {
   return c.json(row);
 });
 
-// ---------- MCP server: an AI assistant acting for you, with your token ----------
-// Its own sign-in: the token, not a session cookie. See src/mcp.ts.
-app.all('/mcp', async c => {
-  if (c.req.method !== 'POST') return c.body(null, 405, { Allow: 'POST' }); // no event stream to open, no session to end
-  const token = /^Bearer (wt_[A-Za-z0-9_-]{43})$/.exec(c.req.header('authorization') ?? '')?.[1];
-  const user = token && await c.env.DB.prepare(
-    'select u.id, u.name, t.last_used_at as lastUsed from mcp_tokens t join "user" u on u.id = t.user_id where t.hash = ?',
-  ).bind(await sha256(token)).first<{ id: string; name: string; lastUsed: number | null }>();
-  if (!user) return c.json({ error: 'unauthorized' }, 401, { 'WWW-Authenticate': 'Bearer realm="waythread"' });
-  if (await tooMany(c.env.MCP_LIMIT, user.id)) return rateLimited(c);
-  // "Last used" in Account, to an hour, so a busy assistant isn't a D1 write per call
-  const now = Date.now();
-  if (!user.lastUsed || now - user.lastUsed > 3600_000)
-    c.executionCtx.waitUntil(c.env.DB.prepare('update mcp_tokens set last_used_at = ? where user_id = ?').bind(now, user.id).run());
-  const msg = await c.req.json().catch(() => undefined);
-  if (msg === undefined) return c.json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }, 400);
-  const reply = await handleMcp(c.env, user, msg);
-  return reply ? c.json(reply) : c.body(null, 202);
-});
+// ---------- Connecting an AI assistant (OAuth's authorize step; see src/oauth.ts) ----------
+// A page, not an API call: without a session it sends you to sign in rather than answering 401.
+const signedIn = async (c: Context<AppEnv>) => {
+  const session = await getAuth(c.env).api.getSession({ headers: c.req.raw.headers });
+  if (!session) return null;
+  const u = session.user as typeof session.user & { isAnonymous?: boolean | null };
+  return { id: u.id, name: u.name, email: u.isAnonymous ? null : u.email, guest: !!u.isAnonymous };
+};
+app.get(AUTHORIZE_PATH.slice(4), async c => authorizePage(c.req.raw, c.env, await signedIn(c)));
+app.post(AUTHORIZE_PATH.slice(4), async c => authorizeDecision(c.req.raw, c.env, await signedIn(c)));
 
 // Everything below needs a signed-in user (a guest session counts).
 app.use(async (c, next) => {
@@ -175,23 +166,12 @@ app.delete('/trips/:id/stops/:stopId', async c => {
   return c.body(null, 204);
 });
 
-// ---------- MCP token: made and turned off in Account ----------
-// Guests can't make one: a guest's trips are only reachable from their own browser.
-const mcpURL = (c: Context<AppEnv>) => `${isLocal(c.env) ? new URL(c.req.url).origin : c.env.BETTER_AUTH_URL}/api/mcp`;
-app.get('/mcp/token', async c => {
-  const row = await c.env.DB.prepare('select created_at as createdAt, last_used_at as lastUsedAt from mcp_tokens where user_id = ?')
-    .bind(c.get('user').id).first();
-  return c.json({ url: mcpURL(c), token: row ?? null });
-});
-app.post('/mcp/token', async c => {
-  if (c.get('guest')) return c.json({ error: 'guest' }, 403);
-  const token = newMcpToken();
-  await c.env.DB.prepare('insert or replace into mcp_tokens (user_id, hash, created_at, last_used_at) values (?, ?, ?, null)')
-    .bind(c.get('user').id, await sha256(token), Date.now()).run();
-  return c.json({ url: mcpURL(c), token });
-});
-app.delete('/mcp/token', async c => {
-  await c.env.DB.prepare('delete from mcp_tokens where user_id = ?').bind(c.get('user').id).run();
+// ---------- Connected assistants, in Account ----------
+// Not under /api/mcp: everything there needs an assistant's token, and these take your session.
+app.get('/assistants', async c => c.json({ url: mcpURL(c.env), connections: await listConnections(c.env, c.get('user').id) }));
+// Ends that assistant's access at once: its tokens stop working
+app.delete('/assistants/:id', async c => {
+  await oauthApi(c.env).revokeGrant(c.req.param('id'), c.get('user').id);
   return c.body(null, 204);
 });
 
@@ -230,7 +210,9 @@ app.get('/route', async c => {
   return c.json(await driveRoute(c.env, a!, b!));
 });
 
-export default app;
+// The OAuth provider sees every request first: it answers discovery (/.well-known/*) and its own endpoints
+// (/api/oauth/token, /api/oauth/register), checks the token on /api/mcp, and hands the rest to the app.
+export default { fetch: (req, env, ctx) => oauthProvider(env, app).fetch(req, env, ctx) } satisfies ExportedHandler<Env>;
 
 // ---------- Helpers ----------
 function randomId(len: number) {
