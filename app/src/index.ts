@@ -2,9 +2,9 @@ import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
-import { driveRoute, searchPlaces } from './maps';
+import { cachedRoute, driveRoute, searchPlaces, staticMap, type StaticMap } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
-import { ERR } from './trip';
+import { ERR, type Preview } from './trip';
 
 export { TripRoom } from './trip';
 
@@ -19,7 +19,8 @@ const app = new Hono<AppEnv>().basePath('/api');
 let auth: Auth | undefined; // env is the same for every request in an isolate
 const getAuth = (env: Env) => (auth ??= createAuth(env));
 
-const STATUS: Record<string, ContentfulStatusCode> = { [ERR.notFound]: 404, [ERR.notMember]: 403, [ERR.gone]: 410, [ERR.invalid]: 400 };
+const RATE_LIMITED = 'rate_limited';
+const STATUS: Record<string, ContentfulStatusCode> = { [ERR.notFound]: 404, [ERR.notMember]: 403, [ERR.gone]: 410, [ERR.invalid]: 400, [RATE_LIMITED]: 429 };
 app.onError((err, c) => {
   const status = STATUS[err.message];
   if (status) return c.json({ error: err.message }, status);
@@ -34,7 +35,7 @@ app.use(csrf()); // writes must come from our own origin
 // Cloudflare's rate-limiting binding: counts are kept per Cloudflare location and are approximate,
 // which is enough to stop scripted sign-ups and runaway map calls billed to the Stadia key.
 const tooMany = async (limiter: RateLimit, key: string) => !(await limiter.limit({ key })).success;
-const rateLimited = (c: Context<AppEnv>) => c.json({ error: 'rate_limited' }, 429);
+const rateLimited = (c: Context<AppEnv>) => c.json({ error: RATE_LIMITED }, 429);
 // Sign-in and sign-up (guest, password, Google/Apple) create accounts or check passwords: limit per IP.
 const signInLimit = async (c: Context<AppEnv>, next: () => Promise<void>) => {
   if (c.req.method === 'POST' && await tooMany(c.env.SIGNIN_LIMIT, c.req.header('cf-connecting-ip') ?? 'local')) return rateLimited(c);
@@ -104,14 +105,19 @@ const tripName = (v: unknown) => (typeof v === 'string' && v.trim() && v.length 
 // Guests have no email; the client asks them for a name (POST /api/auth/update-user) and offers sign-in later.
 app.get('/me', c => c.json({ ...c.get('user'), isGuest: c.get('guest') }));
 
-// Home screen: one card per trip, newest edit first
+// Home screen: one card per trip, newest edit first, with its people and stops for the card's avatars and route sketch
 app.get('/trips', async c => {
   const { results } = await c.env.DB.prepare(
-    `select t.id, t.name, t.first_stop as start, t.last_stop as end from trips t
+    `select t.id, t.name, t.first_stop as start, t.last_stop as end, t.preview from trips t
      join trip_members m on m.trip_id = t.id
      where m.user_id = ? and t.deleted_at is null order by t.updated_at desc`,
-  ).bind(c.get('user').id).all();
-  return c.json(results);
+  ).bind(c.get('user').id).all<{ id: string; name: string; start: string | null; end: string | null; preview: string | null }>();
+  // A trip last written before previews were kept gets one from its TripRoom, once
+  const cards = await Promise.all(results.map(async ({ preview, ...t }) => {
+    const p: Preview | null = preview ? JSON.parse(preview) : await room(c.env, t.id).summary().catch(() => null);
+    return { ...t, members: p?.members ?? [], stops: p?.stops ?? [] };
+  }));
+  return c.json(cards);
 });
 
 app.post('/trips', async c => {
@@ -209,6 +215,60 @@ app.get('/route', async c => {
   if (!a || !b) bad();
   return c.json(await driveRoute(c.env, a!, b!));
 });
+
+// A home card's map picture. The client says what to draw, as it does on the trip's map: its drives as pairs of stops
+// and its places, each a stop with its type's color, by their place in the card's stop list (the preview's, which is
+// read here, so only the trip's own places can be drawn). Drives follow the roads where anyone on the trip has looked
+// them up already, straight otherwise: drawing a card never looks up a route.
+const HEX = /^[0-9a-f]{6}$/i;
+const MAP_LEGS = 600, MAP_DOTS = 300;
+app.get('/trips/:id/map', async c => {
+  if (!c.env.STADIA_API_KEY) return c.json({ error: 'maps_not_configured' }, 503);
+  const id = c.req.param('id');
+  if (!ID.test(id)) bad();
+  const row = await c.env.DB.prepare(
+    `select t.preview from trips t join trip_members m on m.trip_id = t.id
+     where t.id = ? and m.user_id = ? and t.deleted_at is null`,
+  ).bind(id, c.get('user').id).first<{ preview: string | null }>();
+  if (!row?.preview) throw new Error(ERR.notFound);
+  const stops = (JSON.parse(row.preview) as Preview).stops;
+  const at = (v: string) => (/^\d+$/.test(v) && +v < stops.length ? stops[+v] : bad()) as Preview['stops'][number];
+  const q = (k: string) => c.req.query(k) ?? '';
+  const hex = (v = '') => (HEX.test(v) ? v.toLowerCase() : bad()) as string;
+  const color = hex(q('route'));
+  const legs = q('legs') ? q('legs').split(',').map(l => l.split('-').map(at)) : [];
+  const dots = q('dots').split(',').map(d => { const [i, h] = d.split(':'); return { ...at(i), color: hex(h) }; });
+  if (legs.some(l => l.length !== 2) || legs.length > MAP_LEGS || dots.length > MAP_DOTS) bad();
+  // One line per run of drives that follow on from each other
+  const lines: StaticMap['lines'] = [];
+  let last: unknown = null;
+  for (const [a, b] of legs) {
+    const r = await cachedRoute(c.env, a, b);
+    const coords: [number, number][] = r?.coords.length ? r.coords : [[a.lat, a.lng], [b.lat, b.lng]];
+    if (last === a) lines.at(-1)!.coords.push(...coords.slice(1)); else lines.push({ coords, color });
+    last = b;
+  }
+  const png = await staticMap(c.env, {
+    style: q('theme') === 'dark' ? 'alidade_smooth_dark' : 'alidade_smooth',
+    lines: lines.map(l => ({ ...l, coords: thin(l.coords) })),
+    dots: dots.map(({ lat, lng, color }) => ({ lat, lng, color })),
+  }, async () => { if (await tooMany(c.env.MAPS_LIMIT, c.get('user').id)) throw new Error(RATE_LIMITED); });
+  // The URL changes when the stops do; a drive looked up since shows the next day
+  return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, max-age=86400' });
+});
+// A road's points closer together than the picture can show (about a pixel at the trip's scale), dropped
+function thin(coords: [number, number][]) {
+  if (coords.length < 3) return coords;
+  const lats = coords.map(p => p[0]), lngs = coords.map(p => p[1]);
+  let span = 0;
+  for (const v of [lats, lngs]) { let lo = Infinity, hi = -Infinity; for (const x of v) { lo = Math.min(lo, x); hi = Math.max(hi, x); } span = Math.max(span, hi - lo); }
+  const step = span / 500, out = [coords[0]];
+  for (let i = 1; i < coords.length; i++) {
+    const p = coords[i], o = out.at(-1)!;
+    if (i === coords.length - 1 || Math.abs(p[0] - o[0]) + Math.abs(p[1] - o[1]) >= step) out.push(p);
+  }
+  return out;
+}
 
 // The OAuth provider sees every request first: it answers discovery (/.well-known/*) and its own endpoints
 // (/api/oauth/token, /api/oauth/register), checks the token on /api/mcp, and hands the rest to the app.

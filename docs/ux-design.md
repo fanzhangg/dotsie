@@ -18,8 +18,18 @@ One more rule came out of the iterations: **don't rebuild what Google Maps and A
 
 ### Home
 
-- The app name, then one card per trip showing its **name** and **date range**, then a **New trip** button.
-- The cards leave out stop counts, "next stop", and avatars. You can see those after opening a trip, and they don't help you pick one.
+Home looks like the trip screen's list: the same grey as the plan sheet, the same day-heading capitals, the same pins and routes, and the main action in the same place.
+
+- The app name and the account. On a phone, **New trip** is a black bar at the bottom, where Add stop is on the trip screen, so it's always in reach; from 768px wide it's in the header.
+- The trips, under **UPCOMING** and **PAST**, in capitals like the day headings in All days. Upcoming goes by date, soonest first: one under way, then the next, and trips with no dates yet last. Past goes from the latest back.
+- One card per trip, white on the grey, set apart by its surface alone like the list's rows: its **route** across the top, then its **name**, **dates and when**, and **who's on it**. Where a trip goes and who's going are how people tell trips apart, more than a name they typed in a hurry.
+  - The route is a small map picture of the trip's drives, every day, like the trip's All days map: a line for each drive and a dot for each place, in its type's color, on the same quiet basemap. The app's server has Stadia make the picture once and keeps it; it's made again only when the trip's places or drives change. A drive follows the roads once anyone on the trip has looked it up (opening the trip does that); until then it's a straight line. Home never looks routes up itself, so a long list of trips can't use up the per-person limit that place search shares with routes.
+  - Under the picture is a sketch of the same, drawn by the app on the plain map color, as the trip's map draws them: pins as dots in a ring, a drive along the roads as a line, and one not looked up yet dotted. It shows while the picture loads, and stays if the picture can't be made (no Stadia key, as in local dev, or no connection). The prototype has no server, so it always shows the sketch. A trip with no stops says so instead.
+  - The dates, then when the trip is: "In 2 weeks", "Tomorrow", or while it's under way, "Day 2 of 3", in black like the row happening now. A trip in another year says which; one over New Year says both.
+  - The people are avatars, as in trip settings, up to four; past that, three and a "+N".
+  - A trip that's over drains of color, like what's over on the trip screen: its route and pins go grey.
+- The cards leave out stop counts and "next stop": you can see those after opening a trip, and they don't help you pick one.
+- With no trips yet, the page says how to start one.
 
 ### Trip
 
@@ -332,8 +342,8 @@ The full visual language (tokens, components, light and dark themes, accessibili
 
   | Width | Trip | Home and sign-in |
   | --- | --- | --- |
-  | Under 768px | Header card over the map, plan in a bottom sheet (half or the whole day); modal sheets slide up, and the stop sheet leaves the map in view | A 480px column |
-  | 768px and up | Header and plan in a side panel beside the map; modal sheets cover the panel | Trips in a grid of cards; sign-in in a card; other sheets are dialogs in the middle |
+  | Under 768px | Header card over the map, plan in a bottom sheet (half or the whole day); modal sheets slide up, and the stop sheet leaves the map in view | A 480px column on the plan sheet's grey, New trip at the bottom |
+  | 768px and up | Header and plan in a side panel beside the map; modal sheets cover the panel | Trips in a grid of cards, New trip in the header; sign-in in a card; other sheets are dialogs in the middle |
 
   16px text in form fields (stops iPhone zooming in), and spacing for phone screen edges. The prototype has the same layouts at every width.
 

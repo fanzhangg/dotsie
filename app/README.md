@@ -1,13 +1,13 @@
 # Waythread app (Cloudflare)
 
-One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`TripRoom`) that owns its stops and members and pushes live edits over WebSockets. D1 holds accounts, sessions, trip membership, and the home-screen summaries.
+One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`TripRoom`) that owns its stops and members and pushes live edits over WebSockets. D1 holds accounts, sessions, trip membership, and the home-screen summaries: each trip's name, dates, people and stop places, which its `TripRoom` writes whenever they change.
 
 | File | What it does |
 | --- | --- |
 | [src/index.ts](src/index.ts) | API routes, session check, share links |
 | [src/trip.ts](src/trip.ts) | `TripRoom`: trip data, validation, membership, live events |
 | [src/auth.ts](src/auth.ts) | Better Auth: Google, Apple, email and password, guests |
-| [src/maps.ts](src/maps.ts) | Stadia place search and drive routes, routes cached in KV |
+| [src/maps.ts](src/maps.ts) | Stadia place search, drive routes (cached in KV) and the home cards' map pictures (cached at the edge) |
 | [src/mcp.ts](src/mcp.ts) | The MCP server: tools for an AI assistant to list trips and stops, and add, edit and delete stops |
 | [src/oauth.ts](src/oauth.ts) | OAuth sign-in for the MCP server, and its Allow page |
 | [migrations/](migrations) | D1 schema |
@@ -49,6 +49,8 @@ Only the secrets you set are uploaded, and a feature whose keys are missing stay
 
 `BETTER_AUTH_URL` isn't in `wrangler.jsonc`: `.dev.vars` sets it locally and the workflow sets it for production, so deploy through the workflow rather than `npm run deploy`.
 
+Home's cards show a map picture of each trip from Stadia's [static maps](https://docs.stadiamaps.com/static-maps/), made by the Worker with the cacheable endpoint (the one whose pictures may be kept) and kept in the Cache API by what's drawn on it. So a picture costs one static map from the Stadia plan when it's first made, and again only when the trip's places, its drives' roads or the theme change; browsers keep it for a day. Drives are drawn along the roads already in KV, straight otherwise: making a picture never looks up a route. The cache is per Cloudflare location, so someone opening Home from another region can cost one more. Each picture made counts against the person's maps rate limit.
+
 Rate limits (in `wrangler.jsonc`): 20 sign-in steps per minute per IP (an email lookup and a sign-in count as two), 120 place searches plus route lookups per minute per person, and 60 MCP calls per minute per person. Over the limit, the API returns 429 `rate_limited`. The app looks up the other days' drives at most one a second, behind any the screen needs, so preloading a long trip leaves room for search; it pauses for a minute if it hits the limit. All days, the overview a trip opens on outside its dates, shows every drive of the trip, so it asks for all of them at once, one after another; the browser keeps them, so that's once per trip per browser. A trip with more than about 100 drives can reach the limit the first time: the rest show as straight lines until the next visit. Sessions last 90 days from the last visit.
 
 ## API
@@ -61,7 +63,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `POST /api/sign-in-options` `{ email }` | Where an address leads: `{ account: 'password' \| 'google' \| 'none' }`, so sign-in asks for the right thing next |
 | `GET /api/invite/:token` | The trip name for a share link, for the sign-in screen |
 | `GET /api/me` | `{ id, name, image, isGuest }` |
-| `GET /api/trips` | Home cards: `[{ id, name, start, end }]` |
+| `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights }`, for the card's route sketch (at most 300) |
 | `POST /api/trips` `{ name }` | Create; returns the trip snapshot |
 | `GET /api/trips/:id` | `{ trip, members, stops }` |
 | `PATCH /api/trips/:id` `{ name }` | Rename |
@@ -74,6 +76,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
 | `GET /api/route?from=lat,lng&to=lat,lng` | `{ duration, distance, coords }` |
+| `GET /api/trips/:id/map?theme=&route=&legs=&dots=` | A home card's map picture (PNG, 1000×400). `theme` is `light` or `dark`; `route` the line color as six hex digits; `legs` the drives as pairs of indexes into the card's `stops`, like `0-1,1-2`; `dots` the places, like `0:b24acf,1:7250e2`. 503 `maps_not_configured` without a Stadia key, in local dev too, and the card shows its sketch |
 | `GET /api/assistants` | For Account: `{ url, connections: [{ id, name, domain, createdAt }] }`, the MCP server's address and the assistants you've allowed |
 | `DELETE /api/assistants/:id` | Disconnect one: its tokens stop working at once |
 | `POST /api/mcp` | The MCP server (below), with an OAuth access token |
