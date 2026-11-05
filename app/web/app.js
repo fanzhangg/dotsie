@@ -592,24 +592,25 @@ function renderOfflineStatus(trip) {
   btn.innerHTML = st.icon;
 }
 
-// Trip settings' Offline field: save the trip, how it's going, or what's saved and a way to remove it
+// Trip settings' Offline section: save the trip, how it's going, or what's saved and a way to remove it
 let offlineField = null; // { el, trip, kind } while trip settings are open
 function offlineFieldHTML(trip) {
-  if (!canSaveOffline) return { kind: 'none', html: '<p class="wt-modal__text">This browser can’t save trips for offline.</p>' };
-  // bringing a saved trip up to date happens on its own, and the field goes on showing what's saved
+  const head = text => `<h3 class="wt-section__title">Offline</h3><p class="wt-section__text">${text}</p>`;
+  if (!canSaveOffline) return { kind: 'none', html: head('This browser can’t save trips for offline.') };
+  // bringing a saved trip up to date happens on its own, and the section goes on showing what's saved
   const t = savedTrip(trip.id), job = offlineJob?.id === trip.id && !offlineJob.quiet && offlineJob;
   if (!t) {
-    return { kind: 'save', html: `<p class="wt-modal__text">Save the plan and its map on this device, to see them with no signal.</p>
+    return { kind: 'save', html: `${head('Save the plan and its map on this device, to see them with no signal.')}
       <button class="wt-btn wt-btn--secondary" data-offline-save${trip.offline ? ' disabled' : ''}>${ICON.download}Save for offline</button>` };
   }
-  if (job) return { kind: 'saving', html: `<p class="wt-modal__text">Saving the map: <span data-offline-pct>${pctOf(job)}</span>%</p>
-      <button class="wt-btn wt-btn--ghost settings-offline-remove" data-offline-remove>${job.first ? 'Cancel' : 'Remove from this device'}</button>` };
+  if (job) return { kind: 'saving', html: `${head('Saving the map: <span data-offline-pct>' + pctOf(job) + '</span>%')}
+      <button class="wt-btn wt-btn--quiet" data-offline-remove>${job.first ? 'Cancel' : 'Remove from this device'}</button>` };
   // Safari in a browser tab clears a site's saved data after about a week without a visit; an app on the Home Screen keeps it
-  const ios = navigator.standalone === false ? '<p class="wt-modal__text">On iPhone, Safari clears saved trips you haven’t opened in a week. To keep this one, add Waythread to your Home Screen, open it from there and save the trip again.</p>' : '';
+  const ios = navigator.standalone === false ? '<p class="wt-section__hint">On iPhone, Safari clears saved trips you haven’t opened in a week. To keep this one, add Waythread to your Home Screen, open it from there and save the trip again.</p>' : '';
   const map = t.noMap ? ' The map can’t be saved with this map provider.' : t.missing ? ' Part of the map didn’t download.' : '';
-  return { kind: 'saved', html: `<p class="wt-modal__text">Saved on this device (${fmtMB(t.bytes)}), updated ${fmtAgo(t.savedAt)}. It updates whenever you open the trip online.${map}</p>${ios}
+  return { kind: 'saved', html: `${head(`Saved on this device (${fmtMB(t.bytes)}), updated ${fmtAgo(t.savedAt)}. It updates whenever you open the trip online.${map}`)}${ios}
       ${t.missing && !trip.offline ? '<button class="wt-btn wt-btn--secondary" data-offline-save>Try again</button>' : ''}
-      <button class="wt-btn wt-btn--ghost settings-offline-remove" data-offline-remove>Remove from this device</button>` };
+      <button class="wt-btn wt-btn--quiet" data-offline-remove>Remove from this device</button>` };
 }
 function showOffline() {
   const trip = cur?.stops ? cur : null;
@@ -2521,22 +2522,22 @@ function openNewTrip() {
   });
 }
 
-// Everything about the trip that isn't the plan: its name, who's on it, the share link, saving it for offline, deleting
-// it, and the map's credits.
+// Everything about the trip that isn't the plan, one section each: its name, who's on it, the share link, saving it for
+// offline, and deleting it. Then the map's credits.
 function openSettings(trip) {
   openSheet(`${modalHead('Trip settings')}
-    <form class="settings-name">
-      <label class="wt-field"><span class="wt-field__label">Name</span>
-        <input class="wt-input" name="title" autocomplete="off" required maxlength="120"></label>
+    <form class="wt-section settings-name">
+      <label class="wt-section__title" for="trip-name">Name</label>
+      <input class="wt-input" id="trip-name" name="title" autocomplete="off" required maxlength="120">
     </form>
-    <div class="wt-field"><span class="wt-field__label">People</span>
-      <ul class="wt-people">${trip.members.map(m => `<li class="wt-people__item">${avatarHTML(m)}${esc(m.name)}${m.id === me.id ? ' (you)' : ''}</li>`).join('')}</ul></div>
-    <div class="wt-field"><span class="wt-field__label">Share link</span>
-      <p class="wt-modal__text">Anyone with the link can join and edit this trip.</p>
-      <div class="wt-copy-row"><input class="wt-input" readonly value="" placeholder="Loading…" aria-label="Trip link"><button class="wt-btn wt-btn--primary" data-action="copy" disabled>Copy</button></div>
-      <button class="wt-btn wt-btn--ghost settings-new-link" data-new-link>Make a new link</button></div>
-    <div class="wt-field"><span class="wt-field__label">Offline</span><div class="settings-offline"></div></div>
-    <div class="wt-modal__actions"><button class="wt-btn wt-btn--danger" data-del>Delete trip</button></div>
+    <section class="wt-section"><h3 class="wt-section__title">People</h3>
+      <ul class="wt-people">${trip.members.map(m => `<li class="wt-people__item">${avatarHTML(m)}<span>${esc(m.name)}${m.id === me.id ? ' <span class="wt-people__meta">(you)</span>' : ''}</span></li>`).join('')}</ul></section>
+    <section class="wt-section"><h3 class="wt-section__title">Share link</h3>
+      <p class="wt-section__text">Anyone with the link can join and edit this trip.</p>
+      <div class="wt-copy-row"><input class="wt-input" readonly value="" placeholder="Loading…" aria-label="Trip link"><button class="wt-btn wt-btn--secondary" data-action="copy" disabled>Copy</button></div>
+      <button class="wt-btn wt-btn--quiet" data-new-link>Make a new link</button></section>
+    <section class="wt-section settings-offline"></section>
+    <div class="wt-section"><button class="wt-btn wt-btn--danger" data-del>Delete trip</button></div>
     <p class="wt-credit">Map ${mapCredit}</p>`, async el => {
     // Offline: Save for offline, how far it's got, or what's saved
     const off = el.querySelector('.settings-offline');
@@ -2588,23 +2589,22 @@ function openSettings(trip) {
 }
 
 // Your name as others on your trips see it, the maps app, and AI assistants (not for guests); guests are
-// offered a real sign-in, which keeps their trips; everyone can sign out.
+// offered a real sign-in, which keeps their trips; everyone can sign out. One section each, as in trip settings.
 function openAccount() {
   const upgrade = me.isGuest && canSignIn();
   openSheet(`<div class="account-main">${modalHead('Account')}
-    <form class="account-name">
-      <label class="wt-field"><span class="wt-field__label">Your name${me.isGuest ? ' (guest)' : ''}</span>
-        <input class="wt-input" name="name" autocomplete="name" maxlength="40" required></label>
+    <form class="wt-section account-name">
+      <label class="wt-section__title" for="account-name">Your name</label>
+      <input class="wt-input" id="account-name" name="name" autocomplete="name" maxlength="40" required aria-describedby="account-name-hint">
+      <p class="wt-section__hint" id="account-name-hint">People on your trips see this name.${me.isGuest && !upgrade ? ' As a guest, you can only reach your trips from this browser.' : ''}</p>
     </form>
-    <div class="wt-field"><span class="wt-field__label" id="maps-label">Maps app</span>
-      <button type="button" class="wt-picker wt-picker--text" data-maps-open aria-describedby="maps-label"></button></div>
-    ${me.isGuest ? '' : `<div class="wt-field"><span class="wt-field__label">AI assistant</span>
-      <p class="wt-modal__text">Connect Claude or another assistant that supports MCP, so it can see your trips’ stops and change them for you.</p>
-      <div class="account-mcp"></div></div>`}
-    ${upgrade ? `<h3 class="account-keep">Keep your trips</h3>
-    <p class="wt-modal__text">As a guest, you can only reach your trips from this browser. Sign in to keep them on any device.</p>
-    <div class="signin"></div>` : ''}
-    <div class="wt-modal__actions"><button class="wt-btn wt-btn--danger" data-action="sign-out">Sign out</button></div></div>
+    ${upgrade ? `<section class="wt-section"><h3 class="wt-section__title">Keep your trips</h3>
+      <p class="wt-section__text">As a guest, you can only reach your trips from this browser. Sign in to keep them on any device.</p>
+      <div class="signin"></div></section>` : ''}
+    <div class="wt-section"><span class="wt-section__title" id="maps-label">Maps app</span>
+      <div class="wt-field"><button type="button" class="wt-picker wt-picker--text" data-maps-open aria-labelledby="maps-label maps-value"></button></div></div>
+    ${me.isGuest ? '' : '<section class="wt-section account-mcp"></section>'}
+    <div class="wt-section"><button class="wt-btn wt-btn--quiet" data-action="sign-out">Sign out</button></div></div>
     ${choicePageHTML('account-maps', 'Maps app', Object.entries(MAPS_APPS).map(([k, label]) => optionHTML(k, label)).join(''), 'Places and directions open in this app. Saved on this device.')}`, el => {
     const f = el.querySelector('.account-name');
     f.elements.name.value = me.name;
@@ -2625,7 +2625,7 @@ function openAccount() {
     const mapsPicker = el.querySelector('[data-maps-open]');
     const maps = choicePage(el, { main: el.querySelector('.account-main'), page: el.querySelector('.account-maps'), picker: mapsPicker, onPick: app => { setMapsApp(app); showMaps(); } });
     const showMaps = () => {
-      mapsPicker.innerHTML = `<span class="wt-picker__value">${MAPS_APPS[mapsApp]}</span>${ICON.forward}`;
+      mapsPicker.innerHTML = `<span class="wt-picker__value" id="maps-value">${MAPS_APPS[mapsApp]}</span>${ICON.forward}`;
       maps.mark(mapsApp);
     };
     showMaps();
@@ -2638,11 +2638,14 @@ function openAccount() {
 // connector; it then sends you to sign in and allow it), and the assistants you've connected, each with Disconnect.
 async function assistantField(box) {
   const day = ms => { const d = new Date(ms); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; };
+  const head = `<h3 class="wt-section__title">AI assistant</h3>
+    <p class="wt-section__text">Connect Claude or another assistant that supports MCP, so it can see your trips’ stops and change them for you.</p>`;
   const show = ({ url, connections }) => {
-    box.innerHTML = `<p class="wt-modal__text">In Claude, add a custom connector with this address (Customize → Connectors → Add custom connector), then sign in here when it asks.</p>
-      <div class="wt-copy-row"><input class="wt-input" readonly value="${esc(url)}" aria-label="Server address">
-        <button class="wt-btn wt-btn--primary" data-action="copy" data-text="${esc(url)}" data-copied="Address copied">Copy</button></div>
-      ${connections.length ? `<ul class="account-mcp__list">${connections.map(c => `<li class="account-mcp__item">
+    box.innerHTML = `${head}
+      <div class="wt-copy-row"><input class="wt-input" readonly value="${esc(url)}" aria-label="Server address" aria-describedby="mcp-hint">
+        <button class="wt-btn wt-btn--secondary" data-action="copy" data-text="${esc(url)}" data-copied="Address copied">Copy</button></div>
+      <p class="wt-section__hint" id="mcp-hint">In Claude, add a custom connector with this address (Customize → Connectors → Add custom connector), then sign in here when it asks.</p>
+      ${connections.length ? `<ul class="account-mcp__list" aria-label="Connected assistants">${connections.map(c => `<li class="account-mcp__item">
         <span class="account-mcp__name">${esc(c.name)}<span class="account-mcp__meta">${c.domain ? `${esc(c.domain)} · ` : ''}connected ${day(c.createdAt)}</span></span>
         <button class="wt-btn wt-btn--danger" data-mcp-off="${esc(c.id)}">Disconnect</button></li>`).join('')}</ul>` : ''}`;
     for (const btn of box.querySelectorAll('[data-mcp-off]')) btn.onclick = async () => {
@@ -2655,7 +2658,8 @@ async function assistantField(box) {
       } catch (err) { if (err.status !== 401) failToast(err, `Couldn’t disconnect ${c.name}`); }
     };
   };
-  try { show(await api('/assistants')); } catch { box.innerHTML = '<p class="wt-modal__text">Couldn’t load this. Check your connection.</p>'; }
+  box.innerHTML = head;
+  try { show(await api('/assistants')); } catch { box.innerHTML = `${head}<p class="wt-section__hint">Couldn’t load this. Check your connection.</p>`; }
 }
 
 // Two hours after the day's last stop; 9 AM on a day with none yet (a hotel day), or 9 AM tomorrow for an empty trip.

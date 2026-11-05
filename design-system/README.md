@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 8.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 8.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -163,7 +163,7 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 | `--wt-type-display` | 28 / 34 | 700 | The app name on Home. Pair it with `--wt-tracking-display`. |
 | `--wt-type-title` | 18 / 24 | 600 | Modal titles. |
 | `--wt-type-context` | 15 / 20 | 500 | Where you are: the trip's name and the day bar, in `--wt-text-secondary`. Smaller and lighter than a stop's name, so the plan leads. |
-| `--wt-type-heading` | 15 / 20 | 600 | Section headings in settings ("Keep your trips"). |
+| `--wt-type-heading` | 15 / 20 | 600 | Section titles in trip settings and Account (`.wt-section__title`). |
 | `--wt-type-name` | 16 / 21 | 500 | Stop and trip names: the strongest text in a list. |
 | `--wt-type-body` | 15 / 21 | 400 | Running text. |
 | `--wt-type-time` | 15 / 21 | 400 | Stop times, in `--wt-text-secondary`. Always use `tabular-nums`. |
@@ -241,6 +241,7 @@ Each entry shows the minimum markup. Your code supplies the content and the beha
 <button class="wt-btn wt-btn--secondary">Copy</button>
 <button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Add stop">${icon('plus')}</button>
 <button class="wt-btn wt-btn--danger">Delete</button>
+<button class="wt-btn wt-btn--quiet">Make a new link</button>
 ```
 
 | Variant | Use for |
@@ -249,6 +250,7 @@ Each entry shows the minimum markup. Your code supplies the content and the beha
 | `--secondary` | A quiet action next to content, like Copy beside the trip link. |
 | `--ghost` | Low-emphasis actions next to content. |
 | `--danger` | Destructive actions. Always leave a way back: an Undo toast or a confirmation. |
+| `--quiet` | A rare, low-key action under what it's about, as grey text: Make a new link, Remove from this device, Sign out. Its padding hangs outside the content edge, as `--danger`'s does. |
 | `--destructive` | Filled red, only for the confirm button of a [dialog](#dialog-wt-dialog) that destroys something: "Delete trip". |
 | `--block` | Full width, at the bottom of a sheet or form. |
 | `--icon` | Icon only: a round button as tall as the others, for an action that sits beside a bigger one, like Edit stop and the `+` beside Open in Maps. White (`--secondary`). Needs an `aria-label`. |
@@ -277,10 +279,33 @@ Labels are verbs that say exactly what happens.
 </button>
 ```
 
-- The stack shows who's on the trip. Trip settings lists everyone by name (`.wt-people`).
+- The stack shows who's on the trip. Trip settings lists everyone by name (`.wt-people`), with "(you)" in `.wt-people__meta`.
 - With only one person on the trip, show the `person-add` icon instead. (A trip card shows its one person: there, the stack says who's on the trip, not how to add someone.)
 - Set `--wt-avatar-ring` to the surface behind the stack.
 - Out of room: `<span class="wt-avatar wt-avatar--more">+3</span>` stands for the rest, in quiet grey.
+
+### Settings section `.wt-section`
+
+```html
+<div class="wt-modal__head"><h2 class="wt-modal__title">Trip settings</h2>…</div>
+<form class="wt-section">                          <!-- a section that is one field -->
+  <label class="wt-section__title" for="trip-name">Name</label>
+  <input class="wt-input" id="trip-name">
+</form>
+<section class="wt-section">
+  <h3 class="wt-section__title">Share link</h3>
+  <p class="wt-section__text">Anyone with the link can join and edit this trip.</p>
+  <div class="wt-copy-row"><input class="wt-input" readonly …><button class="wt-btn wt-btn--secondary">Copy</button></div>
+  <button class="wt-btn wt-btn--quiet">Make a new link</button>
+</section>
+<div class="wt-section"><button class="wt-btn wt-btn--danger">Delete trip</button></div>
+```
+
+- **Trip settings and Account are a column of sections**, one thing each, divided by `--wt-border-default` hairlines. Every section reads in the same order: the title (`__title`, `--wt-type-heading`), a line on what it does (`__text`, body in `--wt-text-secondary`), its controls, then a hint under a control (`__hint`, caption) or a quiet text button. The spacing between them is set by the section, so each one has the same rhythm.
+- **A section that is one field** is the field's `<form>`, with its title as the `<label>`. A picker goes in a `.wt-field` inside the section, so its menu drops down under it.
+- **No primary button.** Every change saves on its own (a name when you leave the field), so nothing in a settings sheet is black. Copy and Save for offline are `--secondary`; rare actions are `--quiet`; the destructive one (Delete trip) is `--danger`, last, in a section of its own. Sign out is `--quiet`: it destroys nothing, and a guest is asked first.
+- **Words:** `__text` says what the section does, in one sentence. `__hint` says how to use the control above it ("People on your trips see this name").
+- The map's credits (`.wt-credit`) follow the last section in trip settings.
 
 ### Field `.wt-field`, input `.wt-input`, search page `.wt-search-bar`, `.wt-search`, results `.wt-results`
 
@@ -846,6 +871,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 8.2.0
+
+Trip settings and Account were a run of fields, each with a small grey label over a larger paragraph, and two black Copy buttons. They're now sections that all read the same way.
+
+- New: `.wt-section` with `__title`, `__text` and `__hint`, a section of a settings sheet (see [Settings section](#settings-section-wt-section)).
+- New: `.wt-btn--quiet`, a grey text button for a rare action.
+- New: `.wt-people__meta`, the "(you)" after your name.
+- Copy in a settings sheet is `--secondary`, as the button table always said, not `--primary`.
+- Tokens are unchanged.
 
 ### Added in 8.1.0
 
