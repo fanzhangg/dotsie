@@ -263,6 +263,8 @@ function protoNoteHTML(trip) {
     ${others.map(u => `<a href="${base}?as=${u.id}#/join/${token}" target="_blank">as ${u.name}</a>`).join(' or ')} in another tab.
     ${first ? `Trip days highlight what's happening now: <a href="${base}?today=${dayOf(first)}&now=14:10#/trip/${trip.id}">preview day 1 at 2:10 PM</a>.` : ''}</div>`;
 }
+// The app's home cards show a map picture made by its server; with no server, they keep the route sketch
+const mapImageURL = () => null;
 const fromSnapshot = s => ({ id: s.trip.id, name: s.trip.name, members: s.members, stops: s.stops });
 
 // Writes show at once and save in the background. If one fails, reload the trip so the screen
@@ -713,29 +715,41 @@ function tripCardHTML(t, past) {
   const people = t.members || [], shown = people.slice(0, people.length > HOME_AVATARS ? HOME_AVATARS - 1 : HOME_AVATARS);
   const more = people.length - shown.length;
   return `<a class="wt-trip-card${past ? ' is-past' : ''}" href="#/trip/${esc(t.id)}">
-    ${routeSketchHTML(t.stops || [])}
+    ${tripMapHTML(t, past)}
     <span class="wt-trip-card__body">
       <span class="wt-trip-card__text"><span class="wt-trip-card__name">${esc(t.name)}</span><span class="wt-trip-card__dates">${t.start ? fmtRange(t.start, t.end) : 'No dates yet'}</span></span>
       ${people.length ? `<span class="wt-avatar-stack wt-trip-card__people" aria-hidden="true">${shown.map(avatarHTML).join('')}${more ? `<span class="wt-avatar wt-avatar--more">+${more}</span>` : ''}</span>
       <span class="wt-visually-hidden">, with ${esc(people.map(m => m.name).join(', '))}</span>` : ''}
     </span></a>`;
 }
-// A trip's route, drawn small for its card, like the overview's map without the map: each day's drives, along the
-// roads where this browser has looked them up already (Home never looks routes up, so as not to use up the limit),
-// straight otherwise, and a dot for each place in its type's color. North is up; the sketch is scaled to fit its box.
-const SKETCH_W = 320, SKETCH_H = 120, SKETCH_PAD = 16, SKETCH_MIN_SPAN = 0.01; // the drawing's own units; degrees
+// A trip's route for its card: a map picture with the drives and places drawn on it (see mapImageURL), and under it, a
+// sketch of the same, which shows while the picture loads and stays if it can't load. Like the overview's map, they
+// show each day's drives, along the roads where they've been looked up already (Home never looks routes up, so as not
+// to use up the limit), straight otherwise, and a dot for each place in its type's color, with north up.
+const SKETCH_W = 320, SKETCH_H = 128, SKETCH_PAD = 16, SKETCH_MIN_SPAN = 0.01; // the sketch's own units (5:2, as its box); degrees
 const mercY = lat => -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * 180 / Math.PI; // down the page
-function routeSketchHTML(stops) {
+function tripMapHTML(t, past) {
+  const stops = t.stops || [];
   if (!stops.length) return '<span class="wt-trip-card__map wt-trip-card__map--empty">No stops yet</span>';
-  const trip = { stops }, lines = [];
+  const trip = { stops }, legs = [];
   for (const d of daysOf(trip)) {
     const plan = dayPlan(trip, d);
-    for (let i = 1; i < plan.length; i++) {
-      const a = plan[i - 1].place, b = plan[i].place, r = routes[legKey(a, b)];
-      if (!samePlace(a, b)) lines.push(r?.ok && r.coords.length > 1 ? r.coords : [[a.lat, a.lng], [b.lat, b.lng]]);
-    }
+    for (let i = 1; i < plan.length; i++) if (!samePlace(plan[i - 1].place, plan[i].place)) legs.push([plan[i - 1].place, plan[i].place]);
   }
   const places = stops.filter((s, i) => stops.findIndex(o => samePlace(o, s)) === i);
+  const hex = name => token(name).replace('#', '');
+  const query = new URLSearchParams({
+    theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+    route: hex(past ? '--wt-route-done' : '--wt-route'),
+    legs: legs.map(([a, b]) => `${stops.indexOf(a)}-${stops.indexOf(b)}`).join(','),
+    dots: places.map(s => `${stops.indexOf(s)}:${hex(`--wt-kind-${kindOf(s)}`)}`).join(','),
+    v: stops.map(s => `${s.lat},${s.lng}`).join(';').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0).toString(36), // a new picture when a place moves
+  }).toString().replace(/%2C/g, ',').replace(/%3A/g, ':');
+  const src = mapImageURL(t.id, query);
+  return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG(legs, places)}${src ? `<img class="wt-trip-card__photo" src="${esc(src)}" alt="" loading="lazy" decoding="async">` : ''}</span>`;
+}
+function routeSketchSVG(legs, places) {
+  const lines = legs.map(([a, b]) => { const r = routes[legKey(a, b)]; return r?.ok && r.coords.length > 1 ? r.coords : [[a.lat, a.lng], [b.lat, b.lng]]; });
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const [lat, lng] of [...places.map(s => [s.lat, s.lng]), ...lines.flat()]) {
     const y = mercY(lat);
@@ -754,12 +768,16 @@ function routeSketchHTML(stops) {
     return `M${pts.map(xy).join('L')}`;
   }).join('');
   const dots = places.map(s => `M${xy(at(s.lat, s.lng))}h0`);
-  return `<span class="wt-trip-card__map" aria-hidden="true"><svg viewBox="0 0 ${SKETCH_W} ${SKETCH_H}" preserveAspectRatio="xMidYMid meet">
+  return `<svg viewBox="0 0 ${SKETCH_W} ${SKETCH_H}" preserveAspectRatio="xMidYMid meet">
     ${path ? `<path class="wt-trip-card__casing" d="${path}"/><path class="wt-trip-card__route" d="${path}"/>` : ''}
     <path class="wt-trip-card__ring" d="${dots.join('')}"/>
     ${places.map((s, i) => `<path class="wt-trip-card__stop" style="--wt-kind-color: ${kindColor(s)}" d="${dots[i]}"/>`).join('')}
-  </svg></span>`;
+  </svg>`;
 }
+// The picture fades in over the sketch once it's loaded; if it can't load, the sketch stays.
+// (load and error don't bubble, and load never reaches window, so these listen on the document, on the way down.)
+document.addEventListener('load', e => { if (e.target.classList?.contains('wt-trip-card__photo')) e.target.classList.add('is-loaded'); }, true);
+document.addEventListener('error', e => { if (e.target.classList?.contains('wt-trip-card__photo')) e.target.remove(); }, true);
 
 // ---------- Trip screen: map + one day of the plan ----------
 // Stadia answers a domain it doesn't know with a "401" picture instead of an error, which Leaflet

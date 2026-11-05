@@ -662,7 +662,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-toast__action { color: var(--wt-text-inverse-action); font-weight: 500; }
 
 /* ---------- Trip card (Home) ---------- */
-/* A sketch of the trip's route on top, inset like a photo, then the name and dates, and who's on the trip. */
+/* The trip's route on top, inset like a photo, then the name and dates, and who's on the trip. The route is a map
+   picture (__photo) over a sketch (the svg), which shows until the picture has loaded, or instead of it. */
 .wt-trip-card {
   --wt-avatar-ring: var(--wt-surface-raised);
   display: flex; flex-direction: column; overflow: hidden;
@@ -671,10 +672,16 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-trip-card:hover, .wt-trip-card:active { background: var(--wt-surface-sunken); --wt-avatar-ring: var(--wt-surface-sunken); }
 .wt-trip-card__map {
-  display: grid; place-items: center; height: 120px; margin: 4px 4px 0;
+  position: relative; display: grid; place-items: center; aspect-ratio: 5 / 2; margin: 4px 4px 0;
   border-radius: 10px; background: var(--wt-surface-map); overflow: hidden;
 }
 .wt-trip-card__map svg { display: block; width: 100%; height: 100%; }
+/* Made at the box's 5:2, so nothing is cut off */
+.wt-trip-card__photo {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; transition: opacity var(--wt-duration-base);
+}
+.wt-trip-card__photo.is-loaded { opacity: 1; }
 /* Drawn in the sketch's own units, but every line and dot keeps its width in pixels at any card size. A dot is a
    path of no length, so its round cap draws it. */
 .wt-trip-card__map path { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }

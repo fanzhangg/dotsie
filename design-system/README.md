@@ -645,12 +645,13 @@ Pad the top when you fit the map on a phone, so pins stay clear of the header ca
 ```html
 <a class="wt-trip-card" href="#/trip/white-sands">
   <span class="wt-trip-card__map" aria-hidden="true">
-    <svg viewBox="0 0 320 120" preserveAspectRatio="xMidYMid meet">
+    <svg viewBox="0 0 320 128" preserveAspectRatio="xMidYMid meet">
       <path class="wt-trip-card__casing" d="M…"/><path class="wt-trip-card__route" d="M…"/>
       <path class="wt-trip-card__ring" d="M160 40h0M180 90h0"/>
       <path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-hotel)" d="M160 40h0"/>
       <path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-airport)" d="M180 90h0"/>
     </svg>
+    <img class="wt-trip-card__photo" src="…" alt="" loading="lazy">  <!-- add .is-loaded once it loads -->
   </span>
   <span class="wt-trip-card__body">
     <span class="wt-trip-card__text"><span class="wt-trip-card__name">White Sands, NM</span><span class="wt-trip-card__dates">Nov 20 – 22</span></span>
@@ -664,7 +665,9 @@ Pad the top when you fit the map on a phone, so pins stay clear of the header ca
 
 What you need to pick a trip: where it goes, its name and dates, and who's on it.
 
-- `__map` is a sketch of the route, inset in the card like a photo, on `--wt-surface-map`. Draw it in any units with `preserveAspectRatio="xMidYMid meet"`: lines and dots keep their pixel widths at any card size (`vector-effect: non-scaling-stroke`).
+- `__map` is the route, inset in the card like a photo: a 5:2 box on `--wt-surface-map`.
+  - `__photo` is a map picture of the route, made at 5:2 so nothing is cut off. It's hidden until it has `.is-loaded`, then fades in over the sketch. If it can't load, remove it and the sketch stays.
+  - The `svg` is a sketch of the route, under the picture. Draw it in any units with `preserveAspectRatio="xMidYMid meet"`: lines and dots keep their pixel widths at any card size (`vector-effect: non-scaling-stroke`).
   - `__casing` then `__route`: the drives, one path, in `--wt-route` over `--wt-route-casing`, like routes on the map.
   - `__ring` then one `__stop` per place: a dot is a path of no length (`M x y h0`), drawn by its round cap. `__ring` holds every dot, in the casing color; each `__stop` sets `--wt-kind-color`.
 - `__body`: the name (one line, cut off with an ellipsis) and dates, and the people as a `.wt-avatar-stack` on the right. The stack's ring follows the card's surface, hovered too. Hide the stack from screen readers and say the names in a `.wt-visually-hidden` span, so the link reads "White Sands, NM, Nov 20 – 22, with Alex, Sam".
@@ -771,7 +774,7 @@ Say what can go here, in the user's words. No illustrations.
 
 Home's cards showed only a trip's name and dates. They now show where the trip goes and who's on it.
 
-- **`.wt-trip-card` is a column**: a route sketch (`__map`) on top, then `__body` with `__text` (the name and dates) and `__people`. The name and dates must now be inside `__body` and `__text`: a card with them directly inside no longer has its padding. New: `__casing`, `__route`, `__ring`, `__stop`, `__map--empty`, and `.is-past`. See [Trip card](#trip-card-wt-trip-card).
+- **`.wt-trip-card` is a column**: the route (`__map`, a 5:2 box) on top, then `__body` with `__text` (the name and dates) and `__people`. The name and dates must now be inside `__body` and `__text`: a card with them directly inside no longer has its padding. New: `__photo` (a map picture over the sketch), `__casing`, `__route`, `__ring`, `__stop`, `__map--empty`, and `.is-past`. See [Trip card](#trip-card-wt-trip-card).
 - New: `.wt-avatar--more`, the "+N" at the end of a stack that's out of room.
 - Tokens are unchanged.
 
