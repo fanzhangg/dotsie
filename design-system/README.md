@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 7.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 7.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -109,7 +109,7 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-text-tertiary` | Drives, AM/PM, "Yesterday" in the time column, the credit line, chevrons. Detail that's there when you look for it. It passes 4.5:1 on raised, sheet and sunken surfaces, not on `--wt-surface-current`: a highlighted timeline row steps it up to secondary. |
 | `--wt-text-past` | The fourth ink: every line of a row that's over, links included. About 2.5:1, as faded on purpose as the old 45% opacity, but the same grey on any background. |
 | `--wt-text-placeholder` | Placeholder text only. |
-| `--wt-text-inverse`, `--wt-text-inverse-action` | Text and the action on a toast. |
+| `--wt-text-inverse`, `--wt-text-inverse-action`, `--wt-text-inverse-secondary` | Text, the action, and a rich toast's detail line, on a toast. |
 | `--wt-text-link` | Links in running text. |
 | `--wt-text-danger` | A late drive, destructive buttons. |
 | `--wt-border-subtle` | Card hairlines. |
@@ -214,6 +214,8 @@ Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text co
 
 `back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `directions` `map` `list` `fit`
 
+Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
+
 Stop types: `plane` `bed` `utensils` `cup` `star` `museum` `tree` `camera` `bag` `fuel` (with `pin` for a plain place).
 
 ```js
@@ -248,6 +250,8 @@ Each entry shows the minimum markup. Your code supplies the content and the beha
 | `--danger` | Destructive actions. Always leave a way back: an Undo toast or a confirmation. |
 | `--block` | Full width, at the bottom of a sheet or form. |
 | `--icon` | Icon only: a round button as tall as the others, for an action that sits beside a bigger one, like Edit stop and the `+` beside Open in Maps. White (`--secondary`). Needs an `aria-label`. |
+
+**Unavailable for now:** `aria-disabled="true"` on any variant makes it grey (`--wt-surface-sunken`, `--wt-text-tertiary`, no shadow) but leaves it tappable, so the tap can say why in a toast. Offline, Add stop, the round `+` and Edit stop work this way, and a tap shows the "You're offline" notice (a [rich toast](#toast-wt-toast)). Use `disabled` only where the reason is plain on screen, since a disabled button does nothing when tapped.
 
 Labels are verbs that say exactly what happens.
 
@@ -529,6 +533,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 <header class="wt-trip-head">
   <a class="wt-icon-btn" href="#/" aria-label="All trips">${icon('home')}</a>
   <h1 class="wt-trip-head__name">White Sands, NM</h1>
+  <button class="wt-icon-btn wt-trip-head__status" aria-label="Available offline">${icon('saved')}</button>   <!-- .is-offline with cloud-off -->
   <button class="wt-icon-btn" aria-label="Trip settings and sharing">${icon('settings')}</button>
 </header>
 <section class="wt-sheet" aria-label="Plan">   <!-- .is-full, or half with no class -->
@@ -557,6 +562,7 @@ With a stop selected, the add bar holds Open in Maps, a round Edit stop and a ro
   - The list (`.wt-sheet__body`) fades out at an edge with more past it: `.is-more-above` and `.is-more-below`, which the app sets from the scroll position.
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
   - It never hides.
+- **The offline status** (`.wt-trip-head__status`) sits between the name and settings, and only while it has something to say: `saved` when the trip is saved on this device, `download` while it's saving, and `cloud-off` with `.is-offline` when there's no connection. It's quieter than home and settings (18px, `--wt-text-tertiary`); offline is a step louder (`--wt-text-secondary`), since changes won't save. Its `aria-label` names the status ("Available offline", "Saving for offline", "Offline"), and a tap explains it in a toast. It isn't an action, so it's the one icon-only button whose icon isn't a universal one.
 - **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it, and the list can't be scrolled by hand at all (`touch-action: none` and `overflow: hidden`): your code scrolls it, to keep the focused row in its middle. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the other height; a slower drag settles at the nearer. Add `.is-dragging` while a finger is moving it.
 - **Taps:** the grab handle is a button that switches between half and full. Choosing a stop or a drive on the whole day brings the sheet down to half. No other tap resizes the sheet.
 - **The map:** a new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route opens the sheet to half. Zooming doesn't move the sheet.
@@ -636,6 +642,16 @@ Pad the top when you fit the map on a phone, so pins stay clear of the header ca
 ```
 
 - Shows at the top of the screen, for news: a co-editor's change, a confirmation, an undo.
+- **Rich** (`.wt-toast--rich`), for a notice that needs a second line, such as being offline: an icon, a short heading (what's happening) and a detail line (what still works, or how to fix it). It's a card with `--wt-radius-lg` rather than a pill, at most 360px wide, so two lines sit well in it. The detail is `--wt-type-caption` in `--wt-text-inverse-secondary`. It stays about 4 seconds.
+
+  ```html
+  <div class="wt-toast wt-toast--rich is-visible" role="status">
+    <span class="wt-toast__icon">${icon('cloud-off')}</span>
+    <span class="wt-toast__text"><b class="wt-toast__title">You’re offline</b>
+      <span class="wt-toast__detail">Showing the plan saved 2 hr ago. To add or change stops, reconnect.</span></span>
+  </div>
+  ```
+- Keep a plain toast to one short line. If it needs more, make it rich rather than letting a pill wrap.
 - Stays about 3 seconds, or 5 with an action.
 - One at a time. A new toast replaces the old one.
 
@@ -745,6 +761,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 7.2.0
+
+Trips can be saved on the device for offline use, and the trip header says when one is.
+
+- New: `.wt-trip-head__status` and `.is-offline` (see [Trip header](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)).
+- New: `.wt-btn[aria-disabled="true"]`, a button that's unavailable for now but still explains itself when tapped (see [Button](#button-wt-btn)).
+- New: `.wt-toast--rich` with `__icon`, `__text`, `__title` and `__detail`, a two-line notice (see [Toast](#toast-wt-toast)).
+- New token (tokens 1.11.0): `--wt-text-inverse-secondary`.
+- New icons (icons 1.4.0): `download`, `saved`, `cloud-off`.
 
 ### Changed in 7.1.0
 
