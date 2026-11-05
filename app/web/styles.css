@@ -46,6 +46,10 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 }
 .account-keep { margin: var(--wt-space-6) 0 var(--wt-space-1); font: var(--wt-type-heading); }
 .home-guest { color: var(--wt-text-secondary); }
+.account-mcp__list { list-style: none; margin: var(--wt-space-3) 0 0; padding: 0; display: grid; gap: var(--wt-space-2); }
+.account-mcp__item { display: flex; align-items: center; justify-content: space-between; gap: var(--wt-space-3); min-height: var(--wt-size-touch); }
+.account-mcp__name { display: grid; min-width: 0; overflow-wrap: anywhere; }
+.account-mcp__meta { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 
 /* ---------- Trip settings ---------- */
 .settings-new-link { margin-top: var(--wt-space-2); padding: 0; color: var(--wt-text-secondary); }

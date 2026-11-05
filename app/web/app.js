@@ -236,8 +236,17 @@ const kindColor = s => `var(--wt-kind-${kindOf(s)})`;
 const kindIcon = (s, size = 16) => WaythreadIcons.svg(KINDS[kindOf(s)].icon, size);
 
 // ---------- Session ----------
+// An assistant connecting through OAuth sends you here to sign in (/?next=/api/oauth/authorize?…): once you're
+// signed in, back to that page to allow it. Only that page, so the link can't send you anywhere else.
+function nextURL() {
+  const next = params.get('next');
+  if (!next) return null;
+  const u = new URL(next, location.origin);
+  return u.origin === location.origin && u.pathname === '/api/oauth/authorize' ? u.pathname + u.search : null;
+}
 async function boot() {
   [config, me] = await Promise.all([api('/config').catch(() => config), api('/me').catch(() => null)]);
+  if (me && nextURL()) { location.replace(nextURL()); return; }
   render();
   const msg = socialErrorMessage();
   if (msg) toast(msg);
@@ -254,8 +263,8 @@ async function signOut() {
   location.hash = '#/';
   signedOut();
 }
-// Come back to the same screen (a share link, say) after Google, whether it worked or not.
-const callbackURL = () => location.pathname + location.hash;
+// Come back to the same screen (a share link, say, or connecting an assistant) after Google, whether it worked or not.
+const callbackURL = () => location.pathname + location.search + location.hash;
 async function signInSocial(provider) {
   try {
     const { url } = await api('/auth/sign-in/social', { method: 'POST', body: { provider, callbackURL: callbackURL(), errorCallbackURL: callbackURL() } });
@@ -267,7 +276,9 @@ async function signInSocial(provider) {
 function socialErrorMessage() {
   const code = params.get('error');
   if (!code) return null;
-  history.replaceState(null, '', location.pathname + location.hash);
+  params.delete('error');
+  const rest = params.toString();
+  history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
   if (code === 'access_denied') return null; // they cancelled
   if (code === 'account_not_linked' || code === 'unable_to_link_account') return 'This email already has a Waythread password. Use Continue with email to sign in.';
   return 'Couldn’t sign in with Google. Try again.';
@@ -574,11 +585,12 @@ function render() {
    saves their trips (without the guest option, and without asking their name again). */
 let invite = { token: null, name: null };
 function renderSignIn(r) {
-  const joining = r.page === 'join';
+  const joining = r.page === 'join', connecting = !joining && !!nextURL();
   $app.innerHTML = `
-    <header class="home-head"><h1 class="signin-title">${joining ? esc(invite.token === r.token && invite.name ? `Join ${invite.name}` : 'Join the trip') : 'Waythread'}</h1></header>
+    <header class="home-head"><h1 class="signin-title">${joining ? esc(invite.token === r.token && invite.name ? `Join ${invite.name}` : 'Join the trip') : connecting ? 'Connect your assistant' : 'Waythread'}</h1></header>
     <main class="signin"></main>`;
-  authFlow($app.querySelector('.signin'), { joining, guest: true });
+  // Connecting an assistant needs an account: a guest's trips are only reachable from this browser
+  authFlow($app.querySelector('.signin'), { joining, connecting, guest: !connecting });
   if (joining && invite.token !== r.token) {
     invite = { token: r.token, name: null };
     api(`/invite/${encodeURIComponent(r.token)}`).then(({ name }) => {
@@ -609,7 +621,7 @@ const AUTH_ERRORS = {
   invalid: 'That email address doesn’t look right.',
 };
 
-function authFlow(root, { joining = false, guest = false } = {}) {
+function authFlow(root, { joining = false, connecting = false, guest = false } = {}) {
   const s = { step: 'start', email: '' };
   const head = (title, back) => `<div class="signin__head">
     <button type="button" class="wt-icon-btn signin__back" data-to="${back}" aria-label="Back">${ICON.back}</button>
@@ -618,6 +630,7 @@ function authFlow(root, { joining = false, guest = false } = {}) {
   const errorHTML = '<p class="signin__error" role="alert" hidden></p>';
   const STEPS = {
     start: () => `
+      ${connecting ? '<p class="signin__text">Sign in to Waythread, then allow your assistant to see and change your trips.</p>' : ''}
       ${guest ? `<p class="signin__text">${joining ? 'Everyone on the trip can see and edit the plan.' : 'Plan a trip together, in one place.'}</p>` : ''}
       ${config.google ? googleBtnHTML : ''}
       ${config.apple ? appleBtnHTML : ''}
@@ -654,6 +667,7 @@ function authFlow(root, { joining = false, guest = false } = {}) {
   };
   // Signed in: a guest who saved their trips lands back where they were, now with an account
   const done = async msg => {
+    if (connecting && nextURL()) { location.replace(nextURL()); return; }
     me = await api('/me');
     trips = null;
     closeSheet();
@@ -2184,8 +2198,8 @@ function openSettings(trip) {
   });
 }
 
-// Your name as others on your trips see it; guests are offered a real sign-in, which keeps their
-// trips; everyone can sign out.
+// Your name as others on your trips see it, the maps app, and AI assistants (not for guests); guests are
+// offered a real sign-in, which keeps their trips; everyone can sign out.
 function openAccount() {
   const upgrade = me.isGuest && canSignIn();
   openSheet(`<div class="account-main">${modalHead('Account')}
@@ -2195,6 +2209,9 @@ function openAccount() {
     </form>
     <div class="wt-field"><span class="wt-field__label" id="maps-label">Maps app</span>
       <button type="button" class="wt-picker wt-picker--text" data-maps-open aria-describedby="maps-label"></button></div>
+    ${me.isGuest ? '' : `<div class="wt-field"><span class="wt-field__label">AI assistant</span>
+      <p class="wt-modal__text">Connect Claude or another assistant that supports MCP, so it can see your trips’ stops and change them for you.</p>
+      <div class="account-mcp"></div></div>`}
     ${upgrade ? `<h3 class="account-keep">Keep your trips</h3>
     <p class="wt-modal__text">As a guest, you can only reach your trips from this browser. Sign in to keep them on any device.</p>
     <div class="signin"></div>` : ''}
@@ -2223,8 +2240,33 @@ function openAccount() {
       maps.mark(mapsApp);
     };
     showMaps();
+    if (!me.isGuest) assistantField(el.querySelector('.account-mcp'));
     if (upgrade) authFlow(el.querySelector('.signin'));
   });
+}
+
+// AI assistant, in Account: how to connect one (Waythread's MCP server address, which an assistant adds as a
+// connector; it then sends you to sign in and allow it), and the assistants you've connected, each with Disconnect.
+async function assistantField(box) {
+  const day = ms => { const d = new Date(ms); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; };
+  const show = ({ url, connections }) => {
+    box.innerHTML = `<p class="wt-modal__text">In Claude, add a custom connector with this address (Customize → Connectors → Add custom connector), then sign in here when it asks.</p>
+      <div class="wt-copy-row"><input class="wt-input" readonly value="${esc(url)}" aria-label="Server address">
+        <button class="wt-btn wt-btn--primary" data-action="copy" data-text="${esc(url)}" data-copied="Address copied">Copy</button></div>
+      ${connections.length ? `<ul class="account-mcp__list">${connections.map(c => `<li class="account-mcp__item">
+        <span class="account-mcp__name">${esc(c.name)}<span class="account-mcp__meta">${c.domain ? `${esc(c.domain)} · ` : ''}connected ${day(c.createdAt)}</span></span>
+        <button class="wt-btn wt-btn--danger" data-mcp-off="${esc(c.id)}">Disconnect</button></li>`).join('')}</ul>` : ''}`;
+    for (const btn of box.querySelectorAll('[data-mcp-off]')) btn.onclick = async () => {
+      const c = connections.find(x => x.id === btn.dataset.mcpOff);
+      if (!confirm(`Disconnect ${c.name}? It can’t see or change your trips anymore.`)) return;
+      try {
+        await api(`/assistants/${encodeURIComponent(c.id)}`, { method: 'DELETE' });
+        show({ url, connections: connections.filter(x => x !== c) });
+        toast(`${c.name} disconnected`);
+      } catch (err) { if (err.status !== 401) toast(failMsg(err, 'Couldn’t disconnect.')); }
+    };
+  };
+  try { show(await api('/assistants')); } catch { box.innerHTML = '<p class="wt-modal__text">Couldn’t load this. Check your connection.</p>'; }
 }
 
 // Two hours after the day's last stop; 9 AM on a day with none yet (a hotel day), or 9 AM tomorrow for an empty trip.
@@ -2635,7 +2677,7 @@ document.addEventListener('click', e => {
     case 'close-sheet': closeSheet(); break;
     case 'fit-day': showWholeDay(); break;
     case 'grab': setSnap(state.snap === 'half' ? 'full' : 'half'); break;
-    case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast('Link copied'), () => toast('Copy failed')); break;
+    case 'copy': navigator.clipboard?.writeText(el.dataset.text).then(() => toast(el.dataset.copied || 'Link copied'), () => toast('Copy failed')); break;
   }
 });
 document.addEventListener('keydown', e => {
