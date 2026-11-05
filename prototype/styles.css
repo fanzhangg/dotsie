@@ -61,7 +61,8 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 .account-mcp__meta { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 
 /* ---------- Trip settings ---------- */
-.settings-new-link { margin-top: var(--wt-space-2); padding: 0; color: var(--wt-text-secondary); }
+.settings-new-link, .settings-offline-remove { margin-top: var(--wt-space-2); padding: 0; color: var(--wt-text-secondary); }
+.settings-offline { display: grid; justify-items: start; }
 
 /* ---------- Trip: full-screen map with the list sheet on top ---------- */
 /* From 768px wide the sheet is a side panel (see the design system's wt-trip container), and the map sits beside it. */

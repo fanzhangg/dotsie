@@ -35,7 +35,7 @@ const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(-
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // ---------- Icons (design system) ----------
-const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'chevron-up-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin']
+const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'chevron-up-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin', 'download', 'saved', 'cloud-off']
   .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
@@ -247,14 +247,20 @@ function nextURL() {
   return u.origin === location.origin && u.pathname === '/api/oauth/authorize' ? u.pathname + u.search : null;
 }
 async function boot() {
-  [config, me] = await Promise.all([api('/config').catch(() => config), api('/me').catch(() => null)]);
+  // With no connection, whoever saved trips on this device is still signed in (see Offline)
+  [config, me] = await Promise.all([
+    api('/config').catch(e => (e.code === 'offline' && offline.config) || config),
+    api('/me').catch(e => (e.code === 'offline' && offline.me) || null),
+  ]);
   if (me && nextURL()) { location.replace(nextURL()); return; }
+  if (anySaved()) { rememberSession(); registerOffline(); }
   render();
   const msg = socialErrorMessage();
   if (msg) toast(msg);
 }
 function signedOut() {
   me = null; trips = null;
+  forgetOffline(); // what's saved on this device was theirs
   closeTrip();
   closeSheet();
   render();
@@ -383,12 +389,259 @@ function placeURL(p) {
   return mapsApp === 'apple' ? `https://maps.apple.com/?q=${q}&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
 
+// ---------- Offline: a trip saved on this device ----------
+// Trip settings can save a trip on this device, to see it with no signal: its plan (the last copy the server sent), its
+// drives, the map around each day and each stop, and the app itself, which sw.js serves when the network can't. A saved
+// trip keeps itself up to date: while it's open online its plan is saved again as it changes, and each visit fetches any
+// map it now needs. With no connection, Home lists the saved trips and a saved trip opens from its copy. The trip
+// header says which it is (offlineStatus). Changes still need a connection. Signing out removes everything saved.
+const OFFLINE_KEY = 'waythread:offline:v1';
+const SHELL_CACHE = 'waythread-shell';
+const tileCache = id => `waythread-tiles:${id}`;
+const canSaveOffline = window.isSecureContext && 'caches' in window && 'serviceWorker' in navigator;
+const OFFLINE_WAIT = 4000; // ms a saved trip waits for the server before showing its copy (a weak signal)
+// Who's signed in and what sign-in offers, so the app opens offline, and each saved trip:
+// { snap (as /api/trips/:id sends it), savedAt, style (its map's tile address), tiles, bytes, missing, noMap }
+let offline = { trips: {} };
+try { offline = JSON.parse(localStorage.getItem(OFFLINE_KEY)) || offline; } catch {}
+const storeOffline = () => { try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(offline)); } catch {} };
+const savedTrip = id => offline.trips[id] || null;
+const anySaved = () => Object.keys(offline.trips).length > 0;
+// The saved copy of a trip, as the trip screen holds one. `offline` marks it as maybe not the latest.
+const offlineCopy = id => (savedTrip(id) ? { ...fromSnapshot(savedTrip(id).snap), offline: true } : null);
+// Home's cards for the saved trips, as /api/trips sends them
+const offlineCards = () => Object.values(offline.trips).sort((a, b) => b.savedAt - a.savedAt).map(({ snap }) => {
+  const times = snap.stops.map(s => s.time).sort();
+  return { id: snap.trip.id, name: snap.trip.name, start: times[0] || null, end: times.at(-1) || null };
+});
+// No connection, or the trip on screen is its saved copy because the server didn't answer
+const offlineNow = () => !navigator.onLine || !!cur?.offline;
+const registerOffline = () => navigator.serviceWorker?.register('sw.js').catch(() => {});
+function rememberSession() {
+  if (!anySaved() || !me) return;
+  offline.me = me;
+  offline.config = config;
+  storeOffline();
+}
+function forgetOffline() {
+  const ids = Object.keys(offline.trips);
+  offline = { trips: {} };
+  offlineJob = null;
+  try { localStorage.removeItem(OFFLINE_KEY); } catch {}
+  if (canSaveOffline) for (const name of [SHELL_CACHE, ...ids.map(tileCache)]) caches.delete(name).catch(() => {});
+}
+
+// The plan, saved again as it changes while the trip is open online. Not from a saved copy: an edit made offline
+// hasn't reached the server, so it isn't saved as if it had.
+let planTimer = 0;
+function keepOfflinePlan() {
+  clearTimeout(planTimer);
+  planTimer = setTimeout(() => {
+    const trip = cur?.stops ? cur : null, t = trip && savedTrip(trip.id);
+    if (!t || trip.offline) return;
+    const snap = { trip: { id: trip.id, name: trip.name }, members: trip.members, stops: trip.stops };
+    if (JSON.stringify(snap) !== JSON.stringify(t.snap)) { t.snap = snap; t.savedAt = Date.now(); storeOffline(); }
+  }, 1000);
+}
+
+// The map tiles a saved trip needs: each day's view, and the overview's, at its zoom (with a tile to spare around it),
+// a level out and a level in; and a street-level patch around each place. About 1–5 MB a day.
+function offlineTileURLs(trip) {
+  if (!map || !tiles) return [];
+  const urls = new Set([STADIA_CHECK]), size = map.getSize(), spare = L.point(128, 128), street = L.point(256, 256);
+  const add = (center, z, half) => { const c = map.project(center, z); for (const u of tiles.tileURLs(L.bounds(c.subtract(half), c.add(half)), z)) urls.add(u); };
+  for (const d of pagesOf(trip)) {
+    const v = dayView(trip, d);
+    if (!v) continue;
+    // a level in covers the whole view, where a zoom in can land; a level out, a view-sized area around its middle
+    for (const dz of [-1, 0, 1]) add(v.center, Math.round(v.zoom) + dz, size.multiplyBy(Math.max(1, 2 ** dz) / 2).add(spare));
+  }
+  for (const s of trip.stops) for (const z of [15, 16]) add(L.latLng(s.lat, s.lng), z, street);
+  return [...urls];
+}
+
+let offlineJob = null; // the trip being saved: { id, done, total, quiet, first (not saved before) }
+const toppedUp = new Set(); // saved trips brought up to date this visit
+// Save a trip, or bring a saved one up to date (`quiet`: on its own, when the trip opens). Only what isn't saved yet
+// is fetched, so bringing it up to date is cheap. The plan is saved first, so it's there even if the map isn't finished.
+async function saveOffline(trip, { quiet = false } = {}) {
+  if (!canSaveOffline || offlineJob?.id === trip.id || trip.offline) return;
+  const id = trip.id, urls = offlineTileURLs(trip), legs = new Map();
+  for (const d of daysOf(trip)) {
+    const plan = dayPlan(trip, d);
+    for (let i = 1; i < plan.length; i++) {
+      const a = plan[i - 1].place, b = plan[i].place, k = legKey(a, b);
+      if (!samePlace(a, b) && !routes[k]?.ok) legs.set(k, { a, b, k });
+    }
+  }
+  const job = offlineJob = { id, done: 0, total: urls.length + legs.size, quiet, first: !savedTrip(id) };
+  if (!quiet) navigator.storage?.persist?.().catch(() => {});
+  registerOffline();
+  const t = offline.trips[id] ||= { tiles: 0, bytes: 0 };
+  t.snap = { trip: { id, name: trip.name }, members: trip.members, stops: trip.stops };
+  t.savedAt = Date.now();
+  if (tiles) t.style = tiles._url;
+  t.noMap = !tiles;
+  rememberSession();
+  showOffline();
+  // The app's own files: the page, its scripts and styles
+  const shell = caches.open(SHELL_CACHE).then(c => Promise.all([location.pathname, ...[...document.querySelectorAll('script[src], link[rel="stylesheet"]')].map(el => el.src || el.href)]
+    .map(f => c.add(f).catch(() => {})))).catch(() => {});
+  // Each drive's route, a second apart, as preloading fetches them
+  const drives = (async () => {
+    for (const leg of legs.values()) {
+      if (offlineJob !== job) return;
+      if (!routes[leg.k]?.ok) { await fetchRoute({ ...leg, background: true }); await new Promise(r => setTimeout(r, BG_ROUTE_GAP)); }
+      job.done++;
+      showOffline();
+    }
+    scheduleRender();
+  })();
+  // The map, a few tiles at a time
+  let missing = 0, next = 0;
+  const cache = await caches.open(tileCache(id)).catch(() => null);
+  const worker = async () => {
+    while (cache && next < urls.length && offlineJob === job) {
+      const u = urls[next++];
+      try {
+        if (!(await cache.match(u))) {
+          const res = await fetch(u);
+          if (!res.ok) throw new Error(res.status);
+          const bytes = +res.headers.get('content-length') || (await res.clone().blob()).size;
+          await cache.put(u, res);
+          t.bytes += bytes;
+        }
+      } catch { missing++; }
+      job.done++;
+      showOffline();
+    }
+  };
+  await Promise.all([shell, drives, ...Array.from({ length: TILE_PRELOAD_PARALLEL }, worker)]);
+  if (offlineJob !== job) return; // removed, or signed out, meanwhile
+  offlineJob = null;
+  t.tiles = urls.length - missing;
+  t.missing = cache ? missing : urls.length;
+  storeOffline();
+  showOffline();
+  if (!quiet) {
+    toast(t.missing ? { icon: ICON.download, title: 'Part of the map didn’t download', detail: 'The plan is saved. Try again in trip settings when the signal is better.' }
+      : { icon: ICON.saved, title: 'Available offline', detail: `${trip.name} is saved on this device.` });
+  }
+}
+// A saved trip, brought up to date once a visit, after the day on screen has loaded
+function topUpOffline(trip) {
+  if (!savedTrip(trip.id) || trip.offline || toppedUp.has(trip.id) || !navigator.onLine) return;
+  toppedUp.add(trip.id);
+  saveOffline(trip, { quiet: true });
+}
+function removeOffline(trip) {
+  if (offlineJob?.id === trip.id) offlineJob = null;
+  delete offline.trips[trip.id];
+  toppedUp.delete(trip.id);
+  storeOffline();
+  if (canSaveOffline) {
+    caches.delete(tileCache(trip.id)).catch(() => {});
+    if (!anySaved()) caches.delete(SHELL_CACHE).catch(() => {});
+  }
+  showOffline();
+}
+
+// The trip header's status: available offline, saving, or no connection. Not saved and online, it says nothing.
+// It's a button: a tap says what it means, in a notice.
+const fmtMB = b => (b < 1e6 ? 'under 1 MB' : `${Math.round(b / 1e6)} MB`);
+const fmtAgo = t => {
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} hr ago`;
+  return fmtDay(toInput(new Date(t)));
+};
+const pctOf = job => (job.total ? Math.floor((job.done / job.total) * 100) : 0);
+function offlineStatus(trip) {
+  const t = savedTrip(trip.id);
+  if (offlineNow()) return { icon: ICON.cloudOff, label: 'Offline', say: offlineNotice(trip) };
+  if (offlineJob?.id === trip.id && !offlineJob.quiet) {
+    return { icon: ICON.download, label: 'Saving for offline', say: { icon: ICON.download, title: 'Saving for offline', detail: `${pctOf(offlineJob)}% done. Keep the app open until it finishes.` } };
+  }
+  if (t) return { icon: ICON.saved, label: 'Available offline', say: { icon: ICON.saved, title: 'Available offline', detail: 'The plan and map are saved on this device, so they open without a signal.' } };
+  return null;
+}
+// What being offline means for this trip: what you can still do, and what has to wait
+function offlineNotice(trip) {
+  const t = savedTrip(trip.id);
+  return {
+    icon: ICON.cloudOff, title: 'You’re offline',
+    detail: t ? `Showing the plan saved ${fmtAgo(t.savedAt)}. To add or change stops, reconnect.` : 'To add or change stops, reconnect.',
+  };
+}
+let statusSay = null;
+function renderOfflineStatus(trip) {
+  const btn = $app.dataset.trip === trip.id && $app.querySelector('.wt-trip-head__status');
+  if (!btn) return;
+  const st = offlineStatus(trip);
+  btn.hidden = !st;
+  statusSay = st?.say || null;
+  if (!st || btn.dataset.label === st.label) return;
+  btn.dataset.label = st.label;
+  btn.classList.toggle('is-offline', st.icon === ICON.cloudOff);
+  btn.setAttribute('aria-label', st.label);
+  btn.title = st.label;
+  btn.innerHTML = st.icon;
+}
+
+// Trip settings' Offline field: save the trip, how it's going, or what's saved and a way to remove it
+let offlineField = null; // { el, trip, kind } while trip settings are open
+function offlineFieldHTML(trip) {
+  if (!canSaveOffline) return { kind: 'none', html: '<p class="wt-modal__text">This browser can’t save trips for offline.</p>' };
+  // bringing a saved trip up to date happens on its own, and the field goes on showing what's saved
+  const t = savedTrip(trip.id), job = offlineJob?.id === trip.id && !offlineJob.quiet && offlineJob;
+  if (!t) {
+    return { kind: 'save', html: `<p class="wt-modal__text">Save the plan and its map on this device, to see them with no signal.</p>
+      <button class="wt-btn wt-btn--secondary" data-offline-save${trip.offline ? ' disabled' : ''}>${ICON.download}Save for offline</button>` };
+  }
+  if (job) return { kind: 'saving', html: `<p class="wt-modal__text">Saving the map: <span data-offline-pct>${pctOf(job)}</span>%</p>
+      <button class="wt-btn wt-btn--ghost settings-offline-remove" data-offline-remove>${job.first ? 'Cancel' : 'Remove from this device'}</button>` };
+  // Safari in a browser tab clears a site's saved data after about a week without a visit; an app on the Home Screen keeps it
+  const ios = navigator.standalone === false ? '<p class="wt-modal__text">On iPhone, Safari clears saved trips you haven’t opened in a week. To keep this one, add Waythread to your Home Screen, open it from there and save the trip again.</p>' : '';
+  const map = t.noMap ? ' The map can’t be saved with this map provider.' : t.missing ? ' Part of the map didn’t download.' : '';
+  return { kind: 'saved', html: `<p class="wt-modal__text">Saved on this device (${fmtMB(t.bytes)}), updated ${fmtAgo(t.savedAt)}. It updates whenever you open the trip online.${map}</p>${ios}
+      ${t.missing && !trip.offline ? '<button class="wt-btn wt-btn--secondary" data-offline-save>Try again</button>' : ''}
+      <button class="wt-btn wt-btn--ghost settings-offline-remove" data-offline-remove>Remove from this device</button>` };
+}
+function showOffline() {
+  const trip = cur?.stops ? cur : null;
+  if (trip) renderOfflineStatus(trip);
+  const f = offlineField;
+  if (!f || !f.el.isConnected) { offlineField = null; return; }
+  const { kind, html } = offlineFieldHTML(f.trip);
+  if (kind !== f.kind) { f.kind = kind; f.el.innerHTML = html; return; }
+  const pct = f.el.querySelector('[data-offline-pct]');
+  if (pct && offlineJob) pct.textContent = pctOf(offlineJob);
+}
+// Adding, editing and deleting stops need a connection: offline, their buttons are greyed out, and a tap says why
+// rather than opening a stop that couldn't be saved. Deleting is in the stop sheet, so it's covered too.
+function needsConnection() {
+  if (!offlineNow()) return true;
+  toast(offlineNotice(cur));
+  return false;
+}
+// Back online: a trip showing its saved copy loads the server's, and the header stops saying offline.
+// Either way, the add bar's buttons follow.
+addEventListener('online', () => { if (cur?.offline) reloadTrip(); showOffline(); if (cur?.stops) scheduleRender(); });
+addEventListener('offline', () => { showOffline(); if (cur?.stops) scheduleRender(); });
+
 // ---------- Trips ----------
 let tripLoad = null; // the id being fetched, so a slow reply for a trip you've left is dropped
 async function openTrip(id) {
   tripLoad = id;
+  // A trip saved for offline opens from its copy with no connection, or while the server is slow to answer (a weak
+  // signal); the server's copy replaces it once it comes.
+  const copy = offlineCopy(id);
+  const early = copy && setTimeout(() => { if (tripLoad === id && cur?.id !== id) { cur = copy; render(); } }, OFFLINE_WAIT);
   let next;
-  try { next = fromSnapshot(await api(`/trips/${id}`)); } catch (e) { next = { id, error: e.code || 'offline' }; }
+  try { next = fromSnapshot(await api(`/trips/${id}`)); } catch (e) { next = (e.code === 'offline' && copy) || { id, error: e.code || 'offline' }; }
+  clearTimeout(early);
   if (tripLoad !== id) return;
   tripLoad = null;
   cur = next;
@@ -412,7 +665,8 @@ function closeTrip() {
   pendingStops.clear();
 }
 async function loadTrips() {
-  try { trips = await api('/trips'); } catch { trips = trips || []; }
+  // with no connection, the trips saved on this device
+  try { trips = await api('/trips'); } catch (e) { trips = e.code === 'offline' && anySaved() ? offlineCards() : trips || []; }
   if (parseHash().page === 'home' && me) render();
 }
 let joining = null;
@@ -561,6 +815,8 @@ function render() {
   document.title = `${trip.name} · Waythread`;
   const el = $app.querySelector('.trip');
   el.querySelector('.wt-trip-head__name').textContent = trip.name;
+  renderOfflineStatus(trip);
+  if (savedTrip(trip.id)) keepOfflinePlan();
   const bar = el.querySelector('.wt-day-bar');
   const topH = el.querySelector('.wt-sheet__top').offsetHeight;
   bar.innerHTML = dayBarHTML(trip);
@@ -830,9 +1086,11 @@ document.addEventListener('error', e => { if (e.target.classList?.contains('wt-t
 
 // ---------- Trip screen: map + one day of the plan ----------
 // Stadia answers a domain it doesn't know with a "401" picture instead of an error, which Leaflet
-// can't tell from a real tile; ask once per visit whether it will serve this site.
+// can't tell from a real tile; ask once per visit whether it will serve this site. With no connection there's no
+// answer: use Stadia, whose tiles a trip saved for offline has (the tile asked for is saved with them), and ask again next time.
+const STADIA_CHECK = 'https://tiles.stadiamaps.com/tiles/alidade_smooth/0/0/0.png';
 let stadiaCheck = null;
-const stadiaServes = () => (stadiaCheck ??= fetch('https://tiles.stadiamaps.com/tiles/alidade_smooth/0/0/0.png').then(r => r.ok, () => false));
+const stadiaServes = () => (stadiaCheck ??= fetch(STADIA_CHECK).then(r => r.ok, () => { stadiaCheck = null; return true; }));
 let map = null, layer = null, routeLayer = null, fitKey = '';
 let camPlaced = false; // the new map has been framed once: its first framing is placed, not flown to
 let camTarget = null; // where the camera is flying, and until when
@@ -1068,18 +1326,22 @@ function bufferedTileLayer(url, opts) {
     const b = inView.call(this, center), pad = this.getTileSize().multiplyBy(EDGE_TILES);
     return L.bounds(b.min.subtract(pad), b.max.add(pad));
   };
-  // Every tile under pixel bounds `b` at zoom `z`: now, or with `later`, queued behind everything else
-  t.prefetchArea = (b, z, later = false) => {
-    if (z < t.options.minZoom || z > t.options.maxZoom) return;
-    const size = t.getTileSize(), n = 2 ** z;
+  // The address of every tile under pixel bounds `b` at zoom `z`
+  t.tileURLs = (b, z) => {
+    if (z < t.options.minZoom || z > t.options.maxZoom) return [];
+    const size = t.getTileSize(), n = 2 ** z, out = [];
     const lo = b.min.unscaleBy(size).floor(), hi = b.max.unscaleBy(size).ceil();
     for (let y = Math.max(lo.y, 0); y < Math.min(hi.y, n); y++) {
-      for (let x = lo.x; x < hi.x; x++) {
-        const src = L.Util.template(url, { ...t.options, r: L.Browser.retina ? '@2x' : '', x: ((x % n) + n) % n, y, z });
-        if (fetchedTiles.has(src)) continue;
-        fetchedTiles.add(src);
-        if (later) tileQueue.push(src); else new Image().src = src;
-      }
+      for (let x = lo.x; x < hi.x; x++) out.push(L.Util.template(url, { ...t.options, r: L.Browser.retina ? '@2x' : '', x: ((x % n) + n) % n, y, z }));
+    }
+    return out;
+  };
+  // Every tile under pixel bounds `b` at zoom `z`: now, or with `later`, queued behind everything else
+  t.prefetchArea = (b, z, later = false) => {
+    for (const src of t.tileURLs(b, z)) {
+      if (fetchedTiles.has(src)) continue;
+      fetchedTiles.add(src);
+      if (later) tileQueue.push(src); else new Image().src = src;
     }
     if (later) pumpTiles();
   };
@@ -1120,6 +1382,7 @@ function preloadTrip() {
   // the camera depends on how much of the map the open stop covers; wait until it's closed
   if (!tiles || navigator.connection?.saveData || state.draft) return;
   if (tiles.isLoading()) { tiles.once('load', schedulePreload); return; } // the day on screen comes first
+  topUpOffline(trip);
   const size = map.getSize(), shown = L.point(size.x, size.y - coveredBottom());
   if (shown.x <= 0 || shown.y <= 0) return;
   for (const d of days) {
@@ -1158,6 +1421,7 @@ function mountTrip(trip) {
     <header class="wt-trip-head">
       <a class="wt-icon-btn" href="#/" aria-label="All trips">${ICON.home}</a>
       <h1 class="wt-trip-head__name"></h1>
+      <button class="wt-icon-btn wt-trip-head__status" data-action="offline-status" hidden></button>
       <button class="wt-icon-btn" data-action="settings" aria-label="Trip settings and sharing">${ICON.settings}</button>
     </header>
     <div id="map"></div>
@@ -1204,9 +1468,17 @@ function mountTrip(trip) {
     if (map !== m) return; // left the trip meanwhile
     if (!ok) return osm();
     mapCredit = CREDIT.stadia;
-    const quiet = bufferedTileLayer(`https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, { maxZoom: 20 }).addTo(m);
+    // A trip opened from its saved copy shows the map that was saved with it, light or dark, whichever the phone is now
+    const style = (trip.offline && savedTrip(trip.id)?.style) || `https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`;
+    const quiet = bufferedTileLayer(style, { maxZoom: 20 }).addTo(m);
     tiles = quiet;
-    quiet.once('tileerror', () => { m.removeLayer(quiet); tiles = null; tileQueue = []; osm(); });
+    // A tile that fails with no connection is one that wasn't saved, not Stadia refusing the site: keep the rest
+    const fallBack = () => {
+      if (offlineNow()) return;
+      quiet.off('tileerror', fallBack);
+      m.removeLayer(quiet); tiles = null; tileQueue = []; osm();
+    };
+    quiet.on('tileerror', fallBack);
     schedulePreload();
   });
   routeLayer = new RouteLayer().addTo(map);
@@ -1377,14 +1649,15 @@ const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.s
 // Below the list, always in reach: Add stop; with a stop selected, Open in Maps (the place in the maps app, to see what it is)
 // and a round Edit stop; with a drive's route shown, Directions to the drive's end in the maps app. Either way a small + at the
 // end keeps adding one tap away. Each button has a `data-key`, the same in every set, so a change of set can morph (morphRow).
+// Offline, adding and editing are greyed out (aria-disabled), and a tap says why (see needsConnection).
 function addBarHTML(trip) {
-  const s = selectedStop(trip);
+  const s = selectedStop(trip), off = offlineNow() ? ' aria-disabled="true"' : '';
   const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
-  const plus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add" aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
+  const plus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add"${off} aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
   if (leg) return `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${directionsURL(leg.from, leg.to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a>${plus}`;
   return s
-    ? `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="Open ${esc(s.name)} in your maps app">${ICON.map}Open in Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="edit" data-id="${esc(s.id)}" aria-label="Edit stop" title="Edit stop">${ICON.edit}</button>${plus}`
-    : `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="add" data-action="add">${ICON.plus}Add stop</button>`;
+    ? `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="Open ${esc(s.name)} in your maps app">${ICON.map}Open in Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="edit" data-id="${esc(s.id)}"${off} aria-label="Edit stop" title="Edit stop">${ICON.edit}</button>${plus}`
+    : `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="add" data-action="add"${off}>${ICON.plus}Add stop</button>`;
 }
 function renderAddBar(trip) {
   const bar = $app.querySelector('.wt-add-bar'), html = addBarHTML(trip);
@@ -2227,7 +2500,8 @@ function openNewTrip() {
   });
 }
 
-// Everything about the trip that isn't the plan: its name, who's on it, the share link, deleting it, and the map's credits.
+// Everything about the trip that isn't the plan: its name, who's on it, the share link, saving it for offline, deleting
+// it, and the map's credits.
 function openSettings(trip) {
   openSheet(`${modalHead('Trip settings')}
     <form class="settings-name">
@@ -2240,8 +2514,21 @@ function openSettings(trip) {
       <p class="wt-modal__text">Anyone with the link can join and edit this trip.</p>
       <div class="wt-copy-row"><input class="wt-input" readonly value="" placeholder="Loading…" aria-label="Trip link"><button class="wt-btn wt-btn--primary" data-action="copy" disabled>Copy</button></div>
       <button class="wt-btn wt-btn--ghost settings-new-link" data-new-link>Make a new link</button></div>
+    <div class="wt-field"><span class="wt-field__label">Offline</span><div class="settings-offline"></div></div>
     <div class="wt-modal__actions"><button class="wt-btn wt-btn--danger" data-del>Delete trip</button></div>
     <p class="wt-credit">Map ${mapCredit}</p>`, async el => {
+    // Offline: Save for offline, how far it's got, or what's saved
+    const off = el.querySelector('.settings-offline');
+    offlineField = { el: off, trip, kind: '' };
+    showOffline();
+    off.addEventListener('click', e => {
+      if (e.target.closest('[data-offline-save]')) saveOffline(trip);
+      else if (e.target.closest('[data-offline-remove]')) {
+        const cancel = offlineJob?.id === trip.id && offlineJob.first;
+        removeOffline(trip);
+        toast(cancel ? 'Stopped saving for offline' : 'Removed from this device');
+      }
+    });
     // The name saves when you leave the field or press Return; no separate button
     const f = el.querySelector('.settings-name');
     f.elements.title.value = trip.name;
@@ -2723,12 +3010,17 @@ function openStopSheet(trip, stop) {
 const $toast = Object.assign(document.createElement('div'), { className: 'wt-toast', role: 'status' });
 document.body.append($toast);
 let toastTimer;
+// `msg` is a line of text, or { icon, title, detail } for a notice that needs a second line (.wt-toast--rich),
+// which stays a little longer so the detail can be read.
 function toast(msg, label, onAction) {
-  $toast.innerHTML = `<span>${esc(msg)}</span>${label ? `<button class="wt-toast__action">${esc(label)}</button>` : ''}`;
+  const rich = typeof msg === 'object';
+  const text = rich ? `${msg.icon ? `<span class="wt-toast__icon">${msg.icon}</span>` : ''}<span class="wt-toast__text"><b class="wt-toast__title">${esc(msg.title)}</b>${msg.detail ? `<span class="wt-toast__detail">${esc(msg.detail)}</span>` : ''}</span>` : `<span>${esc(msg)}</span>`;
+  $toast.innerHTML = `${text}${label ? `<button class="wt-toast__action">${esc(label)}</button>` : ''}`;
+  $toast.classList.toggle('wt-toast--rich', rich);
   if (label) $toast.querySelector('button').onclick = () => { $toast.classList.remove('is-visible'); onAction(); };
   $toast.classList.add('is-visible');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $toast.classList.remove('is-visible'), label ? 5000 : 2800);
+  toastTimer = setTimeout(() => $toast.classList.remove('is-visible'), label ? 5000 : rich ? 4000 : 2800);
 }
 
 // ---------- Events ----------
@@ -2739,10 +3031,11 @@ document.addEventListener('click', e => {
   const stop = trip && el.dataset.id && trip.stops.find(s => s.id === el.dataset.id);
   switch (el.dataset.action) {
     case 'new-trip': openNewTrip(); break;
-    case 'add': openStopSheet(trip); break;
+    case 'add': if (needsConnection()) openStopSheet(trip); break;
     case 'select': if (stop && !e.target.closest('a')) selectStop(stop, el.dataset.row); break; // a link in its note opens on its own
-    case 'edit': if (stop) openStopSheet(trip, stop); break;
+    case 'edit': if (stop && needsConnection()) openStopSheet(trip, stop); break;
     case 'settings': openSettings(trip); break;
+    case 'offline-status': if (statusSay) toast(statusSay); break;
     case 'prev-day': stepDay(-1); break;
     case 'next-day': stepDay(1); break;
     case 'days': openDays(trip); break;

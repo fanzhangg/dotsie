@@ -13,8 +13,9 @@
 
 - `prototype/app.js` is `app/web/app.js` with its backend swapped out: the sections marked *Prototype only* (a pretend `/api`, the session, live edits over a BroadcastChannel, the note in trip settings) replace the app's, and the app's *Sign in* section is left out. Everything else is the same, line for line, so `diff app/web/app.js prototype/app.js` shows only those sections. Port a change by applying the same edit to both files.
 - `prototype/styles.css` is `app/web/styles.css` plus `.proto-note`. `prototype/index.html` differs only in the `../design-system/` paths.
+- `prototype/sw.js` (the offline service worker) and `prototype/manifest.json` are the same as `app/web`'s: copy them over unchanged.
 - What stays product-only, because the prototype has no server: sign-in and accounts (the prototype uses `?as=` instead), connecting an AI assistant (OAuth and its Allow page), the API, and the WebSocket (the prototype uses localStorage and a BroadcastChannel). Wherever the product has UI for these, such as the share link and its new-link button, the prototype fakes it locally rather than leaving it out.
-- Before finishing a change to either one, run `diff app/web/app.js prototype/app.js` and `diff app/web/styles.css prototype/styles.css` and check that nothing outside those sections differs. Then open both and try the change in each.
+- Before finishing a change to either one, run `diff app/web/app.js prototype/app.js`, `diff app/web/styles.css prototype/styles.css` and `diff app/web/sw.js prototype/sw.js` and check that nothing outside those sections differs. Then open both and try the change in each.
 - If a docs page or the design system's README describes the change, update it once for both.
 
 ## Running
