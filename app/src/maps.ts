@@ -130,21 +130,27 @@ type SightKind = 'attraction' | 'museum' | 'viewpoint' | 'nature';
 export const SIGHT_ZOOM = 12;
 const SIGHT_TTL = 60 * 60 * 24 * 30;
 const SIGHTS_PER_TILE = 80; // the best ranked: more than ever fit on a screen showing this tile
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
+// The main public server, then another public one when it's busy or too slow
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+const SIGHT_RETRY = 60 * 10; // after both fail on a tile, it isn't asked again for this long
 const OSM_UA = { 'User-Agent': 'Waythread (road trip planner)' }; // Overpass and Nominatim ask for one
 
 // Each line is a kind of sight. Minor kinds need a Wikidata item or a Wikipedia article to count: OpenStreetMap maps
-// every named peak, park and plaque, and only the known ones are worth a trip.
+// every named peak, park and plaque, and only the known ones are worth a trip. Only parks and protected areas are asked
+// for as relations too: matching a relation means loading its outline, and a tile crossed by a huge one (a missile range
+// by White Sands, a state's border) took Overpass past its time limit.
 const SIGHT_QUERY = [
-  'nwr[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]',
-  'nwr[historic~"^(castle|palace|fort|monument|archaeological_site|ruins|ship|city_gate)$"][name]',
-  'nwr[historic=memorial][name][wikidata]',
-  'nwr[natural~"^(peak|volcano|beach|bay|cave_entrance|arch|cliff|hot_spring|geyser|glacier)$"][name][wikidata]',
-  'nwr[waterway=waterfall][name]',
+  'nw[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]',
+  'nw[historic~"^(castle|palace|fort|monument|archaeological_site|ruins|ship|city_gate)$"][name]',
+  'nw[historic=memorial][name][wikidata]',
+  'nw[natural~"^(peak|volcano|beach|bay|cave_entrance|arch|cliff|hot_spring|geyser|glacier)$"][name][wikidata]',
+  'nw[waterway=waterfall][name]',
   'nwr[leisure~"^(park|garden|nature_reserve)$"][name][wikidata]',
-  'nwr[boundary~"^(national_park|protected_area)$"][name][wikidata]',
-  'nwr[man_made=lighthouse][name]',
-  'nwr[amenity=place_of_worship][name][wikipedia]',
+  'rel[boundary~"^(national_park|protected_area)$"][name][wikidata]',
+  'nw[man_made=lighthouse][name]',
+  'nw[amenity=place_of_worship][name][wikipedia]',
+  'nw[tourism=information][information~"^(office|visitor_centre)$"][name]',
+  'node[highway=trailhead][name]',
 ];
 // What a sight is, from its tags: its kind, for the stop it would become, and how much it's worth a visit (0–3)
 function sightKind(t: Record<string, string>): { kind: SightKind; worth: number } | null {
@@ -153,12 +159,16 @@ function sightKind(t: Record<string, string>): { kind: SightKind; worth: number 
   if (tourism === 'gallery') return { kind: 'museum', worth: 2 };
   if (tourism === 'viewpoint') return { kind: 'viewpoint', worth: 2 };
   if (tourism && /^(attraction|zoo|theme_park|aquarium)$/.test(tourism)) return { kind: 'attraction', worth: 3 };
-  if (t.boundary === 'national_park') return { kind: 'nature', worth: 3 };
+  // A national park is often mapped as a protected area of class 2
+  if (t.boundary === 'national_park' || t.protected_area === 'national_park' || (t.boundary === 'protected_area' && t.protect_class === '2')) return { kind: 'nature', worth: 3 };
   if (historic && /^(castle|palace|fort)$/.test(historic)) return { kind: 'attraction', worth: 3 };
   if (historic && /^(monument|archaeological_site|ship|city_gate)$/.test(historic)) return { kind: 'attraction', worth: 2 };
   if (t.waterway === 'waterfall' || t.natural) return { kind: 'nature', worth: 2 };
   if (t.leisure || t.boundary) return { kind: 'nature', worth: 1 };
   if (historic || t.man_made === 'lighthouse' || t.amenity === 'place_of_worship') return { kind: 'attraction', worth: 1 };
+  // Where a park's visit starts: its visitor center, and its trails
+  if (tourism === 'information') return { kind: 'attraction', worth: 1 };
+  if (t.highway === 'trailhead') return { kind: 'nature', worth: 1 };
   return null;
 }
 
@@ -171,14 +181,19 @@ export function tileBounds(x: number, y: number) {
 
 const sightsLoading = new Map<string, Promise<Sight[]>>(); // one Overpass call per tile at a time, in this isolate
 export async function findSights(env: Env, x: number, y: number): Promise<Sight[]> {
-  const key = `sights:v1:${x}/${y}`;
+  const key = `sights:v2:${x}/${y}`, failed = `sights:failed:${x}/${y}`;
   const hit = await env.ROUTES.get<Sight[]>(key, 'json');
   if (hit) return hit;
+  // A tile Overpass couldn't answer just now: everyone looking at it would ask again every few seconds
+  if (await env.ROUTES.get(failed)) throw new Error('Overpass failed on this tile a moment ago');
   let p = sightsLoading.get(key);
   if (!p) {
     p = overpassSights(tileBounds(x, y)).then(async list => {
       await env.ROUTES.put(key, JSON.stringify(list), { expirationTtl: SIGHT_TTL });
       return list;
+    }, async e => {
+      await env.ROUTES.put(failed, '1', { expirationTtl: SIGHT_RETRY });
+      throw e;
     }).finally(() => sightsLoading.delete(key));
     sightsLoading.set(key, p);
   }
@@ -188,15 +203,24 @@ export async function findSights(env: Env, x: number, y: number): Promise<Sight[
 type OsmElement = { type: 'node' | 'way' | 'relation'; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
 async function overpassSights([s, w, n, e]: number[]) {
   const q = `[out:json][timeout:25][bbox:${s},${w},${n},${e}];(${SIGHT_QUERY.join(';')};);out center tags qt;`;
-  const res = await fetch(OVERPASS, { method: 'POST', headers: { ...OSM_UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}` });
-  if (!res.ok) throw new Error(`Overpass ${res.status}`);
-  const j = await res.json<{ elements: OsmElement[]; remark?: string }>();
-  // A query that ran out of time or memory still answers 200, with what it found so far and a remark: not worth keeping
-  if (j.remark && /error/i.test(j.remark)) throw new Error(`Overpass: ${j.remark}`);
-  return sightsFrom(j.elements);
+  let err: unknown;
+  for (const url of OVERPASS) {
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { ...OSM_UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}` });
+      if (!res.ok) throw new Error(`Overpass ${new URL(url).host} ${res.status}`);
+      const j = await res.json<{ elements: OsmElement[]; remark?: string }>();
+      // A query that ran out of time or memory still answers 200, with what it found so far and a remark: not worth keeping
+      if (j.remark && /error/i.test(j.remark)) throw new Error(`Overpass ${new URL(url).host}: ${j.remark}`);
+      return sightsFrom(j.elements);
+    } catch (e) {
+      console.error(e);
+      err = e;
+    }
+  }
+  throw err;
 }
 export function sightsFrom(elements: OsmElement[]): Sight[] {
-  const out: Sight[] = [];
+  const out: (Sight & { wikidata?: string })[] = [];
   for (const el of elements) {
     const t = el.tags ?? {}, at = el.center ?? (el.lat != null ? { lat: el.lat, lon: el.lon! } : null), what = sightKind(t);
     if (!t.name || !at || !what) continue;
@@ -204,15 +228,19 @@ export function sightsFrom(elements: OsmElement[]): Sight[] {
     // walls) beats a point (a statue, a sign) of the same kind.
     const rank = what.worth + (t.wikipedia ? 4 : t.wikidata ? 2 : 0) + (el.type === 'node' ? 0 : 1);
     out.push({
-      id: `${el.type[0]}${el.id}`, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind, rank,
+      id: `${el.type[0]}${el.id}`, wikidata: t.wikidata, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind, rank,
       address: [[t['addr:housenumber'], t['addr:street']].filter(Boolean).join(' '), t['addr:city']].filter(Boolean).join(', '),
     });
   }
-  // One place mapped twice (a museum's point and its building) is one sight: the better ranked, within about 300 m
+  // One place mapped more than once is one sight, the better ranked: a museum's point and its building, a park's area
+  // and a point in it with the same Wikidata item, or a name used twice in the tile (three viewpoints all called
+  // "Interdune" along one boardwalk)
   out.sort((a, b) => b.rank - a.rank);
-  const kept: Sight[] = [];
-  for (const sg of out) {
-    if (kept.some(k => k.name === sg.name && Math.abs(k.lat - sg.lat) < 0.003 && Math.abs(k.lng - sg.lng) < 0.004)) continue;
+  const kept: Sight[] = [], names = new Set<string>(), items = new Set<string>();
+  for (const { wikidata, ...sg } of out) {
+    if (names.has(sg.name) || (wikidata && items.has(wikidata))) continue;
+    names.add(sg.name);
+    if (wikidata) items.add(wikidata);
     kept.push(sg);
     if (kept.length === SIGHTS_PER_TILE) break;
   }
