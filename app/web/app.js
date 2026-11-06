@@ -1508,7 +1508,10 @@ function sharedTile({ url }) {
   url = url.replace(/^wt-shared:/, 'https:');
   let got = tileFetches.get(url);
   if (!got) {
-    got = fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))));
+    got = fetch(url).then(r => {
+      if (r.status === 401 || r.status === 403) glRefused?.();
+      return r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`));
+    });
     tileFetches.set(url, got);
     got.finally(() => tileFetches.delete(url)).catch(() => {}); // after that the browser's cache has it
   }
@@ -1547,6 +1550,9 @@ const glLayer = opts => new (L.MaplibreGL.extend({
   _transformGL(gl) { L.MaplibreGL.prototype._transformGL.call(this, gl); gl.redraw(); },
 }))({ validateStyle: false, ...opts });
 let basemap = null; // MapLibre's layers, [under the routes, over them], when they're the map showing
+// Stadia gives anyone its style and fonts but refuses its tiles to a site not registered with it, which would leave the
+// names over an empty map: a refused tile puts the pictures back instead (and those fall back to OpenStreetMap)
+let glRefused = null;
 // Show the map drawn by MapLibre; false if it can't be (MapLibre or the style didn't load, no WebGL)
 async function showGLMap(m, dark) {
   const [ok, style] = await Promise.all([loadGL(), glStyle(dark)]);
@@ -1608,7 +1614,7 @@ function preloadTrip() {
 function teardownTrip() {
   if (map) { map.remove(); map = null; layer = routeLayer = sightLayer = null; fitKey = ''; }
   sightsShown.clear();
-  tiles = basemap = null;
+  tiles = basemap = glRefused = null;
   tileQueue = [];
   clearTimeout(preloadTimer);
   clearTimeout(mapTapTimer);
@@ -1688,15 +1694,24 @@ function mountTrip(trip) {
     const drawn = !saved && await showGLMap(m, dark);
     if (map !== m) return;
     tiles = quiet;
-    if (drawn) return schedulePreload();
-    quiet.addTo(m);
-    // A tile that fails with no connection is one that wasn't saved, not Stadia refusing the site: keep the rest
-    const fallBack = () => {
-      if (offlineNow()) return;
-      quiet.off('tileerror', fallBack);
-      m.removeLayer(quiet); tiles = null; tileQueue = []; osm();
+    const pictures = () => {
+      quiet.addTo(m);
+      // A tile that fails with no connection is one that wasn't saved, not Stadia refusing the site: keep the rest
+      const fallBack = () => {
+        if (offlineNow()) return;
+        quiet.off('tileerror', fallBack);
+        m.removeLayer(quiet); tiles = null; tileQueue = []; osm();
+      };
+      quiet.on('tileerror', fallBack);
     };
-    quiet.on('tileerror', fallBack);
+    if (drawn) {
+      glRefused = () => {
+        if (map !== m || !basemap) return;
+        for (const l of basemap) m.removeLayer(l);
+        basemap = glRefused = null;
+        pictures();
+      };
+    } else pictures();
     schedulePreload();
   });
   // Sights sit on the map under the routes (the overlay pane, 400) and the pins; the map's names over the routes
