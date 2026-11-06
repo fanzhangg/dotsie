@@ -29,11 +29,12 @@ export function createAuth(env: Env) {
     databaseHooks: {
       user: {
         // A sign-up without a name (Google can omit it) starts from the email address.
-        create: { before: async user => ({ data: { ...user, name: cleanName(user.name) || user.email.split('@')[0] } }) },
+        create: { before: async user => ({ data: { ...user, name: cleanName(user.name) || user.email.split('@')[0], image: cleanImage(user.image) } }) },
         // A blank name is refused rather than saved
         update: {
           before: async data => {
-            if (data.name === undefined) return;
+            if (data.image !== undefined) data = { ...data, image: cleanImage(data.image) };
+            if (data.name === undefined) return { data };
             const name = cleanName(data.name);
             return name ? { data: { ...data, name } } : false;
           },
@@ -53,6 +54,10 @@ export function createAuth(env: Env) {
 export type Auth = ReturnType<typeof createAuth>;
 export const isLocal = (env: Env) => /^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(env.BETTER_AUTH_URL);
 const cleanName = (name: unknown) => (typeof name === 'string' ? name.trim().replace(/\s+/g, ' ').slice(0, 40) : '');
+// Photos come only from Google. Anyone could otherwise set their photo (POST /api/auth/update-user)
+// to a server of their own and see the IP address of everyone who opens a trip they're on.
+const cleanImage = (url: unknown) =>
+  typeof url === 'string' && url.length <= 2048 && /^https:\/\/[a-z0-9-]+\.googleusercontent\.com\//i.test(url) ? url : null;
 
 const moveMemberships = (env: Env, fromId: string, to: { id: string; name: string; image?: string | null }) =>
   forEachTrip(env, fromId, r => r.replaceMember(fromId, { id: to.id, name: to.name, image: to.image ?? null }));
