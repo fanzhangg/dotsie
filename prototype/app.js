@@ -322,15 +322,18 @@ async function findSights(tile, signal) {
   const lng = i => (i / n) * 360 - 180, lat = j => (Math.atan(Math.sinh(Math.PI * (1 - (2 * j) / n))) * 180) / Math.PI;
   const q = `[out:json][timeout:25][bbox:${lat(y + 1)},${lng(x)},${lat(y)},${lng(x + 1)}];(${SIGHT_QUERY.join(';')};);out center tags qt;`;
   let j = null, offline = false;
+  const until = Date.now() + 28000; // both servers, as the app's server gives them
   for (const url of OVERPASS) {
+    const left = until - Date.now();
+    if (left < 2000) break;
     try {
-      const res = await fetch(url, { method: 'POST', body: new URLSearchParams({ data: q }), signal });
+      const res = await fetch(url, { method: 'POST', body: new URLSearchParams({ data: q }), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(left)]) : AbortSignal.timeout(left) });
       if (!res.ok) continue;
       const got = await res.json();
       if (/error/i.test(got.remark || '')) continue;
       j = got;
       break;
-    } catch (e) { if (e.name === 'AbortError') throw e; offline = true; }
+    } catch (e) { if (e.name === 'AbortError') throw e; if (e.name !== 'TimeoutError') offline = true; }
   }
   if (!j) throw new ApiError(offline ? 0 : 503, offline ? 'offline' : 'unavailable');
   const out = [];
@@ -2766,6 +2769,8 @@ function loadSightTile(k) {
   if (t && !(t.retry && Date.now() > t.retry)) return;
   if (Date.now() < sightsPausedUntil) return;
   sightTiles.set(k, api(`/sights?tile=${SIGHT_TILE_ZOOM}/${k}`).then(list => {
+    // Still being looked up (a tile no one has looked at yet can take half a minute): ask again in a moment
+    if (!Array.isArray(list)) { sightTiles.set(k, { retry: Date.now() + 4000 }); setTimeout(drawSights, 4500); return; }
     sightTiles.set(k, list);
     drawSights();
   }, err => {

@@ -234,7 +234,10 @@ app.get('/sights', async c => {
   const [z, x, y] = (/^(\d+)\/(\d+)\/(\d+)$/.exec(c.req.query('tile') ?? '') ?? []).slice(1).map(Number), n = 2 ** SIGHT_ZOOM;
   if (z !== SIGHT_ZOOM || !(x < n) || !(y < n)) bad();
   try {
-    return c.json(await findSights(c.env, x, y), 200, { 'Cache-Control': 'private, max-age=86400' });
+    const list = await findSights(c.env, c.executionCtx, x, y);
+    // Not looked up yet: ask again in a few seconds
+    if (list === 'pending') return c.json({ pending: true }, 202, { 'Cache-Control': 'no-store', 'Retry-After': '4' });
+    return c.json(list, 200, { 'Cache-Control': 'private, max-age=86400' });
   } catch (e) {
     console.error(e);
     return c.json({ error: 'unavailable' }, 503); // Overpass is busy or down: the map goes without for now

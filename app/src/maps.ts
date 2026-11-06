@@ -132,7 +132,10 @@ const SIGHT_TTL = 60 * 60 * 24 * 30;
 const SIGHTS_PER_TILE = 80; // the best ranked: more than ever fit on a screen showing this tile
 // The main public server, then another public one when it's busy or too slow
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
-const SIGHT_RETRY = 60 * 10; // after both fail on a tile, it isn't asked again for this long
+const SIGHT_RETRY = 60 * 2; // after both fail on a tile, it isn't asked again for this long
+// A tile Overpass hasn't answered yet: the request waits this long for it, then answers "still loading" and the lookup
+// carries on after the response (waitUntil), up to the time Cloudflare gives it: about 30 s, shared by both servers.
+const SIGHT_WAIT = 8000, SIGHT_DEADLINE = 28000;
 const OSM_UA = { 'User-Agent': 'Waythread (road trip planner)' }; // Overpass and Nominatim ask for one
 
 // Each line is a kind of sight. Minor kinds need a Wikidata item or a Wikipedia article to count: OpenStreetMap maps
@@ -179,45 +182,66 @@ export function tileBounds(x: number, y: number) {
   return [lat(y + 1), lng(x), lat(y), lng(x + 1)];
 }
 
-const sightsLoading = new Map<string, Promise<Sight[]>>(); // one Overpass call per tile at a time, in this isolate
-export async function findSights(env: Env, x: number, y: number): Promise<Sight[]> {
-  const key = `sights:v2:${x}/${y}`, failed = `sights:failed:${x}/${y}`;
+// The lookup of a tile that's running, in this isolate; another isolate sees the KV mark instead
+const sightsLoading = new Map<string, Promise<Sight[]>>();
+// A tile's sights, or 'pending' while Overpass looks them up. Throws once a tile has just failed on both servers.
+export async function findSights(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, x: number, y: number): Promise<Sight[] | 'pending'> {
+  const key = `sights:v2:${x}/${y}`, failed = `sights:failed:${x}/${y}`, loading = `sights:loading:${x}/${y}`;
   const hit = await env.ROUTES.get<Sight[]>(key, 'json');
   if (hit) return hit;
   // A tile Overpass couldn't answer just now: everyone looking at it would ask again every few seconds
   if (await env.ROUTES.get(failed)) throw new Error('Overpass failed on this tile a moment ago');
   let p = sightsLoading.get(key);
   if (!p) {
+    // Being looked up elsewhere: one Overpass call per tile, since a second one only makes both slower
+    if (await env.ROUTES.get(loading)) return 'pending';
+    await env.ROUTES.put(loading, '1', { expirationTtl: 60 });
     p = overpassSights(tileBounds(x, y)).then(async list => {
       await env.ROUTES.put(key, JSON.stringify(list), { expirationTtl: SIGHT_TTL });
       return list;
     }, async e => {
       await env.ROUTES.put(failed, '1', { expirationTtl: SIGHT_RETRY });
       throw e;
-    }).finally(() => sightsLoading.delete(key));
+    }).finally(() => { sightsLoading.delete(key); ctx.waitUntil(env.ROUTES.delete(loading)); });
     sightsLoading.set(key, p);
+    ctx.waitUntil(p.catch(() => {})); // finishes and is kept even after this request has answered
   }
-  return p;
+  const wait = new Promise<'pending'>(done => setTimeout(() => done('pending'), SIGHT_WAIT));
+  return Promise.race([p, wait]);
 }
 
 type OsmElement = { type: 'node' | 'way' | 'relation'; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
+// Overpass's first server, and the other one as well if the first fails or is still busy after SIGHT_HEDGE: whichever
+// answers first, within SIGHT_DEADLINE for both
+const SIGHT_HEDGE = 15000;
 async function overpassSights([s, w, n, e]: number[]) {
   const q = `[out:json][timeout:25][bbox:${s},${w},${n},${e}];(${SIGHT_QUERY.join(';')};);out center tags qt;`;
-  let err: unknown;
-  for (const url of OVERPASS) {
-    try {
-      const res = await fetch(url, { method: 'POST', headers: { ...OSM_UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}` });
-      if (!res.ok) throw new Error(`Overpass ${new URL(url).host} ${res.status}`);
-      const j = await res.json<{ elements: OsmElement[]; remark?: string }>();
-      // A query that ran out of time or memory still answers 200, with what it found so far and a remark: not worth keeping
-      if (j.remark && /error/i.test(j.remark)) throw new Error(`Overpass ${new URL(url).host}: ${j.remark}`);
-      return sightsFrom(j.elements);
-    } catch (e) {
-      console.error(e);
-      err = e;
-    }
+  const done = new AbortController(), signal = AbortSignal.any([done.signal, AbortSignal.timeout(SIGHT_DEADLINE)]);
+  const ask = async (url: string) => {
+    const res = await fetch(url, { method: 'POST', headers: { ...OSM_UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}`, signal });
+    if (!res.ok) throw new Error(`Overpass ${new URL(url).host} ${res.status}`);
+    const j = await res.json<{ elements: OsmElement[]; remark?: string }>();
+    // A query that ran out of time or memory still answers 200, with what it found so far and a remark: not worth keeping
+    if (j.remark && /error/i.test(j.remark)) throw new Error(`Overpass ${new URL(url).host}: ${j.remark}`);
+    return sightsFrom(j.elements);
+  };
+  let next = 0, failed = 0, hedge = 0;
+  try {
+    return await new Promise<Sight[]>((resolve, reject) => {
+      const start = () => {
+        if (next === OVERPASS.length) return;
+        ask(OVERPASS[next++]).then(resolve, err => {
+          console.error(err);
+          if (++failed === OVERPASS.length) reject(err); else start();
+        });
+      };
+      start();
+      hedge = setTimeout(start, SIGHT_HEDGE);
+    });
+  } finally {
+    clearTimeout(hedge);
+    done.abort(); // the other server's answer, if it's still coming, isn't needed
   }
-  throw err;
 }
 export function sightsFrom(elements: OsmElement[]): Sight[] {
   const out: (Sight & { wikidata?: string })[] = [];
