@@ -65,7 +65,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET /api/me` | `{ id, name, image, isGuest }` |
 | `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights }`, for the card's route sketch (at most 300) |
 | `POST /api/trips` `{ name }` | Create; returns the trip snapshot |
-| `GET /api/trips/:id` | `{ trip, members, stops }`; `trip.owner` is the id of whoever made it |
+| `GET /api/trips/:id` | `{ trip, members, stops, folders }`; `trip.owner` is the id of whoever made it |
 | `PATCH /api/trips/:id` `{ name }` | Rename |
 | `DELETE /api/trips/:id` · `POST /api/trips/:id/restore` | Soft delete and undo. Owner only (403 `not_owner`) |
 | `POST /api/trips/:id/leave` | Leave the trip; your stops stay. Everyone but the owner (the owner gets 400 `invalid`) |
@@ -74,7 +74,8 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `PUT /api/trips/:id/stops/:stopId` | Create a stop, or restore one (Undo). The client picks the id |
 | `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ kind: 'hotel', nights: 2, checkout: '11:00' }` |
 | `DELETE /api/trips/:id/stops/:stopId` | |
-| `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
+| `PUT /api/trips/:id/folders/:folderId` `{ name }` | Create a folder, or rename one; returns `{ id, name }`. The client picks the id. A stop goes in or out with its own `folder` field |
+| `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `folder.upserted`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
 | `GET /api/route?from=lat,lng&to=lat,lng` | `{ duration, distance, coords }` |
 | `GET /api/trips/:id/map?theme=&route=&legs=&dots=` | A home card's map picture (PNG, 1000×400). `theme` is `light` or `dark`; `route` the line color as six hex digits; `legs` the drives as pairs of indexes into the card's `stops`, like `0-1,1-2`; `dots` the places, like `0:b24acf,1:7250e2`. 503 `maps_not_configured` without a Stadia key, in local dev too, and the card shows its sketch |
@@ -84,7 +85,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET`·`POST /api/oauth/authorize` | The Allow page an assistant sends you to (a page, not JSON) |
 | `/api/oauth/token`, `/api/oauth/register`, `/.well-known/oauth-*` | OAuth's token, client registration and discovery endpoints, answered by the library |
 
-A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is a hotel's check-out time, `HH:MM`, on the day its nights end, or `null` (the app shows 11:00 AM). Other stops have `null`; a time some older clients saved there as a leave time is ignored. Stops still carry `done`, which older clients set; the app no longer shows it.
+A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, folder, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is a hotel's check-out time, `HH:MM`, on the day its nights end, or `null` (the app shows 11:00 AM). Other stops have `null`; a time some older clients saved there as a leave time is ignored. `folder` is the id of the folder the stop is in, or `null`. A folder is `{ id, name }`: a name for stops that follow each other by time (the app keeps a folder's stops together; the server doesn't check). It isn't checked against the trip's folders either, since a stop can arrive a moment before its new folder's name. A folder whose stops have all left it stays in `folders`, so Undo can put them back; the app shows only folders that hold stops. Stops still carry `done`, which older clients set; the app no longer shows it.
 
 Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member` or `not_owner`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
 
@@ -107,12 +108,14 @@ Claude reaches the server from Anthropic's cloud, so a connector needs the deplo
 | Tool | Arguments | Returns |
 | --- | --- | --- |
 | `list_trips` | none | `{ trips: [{ id, name, start, end }] }`, newest edit first |
-| `list_stops` | `trip_id`, optional `day` (`YYYY-MM-DD`) | `{ trip, stops }`, in time order |
-| `add_stop` | `trip_id`, `name`, `lat`, `lng`, `time`, and any of `address`, `checkout`, `kind`, `nights`, `note` | `{ stop }`, as saved, with its new id |
-| `edit_stop` | `trip_id`, `stop_id`, and any of `name`, `address`, `lat`, `lng`, `time`, `checkout`, `kind`, `nights`, `note` | `{ stop }`, as saved |
+| `list_stops` | `trip_id`, optional `day` (`YYYY-MM-DD`) | `{ trip, stops, folders }`, in time order, with the folders those stops are in |
+| `add_stop` | `trip_id`, `name`, `lat`, `lng`, `time`, and any of `address`, `checkout`, `kind`, `nights`, `note`, `folder` | `{ stop }`, as saved, with its new id |
+| `edit_stop` | `trip_id`, `stop_id`, and any of `name`, `address`, `lat`, `lng`, `time`, `checkout`, `kind`, `nights`, `note`, `folder` | `{ stop }`, as saved |
 | `delete_stop` | `trip_id`, `stop_id` | `{ deleted }`: the stop as it was, so `add_stop` can put it back |
+| `add_folder` | `trip_id`, `name` | `{ folder }`, with its new id. Empty until a stop's `folder` is set to it |
+| `rename_folder` | `trip_id`, `folder_id`, `name` | `{ folder }` |
 
-A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Changes go through `TripRoom`'s `putStop`, `patchStop` and `deleteStop`, like the app's: the same checks, and everyone with the trip open sees them live.
+A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Changes go through `TripRoom`'s `putStop`, `patchStop`, `deleteStop` and `putFolder`, like the app's: the same checks, and everyone with the trip open sees them live.
 
 How it's built:
 

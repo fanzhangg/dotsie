@@ -1,4 +1,4 @@
-/* Waythread design system — components v9.1.0
+/* Waythread design system — components v9.2.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -343,6 +343,63 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl > :has(+ .wt-tl-day) .wt-tl-rail::before { bottom: auto; height: var(--wt-tl-mark-y); }
 .wt-tl-day + :is(:last-child, :has(+ .wt-tl-day)) .wt-tl-rail::before { display: none; }
 
+/* ---------- Folders: stops that follow each other, grouped under a name ---------- */
+/* A folder isn't a place: its marker is its stops' type (grey when they differ) with a second disc of the same color
+   piled straight up behind it, like a small stack. Straight up, so it never reaches the name beside it. The disc's
+   rings are the color of what's behind the marker (--wt-stack-ground): the row, a picker, a checked option. */
+.wt-marker--stack, .wt-pin--folder {
+  --wt-stack-tint: color-mix(in oklab, var(--wt-kind-color, var(--wt-kind-place)) 55%, var(--wt-surface-raised));
+}
+.wt-marker--stack {
+  box-shadow: 0 0 0 2px var(--wt-stack-ground, var(--wt-surface-raised)), 0 -6px 0 0 var(--wt-stack-tint), 0 -6px 0 2px var(--wt-stack-ground, var(--wt-surface-raised));
+}
+.wt-tl .wt-marker--stack { --wt-stack-ground: var(--wt-tl-row, var(--wt-surface-raised)); }
+.wt-picker { --wt-stack-ground: var(--wt-surface-sunken); }
+.wt-option[aria-checked="true"] { --wt-stack-ground: var(--wt-surface-current); }
+/* "None", where a folder's marker would be: an empty dashed ring, so the names still line up */
+.wt-marker--none { background: none; border: 1.5px dashed var(--wt-border-strong); }
+/* Under a closed folder, what's in it ("3 stops: Visitor Center, …"), quieter than a note */
+.wt-tl-note--quiet { color: var(--wt-text-tertiary); }
+/* An open folder's stops and the drives between them, like files under a folder in a file tree: indented one step,
+   their markers' left edge in line with the folder's name, on a thread of their own (.wt-tl-thread) beside the day's
+   rail, which runs on. The thread starts at the first stop (.is-first) and ends at the last (.is-last). */
+.wt-tl-stop--in, .wt-tl-drive--in { grid-template-columns: var(--wt-tl-rail) 30px 1fr auto; }
+.wt-tl-stop--in > .wt-tl-thread { grid-column: 2; grid-row: 1 / -1; }
+.wt-tl-stop--in > .wt-tl-name { grid-column: 3; }
+.wt-tl-stop--in > .wt-tl-notes { grid-column: 3 / -1; }
+.wt-tl-stop--in > .wt-tl-time { grid-column: 4; }
+.wt-tl-drive--in > .wt-tl-drive__body { grid-column: 3; }
+.wt-tl-stop--in > :is(.wt-tl-name, .wt-tl-notes), .wt-tl-drive--in > .wt-tl-drive__body { padding-left: 10px; }
+.wt-tl-thread { position: relative; align-self: stretch; }
+.wt-tl-thread::before { content: ''; position: absolute; left: calc(50% - .75px); top: 0; bottom: 0; width: 1.5px; background: var(--wt-border-rail); }
+.wt-tl-stop--in.is-first > .wt-tl-thread::before { top: var(--wt-tl-mark-y); }
+.wt-tl-stop--in.is-last > .wt-tl-thread::before { bottom: calc(100% - var(--wt-tl-mark-y)); }
+.wt-tl-stop--in.is-first.is-last > .wt-tl-thread::before { display: none; }
+
+/* Swiping a row sideways: right puts it in a folder, left takes it out. The row follows the finger (.is-swiping) over
+   what the swipe will do (.wt-tl-swipe, behind it): an indent (.is-in), a new folder (.is-in.is-new) or an outdent
+   (.is-out), which darkens once letting go will do it (.is-armed). The folder it will go into is .is-swipe-target.
+   Rows let a finger pan up and down, so the browser leaves sideways moves to the swipe. */
+.wt-tl { position: relative; }
+.wt-tl-stop { touch-action: pan-y; }
+.wt-tl-swipe {
+  position: absolute; z-index: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--wt-space-4);
+  border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); color: var(--wt-text-tertiary); pointer-events: none;
+  transition: background var(--wt-duration-fast), color var(--wt-duration-fast);
+}
+.wt-tl-swipe > span { display: flex; opacity: 0; }
+.wt-tl-swipe.is-in > .wt-tl-swipe__in, .wt-tl-swipe.is-out > .wt-tl-swipe__out { opacity: 1; }
+.wt-tl-swipe .wt-icon { width: 22px; height: 22px; transition: transform var(--wt-duration-fast) var(--wt-ease-out); }
+.wt-tl-swipe__in > .wt-icon + .wt-icon, .wt-tl-swipe.is-new .wt-tl-swipe__in > .wt-icon:first-child { display: none; }
+.wt-tl-swipe.is-new .wt-tl-swipe__in > .wt-icon + .wt-icon { display: block; }
+.wt-tl-swipe.is-armed { background: var(--wt-surface-current); color: var(--wt-text-primary); }
+.wt-tl-swipe.is-armed .wt-icon { transform: scale(1.15); }
+.wt-tl .is-swiping { position: relative; z-index: 1; background: var(--wt-tl-row, var(--wt-surface-raised)); box-shadow: var(--wt-shadow-float); }
+.wt-tl .is-swiping.is-settling { transition: transform var(--wt-duration-fast) var(--wt-ease-out); }
+.wt-tl .is-swipe-target { background: var(--wt-surface-sunken); }
+.is-swiping-row, .is-swiping-row * { -webkit-user-select: none; user-select: none; }
+@media (prefers-reduced-motion: reduce) { .wt-tl .is-swiping.is-settling, .wt-tl-swipe .wt-icon { transition: none; } }
+
 /* ---------- Day bar: ‹ day › at the top of the sheet; tap the day for the list of days ---------- */
 /* The arrows are centred on the timeline's columns: ‹ on the rail, › on the Directions column (with the sheet top's padding).
    Three controls sit close together here, each with its own look: ‹ and › are round buttons on a grey disc (step),
@@ -441,6 +498,10 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-option[aria-selected="true"], .wt-option[aria-checked="true"] { background: var(--wt-surface-current); }
 .wt-option > .wt-icon:last-child { width: 18px; height: 18px; visibility: hidden; }
 .wt-option[aria-checked="true"] > .wt-icon:last-child { visibility: visible; }
+/* An option that can't be picked here: faded, with why as its detail line, in full */
+.wt-option:disabled { cursor: default; background: none; }
+.wt-option:disabled :is(.wt-option__label, .wt-marker) { opacity: .45; }
+.wt-option:disabled .wt-option__detail { white-space: normal; }
 
 /* ---------- Type grid (unused since 3.0.1: the picker above replaced it) and nights stepper ---------- */
 .wt-kinds { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--wt-space-1); }
@@ -817,6 +878,14 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-pin--selected .wt-pin__dot { width: 10px; height: 10px; }
 /* A small dot has no room for its number */
 .wt-pin--dot:not(.wt-pin--selected) > * { opacity: 0; }
+/* A folder's pin: its number, at its first stop, with a second disc of its color piled behind it, as on its marker */
+.wt-pin--folder { box-shadow: 0 -6px 0 -2px var(--wt-stack-tint), 0 -6px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
+.wt-pin--folder.wt-pin--dot { box-shadow: 0 -4px 0 -1.5px var(--wt-stack-tint), 0 -4px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
+.wt-pin--folder.wt-pin--muted { --wt-stack-tint: var(--wt-kind-past); box-shadow: 0 -5px 0 -2px var(--wt-stack-tint), 0 -5px 0 0 var(--wt-pin-fill); }
+/* While a folder is open (.is-folder-open on .wt-pins), the pins outside it fade, as they do around a selected pin;
+   its own (--open) keep their color, around its selected stop too */
+.wt-pins.is-folder-open .wt-pin:not(.wt-pin--open, .wt-pin--selected) { opacity: .55; }
+.wt-pins:has(.wt-pin--selected) .wt-pin.wt-pin--open { opacity: 1; }
 
 /* ---------- Empty state ---------- */
 .wt-empty { margin: 0; padding: var(--wt-space-10) var(--wt-space-6); text-align: center; color: var(--wt-text-secondary); }

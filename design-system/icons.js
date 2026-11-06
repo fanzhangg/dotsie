@@ -1,4 +1,4 @@
-/* Waythread design system — icons v1.5.0
+/* Waythread design system — icons v1.6.0
  *
  * Line icons on a 24px grid, 2px stroke, round caps and joins, drawn in currentColor.
  * Usage: WaythreadIcons.svg('car')            -> default size and stroke
@@ -41,6 +41,10 @@
     camera: 'M4 8h3l2-3h6l2 3h3v11H4zM12 16a3 3 0 100-6 3 3 0 000 6z',
     bag: 'M5 8h14l-1 12H6zM9 8V6.5a3 3 0 016 0V8',
     fuel: 'M4 21V5a2 2 0 012-2h6a2 2 0 012 2v16M2.5 21h13M4 10h10M14 8l3 3v6.5a1.5 1.5 0 003 0V9l-3-3',
+    // Folders: into one, out of one, and a new one (two discs piled up, as a folder's marker is, and a plus)
+    indent: 'M4 5h16M10 12h10M4 19h16M4 9l3.5 3L4 15',
+    outdent: 'M4 5h16M10 12h10M4 19h16M7.5 9L4 12l3.5 3',
+    'stack-add': 'M17.5 14.5a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0zM6.8 8.6a6.5 6.5 0 0110.4 0M12 12v5M9.5 14.5h5',
   };
   // Default size and stroke per icon, as the product uses them.
   const DEFAULTS = {
