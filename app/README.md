@@ -63,7 +63,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `POST /api/sign-in-options` `{ email }` | Where an address leads: `{ account: 'password' \| 'google' \| 'none' }`, so sign-in asks for the right thing next |
 | `GET /api/invite/:token` | The trip name for a share link, for the sign-in screen |
 | `GET /api/me` | `{ id, name, image, isGuest }` |
-| `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights }`, for the card's route sketch (at most 300) |
+| `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights, travel }`, for the card's route sketch (at most 300) |
 | `POST /api/trips` `{ name }` | Create; returns the trip snapshot |
 | `GET /api/trips/:id` | `{ trip, members, stops }`; `trip.owner` is the id of whoever made it |
 | `PATCH /api/trips/:id` `{ name }` | Rename |
@@ -76,7 +76,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `DELETE /api/trips/:id/stops/:stopId` | |
 | `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
-| `GET /api/route?from=lat,lng&to=lat,lng` | `{ duration, distance, coords }` |
+| `GET /api/route?from=lat,lng&to=lat,lng&mode=` | `{ duration, distance, coords }`. `mode` is `drive` (the default), `walk` or `bike` |
 | `GET /api/trips/:id/map?theme=&route=&legs=&dots=` | A home card's map picture (PNG, 1000×400). `theme` is `light` or `dark`; `route` the line color as six hex digits; `legs` the drives as pairs of indexes into the card's `stops`, like `0-1,1-2`; `dots` the places, like `0:b24acf,1:7250e2`. 503 `maps_not_configured` without a Stadia key, in local dev too, and the card shows its sketch |
 | `GET /api/assistants` | For Account: `{ url, connections: [{ id, name, domain, createdAt }] }`, the MCP server's address and the assistants you've allowed |
 | `DELETE /api/assistants/:id` | Disconnect one: its tokens stop working at once |
@@ -84,7 +84,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET`·`POST /api/oauth/authorize` | The Allow page an assistant sends you to (a page, not JSON) |
 | `/api/oauth/token`, `/api/oauth/register`, `/.well-known/oauth-*` | OAuth's token, client registration and discovery endpoints, answered by the library |
 
-A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is a hotel's check-out time, `HH:MM`, on the day its nights end, or `null` (the app shows 11:00 AM). Other stops have `null`; a time some older clients saved there as a leave time is ignored. Stops still carry `done`, which older clients set; the app no longer shows it.
+A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, travel, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is a hotel's check-out time, `HH:MM`, on the day its nights end, or `null` (the app shows 11:00 AM). Other stops have `null`; a time some older clients saved there as a leave time is ignored. `travel` is how you get to the stop from the place before it, and for a hotel the way back to it each night too: `drive` (the default), `walk`, `bike`, `transit` or `flight`. Drives, walks and rides follow a route (`/api/route` with that `mode`); transit and flights have none, and the app draws them straight, with no time. Stops still carry `done`, which older clients set; the app no longer shows it.
 
 Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member` or `not_owner`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
 

@@ -1,4 +1,4 @@
-/* Waythread design system — components v9.1.0
+/* Waythread design system — components v9.2.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -200,6 +200,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-marker .wt-icon { width: 16px; height: 16px; }
 .wt-marker--sm { width: 20px; height: 20px; }
 .wt-marker--sm .wt-icon { width: 12px; height: 12px; }
+/* A way of getting there (Drive, Walk, Bike, Transit, Flight), as the list of them shows it: flat grey like a drive's car */
+.wt-marker--travel { background-color: var(--wt-kind-drive); background-image: none; }
 
 /* ---------- Timeline: rail · stop · time, with drives on the rail ---------- */
 /* Rows touch and have no padding of their own, so the rail is one solid hairline down the day. */

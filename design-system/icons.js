@@ -1,4 +1,4 @@
-/* Waythread design system — icons v1.5.0
+/* Waythread design system — icons v1.6.0
  *
  * Line icons on a 24px grid, 2px stroke, round caps and joins, drawn in currentColor.
  * Usage: WaythreadIcons.svg('car')            -> default size and stroke
@@ -30,6 +30,10 @@
     saved: 'M5 19.5h14M7.5 10.5l3 3 6-6.5',
     'cloud-off': 'M3.5 3.5l17 17M9.5 5.6A6 6 0 0117.8 10.1a4 4 0 012.5 6.6M16.5 18H7a4.5 4.5 0 01-2.2-8.4',
     directions: 'M10.6 3.4a2 2 0 012.8 0l7.2 7.2a2 2 0 010 2.8l-7.2 7.2a2 2 0 01-2.8 0l-7.2-7.2a2 2 0 010-2.8zM9 15v-2.5a2 2 0 012-2h4.5M13 8l2.5 2.5L13 13',
+    // How you get there (with car, and plane from the stop types)
+    walk: 'M13.5 5.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM11 14l1.5-6M9 21l2-7M11 14l3 2.5 1 4.5M12.5 8L9.5 9.5 8 12.5M12.5 8l1.5 3.5 3 1.5',
+    bike: 'M5.5 20a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM18.5 20a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM5.5 16.5H12L9 10h6.5M12 16.5l3.5-6.5 3 6.5M9 10l-.7-3M7 7h3M15.5 10l-.8-3.5h2',
+    train: 'M7.5 3h9a2.5 2.5 0 012.5 2.5V14a3 3 0 01-3 3H8a3 3 0 01-3-3V5.5A2.5 2.5 0 017.5 3zM5 10.5h14M9 13.5h.01M15 13.5h.01M8.5 17L6.5 21M15.5 17l2 4',
     // Stop types
     plane: 'M12 3c.8 0 1.5.9 1.5 2v4.5l7 4V16l-7-2v4l2 1.5V21L12 20l-3.5 1v-1.5l2-1.5v-4l-7 2v-2.5l7-4V5c0-1.1.7-2 1.5-2z',
     bed: 'M3 5v14M3 15h18v4M21 15v-2.5a3 3 0 00-3-3h-7V15M7 12.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z',
@@ -44,7 +48,7 @@
   };
   // Default size and stroke per icon, as the product uses them.
   const DEFAULTS = {
-    close: [20], 'person-add': [20], edit: [18], check: [16, 3], car: [14], external: [14],
+    close: [20], 'person-add': [20], edit: [18], check: [16, 3], car: [14], walk: [14], bike: [14], train: [14], external: [14],
   };
   function svg(name, size, stroke) {
     const d = PATHS[name];

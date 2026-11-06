@@ -1,5 +1,5 @@
 import type { McpProps } from './oauth';
-import { ERR, KINDS, type Stop, type TripRoom } from './trip';
+import { ERR, KINDS, TRAVEL, type Stop, type TripRoom } from './trip';
 
 /* An MCP server, so an AI assistant can read a trip's stops and add, change or remove them for you. It speaks MCP's
    Streamable HTTP transport without sessions: every POST to /api/mcp is one JSON-RPC message, answered with
@@ -44,7 +44,7 @@ const ERROR_TEXT: Record<string, string> = {
 // A stop as the assistant sees it: the fields it can edit, plus who changed it last
 const stopOut = (s: Stop, names: Map<string, string>) => ({
   id: s.id, name: s.name, address: s.address, lat: s.lat, lng: s.lng, time: s.time, checkout: s.checkout,
-  kind: s.kind, nights: s.nights, note: s.note, updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
+  kind: s.kind, nights: s.nights, travel: s.travel ?? 'drive', note: s.note, updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
 });
 const memberNames = (members: { id: string; name: string }[]) => new Map(members.map(m => [m.id, m.name]));
 
@@ -57,6 +57,7 @@ const EDITABLE = {
   checkout: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$', description: 'When you leave, "HH:MM". A hotel: its check-out time on the day its nights end (null shows 11:00). Any other stop: a time later the same day, or null for none' },
   kind: { type: 'string', enum: ['', ...KINDS], description: 'The stop’s type, which sets its icon. "" lets the app guess from the name' },
   nights: { type: ['integer', 'null'], minimum: 1, maximum: 30, description: 'A hotel’s nights from check-in, or null to last until the next hotel or the trip’s last day' },
+  travel: { type: 'string', enum: [...TRAVEL], description: 'How you get to this stop from the one before it (for a hotel, also the way back to it each night). New stops are "drive"' },
   note: { type: 'string', maxLength: 2000 },
 };
 

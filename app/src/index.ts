@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
-import { cachedRoute, driveRoute, searchPlaces, staticMap, type StaticMap } from './maps';
+import { cachedRoute, findRoute, ROUTE_MODES, searchPlaces, type RouteMode, staticMap, type StaticMap } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
 import { ERR, type Preview } from './trip';
 
@@ -213,17 +213,19 @@ app.get('/places', async c => {
   return c.json(await searchPlaces(c.env, q, point(c.req.query('near'))));
 });
 // The client falls back to a straight-line estimate when this fails, as the prototype does.
+// mode is drive (the default), walk or bike.
 app.get('/route', async c => {
   if (mapsOff(c.env)) return c.json({ error: 'maps_not_configured' }, 503);
-  const a = point(c.req.query('from')), b = point(c.req.query('to'));
-  if (!a || !b) bad();
-  return c.json(await driveRoute(c.env, a!, b!));
+  const a = point(c.req.query('from')), b = point(c.req.query('to')), mode = c.req.query('mode') ?? 'drive';
+  if (!a || !b || !ROUTE_MODES.includes(mode as RouteMode)) bad();
+  return c.json(await findRoute(c.env, mode as RouteMode, a!, b!));
 });
 
 // A home card's map picture. The client says what to draw, as it does on the trip's map: its drives as pairs of stops
 // and its places, each a stop with its type's color, by their place in the card's stop list (the preview's, which is
-// read here, so only the trip's own places can be drawn). Drives follow the roads where anyone on the trip has looked
-// them up already, straight otherwise: drawing a card never looks up a route.
+// read here, so only the trip's own places can be drawn). Drives (and walks and rides) follow the roads where anyone on
+// the trip has looked them up already, straight otherwise, as transit and flights always are: drawing a card never
+// looks up a route.
 const HEX = /^[0-9a-f]{6}$/i;
 const MAP_LEGS = 600, MAP_DOTS = 300;
 app.get('/trips/:id/map', async c => {
@@ -247,7 +249,8 @@ app.get('/trips/:id/map', async c => {
   const lines: StaticMap['lines'] = [];
   let last: unknown = null;
   for (const [a, b] of legs) {
-    const r = await cachedRoute(c.env, a, b);
+    const mode = (b.travel ?? 'drive') as string; // the stop says how you get to it; older previews don't, and are drives
+    const r = ROUTE_MODES.includes(mode as RouteMode) ? await cachedRoute(c.env, mode as RouteMode, a, b) : null;
     const coords: [number, number][] = r?.coords.length ? r.coords : [[a.lat, a.lng], [b.lat, b.lng]];
     if (last === a) lines.at(-1)!.coords.push(...coords.slice(1)); else lines.push({ coords, color });
     last = b;

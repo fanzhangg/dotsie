@@ -53,7 +53,7 @@ The trip is a single screen: a **header** with the trip's name, the **map**, and
 └──────────────────────────────┘
 ```
 
-With a stop selected, the bottom button becomes `[████ ▢ Open in Maps ████] (✎) (+)`: the place in your maps app, then Edit stop as a round white pencil, and a small round + so adding is still one tap away. With a drive's route on show, it becomes `[██████ ◇ Directions ██████] (+)`. Changing from one to another morphs rather than swaps: Add stop shrinks to the right into the +, and Open in Maps and Edit stop grow in beside it (see [Adding and editing a stop](#adding-and-editing-a-stop)).
+With a stop selected, the bottom button becomes `[████ ▢ Open in Maps ████] (✎) (+)`: the place in your maps app, then Edit stop as a round white pencil, and a small round + so adding is still one tap away. With a drive's route on show, it becomes `[██████ ◇ Directions ██████] (🚗) (+)`: the round button in the middle shows how you're getting there, and changes it (see [How you get there](#how-you-get-there)). Changing from one to another morphs rather than swaps: Add stop shrinks to the right into the +, and Open in Maps and Edit stop grow in beside it (see [Adding and editing a stop](#adding-and-editing-a-stop)).
 
 **The header** is one row: **home** (back to the trip list), the **trip's name**, and **trip settings**. Between the name and settings, a small grey icon shows the trip's [offline](#offline) status, and tapping it explains what it means in a toast. On a phone it's a card floating over the top of the map, like the from/to card in Google Maps' directions, and the map runs under it. It replaced two buttons that floated over the map's corners: with them, nothing on a phone said which trip you were in. People and sharing stay in trip settings. It's kept quiet, since the plan is what you read: a 44px row, the name at 15px in grey, below the stop names, grey icons, and over the map a frosted, slightly see-through card with a light shadow. (It started as a 56px solid white card with a 17px name, which competed with the list.)
 
@@ -177,6 +177,28 @@ A drive is a row between two places: a small grey car marker on the rail and **`
 - **The highlighted drive** (the one you tapped, or the one you're on) gets the grey row background and a dark duration. The one you tapped gets a darker grey car; the one you're on, a black car.
 - **When a drive doesn't fit** between getting to one stop and getting to the next, its time and its car turn red and a second line says by how much: `Arrives 49 min late`. The red car shows the problem on the rail as you run your eye down the day. Red outranks everything, including now; once the drive is over it turns grey like the rest, since there's nothing left to fix.
 
+### How you get there
+
+Not every leg is a drive: you walk from the hotel to dinner, ride a bike along the river, take the train into town, or fly home. Each leg can say how, and it changes what its row, the map and Directions show.
+
+```
+  ⊖   1 hr 49 min drive         car: a route, a time, Directions by car
+  🚶  12 min walk                walking: a route on foot, its time, Directions on foot
+  🚲  25 min bike ride           a bike: a route by bike, its time, Directions by bike
+  🚆  Transit                    no time; Directions by transit
+  ✈   Flight                     no time, no Directions
+```
+
+- **The ways:** **Drive** (every leg, until someone changes it), **Walk**, **Bike**, **Transit** and **Flight**.
+- **Changing it.** Tap the leg; the bottom button becomes `[◇ Directions] (🚗) (+)`. The round white button in the middle shows the leg's way and changes it, where Edit stop's pencil is for a stop: tapping it opens **Getting to Cloudcroft**, the five ways one per row, each with its icon in a flat grey marker like the car on the rail, the current one grey with a check, as in Type. Picking one saves it at once, for everyone on the trip, and closes the list. There's nothing to fill in, so there's no Save. Offline it's greyed out like Edit stop.
+- **It's saved with the stop the leg goes to**, as how you get there: moving a stop to another time keeps it, and a stop added in between starts as a drive. A hotel's way is also the way back to it each night (the drive back to the hotel goes to the hotel), so its list says *Also the way back here each night.* Tried and left out: a way on every leg of its own, which would need legs saved apart from stops, for the one case of a hotel you drive to and walk back to.
+- **Not in the stop sheet.** It's about the leg, not the place, and the sheet has to stay short enough to leave the map in view. The leg is where you see it, so that's where you change it.
+- **The row** says it in the same sentence as a drive, with its icon on the rail in place of the car: `12 min walk`, `25 min bike ride`. Everything a drive's row does (highlight, now, past, red when it won't make it) a walk's and a ride's do too.
+- **Transit and flights have no time.** Waythread can't look up timetables, and the stops either side already say when you leave and land: an airport stop at 10:30 AM and the next one at 2:15 PM is the flight. So the row is just `Transit` or `Flight`, it can never be late, and with nothing to time, it counts as starting when you get to the next stop.
+- **The map** draws walks and rides along their paths like a drive, in the same blue: blue means a way to get somewhere, whatever it is. Transit and flights have no path, so they're a straight dashed line from one stop to the next. (A route that hasn't loaded yet is dotted, so the two don't look alike.)
+- **Directions** open in the maps app in the leg's way: walking, cycling or transit directions. Apple Maps has no link for cycling directions, so a ride opens in its default mode. A flight has no directions to give: its button is **Open in Maps** for where it lands.
+- **An AI assistant** can set it too (`travel` on a stop), so "we'll fly from El Paso" changes the leg as the list would.
+
 ### Stop times
 
 A stop has one time: **Arrive**, when you get there. It's required, and it orders the day. A hotel, the one stop you stay at overnight, has two: **Check-in** and **Check-out** (see [Hotel stays](#hotel-stays)).
@@ -257,7 +279,7 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 - **Selecting.** Tapping a stop in the list selects it instead of opening it, like tapping a drive shows its route: the row turns grey and its pin grows on the map. If the pin is off the part of the map you can see, the map pans to it, keeping the zoom; a full-screen list goes back to half. Selecting never zooms the map, even coming from a drive on show or from the full-screen list: it doesn't re-fit the day, and **Whole day** brings the day back. Tapping the same row again keeps it selected, so a second tap never undoes the first, and in the half list nothing moves: the row is already in the middle, and the map pans only if you've moved the pin out of view. Tapping empty map, changing the day or pressing Esc clears it. (Tapping a stop used to open it straight away, so seeing where a stop is meant opening a form.)
 - **Open in Maps.** While a stop is selected, the black button says **Open in Maps** and opens the place in your maps app: its photos, reviews and hours. A name alone doesn't say whether it's the right place or worth going, and on the road it's what you most often want from a stop, so it's the main button rather than something inside the sheet. A stop you've just added is selected, so it's there to check the moment you save. Waythread doesn't show photos or descriptions itself: hotels and restaurants, most of a trip, aren't covered by free sources, and the plan stays the focus. (It used to be a white **Maps** button between a black Edit stop and the +.)
 - **Edit stop.** To its right, a round white button with only a pencil edits the stop, and a small round **+** after it still adds one, so adding is always one tap away. There's still only one black button.
-- **The buttons morph.** Selecting a stop doesn't swap the row: Add stop shrinks to the right into the +, its black fading to white, while Open in Maps grows from the left and Edit stop grows in between. Clearing the selection runs it back, and showing a drive stretches Open in Maps into Directions. Each takes a quarter of a second, so you see where Add stop went; with reduced motion the new buttons just appear.
+- **The buttons morph.** Selecting a stop doesn't swap the row: Add stop shrinks to the right into the +, its black fading to white, while Open in Maps grows from the left and Edit stop grows in between. Clearing the selection runs it back, and showing a drive stretches Open in Maps into Directions, with the way you're getting there where Edit stop was. Each takes a quarter of a second, so you see where Add stop went; with reduced motion the new buttons just appear.
   - **The same app as Directions,** so a place and the way there never open in two different apps. It's **Google Maps** unless you pick **Apple Maps** under **Maps app** in Account (tap your picture on the trip list). A web page can't ask which maps app is the default, so it's a setting; Android's `geo:` links open the default, but only for a place, not directions, so they'd split the two. The setting is kept on the device, not the account, since which apps you have is up to the phone. (Choosing by device, Apple Maps on iPhone, was tried first; Google has the most photos and reviews, and some iPhone users live in Google Maps.)
   - It finds the place by name and address, which opens the place itself; coordinates alone would open only a dropped pin.
 - **Editing.** Tap Edit stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
@@ -287,7 +309,7 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 - **Markers and pins are glossy,** like a maps app's: each is shaded from its own color, a little lighter and richer at the top and darker at the bottom in the same hue (a white and black overlay was tried first and made the colors look dirty), so it reads as an object on the map or the rail rather than a flat dot. A drive's car stays flat, so drives stay quieter than stops. The gradient is the same for every type and gentle enough that the icon or number stays readable.
 - **Pins** are round dots centered on their place, like stops on a transit map. The pin is the stop's [type](#stop-types) color, in a white ring that keeps it apart from the route running into it, and it holds one thing, the stop's **number**: 1, 2, 3 in the day's order, or on All days in the trip's, as its list reads. A place that isn't a numbered stop (the hotel you wake up in or come back to, or the day before's last stop) has a white dot instead; the hotel you check in to that day is a stop, so it's numbered. A selected stop's pin, and both ends of a route on show, grow to a larger dot with a deeper shadow, and the other pins fade, keeping their colors (fading, not grey, since grey means over). Growing a quarter alone was tried first: among pins of every color, the selected one was hard to find. A stop that's over shrinks and turns grey, and so do the pins a route on show doesn't start or end at. Stops at the same place share one pin, with the first one's number; for example, flying in and out of the same airport. (Pins used to be round, with the type's icon, no numbers, and a name label when selected: the icon and the label repeated the list, and the map couldn't show the order. Teardrops with numbers came next. Each stood well above its place, so zoomed out, a day's pins piled into one blob that hid the places and the routes between them.)
 - **Where pins crowd, they shrink to small dots, all together.** If any two pins in view are too close for both to show their numbers (zoomed out, or places a few hundred meters apart), every pin is a small dot with no number, so a day zoomed out reads as a line of colored dots along its route. Zoom in until every pin in view has room and they all get their numbers back at once. Only the pins in view count, so a crowd at the other end of the trip doesn't take the numbers away from the place you're looking at. (Each pin used to decide for itself: zoomed out, the one pin with room kept its number among dots, and that lone number read as something special about that stop.) A selected pin, and both ends of a route on show, always keep their numbers, and a tap still selects a small dot: its tap target is larger than the dot.
-- **Routes** are drawn as driving routes in blue; on a trip day, past ones are grey. **Blue means routes and nothing else**: a selected stop is grey, no stop type is blue, and the list uses no blue at all: the drive you're on or have selected gets a darker grey car.
+- **Routes** are drawn in blue along the roads (or paths, for a walk or a ride), and a transit or flight leg as a straight dashed blue line; on a trip day, past ones are grey. **Blue means routes and nothing else**: a selected stop is grey, no stop type is blue, and the list uses no blue at all: the drive you're on or have selected gets a darker grey car.
 - **The background map** is a light, low-contrast style (Stadia "Alidade Smooth"), so the routes stand out. Its credits are at the bottom of trip settings, not over the map.
 
 ### How the map and the list work together
@@ -298,7 +320,7 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
   - The route is highlighted, and the other routes and stops fade.
   - **Both ends' pins grow,** as a selected stop's does. The drive's time is in its row in the list, not on the map.
   - **The map fits the route**, with room around its ends for their pins, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. A full list goes to half, so the map and the Directions button both show.
-  - **The bottom button becomes Directions**, for that drive, with a round + beside it.
+  - **The bottom button becomes Directions**, for that drive, with the way you're getting there and a round + beside it (a flight's is Open in Maps, for where it lands).
 - **Tapping the same drive again** keeps it on show, and in the half list nothing moves: the map re-fits the route only if you've moved one of its ends out of view. Tapping empty map, Whole day, changing the day or Esc goes back to the whole day.
 - **Hovering a drive** on a computer previews its route, without moving the map.
 - **Tapping empty map** clears the selection.
@@ -315,7 +337,7 @@ The map zooms the way a phone's maps app does:
 
 ### Handing off navigation
 
-Tapping a drive turns the bottom button into Directions, which opens directions from one stop to the next in your maps app: **Google Maps**, or **Apple Maps** if you picked it in Account. Waythread has no turn-by-turn directions, step lists, or navigation mode. Those are what the maps apps do best.
+Tapping a drive turns the bottom button into Directions, which opens directions from one stop to the next, the way you're getting there (driving, walking, cycling or transit), in your maps app: **Google Maps**, or **Apple Maps** if you picked it in Account. Waythread has no turn-by-turn directions, step lists, or navigation mode. Those are what the maps apps do best.
 
 ## Collaboration
 
@@ -368,7 +390,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
 
   | Purpose | Service | Notes |
   | --- | --- | --- |
-  | Routes | OSRM public demo server | Rate-limited. Results are cached, and if a request fails it falls back to a straight-line estimate. |
+  | Routes | OSRM public demo server; OpenStreetMap Germany's routers on foot and by bike | Rate-limited. Results are cached, and if a request fails it falls back to a straight-line estimate. |
   | Place search | Nominatim | |
   | Background map | Stadia | Falls back to OpenStreetMap if Stadia's map doesn't load. |
 
@@ -387,7 +409,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
 
 - **Backend:** real accounts, sharing between devices, and handling two people editing the same stop at once.
 - **Production map services:** a paid or self-hosted service for routes, search, and the background map.
-- **Transport modes:** walking and flights currently all show as driving time.
+- **Transport modes:** shipped (see [How you get there](#how-you-get-there)). Not yet: transit times, which need a timetable service, and a flight drawn as an arc rather than a straight line.
 - **Phone-friendly gestures:** for example, dragging to reorder.
 - **Day view in the app:** shipped. The day bar, timeline, hotel stays, stop types and floating buttons are in `app/web`, with their styles in the design system (v2.0.0). Stops store `kind` and `nights` on the server. Trip settings also holds Make a new link, and the trip name saves when you leave the field.
 - **How long a stop lasts:** an optional Leave time on every stop was shipped, then taken out: it didn't add anything to the plan (see [Stop times](#stop-times)). A stop assumes you leave just in time for the next. Default lengths per type (a meal 1 hour, a museum 2) could fill the gap, without showing durations in the list.
