@@ -20,7 +20,7 @@ let auth: Auth | undefined; // env is the same for every request in an isolate
 const getAuth = (env: Env) => (auth ??= createAuth(env));
 
 const RATE_LIMITED = 'rate_limited';
-const STATUS: Record<string, ContentfulStatusCode> = { [ERR.notFound]: 404, [ERR.notMember]: 403, [ERR.gone]: 410, [ERR.invalid]: 400, [RATE_LIMITED]: 429 };
+const STATUS: Record<string, ContentfulStatusCode> = { [ERR.notFound]: 404, [ERR.notMember]: 403, [ERR.notOwner]: 403, [ERR.gone]: 410, [ERR.invalid]: 400, [RATE_LIMITED]: 429 };
 app.onError((err, c) => {
   const status = STATUS[err.message];
   if (status) return c.json({ error: err.message }, status);
@@ -138,6 +138,10 @@ app.delete('/trips/:id', async c => {
 });
 app.post('/trips/:id/restore', async c => {
   await room(c.env, c.req.param('id')).restore(c.get('user').id);
+  return c.body(null, 204);
+});
+app.post('/trips/:id/leave', async c => {
+  await room(c.env, c.req.param('id')).leave(c.get('user').id);
   return c.body(null, 204);
 });
 

@@ -10,7 +10,7 @@ The proposal set three principles. This is how each one shows up in the design:
 | --- | --- |
 | **Less is more** | Show information only when it is essential, isn't shown elsewhere on screen, and can't be inferred at a glance. Each element earns its place. |
 | **The route and the plan are the focus** | The map fills the screen and the plan sits on top of it. The most prominent things are the stops and the routes between them, not controls. |
-| **Co-editing is the default** | Every trip is shared. Everyone on it can edit, there are no roles, and the people on a trip are one tap away, in trip settings. |
+| **Co-editing is the default** | Every trip is shared. Everyone on it can edit, and the people on a trip are one tap away, in trip settings. The only role is the owner, who made the trip and is the only one who can delete it. |
 
 One more rule came out of the iterations: **don't rebuild what Google Maps and Apple Maps already do.** Waythread plans the trip and hands off to the phone's maps app for navigation.
 
@@ -118,7 +118,7 @@ The half list is about one row, its **focus**: the selected stop; or else the dr
 ```
 - **Each day starts and ends at the hotel** (see [Hotel stays](#hotel-stays)). With no hotel the night before, the day starts from the day before's last stop: the list opens with that stop, and it's a faded pin on the map. Tapping that pin goes back to the day before.
 
-**Trip settings** holds the trip's name, the people on it, the share link, **Offline** (see below), and **Delete trip**, one section each, then the map's credits. Trip settings and Account are built the same way (see [Settings section](../design-system/README.md#settings-section-wt-section)): each section has a title, a line on what it does, its controls, and a hint or a button, with a hairline between sections. There's no Save and no black button, since every change saves on its own. Every button is the same white, outlined button (Copy, Save for offline, Make a new link, Remove from this device), and Delete trip is that button with a red label, last, on its own. (They started as a run of fields with small grey labels over bigger paragraphs, and a black Copy button, so the explanations outranked what they explained. Then Make a new link and Remove from this device were grey text and Delete trip red text, which made three kinds of button in one sheet.)
+**Trip settings** holds the trip's name, the people on it (the owner marked `Owner`), the share link, **Offline** (see below), and **Delete trip** for the owner or **Leave trip** for everyone else, one section each, then the map's credits. Trip settings and Account are built the same way (see [Settings section](../design-system/README.md#settings-section-wt-section)): each section has a title, a line on what it does, its controls, and a hint or a button, with a hairline between sections. There's no Save and no black button, since every change saves on its own. Every button is the same white, outlined button (Copy, Save for offline, Make a new link, Remove from this device), and Delete trip (or Leave trip) is that button with a red label, last, on its own. (They started as a run of fields with small grey labels over bigger paragraphs, and a black Copy button, so the explanations outranked what they explained. Then Make a new link and Remove from this device were grey text and Delete trip red text, which made three kinds of button in one sheet.)
 
 #### Offline
 
@@ -319,7 +319,8 @@ Tapping a drive turns the bottom button into Directions, which opens directions 
 
 ## Collaboration
 
-- **Sharing is a link.** Opening the link adds you to the trip, so the link is the invite. There are no roles: everyone can edit.
+- **Sharing is a link.** Opening the link adds you to the trip, so the link is the invite. Everyone can edit.
+- **Owner.** Whoever made the trip owns it. Only they can delete it, for everyone, and the notice offers **Undo**. Everyone else can **leave** it instead: it comes off their home screen, the stops they added stay, the others see `Sam left`, and the share link brings them back.
 - **Who's on the trip** is listed in trip settings. It used to show as faces in the sheet header; that row went to give the plan more room.
 - **Live edits** appear right away. When a co-editor adds, changes, or removes a stop, a short notice appears at the top (for example, "Sam updated Cloudcroft") and the changed stop flashes.
 - Edits always build on the latest saved version, so two people editing don't overwrite each other's changes.
@@ -349,6 +350,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
   - The greys are one warm ramp in even steps, each ink with its own contrast (see the design system's [Greys](../design-system/README.md#greys)).
 - **Type:** the system font, in few weights: stop names 16px medium, the trip's name and the day 15px medium in grey (they say where you are, so they sit below the plan), and everything else regular, so the screen never reads as a wall of bold. Below the names, hierarchy is size and ink: times 15px in dark grey with tabular numbers, notes 13px in dark grey, drives 13px in a lighter grey with the duration a step darker. Stop names are the only strong text in the list.
 - **Surfaces:** the map, then the white plan sheet with the timeline straight on it. Trip cards on Home and modal sheets are white too. No heavy shadows.
+- **Closing a sheet:** ✕, a tap outside it, Esc, or the phone's Back button. Each sheet has its own place in the browser's history, so Back closes the sheet and stays on the page under it, as in other phone apps. (Back used to leave the page, losing what was typed, and a sheet opened on Home stayed open over the trip Back went to.)
 - **Phone-first layout, adapting up:**
 
   | Width | Trip | Home and sign-in |

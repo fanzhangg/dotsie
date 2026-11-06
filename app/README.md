@@ -65,15 +65,16 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET /api/me` | `{ id, name, image, isGuest }` |
 | `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights }`, for the card's route sketch (at most 300) |
 | `POST /api/trips` `{ name }` | Create; returns the trip snapshot |
-| `GET /api/trips/:id` | `{ trip, members, stops }` |
+| `GET /api/trips/:id` | `{ trip, members, stops }`; `trip.owner` is the id of whoever made it |
 | `PATCH /api/trips/:id` `{ name }` | Rename |
-| `DELETE /api/trips/:id` · `POST /api/trips/:id/restore` | Soft delete and undo |
+| `DELETE /api/trips/:id` · `POST /api/trips/:id/restore` | Soft delete and undo. Owner only (403 `not_owner`) |
+| `POST /api/trips/:id/leave` | Leave the trip; your stops stay. Everyone but the owner (the owner gets 400 `invalid`) |
 | `GET /api/trips/:id/invite` · `POST …/invite/rotate` | Share link, or a fresh one that kills the old |
 | `POST /api/join/:token` | Join through a share link |
 | `PUT /api/trips/:id/stops/:stopId` | Create a stop, or restore one (Undo). The client picks the id |
 | `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ kind: 'hotel', nights: 2, checkout: '11:00' }` |
 | `DELETE /api/trips/:id/stops/:stopId` | |
-| `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `trip.updated`, `trip.deleted`, each with `by` |
+| `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
 | `GET /api/route?from=lat,lng&to=lat,lng` | `{ duration, distance, coords }` |
 | `GET /api/trips/:id/map?theme=&route=&legs=&dots=` | A home card's map picture (PNG, 1000×400). `theme` is `light` or `dark`; `route` the line color as six hex digits; `legs` the drives as pairs of indexes into the card's `stops`, like `0-1,1-2`; `dots` the places, like `0:b24acf,1:7250e2`. 503 `maps_not_configured` without a Stadia key, in local dev too, and the card shows its sketch |
@@ -85,7 +86,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 
 A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is a hotel's check-out time, `HH:MM`, on the day its nights end, or `null` (the app shows 11:00 AM). Other stops have `null`; a time some older clients saved there as a leave time is ignored. Stops still carry `done`, which older clients set; the app no longer shows it.
 
-Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
+Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member` or `not_owner`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
 
 ## MCP server
 

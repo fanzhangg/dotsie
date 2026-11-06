@@ -100,7 +100,7 @@ async function api(path, { method = 'GET', body, signal } = {}) {
 }
 // A home card's map picture: Stadia's map with the trip drawn on it, made by the server, which keeps the key
 const mapImageURL = (tripId, query) => `/api/trips/${encodeURIComponent(tripId)}/map?${query}`;
-const fromSnapshot = s => ({ id: s.trip.id, name: s.trip.name, members: s.members, stops: s.stops });
+const fromSnapshot = s => ({ id: s.trip.id, name: s.trip.name, owner: s.trip.owner, members: s.members, stops: s.stops });
 
 // Writes show at once and save in the background. If one fails, reload the trip so the screen
 // matches what's saved.
@@ -714,7 +714,7 @@ function connectLive(id) {
     clearInterval(ping);
     if (live !== ws) return; // closed on purpose or replaced
     live = null;
-    if (e.code === 4410) return; // the trip was deleted
+    if (e.code === 4410 || e.code === 4403) return; // the trip was deleted, or you left it
     liveTimer = setTimeout(() => { if (cur?.id === id) connectLive(id); }, Math.min(30000, 1000 * 2 ** liveTries++));
   };
 }
@@ -751,6 +751,12 @@ function onEvent(m) {
     case 'member.joined':
       if (!memberOf(m.member.id)) cur.members.push(m.member);
       if (!mine) note(`${m.member.name} joined`);
+      break;
+    case 'member.left':
+      // Left in another tab: this one goes home too
+      if (mine) { closeTrip(); location.hash = '#/'; return; }
+      cur.members = cur.members.filter(x => x.id !== m.id);
+      note(`${m.name} left`);
       break;
     case 'member.updated': {
       const i = cur.members.findIndex(x => x.id === m.member.id);
@@ -2486,9 +2492,11 @@ const closeBtn = `<button class="wt-icon-btn" data-action="close-sheet" aria-lab
 const modalHead = (title, sticky) => `<div class="wt-modal__head${sticky ? ' wt-modal__head--sticky' : ''}"><h2 class="wt-modal__title">${title}</h2>${closeBtn}</div>`;
 // A panel (the stop sheet) has no backdrop, so the map stays in view and usable beside or above it.
 // onClose runs however the sheet goes away: closed, replaced by another sheet, or left with the trip.
+// A sheet has its own history entry, so the phone's Back button closes it rather than leaving the page under it.
 let onSheetClose = null;
 function openSheet(html, mount, { panel = false, onClose = null } = {}) {
   runSheetClose();
+  if (!history.state?.wtSheet) history.pushState({ wtSheet: true }, '');
   // over the trip's side panel on a wide screen; a dialog in the middle elsewhere, a bottom sheet on a phone
   $sheets.classList.toggle('wt-modal-root--side', isWide());
   $sheets.classList.toggle('wt-modal-root--panel', panel);
@@ -2498,10 +2506,22 @@ function openSheet(html, mount, { panel = false, onClose = null } = {}) {
   requestAnimationFrame(() => requestAnimationFrame(() => $sheets.classList.add('is-open')));
 }
 function closeSheet() {
+  const was = !!$sheets.innerHTML;
   $sheets.classList.remove('is-open', 'wt-modal-root--panel');
   $sheets.innerHTML = '';
   runSheetClose();
+  // Take the sheet's history entry with it, a moment later: unless another sheet has opened in its place,
+  // or the page has moved on (and so off that entry) meanwhile
+  if (was) setTimeout(() => { if (!$sheets.innerHTML && history.state?.wtSheet) history.back(); });
 }
+// Close the sheet and go to another page, which takes the sheet's history entry, so Back from there skips it
+function closeSheetTo(hash) {
+  const had = history.state?.wtSheet;
+  closeSheet();
+  if (had) location.replace(hash); else location.hash = hash;
+}
+// Back (or forward, or any other page) to an entry without a sheet: close what's open, wherever it was opened
+addEventListener('popstate', () => { if (!history.state?.wtSheet && $sheets.innerHTML) closeSheet(); });
 function runSheetClose() { const f = onSheetClose; onSheetClose = null; f?.(); }
 
 function openNewTrip() {
@@ -2518,8 +2538,7 @@ function openNewTrip() {
         closeTrip();
         cur = fromSnapshot(snap);
         connectLive(cur.id);
-        closeSheet();
-        location.hash = `#/trip/${cur.id}`;
+        closeSheetTo(`#/trip/${cur.id}`);
       } catch (err) {
         f.elements[1].disabled = false;
         if (err.status !== 401) failToast(err, 'Couldn’t create the trip');
@@ -2529,21 +2548,22 @@ function openNewTrip() {
 }
 
 // Everything about the trip that isn't the plan, one section each: its name, who's on it, the share link, saving it for
-// offline, and deleting it. Then the map's credits.
+// offline, and deleting it (the owner, who made it) or leaving it (everyone else). Then the map's credits.
 function openSettings(trip) {
+  const owner = trip.owner === me.id;
   openSheet(`${modalHead('Trip settings')}
     <form class="wt-section settings-name">
       <label class="wt-section__title" for="trip-name">Name</label>
       <input class="wt-input" id="trip-name" name="title" autocomplete="off" required maxlength="120">
     </form>
     <section class="wt-section"><h3 class="wt-section__title">People</h3>
-      <ul class="wt-people">${trip.members.map(m => `<li class="wt-people__item">${avatarHTML(m)}<span>${esc(m.name)}${m.id === me.id ? ' <span class="wt-people__meta">(you)</span>' : ''}</span></li>`).join('')}</ul></section>
+      <ul class="wt-people">${trip.members.map(m => `<li class="wt-people__item">${avatarHTML(m)}<span>${esc(m.name)}${m.id === me.id ? ' <span class="wt-people__meta">(you)</span>' : ''}${m.id === trip.owner ? ' <span class="wt-people__meta">· Owner</span>' : ''}</span></li>`).join('')}</ul></section>
     <section class="wt-section"><h3 class="wt-section__title">Share link</h3>
       <p class="wt-section__text">Anyone with the link can join and edit this trip.</p>
       <div class="wt-copy-row"><input class="wt-input" readonly value="" placeholder="Loading…" aria-label="Trip link"><button class="wt-btn wt-btn--secondary" data-action="copy" disabled>Copy</button></div>
       <button class="wt-btn wt-btn--secondary" data-new-link>Make a new link</button></section>
     <section class="wt-section settings-offline"></section>
-    <div class="wt-section"><button class="wt-btn wt-btn--danger" data-del>Delete trip</button></div>
+    <div class="wt-section">${owner ? '<button class="wt-btn wt-btn--danger" data-del>Delete trip</button>' : '<button class="wt-btn wt-btn--danger" data-leave>Leave trip</button>'}</div>
     <p class="wt-credit">Map ${mapCredit}</p>`, async el => {
     // Offline: Save for offline, how far it's got, or what's saved
     const off = el.querySelector('.settings-offline');
@@ -2570,19 +2590,29 @@ function openSettings(trip) {
       save(api(`/trips/${trip.id}`, { method: 'PATCH', body: { name } })).then(r => { if (r !== undefined) toast('Name saved'); });
     });
     // Deleting is for everyone, so it asks first; it can still be undone from the notice.
-    el.querySelector('[data-del]').onclick = async () => {
+    el.querySelector('[data-del]')?.addEventListener('click', async () => {
       if (!(await ask({ title: `Delete “${trip.name}”?`, detail: 'It’s deleted for everyone on the trip. You can undo right after.', action: 'Delete trip', danger: true }))) return;
       try { await api(`/trips/${trip.id}`, { method: 'DELETE' }); } catch (err) {
         if (err.status !== 401) failToast(err, 'Couldn’t delete the trip');
         return;
       }
-      closeSheet();
       closeTrip();
-      location.hash = '#/';
+      closeSheetTo('#/');
       toast(`Deleted ${trip.name}`, 'Undo', async () => {
         try { await api(`/trips/${trip.id}/restore`, { method: 'POST' }); location.hash = `#/trip/${trip.id}`; } catch (err) { failToast(err, 'Couldn’t restore the trip'); }
       });
-    };
+    });
+    // Leaving takes the trip off your home screen only; the share link brings you back.
+    el.querySelector('[data-leave]')?.addEventListener('click', async () => {
+      if (!(await ask({ title: `Leave “${trip.name}”?`, detail: 'It stays for everyone else. The share link can bring you back.', action: 'Leave trip', danger: true }))) return;
+      try { await api(`/trips/${trip.id}/leave`, { method: 'POST' }); } catch (err) {
+        if (err.status !== 401) failToast(err, 'Couldn’t leave the trip');
+        return;
+      }
+      closeTrip();
+      closeSheetTo('#/');
+      toast(`Left ${trip.name}`);
+    });
     const input = el.querySelector('.wt-copy-row input'), copy = el.querySelector('[data-action="copy"]');
     const show = url => { input.value = url; copy.dataset.text = url; copy.disabled = false; };
     // A new link is for when the old one went somewhere it shouldn't have: the old one stops working.

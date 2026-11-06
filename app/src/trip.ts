@@ -22,11 +22,12 @@ export type TripEvent =
   | { type: 'stop.removed'; id: string; name: string }
   | { type: 'member.joined'; member: Member }
   | { type: 'member.updated'; member: Member }
+  | { type: 'member.left'; id: string; name: string }
   | { type: 'trip.updated'; name: string }
   | { type: 'trip.deleted' };
 
 // Errors cross the RPC boundary as plain messages; the Worker maps these to HTTP statuses.
-export const ERR = { notFound: 'not_found', notMember: 'not_member', gone: 'gone', invalid: 'invalid' } as const;
+export const ERR = { notFound: 'not_found', notMember: 'not_member', notOwner: 'not_owner', gone: 'gone', invalid: 'invalid' } as const;
 
 const IDENTITIES = 6;
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -126,7 +127,7 @@ export class TripRoom extends DurableObject<Env> {
   snapshot(userId: string) {
     const trip = this.check(userId);
     return {
-      trip: { id: trip.id, name: trip.name },
+      trip: { id: trip.id, name: trip.name, owner: trip.created_by },
       members: this.sql.exec<Member>('select id, name, image, identity from members order by joined_at').toArray(),
       stops: this.stops(),
     };
@@ -139,9 +140,9 @@ export class TripRoom extends DurableObject<Env> {
     this.broadcast({ type: 'trip.updated', name }, userId);
   }
 
-  // Soft delete: the trip leaves everyone's home screen but can be restored.
+  // Soft delete: the trip leaves everyone's home screen but can be restored. Only its owner (who made it) can.
   async remove(userId: string) {
-    const trip = this.check(userId);
+    const trip = this.checkOwner(userId);
     const now = Date.now();
     this.sql.exec('update trip set deleted_at = ?', now);
     await this.env.DB.prepare('update trips set deleted_at = ? where id = ?').bind(now, trip.id).run();
@@ -150,7 +151,7 @@ export class TripRoom extends DurableObject<Env> {
   }
 
   async restore(userId: string) {
-    const trip = this.check(userId, true);
+    const trip = this.checkOwner(userId, true);
     this.sql.exec('update trip set deleted_at = null');
     await this.env.DB.prepare('update trips set deleted_at = null, updated_at = ? where id = ?').bind(Date.now(), trip.id).run();
   }
@@ -216,6 +217,17 @@ export class TripRoom extends DurableObject<Env> {
     return this.snapshot(user.id);
   }
 
+  // Anyone but the owner can leave; the owner deletes the trip instead. Stops they added stay.
+  async leave(userId: string) {
+    const trip = this.check(userId);
+    if (trip.created_by === userId) throw new Error(ERR.invalid);
+    const { name } = this.sql.exec<{ name: string }>('select name from members where id = ?', userId).one();
+    this.sql.exec('delete from members where id = ?', userId);
+    await this.env.DB.prepare('delete from trip_members where trip_id = ? and user_id = ?').bind(trip.id, userId).run();
+    this.broadcast({ type: 'member.left', id: userId, name }, userId);
+    for (const ws of this.ctx.getWebSockets(userId)) ws.close(4403, 'Left the trip');
+  }
+
   // A guest signed in for real: their trips and stops move to the new account.
   async replaceMember(fromId: string, to: Omit<Member, 'identity'>) {
     const trip = this.trip();
@@ -272,6 +284,11 @@ export class TripRoom extends DurableObject<Env> {
     if (!trip) throw new Error(ERR.notFound);
     if (!this.isMember(userId)) throw new Error(ERR.notMember);
     if (trip.deleted_at && !allowDeleted) throw new Error(ERR.gone);
+    return trip;
+  }
+  private checkOwner(userId: string, allowDeleted = false) {
+    const trip = this.check(userId, allowDeleted);
+    if (trip.created_by !== userId) throw new Error(ERR.notOwner);
     return trip;
   }
   private stops() {
