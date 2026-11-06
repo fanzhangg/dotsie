@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 9.8.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 10.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -796,7 +796,6 @@ A question before an action that can't be undone, or that other people will noti
       <path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-hotel)" d="M160 40h0"/>
       <path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-airport)" d="M180 90h0"/>
     </svg>
-    <img class="wt-trip-card__photo" src="…" alt="" loading="lazy">  <!-- add .is-loaded once it loads -->
   </span>
   <span class="wt-trip-card__body">
     <span class="wt-trip-card__text"><span class="wt-trip-card__name">White Sands, NM</span><span class="wt-trip-card__dates">Nov 20 – 22 · <span class="wt-trip-card__when">In 2 weeks</span></span></span>
@@ -813,8 +812,7 @@ What you need to pick a trip: where it goes, its name and dates, and who's on it
 Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apart by its surface alone, with no border or shadow.
 
 - `__map` is the route, across the top of the card: a 5:2 box on `--wt-surface-map`.
-  - `__photo` is a map picture of the route, made at 5:2 so nothing is cut off. It's hidden until it has `.is-loaded`, then fades in over the sketch. If it can't load, remove it and the sketch stays.
-  - The `svg` is a sketch of the route, under the picture. Draw it in any units with `preserveAspectRatio="xMidYMid meet"`: lines and dots keep their pixel widths at any card size (`vector-effect: non-scaling-stroke`).
+  - The `svg` is a sketch of the route. Draw it in any units with `preserveAspectRatio="xMidYMid meet"`: lines and dots keep their pixel widths at any card size (`vector-effect: non-scaling-stroke`).
   - `__casing` then `__route`: the drives, in `--wt-route` over `--wt-route-casing`, like routes on the map. Add `.is-estimate` to both for drives not looked up yet: dotted, as on the map.
   - `__ring` then one `__stop` per place, like the map's pins: a dot is a path of no length (`M x y h0`), drawn by its round cap. `__ring` holds every dot, in `--wt-pin-fill` with `--wt-shadow-pin`; each `__stop` sets `--wt-kind-color`.
 - `__body`: the name (`--wt-type-name`, as a stop's; one line, cut off with an ellipsis), the dates and `__when` (how soon), and the people as a `.wt-avatar-stack` on the right. The stack's ring follows the card's surface, hovered too. Hide the stack from screen readers and say the names in a `.wt-visually-hidden` span, so the link reads "White Sands, NM, Nov 20 – 22, with Alex, Sam".
@@ -952,6 +950,12 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 10.0.0
+
+Home's cards no longer show a map picture from Stadia over the route sketch: each one cost 2,000 credits from the Stadia plan, and another whenever the trip changed or the theme did. The sketch, drawn by the app, is the card's route.
+
+- Removed: `.wt-trip-card__photo` and its `.is-loaded`. Take the `<img>` out of `__map`. The sketch's markup is unchanged.
 
 ### Changed in 9.8.1
 

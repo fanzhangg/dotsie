@@ -2,9 +2,9 @@ import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
-import { cachedRoute, findRoute, findSights, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode, staticMap, type StaticMap } from './maps';
+import { findRoute, findSights, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
-import { ERR, TRAVEL, type Preview, type Travel } from './trip';
+import { ERR, type Preview } from './trip';
 
 export { TripRoom } from './trip';
 
@@ -243,62 +243,6 @@ app.get('/sights', async c => {
     return c.json({ error: 'unavailable' }, 503); // Overpass is busy or down: the map goes without for now
   }
 });
-
-// A home card's map picture. The client says what to draw, as it does on the trip's map: its drives as pairs of stops
-// and its places, each a stop with its type's color, by their place in the card's stop list (the preview's, which is
-// read here, so only the trip's own places can be drawn). Drives (and walks and rides) follow the roads where anyone on
-// the trip has looked them up already, straight otherwise, as transit and flights always are: drawing a card never
-// looks up a route.
-const HEX = /^[0-9a-f]{6}$/i;
-const MAP_LEGS = 600, MAP_DOTS = 300;
-app.get('/trips/:id/map', async c => {
-  if (!c.env.STADIA_API_KEY) return c.json({ error: 'maps_not_configured' }, 503);
-  const id = c.req.param('id');
-  if (!ID.test(id)) bad();
-  const row = await c.env.DB.prepare(
-    `select t.preview from trips t join trip_members m on m.trip_id = t.id
-     where t.id = ? and m.user_id = ? and t.deleted_at is null`,
-  ).bind(id, c.get('user').id).first<{ preview: string | null }>();
-  if (!row?.preview) throw new Error(ERR.notFound);
-  const stops = (JSON.parse(row.preview) as Preview).stops;
-  const at = (v: string) => (/^\d+$/.test(v) && +v < stops.length ? stops[+v] : bad()) as Preview['stops'][number];
-  const q = (k: string) => c.req.query(k) ?? '';
-  const hex = (v = '') => (HEX.test(v) ? v.toLowerCase() : bad()) as string;
-  const color = hex(q('route'));
-  // a leg is "from-to", or "from-to:way" when it isn't a drive
-  const legs = q('legs') ? q('legs').split(',').map(l => { const [ends, way = 'drive'] = l.split(':'); return { ends: ends.split('-').map(at), way }; }) : [];
-  const dots = q('dots').split(',').map(d => { const [i, h] = d.split(':'); return { ...at(i), color: hex(h) }; });
-  if (legs.some(l => l.ends.length !== 2 || !TRAVEL.includes(l.way as Travel)) || legs.length > MAP_LEGS || dots.length > MAP_DOTS) bad();
-  // One line per run of drives that follow on from each other
-  const lines: StaticMap['lines'] = [];
-  let last: unknown = null;
-  for (const { ends: [a, b], way } of legs) {
-    const r = ROUTE_MODES.includes(way as RouteMode) ? await cachedRoute(c.env, way as RouteMode, a, b) : null;
-    const coords: [number, number][] = r?.coords.length ? r.coords : [[a.lat, a.lng], [b.lat, b.lng]];
-    if (last === a) lines.at(-1)!.coords.push(...coords.slice(1)); else lines.push({ coords, color });
-    last = b;
-  }
-  const png = await staticMap(c.env, {
-    style: q('theme') === 'dark' ? 'alidade_smooth_dark' : 'alidade_smooth',
-    lines: lines.map(l => ({ ...l, coords: thin(l.coords) })),
-    dots: dots.map(({ lat, lng, color }) => ({ lat, lng, color })),
-  }, async () => { if (await tooMany(c.env.MAPS_LIMIT, c.get('user').id)) throw new Error(RATE_LIMITED); });
-  // The URL changes when the stops do; a drive looked up since shows the next day
-  return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, max-age=86400' });
-});
-// A road's points closer together than the picture can show (about a pixel at the trip's scale), dropped
-function thin(coords: [number, number][]) {
-  if (coords.length < 3) return coords;
-  const lats = coords.map(p => p[0]), lngs = coords.map(p => p[1]);
-  let span = 0;
-  for (const v of [lats, lngs]) { let lo = Infinity, hi = -Infinity; for (const x of v) { lo = Math.min(lo, x); hi = Math.max(hi, x); } span = Math.max(span, hi - lo); }
-  const step = span / 500, out = [coords[0]];
-  for (let i = 1; i < coords.length; i++) {
-    const p = coords[i], o = out.at(-1)!;
-    if (i === coords.length - 1 || Math.abs(p[0] - o[0]) + Math.abs(p[1] - o[1]) >= step) out.push(p);
-  }
-  return out;
-}
 
 // The OAuth provider sees every request first: it answers discovery (/.well-known/*) and its own endpoints
 // (/api/oauth/token, /api/oauth/register), checks the token on /api/mcp, and hands the rest to the app.
