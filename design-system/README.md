@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 9.5.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 9.5.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -928,6 +928,11 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 9.5.1
+
+- `.wt-pin--folder.wt-pin--selected`: a folder's pin can be selected (an end of the route on show), and its piled disc grows with it.
+- Tokens are unchanged.
 
 ### Added in 9.5.0
 

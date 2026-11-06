@@ -1,4 +1,4 @@
-/* Waythread design system — components v9.5.0
+/* Waythread design system — components v9.5.1
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -885,6 +885,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* A folder's pin: its number, at its first stop, with a second disc of its color piled behind it, as on its marker */
 .wt-pin--folder { box-shadow: 0 -6px 0 -2px var(--wt-stack-tint), 0 -6px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
 .wt-pin--folder.wt-pin--dot { box-shadow: 0 -4px 0 -1.5px var(--wt-stack-tint), 0 -4px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
+.wt-pin--folder.wt-pin--selected { box-shadow: 0 -7px 0 -2px var(--wt-stack-tint), 0 -7px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin-selected); }
 .wt-pin--folder.wt-pin--muted { --wt-stack-tint: var(--wt-kind-past); box-shadow: 0 -5px 0 -2px var(--wt-stack-tint), 0 -5px 0 0 var(--wt-pin-fill); }
 /* While a folder is open (.is-folder-open on .wt-pins), the pins outside it fade, as they do around a selected pin;
    its own (--open) keep their color, around its selected stop too */

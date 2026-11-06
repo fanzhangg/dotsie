@@ -2440,7 +2440,7 @@ function drawMap(trip) {
   if (active) drawn.push({ key: `on:${active.key}`, top: true, ...style(active, true) });
   routeLayer.setRoutes(drawn);
   // The map has only the routes and the pins: names, times and drive times are in the list, so the map doesn't repeat them.
-  // A route on show enlarges the pins at its ends.
+  // A route on show enlarges the pins at its ends, a folder's too.
   const ends = active ? [active.from, active.to] : [];
   // Stops are numbered in order: the day's, or on All days the whole trip's, as its list reads. The hotel you wake up
   // in or come back to isn't one of them.
@@ -2479,11 +2479,12 @@ function drawMap(trip) {
   for (const r of runs) {
     if (r.fid === openFid) continue;
     const stops = r.entries.map(e => e.place), s = stops[0];
-    const quiet = (active && !stops.some(x => ends.includes(x))) || stops.every(isPast);
+    // a drive into or out of the folder enlarges its pin, as it does a stop's
+    const focus = stops.some(x => ends.includes(x)), quiet = !focus && (!!active || stops.every(isPast));
     addPin(L.marker([s.lat, s.lng], {
-      icon: L.divIcon({ className: '', iconSize: [0, 0], html: folderPinHTML(trip, r.fid, stops, folderNums.get(r), quiet ? 'wt-pin--muted' : '') }),
-      zIndexOffset: quiet ? -1000 : 0, title: folderName(trip, r.fid),
-    }).on('click', () => onMapTap(() => { if (!state.draft) selectFolder(r.fid); })), quiet ? 10 : 12);
+      icon: L.divIcon({ className: '', iconSize: [0, 0], html: folderPinHTML(trip, r.fid, stops, folderNums.get(r), focus ? 'wt-pin--selected' : quiet ? 'wt-pin--muted' : '') }),
+      zIndexOffset: focus ? 1000 : quiet ? -1000 : 0, title: folderName(trip, r.fid),
+    }).on('click', () => onMapTap(() => { if (!state.draft) selectFolder(r.fid); })), focus ? 16 : quiet ? 10 : 12);
   }
   // While a folder is open, the pins outside it fade, as they do around a selected stop
   map.getPane('markerPane').classList.toggle('is-folder-open', !!openFid && runs.some(r => r.fid === openFid));
