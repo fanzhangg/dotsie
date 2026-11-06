@@ -1499,10 +1499,34 @@ const loadScript = src => new Promise((done, fail) => {
   document.head.append(s);
 });
 const loadGL = () => (glLoaded ??= MAPLIBRE.reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
-  .then(() => true, () => { glLoaded = null; return false; }));
+  .then(() => { maplibregl.addProtocol('wt-shared', sharedTile); return true; }, () => { glLoaded = null; return false; }));
+// Both layers draw from the same tiles and ask for each at the same moment, too soon for the browser's cache to answer
+// the second: they share one fetch per tile instead, so a tile counts once against the Stadia plan. Each gets its own
+// copy of the bytes, since MapLibre hands them over to its worker.
+const tileFetches = new Map();
+function sharedTile({ url }) {
+  url = url.replace(/^wt-shared:/, 'https:');
+  let got = tileFetches.get(url);
+  if (!got) {
+    got = fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))));
+    tileFetches.set(url, got);
+    got.finally(() => tileFetches.delete(url)).catch(() => {}); // after that the browser's cache has it
+  }
+  return got.then(buf => ({ data: buf.slice(0) }));
+}
+const getJSON = url => fetch(url).then(r => (r.ok ? r.json() : null), () => null);
 const glStyles = {};
-const glStyle = dark => (glStyles[dark] ??= fetch(`https://tiles.stadiamaps.com/styles/alidade_smooth${dark ? '_dark' : ''}.json`)
-  .then(r => (r.ok ? r.json() : null), () => null).then(s => { if (!s) delete glStyles[dark]; return s; }));
+const glStyle = dark => (glStyles[dark] ??= getJSON(`https://tiles.stadiamaps.com/styles/alidade_smooth${dark ? '_dark' : ''}.json`).then(async s => {
+  // each tile source's description read once here, rather than by each layer, and its tiles fetched through sharedTile
+  for (const src of Object.values(s?.sources || {})) {
+    if (!src.url) continue;
+    const tj = await getJSON(src.url);
+    if (!tj?.tiles) return null;
+    Object.assign(src, { tiles: tj.tiles.map(t => t.replace(/^https:/, 'wt-shared:')), minzoom: tj.minzoom, maxzoom: tj.maxzoom, attribution: tj.attribution });
+    delete src.url;
+  }
+  return s;
+}).then(s => { if (!s) delete glStyles[dark]; return s; }));
 // Two changes to the plugin, so the map stays under the routes and pins, which move with every frame:
 // - while Leaflet zooms or flies, the plugin follows only the frames that change the zoom, and doesn't move its layer:
 //   a frame that only pans, or a pan at the same time (the keyboard's), left MapLibre's map behind. It follows each one here.
@@ -1527,7 +1551,12 @@ let basemap = null; // MapLibre's layers, [under the routes, over them], when th
 async function showGLMap(m, dark) {
   const [ok, style] = await Promise.all([loadGL(), glStyle(dark)]);
   if (!ok || !style || map !== m || !window.L?.MaplibreGL) return false;
-  const part = names => ({ ...structuredClone(style), layers: structuredClone(style.layers.filter(l => (l.type === 'symbol') === names)) });
+  const part = names => {
+    const s = structuredClone(style);
+    s.layers = s.layers.filter(l => (l.type === 'symbol') === names);
+    if (!names) delete s.sprite; // only the names and road numbers use its pictures
+    return s;
+  };
   const layers = [glLayer({ style: part(false) }), glLayer({ style: part(true), pane: 'labels' })];
   try {
     for (const l of layers) l.addTo(m);
