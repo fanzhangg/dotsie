@@ -74,7 +74,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET /api/trips/:id/invite` · `POST …/invite/rotate` | Share link, or a fresh one that kills the old |
 | `POST /api/join/:token` | Join through a share link |
 | `PUT /api/trips/:id/stops/:stopId` | Create a stop, or restore one (Undo). The client picks the id |
-| `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ kind: 'hotel', nights: 2, checkout: '11:00' }` |
+| `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ kind: 'hotel', nights: 2, checkout: '11:00' }`. `links` is the whole list, `[{ url, label }]`: up to 10 http(s) pages, `label` up to 60 characters (`''` shows the page's site) |
 | `DELETE /api/trips/:id/stops/:stopId` | |
 | `PUT /api/trips/:id/folders/:folderId` `{ name }` | Create a folder, or rename one; returns `{ id, name }`. The client picks the id. A stop goes in or out with its own `folder` field |
 | `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `folder.upserted`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
@@ -112,13 +112,14 @@ Claude reaches the server from Anthropic's cloud, so a connector needs the deplo
 | --- | --- | --- |
 | `list_trips` | none | `{ trips: [{ id, name, start, end }] }`, newest edit first |
 | `list_stops` | `trip_id`, optional `day` (`YYYY-MM-DD`) | `{ trip, stops, folders }`, in time order, with the folders those stops are in |
-| `add_stop` | `trip_id`, `name`, `lat`, `lng`, `time`, and any of `address`, `checkout`, `kind`, `nights`, `note`, `folder` | `{ stop }`, as saved, with its new id |
-| `edit_stop` | `trip_id`, `stop_id`, and any of `name`, `address`, `lat`, `lng`, `time`, `checkout`, `kind`, `nights`, `note`, `folder` | `{ stop }`, as saved |
+| `add_stop` | `trip_id`, `name`, `lat`, `lng`, `time`, and any of `address`, `checkout`, `kind`, `nights`, `note`, `links`, `folder` | `{ stop }`, as saved, with its new id |
+| `edit_stop` | `trip_id`, `stop_id`, and any of `name`, `address`, `lat`, `lng`, `time`, `checkout`, `kind`, `nights`, `note`, `links`, `folder` | `{ stop }`, as saved. `links` replaces the whole list |
+| `add_link` | `trip_id`, `stop_id`, `url`, optional `label` | `{ stop }`, as saved. Adds the page to the stop's links, keeping the others; a page it has already only gets the new label |
 | `delete_stop` | `trip_id`, `stop_id` | `{ deleted }`: the stop as it was, so `add_stop` can put it back |
 | `add_folder` | `trip_id`, `name` | `{ folder }`, with its new id. Empty until a stop's `folder` is set to it |
 | `rename_folder` | `trip_id`, `folder_id`, `name` | `{ folder }` |
 
-A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Changes go through `TripRoom`'s `putStop`, `patchStop`, `deleteStop` and `putFolder`, like the app's: the same checks, and everyone with the trip open sees them live.
+A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Changes go through `TripRoom`'s `putStop`, `patchStop`, `addLink`, `deleteStop` and `putFolder`, like the app's: the same checks, and everyone with the trip open sees them live.
 
 How it's built:
 

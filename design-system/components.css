@@ -1,4 +1,4 @@
-/* Waythread design system — components v9.6.0
+/* Waythread design system — components v9.7.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -16,7 +16,7 @@
 /* Bold in running text is semibold, never 700: emphasis without the glare. Components set their own weights. */
 .wt-base :where(b, strong) { font-weight: 600; }
 .wt-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel) {
+:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel, .wt-link-add) {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
 }
 :where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-tl-day, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
@@ -99,6 +99,27 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { -webkit-appearance: none; appearance: none; }
 }
 .wt-input::-webkit-date-and-time-value { text-align: left; margin: 0; }
+/* A stop's links in its sheet (.wt-link-list): a row each, drawn like an input, with the link's label over its address
+   and a remove button, then Add link under them. Both inputs are the input's 16px, so a phone doesn't zoom in on them. */
+.wt-link-list { display: grid; gap: var(--wt-space-2); margin-bottom: var(--wt-space-1); }
+.wt-link-list:empty { display: none; }
+.wt-link-edit {
+  display: flex; align-items: center; gap: var(--wt-space-1); padding: 0 var(--wt-space-1) 0 var(--wt-space-3);
+  background: var(--wt-surface-sunken); border: 1px solid var(--wt-border-default); border-radius: var(--wt-radius-md);
+  transition: border-color var(--wt-duration-fast), background var(--wt-duration-fast);
+}
+.wt-link-edit:focus-within { border-color: var(--wt-border-focus); background: var(--wt-surface-raised); }
+.wt-link-edit__fields { flex: 1; min-width: 0; display: grid; gap: 2px; padding: 9px 0; }
+.wt-link-edit input { display: block; width: 100%; min-width: 0; padding: 0; border: 0; background: none; outline: none; font: var(--wt-type-input); }
+.wt-link-edit__label { color: var(--wt-text-primary); }
+.wt-link-edit__url { color: var(--wt-text-secondary); }
+.wt-link-edit input::placeholder { color: var(--wt-text-placeholder); }
+.wt-link-edit__remove { color: var(--wt-text-secondary); }
+.wt-link-add { display: inline-flex; align-items: center; gap: 6px; height: var(--wt-size-touch); padding: 0 var(--wt-space-1) 0 0; font: var(--wt-type-label); font-size: 15px; color: var(--wt-text-link); border-radius: var(--wt-radius-md); }
+.wt-link-add[hidden] { display: none; }
+.wt-link-add .wt-icon { width: 18px; height: 18px; }
+.wt-link-add:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+
 /* A field with a fixed part before its input, like check-out's day before its time. The whole box is a label, so
    tapping anywhere in it opens the input. */
 .wt-input-group { display: flex; align-items: center; gap: var(--wt-space-2); min-height: 50px; padding-top: 0; padding-bottom: 0; cursor: text; }
@@ -218,7 +239,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
    same row, with no time. The last row is the bottom padding, inside the grid so the rail runs through it. */
 .wt-tl-stop {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
-  width: 100%; display: grid; grid-template-columns: var(--wt-tl-rail) 1fr auto; grid-template-rows: auto auto var(--wt-tl-pad);
+  width: 100%; display: grid; grid-template-columns: var(--wt-tl-rail) 1fr auto; grid-template-rows: auto auto auto var(--wt-tl-pad);
   border-radius: var(--wt-radius-md); transition: background var(--wt-duration-fast);
 }
 .wt-tl-stop:active { background: var(--wt-surface-hover); }
@@ -237,12 +258,32 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* A link in a note: its site's name in blue, the one thing in the row that isn't the row's own tap. Regular weight:
    the blue says it's a link (see the README's rule on weight) */
 .wt-tl-note a { color: var(--wt-text-link); text-decoration: none; }
+/* A stop's links: a row of buttons under its notes, each its label (or the page's site) and an arrow that says it
+   leaves the app. Outlined pills in link blue, 34px tall so a finger hits the one it means; they wrap onto more rows. */
+.wt-tl-links { grid-column: 2 / -1; grid-row: 3; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; padding: var(--wt-space-2) var(--wt-space-3) 0 0; }
+.wt-tl-link {
+  display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; height: 34px; padding: 0 10px 0 12px;
+  border-radius: var(--wt-radius-pill); background: var(--wt-surface-raised); box-shadow: 0 0 0 1px var(--wt-border-subtle), var(--wt-shadow-hairline);
+  font: var(--wt-type-caption-strong); color: var(--wt-text-link); text-decoration: none; white-space: nowrap;
+  transition: background var(--wt-duration-fast);
+}
+.wt-tl-link__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wt-tl-link .wt-icon { flex: none; width: 13px; height: 13px; opacity: .8; }
+.wt-tl-link:active { background: var(--wt-surface-hover); }
+@media (hover: hover) { .wt-tl-link:hover { background: var(--wt-surface-sunken); } }
+.wt-tl-link:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+/* A link icon at the start of the notes' line, saying a stop has links: shown only where its buttons aren't (below). */
+.wt-tl-links-hint { display: none; height: 19px; align-items: center; margin-right: 6px; vertical-align: top; color: var(--wt-text-tertiary); }
+.wt-tl-links-hint .wt-icon { width: 14px; height: 14px; }
 /* On a phone (the wt-trip container under 768px) a stop's notes are one line, run together with " · " and cut off
-   with an ellipsis, so the half sheet fits a stop with its neighbors. The selected stop shows them in full. */
+   with an ellipsis, so the half sheet fits a stop with its neighbors. The selected stop shows them in full. Its links
+   too: the others show only a link icon, on the notes' line. */
 @container wt-trip (max-width: 767px) {
   .wt-tl-stop:not(.is-selected) .wt-tl-notes { display: block; font: var(--wt-type-caption); line-height: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .wt-tl-stop:not(.is-selected) .wt-tl-note { display: inline; white-space: nowrap; }
   .wt-tl-stop:not(.is-selected) .wt-tl-note + .wt-tl-note::before { content: ' · '; }
+  .wt-tl-stop:not(.is-selected) .wt-tl-links { display: none; }
+  .wt-tl-stop:not(.is-selected) .wt-tl-links-hint { display: inline-flex; }
 }
 .wt-tl-time { grid-column: 3; grid-row: 1; padding: calc(var(--wt-tl-pad) + 1px) var(--wt-space-3) 0 0; text-align: right; white-space: nowrap; font: var(--wt-type-time); font-variant-numeric: tabular-nums; color: var(--wt-text-secondary); }
 .wt-tl-meridiem { font: var(--wt-type-micro); margin-left: 2px; color: var(--wt-text-tertiary); }
@@ -368,10 +409,10 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-stop--in, .wt-tl-drive--in { grid-template-columns: var(--wt-tl-rail) 30px 1fr auto; }
 .wt-tl-stop--in > .wt-tl-thread { grid-column: 2; grid-row: 1 / -1; }
 .wt-tl-stop--in > .wt-tl-name { grid-column: 3; }
-.wt-tl-stop--in > .wt-tl-notes { grid-column: 3 / -1; }
+.wt-tl-stop--in > :is(.wt-tl-notes, .wt-tl-links) { grid-column: 3 / -1; }
 .wt-tl-stop--in > .wt-tl-time { grid-column: 4; }
 .wt-tl-drive--in > .wt-tl-drive__body { grid-column: 3; }
-.wt-tl-stop--in > :is(.wt-tl-name, .wt-tl-notes), .wt-tl-drive--in > .wt-tl-drive__body { padding-left: 10px; }
+.wt-tl-stop--in > :is(.wt-tl-name, .wt-tl-notes, .wt-tl-links), .wt-tl-drive--in > .wt-tl-drive__body { padding-left: 10px; }
 .wt-tl-thread { position: relative; align-self: stretch; }
 .wt-tl-thread::before { content: ''; position: absolute; left: calc(50% - .75px); top: 0; bottom: 0; width: 1.5px; background: var(--wt-border-rail); }
 .wt-tl-stop--in.is-first > .wt-tl-thread::before { top: var(--wt-tl-mark-y); }

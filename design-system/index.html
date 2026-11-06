@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v9.6.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v9.7.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -383,6 +383,18 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <button type="button" class="wt-picker wt-picker--text" aria-describedby="demo-place-label"><span class="wt-picker__value"><span class="wt-picker__name">Joshua Tree Inn</span><span class="wt-picker__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span><i data-icon="forward" data-size="18"></i></button></div>
           <label class="wt-field"><span class="wt-field__label">Arrive</span><input class="wt-input" id="demo-when" type="datetime-local" value="2026-11-20T15:00"></label>
           <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" id="demo-note" rows="2" placeholder="Confirmation #, tickets, tips…"></textarea></label>
+          <div class="wt-field"><span class="wt-field__label" id="demo-links-label">Links</span>
+            <div class="wt-link-list" role="group" aria-labelledby="demo-links-label">
+              <div class="wt-link-edit"><span class="wt-link-edit__fields">
+                <input class="wt-link-edit__label" type="text" aria-label="Label" placeholder="Label" value="UA 1234">
+                <input class="wt-link-edit__url" type="text" inputmode="url" aria-label="Link" placeholder="Paste a link" value="https://www.united.com/en/us/flightstatus"></span>
+                <button type="button" class="wt-icon-btn wt-link-edit__remove" aria-label="Remove link"><i data-icon="close"></i></button></div>
+              <div class="wt-link-edit"><span class="wt-link-edit__fields">
+                <input class="wt-link-edit__label" type="text" aria-label="Label" placeholder="booking.com">
+                <input class="wt-link-edit__url" type="text" inputmode="url" aria-label="Link" placeholder="Paste a link" value="https://www.booking.com/hotel/us/holiday-inn-express.html"></span>
+                <button type="button" class="wt-icon-btn wt-link-edit__remove" aria-label="Remove link"><i data-icon="close"></i></button></div>
+            </div>
+            <button type="button" class="wt-link-add"><i data-icon="plus"></i>Add link</button></div>
         </div>
       </div>
       <ul class="rules">
@@ -533,11 +545,12 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               </span>
               <a class="wt-icon-btn wt-tl-drive__go" href="https://www.google.com/maps/dir/?api=1&amp;destination=32.7484,-105.9157&amp;travelmode=driving" target="_blank" rel="noopener" aria-label="Directions to Oliver Lee Memorial State Park in your maps app" title="Directions"><i data-icon="directions"></i></a>
             </div>
-            <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-nature)">
+            <div class="wt-tl-stop" tabindex="0" role="button" aria-pressed="false" style="--wt-kind-color: var(--wt-kind-nature)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Nature"><i data-icon="tree"></i></i></span>
-              <span class="wt-tl-name">Oliver Lee Memorial State Park</span><span class="wt-tl-notes"><span class="wt-tl-note">Dog Canyon trail</span></span>
+              <span class="wt-tl-name">Oliver Lee Memorial State Park</span><span class="wt-tl-notes"><span class="wt-tl-links-hint" aria-hidden="true"><i data-icon="link"></i></span><span class="wt-tl-note">Dog Canyon trail</span></span>
+              <span class="wt-tl-links"><a class="wt-tl-link" href="https://www.emnrd.nm.gov/spd/find-a-park/oliver-lee-memorial-state-park/" target="_blank" rel="noopener"><span class="wt-tl-link__label">Park page</span><i data-icon="external"></i></a><a class="wt-tl-link" href="https://www.alltrails.com/" target="_blank" rel="noopener"><span class="wt-tl-link__label">alltrails.com</span><i data-icon="external"></i></a></span>
               <span class="wt-tl-time">1:15<span class="wt-tl-meridiem">PM</span></span>
-            </button>
+            </div>
             <div class="wt-tl-drive">
               <span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span>
               <span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>20 min</b> drive</span></span>
@@ -1075,7 +1088,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v9.6.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v9.7.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
