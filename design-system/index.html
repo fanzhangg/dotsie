@@ -885,15 +885,15 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <div class="pin-layer wt-pins">
               <div class="wt-pin" role="img" aria-label="1. Holiday Inn Express Alamogordo, Hotel" style="left:15%; top:70%; --wt-kind-color: var(--wt-kind-hotel)"><b class="wt-pin__num">1</b></div>
               <div class="wt-pin wt-pin--folder" role="img" aria-label="2. White Sands National Park, a folder of 3 stops" style="left:50%; top:50%; --wt-kind-color: var(--wt-kind-nature)"><b class="wt-pin__num">2</b></div>
-              <div class="wt-pin wt-pin--cluster" role="img" aria-label="3–4. 2 stops here: Hampton Inn Alamogordo, Rockin' BZ Burgers" style="left:86.7%; top:30%; --wt-kind-color: var(--wt-kind-place)"><b class="wt-pin__num">3–4</b></div>
+              <div class="wt-pin wt-pin--cluster" role="img" aria-label="3, 4. 2 stops here: Hampton Inn Alamogordo, Rockin' BZ Burgers" style="left:86.7%; top:30%; --wt-kind-color: var(--wt-kind-hotel)"><b class="wt-pin__num">3</b></div>
             </div>
           </div>
         </div>
         <details><summary>Markup and script</summary><pre><code>&lt;div class="wt-pin wt-pin--selected" role="img" aria-label="3. Cloudcroft, Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)"&gt;
-  &lt;b class="wt-pin__num"&gt;3&lt;/b&gt;   &lt;!-- its row's number; "1, 6" for two rows at one place; "3–4" on a --cluster --&gt;
+  &lt;b class="wt-pin__num"&gt;3&lt;/b&gt;   &lt;!-- its row's number: the first one's, for several rows at one place or a --cluster --&gt;
 &lt;/div&gt;
 
-// Leaflet: the pin's center lands on the marker's position. Where pins would touch, merge them: keep the first one's pin, add .wt-pin--cluster and put all their numbers in it ("3–4"), hide the rest, and zoom in to their stops on a tap. The pane holding the pins is .wt-pins, so the rest fade while one is selected.
+// Leaflet: the pin's center lands on the marker's position. Where pins would touch, merge them: keep the first one's pin as it is, add .wt-pin--cluster, hide the rest, and zoom in to their stops on a tap. The pane holding the pins is .wt-pins, so the rest fade while one is selected.
 map.getPane('markerPane').classList.add('wt-pins');
 L.marker(latlng, { icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML }) });
 

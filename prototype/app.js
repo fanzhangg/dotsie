@@ -2606,7 +2606,7 @@ function drawMap(trip) {
     if (!num.has(e.key)) num.set(e.key, ++n);
   }
   draftNums = draft?.id && num.has(draft.id) ? [num.get(draft.id)] : [];
-  // places at the same spot (fly in and out of one airport, a hotel morning and night) share one pin, with all their numbers
+  // places at the same spot (fly in and out of one airport, a hotel morning and night) share one pin, with the first one's number
   const groups = new Map();
   for (const e of plan) {
     if (hidden.has(e.key) || editing(e.place)) continue;
@@ -2670,58 +2670,40 @@ function dayView(trip, day) {
   // a pin is centered on its place, so leave half a selected pin clear around the edges
   return frameBounds(L.latLngBounds(pts), L.point(32, coveredTop() + 24), L.point(32, coveredBottom() + 24), 15);
 }
-// A map pin: a round dot in the stop's type color, centered on the place, with the stop's number inside, or its
-// numbers when several rows are at that place ("1, 6": the hotel in the morning and at night), the pin a pill around them.
+// A map pin: a round dot in the stop's type color, centered on the place, with its number inside: its first row's,
+// when several rows are at that place (the hotel in the morning and at night: 1, as the day starts there).
 // Only a stop that isn't saved yet has no number: it has a dot until it has a row.
 const pinHTML = (s, nums, cls = '') => {
-  const label = numLabel(nums);
-  return `<div class="wt-pin ${cls}" role="img" aria-label="${label ? `${label}. ` : ''}${esc(s.name)}, ${KINDS[kindOf(s)].label}" style="--wt-kind-color: ${kindColor(s)}">`
-    + `${label ? `<b class="wt-pin__num">${label}</b>` : '<i class="wt-pin__dot"></i>'}</div>`;
+  const n = nums.length ? Math.min(...nums) : null;
+  return `<div class="wt-pin ${cls}" role="img" aria-label="${n ? `${n}. ` : ''}${esc(s.name)}, ${KINDS[kindOf(s)].label}" style="--wt-kind-color: ${kindColor(s)}">`
+    + `${n ? `<b class="wt-pin__num">${n}</b>` : '<i class="wt-pin__dot"></i>'}</div>`;
 };
-// A folder's pin: its number, in its stops' type color, in a ring of that color, as a pin for several stops
+// A folder's pin: its number, in its stops' type color, with a rim of that color, as a pin for several stops
 const folderPinHTML = (trip, fid, stops, n, cls = '') => `<div class="wt-pin wt-pin--folder ${cls}" role="img" aria-label="${n}. ${esc(folderName(trip, fid))}, a folder of ${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}" style="--wt-kind-color: var(--wt-kind-${folderKind(stops)})"><b class="wt-pin__num">${n}</b></div>`;
-// Numbers as one label: runs as ranges, "2–4, 7". Past three runs the rest is "…", so a label stays short; it never
-// joins numbers that aren't in a row into one range, which would claim stops that aren't there.
-function numLabel(nums) {
-  const runs = [];
-  for (const x of [...new Set(nums)].sort((a, b) => a - b)) {
-    const r = runs.at(-1);
-    if (r && x === r[1] + 1) r[1] = x; else runs.push([x, x]);
-  }
-  return runs.slice(0, 3).map(([a, b]) => (a === b ? `${a}` : `${a}–${b}`)).join(', ') + (runs.length > 3 ? ', …' : '');
-}
 let draftNums = []; // the number of the stop being edited, so its pin keeps it
-// Where pins crowd, they merge: a pin that would touch another joins it, and the two show as one pin for several stops,
-// a pill with their numbers ("2–4", or "2, 6" for two that aren't in a row), in a ring of their color, as a folder's.
-// Zoom in and it comes apart; tap it and the map zooms in to its stops. Numbers stay as the list gives them: merging
-// only puts them together. (Shrinking crowded pins to dots without numbers was tried first, all at once and then each
-// by its own room: either way the map was left with stray numbers among dots that said nothing.)
-// - A merged pin sits where its first stop is, as a folder's pin does, and is its first stop's pin with the others'
-//   numbers added; the others hide.
-// - The list's order decides: each pin joins the first pin before it that it would touch. A merged pin grows with its
-//   label, so pins merge again until none touch.
+// Where pins crowd, they merge: a pin that would touch another joins it, and the first one's pin stands for them all,
+// with its own number and color and a rim around it (.wt-pin--cluster), as a folder's pin does for its stops: "3, and
+// more here". The others hide. Zoom in and it comes apart; tap it and the map zooms in to its stops. Numbers stay as
+// the list gives them, so the numbers it holds are the ones missing from the map. (A merged pin first showed them all,
+// "3–4", in a grey pill: the one wide pin on the map, grey like what's over, reading like a score. Before that,
+// crowded pins shrank to dots without numbers, which left stray numbers among dots that said nothing.)
+// - The list's order decides: each pin joins the first pin before it that it would touch, and merged pins that touch
+//   merge again, until none do.
 // - A selected pin, and both ends of a route on show, never merge: they stand on their own, on top.
-let pins = []; // for each pin on the map: { ll, nums, sel, muted, stops, group, marker, el, own: what it shows alone, r, members, hidden }
+let pins = []; // for each pin on the map: { ll, nums, sel, muted, stops, group, marker, el, own, r, members, hidden }
 const PIN_GAP = 4; // px of map between two pins
-const PIN_PAD = 5, PIN_EDGE = 2; // a pill's padding beside its label; a pin for several stops' edge, outside it
+const PIN_EDGE = 2; // a pin for several stops' --wt-pin-fill edge, outside it
 function addPin(marker, { nums = [], sel = false, muted = false, stops = [], group = false, tap = null } = {}) {
   marker.addTo(layer);
   const el = marker.getElement()?.firstElementChild;
-  const p = {
-    ll: marker.getLatLng(), nums, sel, muted, stops, group, marker, el, r: 12, members: null, hidden: false,
-    own: el && { label: el.querySelector('.wt-pin__num')?.textContent, aria: el.getAttribute('aria-label'), color: el.style.getPropertyValue('--wt-kind-color') },
-  };
+  const p = { ll: marker.getLatLng(), nums, sel, muted, stops, group, marker, el, r: 12, members: null, hidden: false, own: el?.getAttribute('aria-label') };
   if (tap) marker.on('click', () => onMapTap(() => (p.members ? openMerged(p.members) : tap())));
   pins.push(p);
 }
-// How far a pin reaches from its center, with these stops' numbers in it: half its width, its ring included
+// How far a pin reaches from its center: half its width, its rim and edge included
 function pinReach(members) {
-  const group = members.length > 1 || members[0].group, sel = members[0].sel, muted = members.every(m => m.muted);
-  const size = (sel ? 32 : muted ? 20 : 24) + (group ? 4 : 0);
-  measureCtx ??= document.createElement('canvas').getContext('2d');
-  measureCtx.font = `700 ${sel ? 15 : muted ? 11 : 12}px ${token('--wt-font-sans') || 'sans-serif'}`;
-  const w = Math.max(size, measureCtx.measureText(numLabel(members.flatMap(m => m.nums))).width + 2 * PIN_PAD + (group ? 6 : 4));
-  return w / 2 + (group ? PIN_EDGE : 0);
+  const group = members.length > 1 || members[0].group, muted = members.every(m => m.muted);
+  return ((members[0].sel ? 32 : muted ? 20 : 24) + (group ? 4 : 0)) / 2 + (group ? PIN_EDGE : 0);
 }
 function fitPins() {
   if (!map || !pins.length) return;
@@ -2758,24 +2740,16 @@ function fitPins() {
     hidePin(lead, false);
   }
 }
-// A pin alone, or as the pin for its merged stops
+// A pin alone, or standing for its merged stops: the same pin, with a rim, muted only when they all are
 function showMerged(p, members) {
   p.members = members;
   const el = p.el;
-  if (!el || !p.own) return;
+  if (!el) return;
   el.classList.toggle('wt-pin--cluster', !!members);
   el.classList.toggle('wt-pin--muted', members ? members.every(m => m.muted) : p.muted);
-  const num = el.querySelector('.wt-pin__num');
-  if (!members) {
-    if (num) num.textContent = p.own.label;
-    el.setAttribute('aria-label', p.own.aria);
-    el.style.setProperty('--wt-kind-color', p.own.color);
-    return;
-  }
-  const label = numLabel(members.flatMap(m => m.nums)), stops = [...new Set(members.flatMap(m => m.stops))];
-  if (num) num.textContent = label;
-  el.setAttribute('aria-label', `${label}. ${stops.length} stops here: ${stops.map(s => s.name).join(', ')}`);
-  el.style.setProperty('--wt-kind-color', `var(--wt-kind-${folderKind(stops)})`);
+  if (!members) return el.setAttribute('aria-label', p.own);
+  const nums = [...new Set(members.flatMap(m => m.nums))].sort((a, b) => a - b), stops = [...new Set(members.flatMap(m => m.stops))];
+  el.setAttribute('aria-label', `${nums.join(', ')}. ${stops.length} stops here: ${stops.map(s => s.name).join(', ')}`);
 }
 function hidePin(p, hidden) {
   if (p.hidden === hidden) return;
