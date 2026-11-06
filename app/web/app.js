@@ -138,12 +138,13 @@ const samePlace = (a, b) => a.lat === b.lat && a.lng === b.lng;
 
 // Hotels are stays, not just stops: you check in, sleep there, and start the next morning from there.
 // A hotel lasts its nights; left unset, it lasts until the next hotel, or the trip's last day.
+// 0 nights is a same-day stay: in after midnight, out that morning, or a room for the afternoon.
 function staysOf(trip) {
   const stops = stopsOf(trip), hotels = stops.filter(s => kindOf(s) === 'hotel');
   const lastDay = stops.length ? dayOf(stops.at(-1)) : null;
   return hotels.map((s, i) => {
     const until = hotels[i + 1] ? dayOf(hotels[i + 1]) : lastDay;
-    const nights = s.nights >= 1 ? s.nights : Math.max(1, daysBetween(dayOf(s), until));
+    const nights = s.nights != null && s.nights >= 0 ? s.nights : Math.max(1, daysBetween(dayOf(s), until));
     return { s, nights, checkIn: dayOf(s), checkOut: addDays(dayOf(s), nights) };
   });
 }
@@ -180,7 +181,14 @@ function dayPlan(trip, day) {
     const prev = stopsOf(trip).filter(s => dayOf(s) < day).at(-1);
     if (prev && stops.length) plan.push({ key: `from:${prev.id}:${day}`, place: prev, role: 'from' });
   }
-  for (const s of stops) plan.push({ key: s.id, place: s, role: 'stop' });
+  // A same-day stay checks out that day too: `Check out` goes among the day's stops at its time
+  const sameDay = staysOf(trip).filter(st => st.nights === 0 && st.checkIn === day)
+    .map(st => ({ key: `checkout:${st.s.id}:${day}`, place: st.s, role: 'checkout', at: `${day}T${checkoutOf(st.s)}` }));
+  for (const s of stops) {
+    while (sameDay.length && sameDay[0].at < s.time && plan.some(e => e.place === sameDay[0].place)) plan.push(sameDay.shift());
+    plan.push({ key: s.id, place: s, role: 'stop' });
+  }
+  plan.push(...sameDay);
   const night = stayOnNight(trip, day);
   if (night && plan.at(-1)?.place !== night.s) plan.push({ key: `night:${night.s.id}:${day}`, place: night.s, role: 'night', day });
   return plan;
@@ -1694,14 +1702,14 @@ function stopRow(s, { key, past, now, sel }, note, time, timeDay) {
 // `note` false leaves out the stop's own note (the overview), keeping a hotel's nights.
 function stopItem(trip, s, { note = true } = {}) {
   const stay = kindOf(s) === 'hotel' && staysOf(trip).find(st => st.s === s);
-  const nights = stay && `${stay.nights} ${stay.nights === 1 ? 'night' : 'nights'}`;
+  const nights = stay && stay.nights > 0 && `${stay.nights} ${stay.nights === 1 ? 'night' : 'nights'}`;
   return { start: s.time, html: row => stopRow(s, row, [nights, note && s.note], s.time) };
 }
 // The hotel at either end of a day: where you wake up, and where you go back to at night. It has no time,
 // except on check-out morning, the one with something to do: `Check out`, at the check-out time. Tapping it selects the hotel.
 function hotelItem(day, entry) {
   return {
-    start: entry.role === 'night' ? `${day}T23:59` : `${day}T00:00`,
+    start: entry.role === 'night' ? `${day}T23:59` : entry.at || `${day}T00:00`,
     html: row => stopRow(entry.place, row, [entry.role === 'checkout' && 'Check out'], entry.role === 'checkout' ? `${day}T${checkoutOf(entry.place)}` : null),
   };
 }
@@ -2927,7 +2935,7 @@ function openStopSheet(trip, stop) {
     // ----- A stop has one time, when you get there: Arrive. A hotel is a stay: Arrive becomes Check-in, then
     // Check-out, a day and time. The nights are the days between them. Left alone, check-out follows the trip (the
     // next hotel, or the last day). -----
-    let nights = stop?.nights >= 1 ? stop.nights : null, outTime = stop && kindOf(stop) === 'hotel' ? checkoutOf(stop) : HOTEL_CHECK_OUT;
+    let nights = stop?.nights != null && stop.nights >= 0 ? stop.nights : null, outTime = stop && kindOf(stop) === 'hotel' ? checkoutOf(stop) : HOTEL_CHECK_OUT;
     const stay = el.querySelector('.wt-stay'), inDay = () => F.time.value.slice(0, 10);
     let shownIn = inDay();
     function autoNights() {
@@ -2941,8 +2949,8 @@ function openStopSheet(trip, stop) {
       F.checkout.disabled = !hotel; // so a hidden field can't block saving
       el.querySelector('[data-when]').textContent = hotel ? 'Check-in' : 'Arrive';
       if (!day) return;
-      // Check-out is at least a night after check-in, and at most 30.
-      F.checkout.min = `${addDays(day, 1)}T00:00`;
+      // Check-out is after check-in, the same day at the earliest, and at most 30 nights later.
+      F.checkout.min = F.time.value;
       F.checkout.max = `${addDays(day, 30)}T23:59`;
       F.checkout.value = `${addDays(day, nights ?? autoNights())}T${outTime}`;
     }
@@ -2952,16 +2960,16 @@ function openStopSheet(trip, stop) {
       outTime = v.slice(11, 16);
       const n = daysBetween(day, v.slice(0, 10));
       // Changing only the time keeps nights following the trip.
-      if (nights != null || n !== autoNights()) nights = Math.min(30, Math.max(1, n));
+      if (nights != null || n !== autoNights()) nights = Math.min(30, Math.max(0, n));
     });
     F.checkout.addEventListener('blur', showNights); // an empty or out-of-range day snaps back when you leave it
     F.time.addEventListener('input', () => {
       timeTouched = true;
-      // Moving check-in keeps the check-out day, unless that would leave no nights (or too many): then the nights move with it.
+      // Moving check-in keeps the check-out day, unless that would put it before check-in (or too many nights after): then the nights move with it.
       const day = inDay();
       if (nights != null && day && shownIn) {
         const n = daysBetween(day, addDays(shownIn, nights));
-        if (n >= 1 && n <= 30) nights = n;
+        if (n >= 0 && n <= 30) nights = n;
       }
       if (day) shownIn = day;
       showNights();
