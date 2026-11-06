@@ -891,8 +891,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-pin--folder { box-shadow: 0 -6px 0 -2px var(--wt-stack-tint), 0 -6px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
 .wt-pin--folder.wt-pin--compact { box-shadow: 0 -5px 0 -2px var(--wt-stack-tint), 0 -5px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
 .wt-pin--folder.wt-pin--dot { box-shadow: 0 -4px 0 -1.5px var(--wt-stack-tint), 0 -4px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
+.wt-pin--folder.wt-pin--selected { box-shadow: 0 -7px 0 -2px var(--wt-stack-tint), 0 -7px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin-selected); }
 .wt-pin--folder.wt-pin--muted { --wt-stack-tint: var(--wt-kind-past); box-shadow: 0 -5px 0 -2px var(--wt-stack-tint), 0 -5px 0 0 var(--wt-pin-fill); }
-/* While a folder is open (.is-folder-open on .wt-pins), the pins outside it fade, as they do around a selected pin;
+/* Unused since 9.5.1, kept until the next major version. While a folder is open (.is-folder-open on .wt-pins), the pins outside it fade, as they do around a selected pin;
    its own (--open) keep their color, around its selected stop too */
 .wt-pins.is-folder-open .wt-pin:not(.wt-pin--open, .wt-pin--selected) { opacity: .55; }
 .wt-pins:has(.wt-pin--selected) .wt-pin.wt-pin--open { opacity: 1; }

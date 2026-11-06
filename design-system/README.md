@@ -834,7 +834,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - **A tap target of 36px**, centered on the dot (`::after`), so a small dot is still easy to tap.
 - **Put the pins in a `.wt-pins` element** (with Leaflet, the marker pane). While one of them is `--selected`, the rest fade to 55%, keeping their colors, so the selected pin stands out among pins of every type. They fade rather than turn grey, since grey means over.
 - Stops at the same place, like a hotel in the morning and at night, share one pin, with the first one's number.
-- **A folder** is one pin while it's closed: `--folder`, with the folder's number (it takes one for all its stops), at its first stop, where you go in, with a second disc of its color piled behind it as on its [marker](#marker-wt-marker). Open, its stops are pins with a dot instead of a number, marked `--open`; put `is-folder-open` on `.wt-pins` and the pins outside it fade to 55%, as they do around a selected pin.
+- **A folder** is one pin while it's closed: `--folder`, with the folder's number (it takes one for all its stops), at its first stop, where you go in, with a second disc of its color piled behind it as on its [marker](#marker-wt-marker). Open, its stops are pins with a dot instead of a number, among the day's other pins: nothing else fades. Several folders can be open at once.
 - The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves half a selected pin clear at the edges.
 
 ### Sight `.wt-sight`
@@ -944,6 +944,12 @@ One pair of crowded pins turned every pin on the map into a dot, so a day zoomed
 
 - New: `.wt-pin--compact`, an 18px pin with a smaller number (16px when `--muted`), for a pin close to another numbered pin.
 - **Map pins:** `--compact` and `--dot` go on each pin by its own room, no longer on every pin or none (see [Map pin](#map-pin-wt-pin)).
+- Tokens are unchanged.
+
+### Changed in 9.5.1
+
+- `.wt-pin--folder.wt-pin--selected`: a folder's pin can be selected (an end of the route on show), and its piled disc grows with it.
+- `.wt-pin--open` and `is-folder-open` on `.wt-pins` are unused: an open folder's stops are pins like any others, and nothing fades around them. They stay until the next major version.
 - Tokens are unchanged.
 
 ### Added in 9.5.0

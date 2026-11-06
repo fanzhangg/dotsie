@@ -17,8 +17,9 @@ const $app = document.getElementById('app');
 const $sheets = document.getElementById('sheets');
 // sel: the selected stop · selRow: which of its rows was tapped (a hotel can start and end the day) · leg: the drive whose route is shown · snap: the phone's list, 'half' or 'full' ·
 // draft: the stop open in the stop sheet, as edited so far, which the map shows in its place ·
-// folder: the folder tapped open (a stop selected in a folder opens it too)
-const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, snap: 'half', draft: null, folder: null, flash: new Set() };
+// folder: the folder selected (its row tapped, or a drive inside it shown) · open: the folders open in the list, which
+// stay open until their row is tapped again
+const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, snap: 'half', draft: null, folder: null, open: new Set(), flash: new Set() };
 
 // Who's signed in, the home list, and the open trip ({ id, name, members, stops } or { id, error })
 let me = null, config = { google: false, apple: false, password: false }, trips = null, cur = null;
@@ -287,55 +288,67 @@ async function searchPlaces(text, near, signal) {
 // What's worth seeing in a map tile, straight from OpenStreetMap's Overpass API, as the app's server asks it (see
 // findSights in app/src/maps.ts): the same query, kinds and ranks. The app keeps each tile for the visit.
 const SIGHT_QUERY = [
-  'nwr[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]',
-  'nwr[historic~"^(castle|palace|fort|monument|archaeological_site|ruins|ship|city_gate)$"][name]',
-  'nwr[historic=memorial][name][wikidata]',
-  'nwr[natural~"^(peak|volcano|beach|bay|cave_entrance|arch|cliff|hot_spring|geyser|glacier)$"][name][wikidata]',
-  'nwr[waterway=waterfall][name]',
+  'nw[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]',
+  'nw[historic~"^(castle|palace|fort|monument|archaeological_site|ruins|ship|city_gate)$"][name]',
+  'nw[historic=memorial][name][wikidata]',
+  'nw[natural~"^(peak|volcano|beach|bay|cave_entrance|arch|cliff|hot_spring|geyser|glacier)$"][name][wikidata]',
+  'nw[waterway=waterfall][name]',
   'nwr[leisure~"^(park|garden|nature_reserve)$"][name][wikidata]',
-  'nwr[boundary~"^(national_park|protected_area)$"][name][wikidata]',
-  'nwr[man_made=lighthouse][name]',
-  'nwr[amenity=place_of_worship][name][wikipedia]',
+  'rel[boundary~"^(national_park|protected_area)$"][name][wikidata]',
+  'nw[man_made=lighthouse][name]',
+  'nw[amenity=place_of_worship][name][wikipedia]',
+  'nw[tourism=information][information~"^(office|visitor_centre)$"][name]',
+  'node[highway=trailhead][name]',
 ];
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 function sightKind(t) {
   const tourism = t.tourism, historic = t.historic;
   if (tourism === 'museum') return { kind: 'museum', worth: 3 };
   if (tourism === 'gallery') return { kind: 'museum', worth: 2 };
   if (tourism === 'viewpoint') return { kind: 'viewpoint', worth: 2 };
   if (/^(attraction|zoo|theme_park|aquarium)$/.test(tourism)) return { kind: 'attraction', worth: 3 };
-  if (t.boundary === 'national_park') return { kind: 'nature', worth: 3 };
+  if (t.boundary === 'national_park' || t.protected_area === 'national_park' || (t.boundary === 'protected_area' && t.protect_class === '2')) return { kind: 'nature', worth: 3 };
   if (/^(castle|palace|fort)$/.test(historic)) return { kind: 'attraction', worth: 3 };
   if (/^(monument|archaeological_site|ship|city_gate)$/.test(historic)) return { kind: 'attraction', worth: 2 };
   if (t.waterway === 'waterfall' || t.natural) return { kind: 'nature', worth: 2 };
   if (t.leisure || t.boundary) return { kind: 'nature', worth: 1 };
   if (historic || t.man_made === 'lighthouse' || t.amenity === 'place_of_worship') return { kind: 'attraction', worth: 1 };
+  if (tourism === 'information') return { kind: 'attraction', worth: 1 };
+  if (t.highway === 'trailhead') return { kind: 'nature', worth: 1 };
   return null;
 }
 async function findSights(tile, signal) {
   const [z, x, y] = (tile || '').split('/').map(Number), n = 2 ** z;
   const lng = i => (i / n) * 360 - 180, lat = j => (Math.atan(Math.sinh(Math.PI * (1 - (2 * j) / n))) * 180) / Math.PI;
   const q = `[out:json][timeout:25][bbox:${lat(y + 1)},${lng(x)},${lat(y)},${lng(x + 1)}];(${SIGHT_QUERY.join(';')};);out center tags qt;`;
-  let res;
-  try {
-    res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: new URLSearchParams({ data: q }), signal });
-  } catch (e) { if (e.name === 'AbortError') throw e; throw new ApiError(0, 'offline'); }
-  if (!res.ok) throw new ApiError(503, 'unavailable');
-  const j = await res.json();
-  if (/error/i.test(j.remark || '')) throw new ApiError(503, 'unavailable');
+  let j = null, offline = false;
+  for (const url of OVERPASS) {
+    try {
+      const res = await fetch(url, { method: 'POST', body: new URLSearchParams({ data: q }), signal });
+      if (!res.ok) continue;
+      const got = await res.json();
+      if (/error/i.test(got.remark || '')) continue;
+      j = got;
+      break;
+    } catch (e) { if (e.name === 'AbortError') throw e; offline = true; }
+  }
+  if (!j) throw new ApiError(offline ? 0 : 503, offline ? 'offline' : 'unavailable');
   const out = [];
   for (const el of j.elements) {
     const t = el.tags || {}, at = el.center || (el.lat != null ? { lat: el.lat, lon: el.lon } : null), what = sightKind(t);
     if (!t.name || !at || !what) continue;
     out.push({
-      id: `${el.type[0]}${el.id}`, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind,
+      id: `${el.type[0]}${el.id}`, wikidata: t.wikidata, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind,
       rank: what.worth + (t.wikipedia ? 4 : t.wikidata ? 2 : 0) + (el.type === 'node' ? 0 : 1),
       address: [[t['addr:housenumber'], t['addr:street']].filter(Boolean).join(' '), t['addr:city']].filter(Boolean).join(', '),
     });
   }
   out.sort((a, b) => b.rank - a.rank);
-  const kept = [];
-  for (const sg of out) {
-    if (kept.some(k => k.name === sg.name && Math.abs(k.lat - sg.lat) < 0.003 && Math.abs(k.lng - sg.lng) < 0.004)) continue;
+  const kept = [], names = new Set(), items = new Set();
+  for (const { wikidata, ...sg } of out) {
+    if (names.has(sg.name) || (wikidata && items.has(wikidata))) continue;
+    names.add(sg.name);
+    if (wikidata) items.add(wikidata);
     kept.push(sg);
     if (kept.length === 80) break;
   }
@@ -478,10 +491,17 @@ function folderKind(stops) {
   const kinds = new Set(stops.map(kindOf));
   return kinds.size === 1 ? [...kinds][0] : 'place';
 }
-// The folder that's open: the one tapped, or the selected stop's
-function openFolderOf(trip) {
+// The folder in focus: the one selected, or the selected stop's
+function folderInFocus(trip) {
   if (state.folder) return state.folder;
   return selectedStop(trip)?.folder || null;
+}
+// The folders open in the list and on the map. The one in focus opens, and it stays open once the focus moves on:
+// only tapping its row closes it, as in a file tree.
+function openFolders(trip) {
+  const f = folderInFocus(trip);
+  if (f) state.open.add(f);
+  return state.open;
 }
 // The plan's folders: each run of stops (the stop rows, not the hotel at either end) in the same folder
 function planRuns(plan) {
@@ -1538,6 +1558,7 @@ function teardownTrip() {
   const left = $app.dataset.trip;
   delete $app.dataset.trip;
   state.sel = state.selRow = state.leg = state.hoverLeg = state.day = state.draft = state.folder = null;
+  state.open = new Set();
   state.snap = 'half';
   camFree = false;
   // the stop sheet leaves the header in reach, so Home can be tapped while it's open
@@ -1632,7 +1653,7 @@ function mountTrip(trip) {
   // While a stop is open, the map is there to look at, so taps leave everything as it is.
   map.on('click', () => onMapTap(() => {
     if (state.draft || (!state.sel && !state.leg && !state.folder)) return;
-    if (state.leg || openFolderOf(cur)) fitKey = '';
+    if (state.leg) fitKey = '';
     state.sel = state.selRow = state.leg = state.folder = null;
     render();
   }));
@@ -1926,12 +1947,12 @@ function folderItems(items) {
   return out;
 }
 // A folder's row: its stops' marker with a second disc piled behind it, its name, and closed, what's in it and when it
-// starts. Tapping it opens it (and selects it), and again closes it, as a folder in a file tree does.
+// starts. Tapping it opens it (and selects it), and again closes it, as a folder in a file tree does. Nothing else closes it.
 // Open, its stops and drives follow it, hanging from its name.
 function folderHTML(trip, run, row) {
   const stops = run.items.filter(it => it.entry).map(it => it.entry.place), name = folderName(trip, run.fid);
-  const open = openFolderOf(trip) === run.fid, past = run.items.every(it => it.past), now = !open && run.items.some(it => it.now);
-  const sel = open && !state.sel && !state.leg, count = `${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}`;
+  const open = openFolders(trip).has(run.fid), past = run.items.every(it => it.past), now = !open && run.items.some(it => it.now);
+  const sel = state.folder === run.fid && !state.sel && !state.leg, count = `${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}`;
   const short = s => (s.name.startsWith(`${name} `) ? s.name.slice(name.length + 1) : s.name);
   let html = `<div class="wt-tl-stop wt-tl-stop--folder${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="folder" data-folder="${esc(run.fid)}" tabindex="0" role="button" aria-expanded="${open}" aria-label="${esc(name)}, a folder of ${count}" style="--wt-kind-color: var(--wt-kind-${folderKind(stops)})">
       <span class="wt-tl-rail"><i class="wt-marker wt-marker--stack wt-tl-marker" role="img" aria-label="Folder">${kindIcon({ kind: folderKind(stops) })}</i></span>
@@ -2227,8 +2248,9 @@ function centerFocus({ force = false, animate = true } = {}) {
   const s = wide ? null : snaps();
   const listH = wide ? body.clientHeight : s[snap] - s.chrome;
   const top = row.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop;
-  // an open folder, selected, is its row and the stops under it
-  const end = row.matches('.wt-tl-stop--folder') ? [...body.querySelectorAll('.wt-tl-stop--in, .wt-tl-drive--in')].at(-1) || row : row;
+  // an open folder, selected, is its row and the stops under it (other folders can be open too)
+  let end = row;
+  if (row.matches('.wt-tl-stop--folder')) while (end.nextElementSibling?.matches('.wt-tl-stop--in, .wt-tl-drive--in')) end = end.nextElementSibling;
   const h = end.getBoundingClientRect().bottom - row.getBoundingClientRect().top;
   const want = h > listH - 2 * FADE ? top - FADE : top + h / 2 - listH / 2;
   const to = Math.round(Math.max(0, Math.min(want, listContentHeight(body) - listH)));
@@ -2421,13 +2443,14 @@ function drawMap(trip) {
   if (!day) { routeLayer.setRoutes([]); return drawDraft(); }
   const plan = planOn(trip, day);
   const start = day === ALL ? null : plan.find(e => e.role === 'from')?.place;
-  // A closed folder is one pin, at its first stop, and its own drives don't show. An open one shows its stops (pins
-  // without numbers: the folder has the number) and its drives, and the rest of the page steps back.
-  const runs = planRuns(plan), openFid = openFolderOf(trip);
+  // A closed folder is one pin, at its first stop, and its own drives don't show. An open one adds its stops (pins
+  // without numbers: the folder has the number) and its drives to the day's route, like any others: the rest of the
+  // day doesn't step back and the map doesn't move.
+  const runs = planRuns(plan), open = openFolders(trip);
   const runOf = new Map(runs.flatMap(r => r.entries.map(e => [e.key, r])));
   const inside = l => { const r = runOf.get(l.toEntry.key); return !!r && r === runOf.get(l.fromEntry.key); };
-  const hidden = new Set(runs.filter(r => r.fid !== openFid).flatMap(r => r.entries.map(e => e.key)));
-  const legs = legsOn(trip, day).filter(l => !inside(l) || runOf.get(l.toEntry.key).fid === openFid);
+  const hidden = new Set(runs.filter(r => !open.has(r.fid)).flatMap(r => r.entries.map(e => e.key)));
+  const legs = legsOn(trip, day).filter(l => !inside(l) || open.has(runOf.get(l.toEntry.key).fid));
   const active = legs.find(l => l.key === (state.leg || state.hoverLeg));
   // The stop being edited is drawn where the draft puts it; if it has moved, its drives are out of date until it's saved.
   const draft = state.draft, editing = s => draft?.id && s.id === draft.id;
@@ -2444,7 +2467,7 @@ function drawMap(trip) {
     const stale = moved && (editing(l.from) || editing(l.to));
     return {
       coords: legCoords(l), casing: C.casing, casingWidth: isOn ? 11 : 8, width: isOn ? 7 : 4.5,
-      color: isOn ? C.on : active || stale || (openFid && !inside(l)) ? C.muted : pastLeg.has(l.key) ? C.done : C.route,
+      color: isOn ? C.on : active || stale ? C.muted : pastLeg.has(l.key) ? C.done : C.route,
       // a route not looked up yet is dotted; transit and flights, which have none, are dashed
       dash: !TRAVEL[l.mode].route ? '10 8' : l.r?.ok && !stale ? null : '1 9',
     };
@@ -2457,7 +2480,7 @@ function drawMap(trip) {
   if (active) drawn.push({ key: `on:${active.key}`, top: true, ...style(active, true) });
   routeLayer.setRoutes(drawn);
   // The map has only the routes and the pins: names, times and drive times are in the list, so the map doesn't repeat them.
-  // A route on show enlarges the pins at its ends.
+  // A route on show enlarges the pins at its ends, a folder's too.
   const ends = active ? [active.from, active.to] : [];
   // Stops are numbered in order: the day's, or on All days the whole trip's, as its list reads. The hotel you wake up
   // in or come back to isn't one of them.
@@ -2484,7 +2507,7 @@ function drawMap(trip) {
     const quiet = !g.length || g.every(isPast) || (active && !end);
     // the selected stop can be the day's start, from the day before's row at the top of the list
     const focus = end || all.find(s => s.id === state.sel);
-    const cls = [focus ? 'wt-pin--selected' : '', quiet && !focus ? 'wt-pin--muted' : '', openFid && all.some(s => s.folder === openFid) ? 'wt-pin--open' : ''].join(' ');
+    const cls = [focus ? 'wt-pin--selected' : '', quiet && !focus ? 'wt-pin--muted' : ''].join(' ');
     addPin(L.marker([all[0].lat, all[0].lng], {
       icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML(focus || g[0] || start, all.map(s => nums.get(s.id)).find(Boolean), cls) }),
       zIndexOffset: focus ? 1000 : quiet ? -1000 : 0, title: all[0].name,
@@ -2494,16 +2517,15 @@ function drawMap(trip) {
     })), { n: all.map(s => nums.get(s.id)).find(Boolean), sel: !!focus, muted: quiet && !focus });
   }
   for (const r of runs) {
-    if (r.fid === openFid) continue;
+    if (open.has(r.fid)) continue;
     const stops = r.entries.map(e => e.place), s = stops[0];
-    const quiet = (active && !stops.some(x => ends.includes(x))) || stops.every(isPast);
+    // a drive into or out of the folder enlarges its pin, as it does a stop's
+    const focus = stops.some(x => ends.includes(x)), quiet = !focus && (!!active || stops.every(isPast));
     addPin(L.marker([s.lat, s.lng], {
-      icon: L.divIcon({ className: '', iconSize: [0, 0], html: folderPinHTML(trip, r.fid, stops, folderNums.get(r), quiet ? 'wt-pin--muted' : '') }),
-      zIndexOffset: quiet ? -1000 : 0, title: folderName(trip, r.fid),
-    }).on('click', () => onMapTap(() => { if (!state.draft) selectFolder(r.fid); })), { n: folderNums.get(r), muted: quiet });
+      icon: L.divIcon({ className: '', iconSize: [0, 0], html: folderPinHTML(trip, r.fid, stops, folderNums.get(r), focus ? 'wt-pin--selected' : quiet ? 'wt-pin--muted' : '') }),
+      zIndexOffset: focus ? 1000 : quiet ? -1000 : 0, title: folderName(trip, r.fid),
+    }).on('click', () => onMapTap(() => { if (!state.draft) selectFolder(r.fid); })), { n: folderNums.get(r), sel: focus, muted: quiet });
   }
-  // While a folder is open, the pins outside it fade, as they do around a selected stop
-  map.getPane('markerPane').classList.toggle('is-folder-open', !!openFid && runs.some(r => r.fid === openFid));
   drawDraft();
   frameMap(trip);
   fitPins();
@@ -2627,7 +2649,7 @@ function previewLeg(l, { fromMap = false } = {}) {
   }
   state.leg = l.key;
   state.sel = state.selRow = null;
-  // a drive inside a folder keeps it open, so its row stays in the list
+  // a drive inside a folder puts it in focus
   const f = l.fromEntry.role === 'stop' && l.toEntry.role === 'stop' && l.from.folder === l.to.folder ? l.from.folder : null;
   state.folder = f;
   setSnap('half', false); // the whole-day list covers the map
@@ -2656,47 +2678,55 @@ function selectStop(s, row = null) {
     centerFocus({ animate: false });
     return;
   }
-  const wasOpen = openFolderOf(cur);
   state.leg = state.folder = null;
   state.sel = s.id;
   state.selRow = row;
   // The map keeps its zoom: leaving a drive's preview or the whole-day list doesn't re-frame it for the day.
-  // Only the pin is panned into view (Whole day brings the day back). Opening a folder fits the folder.
+  // Only the pin is panned into view (Whole day brings the day back), in a folder too.
   const key = fitKey;
   setSnap('half', false); // the whole-day list covers the map
   fitKey = key;
   render();
-  if (!(s.folder && s.folder !== wasOpen && fitFolder(cur, s.folder)) && row) panTo(s);
+  if (row) panTo(s);
   // in the middle of the list, so the stops before and after it show too
   centerFocus({ force: true });
 }
-// Open a folder (it's selected, and its stops and drives show in the list and on the map, with the map fitted to them),
-// or close it if it's the one open: tapping a folder again closes it, as in a file tree, and the map goes back to the day.
+// Open a folder (it's selected, and its stops and drives show in the list and on the map), or close it if it's open:
+// tapping a folder again closes it, as in a file tree. Only this closes a folder: selecting something else, tapping
+// empty map or changing the day leaves it open. Closing the folder in focus clears what's selected in it, since its
+// rows go. Opening a folder only adds its stops to the day's route, with nothing faded; the map goes to them if they
+// can't be seen from where it is. Closing it leaves the map where it is.
 function selectFolder(fid) {
   const trip = cur?.stops ? cur : null;
   if (!trip) return;
-  if (state.folder === fid && !state.sel && !state.leg) {
-    state.folder = null;
-    fitKey = '';
+  if (openFolders(trip).has(fid)) {
+    if (folderInFocus(trip) === fid) state.sel = state.selRow = state.leg = state.folder = null;
+    state.open.delete(fid);
     render();
     return;
   }
   state.leg = state.sel = state.selRow = null;
   state.folder = fid;
+  const key = fitKey; // the whole-day list coming down to half doesn't re-frame the day either
   setSnap('half', false);
+  fitKey = key;
   render();
-  fitFolder(trip, fid);
+  showFolder(trip, fid);
   centerFocus({ force: true });
 }
-// Fit an open folder's stops into the part of the map you can see. False if the page has none of them.
-function fitFolder(trip, fid) {
-  if (!map) return false;
-  const pts = planOn(trip, currentDay(trip)).filter(e => e.role === 'stop' && e.place.folder === fid).map(e => [e.place.lat, e.place.lng]);
-  if (!pts.length) return false;
-  camFree = false;
+// Bring an open folder's stops into view when they can't be seen from where the map is: some are off the map you can
+// see, or they're so close together that their pins pile up. Then the camera stays there, as if you'd moved it, so a
+// new sheet height doesn't take it back to the day; Whole day does.
+function showFolder(trip, fid) {
+  if (!map) return;
+  const pts = planOn(trip, currentDay(trip)).filter(e => e.role === 'stop' && e.place.folder === fid).map(e => L.latLng(e.place.lat, e.place.lng));
+  if (!pts.length) return;
+  const z = map.getZoom(), px = pts.map(p => map.project(p, z));
+  const apart = px.every((a, i) => px.every((b, j) => j <= i || a.distanceTo(b) >= 24 + PIN_GAP));
+  if (apart && pts.every(p => inView(p))) return;
   const v = frameBounds(L.latLngBounds(pts), L.point(40, coveredTop() + 32), L.point(40, coveredBottom() + 32), 16);
   moveCamera(v.center, v.zoom);
-  return true;
+  camFree = true;
 }
 // Pan a stop's pin into the middle of the map you can see, keeping the zoom, if it's out of view.
 function panTo(s) {
@@ -2717,7 +2747,7 @@ function focusStop(s) {
 // viewpoints and nature in view, each a small marker in its type's color. They sit under the routes and the trip's pins,
 // and give way to them. Tapping one opens Add stop with that place filled in. Places already on the trip aren't repeated.
 // None while a stop is open, nor offline. They come from /api/sights a tile at a time (zoom 12), kept for the visit.
-const SIGHTS_FROM_ZOOM = 14;
+const SIGHTS_FROM_ZOOM = 13;
 const SIGHT_TILE_ZOOM = 12;
 const SIGHTS_MAX = 20; // in view at once, at most, so they never crowd out the plan
 const SIGHT_GAP = 4; // px between two sights' markers and names, and around the trip's pins
@@ -2855,26 +2885,23 @@ function setFolders(trip, moves) {
   return undo;
 }
 // A change to folders from a swipe, said in a toast with Undo. After it, `sel` (a stop) or `folder` is selected, which
-// opens its folder; the map fits a folder that has just opened, and goes back to the day when one closes.
+// opens its folder; the map stays where it is. Undo puts back the folders that were open, too.
 function changeFolders(trip, moves, msg, { sel = null, folder = null } = {}) {
-  const was = { sel: state.sel, folder: state.folder, open: openFolderOf(trip) };
+  const was = { sel: state.sel, folder: state.folder, open: new Set(openFolders(trip)) };
   const undo = setFolders(trip, moves);
   if (!undo.length) return;
-  const show = (to, open) => {
+  const show = to => {
     Object.assign(state, { sel: to.sel, selRow: null, folder: to.folder, leg: null });
-    const now = openFolderOf(cur);
-    if (!now && open) fitKey = '';
+    if (to.open) state.open = new Set(to.open);
     render();
-    if (now && now !== open) fitFolder(cur, now);
     centerFocus({ force: true });
   };
-  show({ sel, folder }, was.open);
+  show({ sel, folder });
   toast(msg, 'Undo', () => {
     const t = openTripOf(trip.id);
     if (!t) return;
-    const open = openFolderOf(t);
     setFolders(t, undo);
-    show(was, open);
+    show(was);
   });
 }
 // The stops of the folder `fid` on the page on screen
@@ -3856,7 +3883,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     // with no sheet open, Esc clears the selection, like tapping empty map
     if (!$sheets.innerHTML && $app.dataset.trip && (state.sel || state.leg || state.folder)) {
-      if (state.leg || openFolderOf(cur)) fitKey = '';
+      if (state.leg) fitKey = '';
       state.sel = state.selRow = state.leg = state.folder = null;
       render();
     }
