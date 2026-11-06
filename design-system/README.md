@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 9.5.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 9.6.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -810,6 +810,10 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 <div class="wt-pin" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="--wt-kind-color: var(--wt-kind-hotel)">
   <i class="wt-pin__dot"></i>
 </div>
+<!-- close to another numbered pin: smaller, with a smaller number -->
+<div class="wt-pin wt-pin--compact" role="img" aria-label="2. Tia Sophia's, Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)">
+  <b class="wt-pin__num">2</b>
+</div>
 <!-- crowded: no room for its number -->
 <div class="wt-pin wt-pin--dot" role="img" aria-label="4. Interdune Boardwalk, Nature" style="--wt-kind-color: var(--wt-kind-nature)">
   <b class="wt-pin__num">4</b>
@@ -819,7 +823,12 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - **A round dot, centered on its place,** like a stop on a transit map: place the element at the place and its center lands there. 24px, ring included (`--wt-pin-size`). It covers its place and little else, so the routes running into it stay visible.
 - **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), shaded like a marker, in a 2px `--wt-pin-fill` ring that keeps it apart from the route under it.
 - **It holds one thing: the stop's number,** in the day's order (on All days, the trip's), in `--wt-marker-ink`. A place that isn't a numbered stop has `.wt-pin__dot` instead.
-- **Crowded pins are small dots, all or none.** `--dot` is 14px with no number. If any two pins in view are too close for both to show their numbers (two numbered pins' radii plus 4px), give it to every pin; the app checks after each zoom and pan. Zoomed out, a day is a line of small dots along its route instead of a pile of pins; zoom in and every number comes back at once. Never mix numbered pins and dots: a lone number among dots reads as special. A selected pin always keeps its number.
+- **Crowded pins give up only what they must, each for itself.** A pin keeps its number while it has room (two numbered pins' radii plus 4px between their centers). Without room, it's `--compact` first (18px, its number at 10.5px; 16px when `--muted`), and only where that has no room either, `--dot` (14px, no number). The app checks after each zoom and pan:
+  - Neighbors shrink together: a pin is no larger than it and each numbered neighbor can both be, so two stops close together are two compact pins rather than a full one and a dot.
+  - Where only one number fits, the earlier stop keeps it. A numbered pin never covers another stop's center, and dots sit under numbered pins, so the later stop's dot still shows at its edge.
+  - A place with no number (`.wt-pin__dot`) gives way: it's a `--dot` wherever it would touch a number, and may sit under one.
+  - A selected pin always keeps its full number.
+  - Don't make every pin a dot because two are crowded: one tight pair would take the numbers away from the whole map. The compact size keeps the numbers that remain from looking special among dots.
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal.
 - Variants: `--selected` (32px, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (20px and grey, `--wt-kind-past`, 10px as a `--dot`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). The pins still in color are the ones that matter now.
 - **A tap target of 36px**, centered on the dot (`::after`), so a small dot is still easy to tap.
@@ -857,7 +866,7 @@ Say what can go here, in the user's words. No illustrations.
   - On a phone: `.wt-trip-head` across the top, the map under it, and `.wt-sheet` over the map, at half height or the whole day.
   - From 768px wide: the header and the sheet are a side panel on the left, and the map fills the rest. Modal sheets cover the panel. Fit the map with even padding: nothing covers it.
   - One day at a time, after All days. The day bar steps through them, and the map shows only the open day; on All days, the whole trip.
-  - A stop's pin is a dot in its marker's color with its number in the day; where pins in view crowd, they're all small dots with no number. The map has no text. The list says what each pin is: the half list keeps the row in focus in its middle.
+  - A stop's pin is a dot in its marker's color with its number in the day; where pins crowd, they shrink to a smaller number, and to a small dot only where even that has no room. The map has no text. The list says what each pin is: the half list keeps the row in focus in its middle.
   - Tapping a pin selects its stop (`is-selected`). Tapping a route, or its drive in the list, marks the drive `is-active` and shows the route: both ends' pins larger, the map fitted to it, and the drive in the middle of the half list, between its two stops. Tapping the drive again goes back to the whole day.
   - Editing a stop leaves the map in view (a panel), with the stop's pin showing the edit as it happens.
 - **Today.** During the trip, the trip opens on today. On any other day, it opens on All days.
@@ -928,6 +937,14 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 9.6.0
+
+One pair of crowded pins turned every pin on the map into a dot, so a day zoomed out had no numbers at all.
+
+- New: `.wt-pin--compact`, an 18px pin with a smaller number (16px when `--muted`), for a pin close to another numbered pin.
+- **Map pins:** `--compact` and `--dot` go on each pin by its own room, no longer on every pin or none (see [Map pin](#map-pin-wt-pin)).
+- Tokens are unchanged.
 
 ### Changed in 9.5.1
 

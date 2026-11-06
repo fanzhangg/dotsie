@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v9.5.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v9.6.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -893,7 +893,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
   &lt;b class="wt-pin__num"&gt;3&lt;/b&gt;   &lt;!-- or &lt;i class="wt-pin__dot"&gt;&lt;/i&gt; for the hotel at either end of a day --&gt;
 &lt;/div&gt;
 
-// Leaflet: the pin's center lands on the marker's position. If any two pins in view are too close to show their numbers, add .wt-pin--dot to every pin (all or none). The pane holding the pins is .wt-pins, so the rest fade while one is selected.
+// Leaflet: the pin's center lands on the marker's position. Where a pin has no room for its number, add .wt-pin--compact (a smaller number), or .wt-pin--dot where even that has no room: each pin by its own room. The pane holding the pins is .wt-pins, so the rest fade while one is selected.
 map.getPane('markerPane').classList.add('wt-pins');
 L.marker(latlng, { icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML }) });
 
@@ -1075,7 +1075,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v9.5.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v9.6.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
