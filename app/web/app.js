@@ -1571,7 +1571,7 @@ function mountTrip(trip) {
     zoomAnim = false;
     if (drawPending && cur?.stops) { drawPending = false; drawMap(cur); }
   });
-  map.on('zoom zoomend moveend', fitPins); // pins get their numbers back as you zoom in, and give them up as you zoom out or pan to a crowd
+  map.on('zoom zoomend moveend', fitPins); // pins shrink, and give up their numbers, only as far as their neighbors make them
   // A quiet basemap so routes lead. Stadia needs no key on localhost; in production, register the
   // domain with Stadia. Fall back to OpenStreetMap if it's refused.
   const m = map, dark = matchMedia('(prefers-color-scheme: dark)').matches;
@@ -2474,7 +2474,7 @@ function drawMap(trip) {
     }).on('click', () => onMapTap(() => {
       if (state.draft) return;
       if (g.length) selectStop(g[0]); else { setDay(dayOf(start)); selectStop(start); }
-    })), focus ? 16 : quiet ? 10 : 12);
+    })), { n: all.map(s => nums.get(s.id)).find(Boolean), sel: !!focus, muted: quiet && !focus });
   }
   for (const r of runs) {
     if (r.fid === openFid) continue;
@@ -2483,7 +2483,7 @@ function drawMap(trip) {
     addPin(L.marker([s.lat, s.lng], {
       icon: L.divIcon({ className: '', iconSize: [0, 0], html: folderPinHTML(trip, r.fid, stops, folderNums.get(r), quiet ? 'wt-pin--muted' : '') }),
       zIndexOffset: quiet ? -1000 : 0, title: folderName(trip, r.fid),
-    }).on('click', () => onMapTap(() => { if (!state.draft) selectFolder(r.fid); })), quiet ? 10 : 12);
+    }).on('click', () => onMapTap(() => { if (!state.draft) selectFolder(r.fid); })), { n: folderNums.get(r), muted: quiet });
   }
   // While a folder is open, the pins outside it fade, as they do around a selected stop
   map.getPane('markerPane').classList.toggle('is-folder-open', !!openFid && runs.some(r => r.fid === openFid));
@@ -2523,27 +2523,61 @@ const pinHTML = (s, n, cls = '') => `<div class="wt-pin ${cls}" role="img" aria-
 // A folder's pin: its number, in its stops' type color, with a second disc piled behind it, as on its row in the list
 const folderPinHTML = (trip, fid, stops, n, cls = '') => `<div class="wt-pin wt-pin--folder ${cls}" role="img" aria-label="${n}. ${esc(folderName(trip, fid))}, a folder of ${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}" style="--wt-kind-color: var(--wt-kind-${folderKind(stops)})"><b class="wt-pin__num">${n}</b></div>`;
 let draftNum = null; // the number of the stop being edited, so its pin keeps it
-// Where pins crowd, the map shows where each place is rather than a pile of numbers: if any two pins in view are too
-// close for both to show their numbers, every pin becomes a small dot (.wt-pin--dot), and they all get their numbers
-// back once you zoom in far enough. All or none: a lone number among dots (the one pin with room) read as special.
-// A selected pin always keeps its number. `r` is the pin's radius with its number (selected 16, normal 12, muted 10).
-let pins = []; // { ll, r, el } for each pin on the map
+// Where pins crowd, each keeps its number for as long as it has room for it, and gives up only what it must: first it
+// shrinks to a compact pin with a smaller number (.wt-pin--compact), and only where even that would touch a neighbor's
+// number does it become a small dot (.wt-pin--dot). So a crowd at one place doesn't take the numbers away from the rest
+// of the map. (All or none was tried: one pair of stops a street apart left the whole day without numbers.)
+// - Two numbers never touch: two numbered pins keep PIN_GAP of map between them.
+// - A number never hides a stop: dots sit under numbered pins, and a numbered pin doesn't cover another stop's center,
+//   so a stop's dot can tuck under a number's edge but still shows. A place with no number (the hotel you wake up in)
+//   gives way to a number, so the trailhead by the hotel keeps its number; zoom in and the two come apart.
+// - First come the selected pins, which always keep their numbers, then the stops in order (the ones still to come before
+//   the ones that are over), then the places with no number, which never take a number away from a stop.
+// - Neighbors shrink together: a pin is only as large as it and each numbered neighbor can both be, so two stops close
+//   together are two compact numbers rather than one large number and a dot.
+let pins = []; // { ll, r, n, sel, muted, marker, el, z } for each pin on the map; `r` is its radius as a full pin
 const PIN_GAP = 4; // px of map between two numbered pins
-function addPin(marker, r) {
+// Radius by size: full, compact, dot. A place with no number has no compact size: it's a dot inside a full pin, or a dot.
+const PIN_R = { sel: [16, 16, 16], normal: [12, 9, 7], muted: [10, 8, 5] };
+const FULL = 0, COMPACT = 1, DOT = 2;
+function addPin(marker, { n = null, sel = false, muted = false } = {}) {
   marker.addTo(layer);
-  pins.push({ ll: marker.getLatLng(), r, el: marker.getElement()?.firstElementChild });
+  const radii = PIN_R[sel ? 'sel' : muted ? 'muted' : 'normal'];
+  pins.push({ ll: marker.getLatLng(), r: radii[FULL], radii, n, sel, muted, marker, z: marker.options.zIndexOffset || 0, el: marker.getElement()?.firstElementChild });
 }
 function fitPins() {
   if (!map || !pins.length) return;
   // During a flight, where it's going: the pins settle once instead of flickering through every zoom on the way
   const flying = camTarget && performance.now() < camTarget.until;
   const z = flying ? camTarget.zoom : map.getZoom();
-  // Only the pins in view count: two places a street apart at the other end of the trip don't take the numbers away here
-  const mid = map.project(flying ? camTarget.center : map.getCenter(), z), half = map.getSize().divideBy(2);
-  const view = L.bounds(mid.subtract(half), mid.add(half));
-  const seen = pins.map(p => ({ r: p.r, pt: map.project(p.ll, z) })).filter(p => view.contains(p.pt));
-  const crowded = seen.some((p, i) => seen.some((q, j) => j > i && p.pt.distanceTo(q.pt) < p.r + q.r + PIN_GAP));
-  pins.forEach(p => p.el?.classList.toggle('wt-pin--dot', crowded));
+  const all = pins.map(p => ({ p, pt: map.project(p.ll, z), size: null }));
+  const d = (a, b) => a.pt.distanceTo(b.pt), R = (a, t) => a.p.radii[t];
+  const numbered = all.filter(a => a.p.n || a.p.sel);
+  // The largest size a numbered pin can share with every numbered neighbor
+  const cap = a => {
+    let t = FULL;
+    for (const b of numbered) {
+      if (b === a) continue;
+      while (t < DOT && d(a, b) < R(a, t) + R(b, t) + PIN_GAP) t++; // a selected pin is full at every size
+    }
+    return Math.min(t, COMPACT);
+  };
+  const rank = a => (a.p.sel ? 0 : a.p.n ? (a.p.muted ? 2 : 1) : 3);
+  const order = [...all].sort((a, b) => rank(a) - rank(b) || (a.p.n || 0) - (b.p.n || 0));
+  const placed = [];
+  for (const a of order) {
+    if (a.p.sel) { a.size = FULL; placed.push(a); continue; }
+    const sizes = a.p.n ? [FULL, COMPACT].filter(t => t >= cap(a)) : [FULL];
+    a.size = sizes.find(t => placed.every(b => d(a, b) >= R(a, t) + R(b, b.size) + PIN_GAP)
+      && numbered.every(b => b === a || d(a, b) >= R(a, t))) ?? DOT;
+    if (a.size !== DOT) placed.push(a);
+  }
+  for (const { p, size } of all) {
+    p.el?.classList.toggle('wt-pin--compact', size === COMPACT);
+    p.el?.classList.toggle('wt-pin--dot', size === DOT);
+    const zi = p.z - (size === DOT ? 500 : 0); // under the numbers around it
+    if (p.marker.options.zIndexOffset !== zi) p.marker.setZIndexOffset(zi);
+  }
 }
 // The stop being edited, where it would go: its new place and type.
 function drawDraft() {
@@ -2552,7 +2586,7 @@ function drawDraft() {
   addPin(L.marker([d.lat, d.lng], {
     interactive: false, keyboard: false, zIndexOffset: 1500,
     icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML(d, draftNum, 'wt-pin--selected') }),
-  }), 16);
+  }), { n: draftNum, sel: true });
 }
 const legCoords = l => (l.r ? l.r.coords : [[l.from.lat, l.from.lng], [l.to.lat, l.to.lng]]);
 // Minutes a drive runs past the next stop's time, between two of the day's stops

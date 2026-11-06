@@ -1,4 +1,4 @@
-/* Waythread design system — components v9.5.0
+/* Waythread design system — components v9.6.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -846,9 +846,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* A round dot centered on its place, like a stop on a transit map: the stop's type color, shaded like a marker, in a
    --wt-pin-fill ring that keeps it apart from the route under it, with the stop's number inside (.wt-pin__num) or, for a
    place that isn't a numbered stop, a smaller dot (.wt-pin__dot). Nothing else: names and times are in the list.
-   Where pins crowd (the map zoomed out, or places close together), each becomes a small dot with no number
-   (.wt-pin--dot), so every place and the routes between them stay visible instead of piling up; zoomed in, the numbers
-   come back. Selected: larger, with a deeper shadow, always numbered, and the other pins in the same .wt-pins (the
+   Where pins crowd (the map zoomed out, or places close together), a pin first shrinks with a smaller number
+   (.wt-pin--compact), and only where even that has no room becomes a small dot with no number (.wt-pin--dot), so every
+   place and the routes between them stay visible instead of piling up; zoomed in, they grow back. Selected: larger, with a deeper shadow, always numbered, and the other pins in the same .wt-pins (the
    element that holds them) fade, still in their colors. Muted (over, the day before's last stop, or off the route on
    show): smaller and grey, as what's over is grey in the list. Placed by its center, at the marker's position on the map.
    --wt-pin-size is the dot's whole width, ring included. */
@@ -865,8 +865,10 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   content: ''; position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; border-radius: var(--wt-radius-round);
   transform: translate(-50%, -50%);
 }
+.wt-pin--compact { --wt-pin-size: 18px; }
 .wt-pin--dot { --wt-pin-size: 14px; }
 .wt-pin--muted { --wt-pin-size: 20px; opacity: .85; box-shadow: none; background: var(--wt-kind-past); }   /* flat grey, as in the list */
+.wt-pin--muted.wt-pin--compact { --wt-pin-size: 16px; }
 .wt-pin--muted.wt-pin--dot { --wt-pin-size: 10px; border-width: 1.5px; }
 .wt-pin--selected { --wt-pin-size: 32px; box-shadow: var(--wt-shadow-pin-selected); }
 /* Faded, not grey: grey means over */
@@ -877,6 +879,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-pin--muted .wt-pin__num { font-size: 11px; }
 .wt-pin--selected .wt-pin__num { font-size: 15px; }
+.wt-pin--compact .wt-pin__num { font-size: 10.5px; letter-spacing: -.04em; }
+.wt-pin--muted.wt-pin--compact .wt-pin__num { font-size: 9.5px; }
+.wt-pin--compact .wt-pin__dot { width: 6px; height: 6px; }
 .wt-pin__dot { width: 8px; height: 8px; border-radius: var(--wt-radius-round); background: var(--wt-marker-ink); transition: opacity var(--wt-duration-base); }
 .wt-pin--muted .wt-pin__dot { width: 6px; height: 6px; }
 .wt-pin--selected .wt-pin__dot { width: 10px; height: 10px; }
@@ -884,6 +889,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-pin--dot:not(.wt-pin--selected) > * { opacity: 0; }
 /* A folder's pin: its number, at its first stop, with a second disc of its color piled behind it, as on its marker */
 .wt-pin--folder { box-shadow: 0 -6px 0 -2px var(--wt-stack-tint), 0 -6px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
+.wt-pin--folder.wt-pin--compact { box-shadow: 0 -5px 0 -2px var(--wt-stack-tint), 0 -5px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
 .wt-pin--folder.wt-pin--dot { box-shadow: 0 -4px 0 -1.5px var(--wt-stack-tint), 0 -4px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
 .wt-pin--folder.wt-pin--muted { --wt-stack-tint: var(--wt-kind-past); box-shadow: 0 -5px 0 -2px var(--wt-stack-tint), 0 -5px 0 0 var(--wt-pin-fill); }
 /* While a folder is open (.is-folder-open on .wt-pins), the pins outside it fade, as they do around a selected pin;
