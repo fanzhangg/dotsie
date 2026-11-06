@@ -2,10 +2,11 @@
 
 /* Waythread offline — the same file in app/web and prototype.
    The app saves a trip for offline itself, from trip settings (see "Offline" in app.js): the app's own files go in the
-   waythread-shell cache, and the trip's map tiles in one cache per trip. This worker only answers from those caches:
+   waythread-shell cache, and the trip's map (its tiles, and MapLibre's style, sprite and fonts) in one cache per trip.
+   This worker only answers from those caches:
    - the app's files: from the network, and from the saved copy when the network fails or is too slow (a weak signal);
      a fresh copy replaces the saved one whenever it comes;
-   - map tiles: the saved tile first, so a saved trip's map costs nothing to show; any other tile from the network;
+   - the map's files: the saved copy first, so a saved trip's map costs nothing to show; any other from the network;
    - everything else (the API, its WebSocket, place search) isn't touched. */
 const SHELL = 'waythread-shell';
 const SLOW = 4000; // ms to wait for the network before showing the saved copy of a page or file
