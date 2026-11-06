@@ -846,8 +846,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* A round dot centered on its place, like a stop on a transit map: the stop's type color, shaded like a marker, in a
    --wt-pin-fill ring that keeps it apart from the route under it, with its number inside (.wt-pin__num). Every pin
    has one: its row's in the list (the first one's, for several rows at one place). Nothing else: names and times are
-   in the list. A folder's pin has a rim of its color inside the ring. Pins merged where they crowd (--cluster) show as
-   the first one's pin with how many more are under it on its corner (.wt-pin__more, "+1"). Selected: larger, with a deeper shadow, and the other pins in
+   in the list. A folder's pin has a rim of its color inside the ring. Pins merged where they crowd (--cluster) are a
+   pill with their numbers ("3–4"), the first one's pin in front and the next ones' stacked behind it, in their colors. Selected: larger, with a deeper shadow, and the other pins in
    the same .wt-pins (the element that holds them) fade, still in their colors. Muted (over, the day before's last
    stop, or off the route on show): smaller and grey, as what's over is grey in the list. Placed by its center, at the
    marker's position on the map. --wt-pin-size is the pin's whole width, ring included. */
@@ -855,7 +855,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   --wt-pin-size: 24px;
   position: absolute; box-sizing: border-box; width: var(--wt-pin-size); height: var(--wt-pin-size);
   display: grid; place-items: center; transform: translate(-50%, -50%);
-  border: 2px solid var(--wt-pin-fill); border-radius: var(--wt-radius-round);
+  border: 2px solid var(--wt-pin-fill); border-radius: var(--wt-radius-pill);
   background-color: var(--wt-marker-fill); background-image: var(--wt-marker-shade); box-shadow: var(--wt-shadow-pin);
   transition: width var(--wt-duration-base), height var(--wt-duration-base), opacity var(--wt-duration-base), box-shadow var(--wt-duration-base);
 }
@@ -900,17 +900,25 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   --wt-pin-size: 24px; --wt-stack-tint: color-mix(in oklab, var(--wt-kind-past) 40%, var(--wt-pin-fill));
   border-width: 2.5px; box-shadow: 0 0 0 1.5px var(--wt-pin-fill);
 }
-/* Pins merged where they crowd (--cluster): the first one's pin, as it is, with how many more stops are under it on
-   its top right corner, in inverse ink like a badge on an app icon, so it's plain that something is under it.
-   A "+": a bare number would read as a stop's. */
-.wt-pin__more {
-  position: absolute; top: -12px; left: calc(100% - 7px); box-sizing: border-box; min-width: 18px; height: 18px; padding: 0 4px;
-  display: grid; place-items: center; border-radius: var(--wt-radius-pill); pointer-events: none;
-  background: var(--wt-surface-inverse); color: var(--wt-text-inverse); box-shadow: 0 0 0 1.5px var(--wt-pin-fill);
-  font: 700 10px/1 var(--wt-font-sans); font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+/* Pins merged where they crowd (--cluster): a pill with their numbers ("3–4"), wide enough for its label. The first
+   one's pin is in front, in its color; the next ones' pins are stacked behind it, up and to the right, each in its own
+   color in its own --wt-pin-fill ring, like a fanned deck: one behind when two merge, two when more (--deep). Set their
+   colors in --wt-pin-behind-1 and -2. Flat behind, shaded in front, and one shadow around the whole stack. */
+.wt-pin--cluster {
+  width: auto; min-width: var(--wt-pin-size); padding: 0 6px; white-space: nowrap; filter: drop-shadow(var(--wt-shadow-pin));
+  box-shadow: 4px -4px 0 -2px var(--wt-pin-behind-1), 4px -4px 0 0 var(--wt-pin-fill);
 }
-.wt-pin--folder .wt-pin__more { top: -13px; left: calc(100% - 7px); }
-.wt-pin--muted .wt-pin__more { top: -11px; left: calc(100% - 6px); min-width: 16px; height: 16px; font-size: 9px; }
+/* A folder in front is a plain pin here: the stack already says there are several */
+.wt-pin--folder.wt-pin--cluster {
+  --wt-pin-size: 24px; border: 2px solid var(--wt-pin-fill);
+  box-shadow: 4px -4px 0 -2px var(--wt-pin-behind-1), 4px -4px 0 0 var(--wt-pin-fill);
+}
+.wt-pin--folder.wt-pin--cluster.wt-pin--muted { --wt-pin-size: 20px; }
+.wt-pin--cluster.wt-pin--deep {
+  box-shadow: 4px -4px 0 -2px var(--wt-pin-behind-1), 4px -4px 0 0 var(--wt-pin-fill),
+    8px -8px 0 -2px var(--wt-pin-behind-2), 8px -8px 0 0 var(--wt-pin-fill);
+}
+.wt-pin--cluster.wt-pin--muted { filter: none; }
 /* Unused since 9.5.1, kept until the next major version. While a folder is open (.is-folder-open on .wt-pins), the pins outside it fade, as they do around a selected pin;
    its own (--open) keep their color, around its selected stop too */
 .wt-pins.is-folder-open .wt-pin:not(.wt-pin--open, .wt-pin--selected) { opacity: .55; }

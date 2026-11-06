@@ -806,9 +806,10 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 <div class="wt-pin wt-pin--selected" role="img" aria-label="3. White Sands Visitor Center, Attraction" style="--wt-kind-color: var(--wt-kind-attraction)">
   <b class="wt-pin__num">3</b>
 </div>
-<!-- pins that crowd, merged: the first one's pin, its number and color, and how many more are under it -->
-<div class="wt-pin wt-pin--cluster" role="img" aria-label="3, 4. 2 stops here: Santa Fe, Pecos Trail Inn" style="--wt-kind-color: var(--wt-kind-place)">
-  <b class="wt-pin__num">3</b><i class="wt-pin__more">+1</i>
+<!-- pins that crowd, merged: all their numbers, the first one's pin in front, the next ones' stacked behind -->
+<div class="wt-pin wt-pin--cluster wt-pin--deep" role="img" aria-label="1–3. 3 stops here: Pecos Trail Inn, Sun Mountain Trail, Tia Sophia's"
+  style="--wt-kind-color: var(--wt-kind-hotel); --wt-pin-behind-1: var(--wt-kind-nature); --wt-pin-behind-2: var(--wt-kind-restaurant)">
+  <b class="wt-pin__num">1–3</b>
 </div>
 ```
 
@@ -816,11 +817,11 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), shaded like a marker, in a 2px `--wt-pin-fill` ring that keeps it apart from the route under it.
 - **It holds one thing: its number,** in `--wt-marker-ink`. **Every pin has one: its row's in the list,** in the order the list reads, so the hotel you wake up in is 1. On All days, the trip's stops. A closed folder is one row and takes one number; open, each of its stops takes one. Numbers change only when the list does (a folder opened or closed), never as the map zooms. Only a stop that isn't saved yet, with no row, has `.wt-pin__dot` instead.
 - **Rows at one place share one pin, with the first one's number** (the hotel you wake up in and go back to is 1: the route comes back to it).
-- **Where pins crowd, they merge** into one `--cluster` pin: the first one's pin, with its number and color as they are, and on its top right corner `.wt-pin__more`, how many more stops are under it ("+1"), in `--wt-surface-inverse` like a badge on an app icon. The "+" keeps it from reading as a stop's number. The others hide, so the numbers they hold are the ones missing from the map; its `aria-label` lists them all. Pins merge when they would come within 4px of each other, each into the first pin before it in the list's order that it would touch, and merged pins that touch merge again. Zoom in and it comes apart; tap it and the map zooms in to its stops. A selected pin, and both ends of a route on show, never merge.
-  - Don't put all its numbers in it: "3–4" in a pill was tried first, and it was the one wide pin on the map, grey (a mix of types) like what's over, and read like a score.
-  - A rim alone, like a folder's, was tried next: it looked like an outline, not like anything under the pin.
+- **Where pins crowd, they merge** into one `--cluster` pin with all their numbers, at the first one's place, as a folder's pin is at its first stop. A run of numbers is a range ("1–3"), and numbers not in a row are never joined into one ("2, 6": "2–6" would claim the stops in between); past three runs, the rest is "…". It's a pill wide enough for its label, in the first one's color, with the next ones' pins stacked behind it, up and to the right, each in its own color and `--wt-pin-fill` ring, like a fanned deck: one behind for two stops, two behind (`--deep`) for more. Set their colors in `--wt-pin-behind-1` and `-2` (`--wt-kind-past` for one that's over). The stack says there are several, and of what kinds; one shadow goes around the whole. A folder in front is a plain pin in it, without its rim.
+  - Pins merge when they would come within 4px of each other, each into the first pin before it in the list's order that it would touch, and merged pins that touch merge again. Zoom in and it comes apart; tap it and the map zooms in to its stops. A selected pin, and both ends of a route on show, never merge.
+  - Not grey: a merged pin was first a pill in the grey of a mix of types, and read like a pin that's over. Not the first pin alone either: with a rim, or a "+1" on its corner, it didn't say what was under it.
   - Don't hide numbers instead: shrinking crowded pins to dots without numbers (all at once, then each by its own room) left stray numbers among dots that said nothing.
-  - Never show a bare count: on this map a number means a row, so a "3" would read as the third. Only "+3".
+  - Never show a count: on this map a number means a row, so a "3" would read as the third.
 - **A folder's pin** (`--folder`) is one badge, 28px: its rim is a 3px ring of its own color, lighter in light mode and darker in dark, with the 2px `--wt-pin-fill` edge outside it, so the pin reads as one piece.
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal; a merged pin's gives all its numbers and names its stops.
 - Variants: `--selected` (32px, 36px for several stops, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (20px and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). A merged pin is muted only when all its stops are. The pins still in color are the ones that matter now.
@@ -859,7 +860,7 @@ Say what can go here, in the user's words. No illustrations.
   - On a phone: `.wt-trip-head` across the top, the map under it, and `.wt-sheet` over the map, at half height or the whole day.
   - From 768px wide: the header and the sheet are a side panel on the left, and the map fills the rest. Modal sheets cover the panel. Fit the map with even padding: nothing covers it.
   - One day at a time, after All days. The day bar steps through them, and the map shows only the open day; on All days, the whole trip.
-  - A pin is a dot in its marker's color with its row's number in the list; where pins crowd, they merge into the first one's pin, with how many more on its corner ("+1"). The map has no text. The list says what each pin is: the half list keeps the row in focus in its middle.
+  - A pin is a dot in its marker's color with its row's number in the list; where pins crowd, they merge into one pin with all their numbers ("1–3"), their pins stacked behind it. The map has no text. The list says what each pin is: the half list keeps the row in focus in its middle.
   - Tapping a pin selects its stop (`is-selected`). Tapping a route, or its drive in the list, marks the drive `is-active` and shows the route: both ends' pins larger, the map fitted to it, and the drive in the middle of the half list, between its two stops. Tapping the drive again goes back to the whole day.
   - Editing a stop leaves the map in view (a panel), with the stop's pin showing the edit as it happens.
 - **Today.** During the trip, the trip opens on today. On any other day, it opens on All days.
@@ -936,7 +937,7 @@ Say what can go here, in the user's words. No illustrations.
 The map still hid numbers where pins crowded, and the hotel at either end of a day and an open folder's stops had none, so a day read as a few numbers among dots. A folder's pin, a disc with another peeking out above it, looked like two pieces.
 
 - **Every pin has a number,** its row's in the list: the hotel you wake up in and go back to, and an open folder's stops, too.
-- New: `.wt-pin--cluster` and `.wt-pin__more`, pins merged where they crowd: the first one's pin, with how many more are under it ("+1") on its corner. It replaces `--compact` and `--dot`, which are unused (see [Map pin](#map-pin-wt-pin)).
+- New: `.wt-pin--cluster` (and `--deep`), pins merged where they crowd: a pill with their numbers ("1–3"), the first one's pin in front and the next ones' stacked behind it in their colors (`--wt-pin-behind-1`, `-2`). `.wt-pin`'s corners are now `--wt-radius-pill`, the same circle at a pin's size. It replaces `--compact` and `--dot`, which are unused (see [Map pin](#map-pin-wt-pin)).
 - **`.wt-pin--folder` is one badge:** 28px, with a rim of their color inside the `--wt-pin-fill` edge, instead of a second disc piled behind. `--wt-stack-tint` on a pin now mixes with `--wt-pin-fill`. The list's folder marker (`.wt-marker--stack`) is unchanged.
 - Tokens are unchanged.
 
