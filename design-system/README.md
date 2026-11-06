@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 9.4.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 9.5.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -828,6 +828,21 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - **A folder** is one pin while it's closed: `--folder`, with the folder's number (it takes one for all its stops), at its first stop, where you go in, with a second disc of its color piled behind it as on its [marker](#marker-wt-marker). Open, its stops are pins with a dot instead of a number, marked `--open`; put `is-folder-open` on `.wt-pins` and the pins outside it fade to 55%, as they do around a selected pin.
 - The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves half a selected pin clear at the edges.
 
+### Sight `.wt-sight`
+
+```html
+<div class="wt-sight" style="--wt-kind-color: var(--wt-kind-nature)">
+  <i class="wt-sight__marker"><!-- WaythreadIcons.svg('tree', 12) --></i>
+  <span class="wt-sight__name">White Sands National Park</span>
+</div>
+```
+
+- **A place worth seeing, on the map**, as a maps app shows its places once you zoom in: a 20px marker in the type's color (`--wt-kind-color`) with the type's icon at 12px, and the place's name to its right.
+- **Placed by its marker's center**, at the place, like a [pin](#map-pin-wt-pin). The name runs to the right, in 12px secondary ink with a halo in `--wt-pin-fill`, so it reads over the light and the dark map. A long name stops at 160px with an ellipsis.
+- **Quieter than a pin:** smaller, flat (no marker shading), and never numbered. The trip's pins and routes come first: put sights in a layer under the routes, and leave a place for a sight only where its marker and name clear the pins and the other sights.
+- **It's a button.** Give it (or the element holding it) `role="button"`, a tab stop and an `aria-label` that says what tapping does ("Alameda Park Zoo, Attraction. Add as a stop"). Its tap target reaches 8px above and below and 4px to either side.
+- It fades in on `--wt-duration-base` when it appears.
+
 ### Empty state `.wt-empty`
 
 ```html
@@ -913,6 +928,11 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 9.5.0
+
+- New: `.wt-sight`, `.wt-sight__marker` and `.wt-sight__name`, a place worth seeing on the map with its name ([Sight](#sight-wt-sight)).
+- Tokens are unchanged.
 
 ### Added in 9.4.0
 

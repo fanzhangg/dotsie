@@ -1510,7 +1510,8 @@ function preloadTrip() {
 }
 
 function teardownTrip() {
-  if (map) { map.remove(); map = null; layer = routeLayer = null; fitKey = ''; }
+  if (map) { map.remove(); map = null; layer = routeLayer = sightLayer = null; fitKey = ''; }
+  sightsShown.clear();
   tiles = null;
   tileQueue = [];
   clearTimeout(preloadTimer);
@@ -1597,6 +1598,9 @@ function mountTrip(trip) {
     quiet.on('tileerror', fallBack);
     schedulePreload();
   });
+  // Sights sit on the map under the routes (the overlay pane, 400) and the pins
+  map.createPane('sights').style.zIndex = 350;
+  sightLayer = L.layerGroup().addTo(map);
   routeLayer = new RouteLayer().addTo(map);
   layer = L.layerGroup().addTo(map);
   // once you've touched the map, a new sheet height leaves the camera where you put it
@@ -1615,7 +1619,7 @@ function mountTrip(trip) {
     state.sel = state.selRow = state.leg = state.folder = null;
     render();
   }));
-  map.on('moveend', () => { dayShown = dayFramed(); updateFitBtn(); });
+  map.on('moveend', () => { dayShown = dayFramed(); updateFitBtn(); drawSights(); });
 }
 
 // ---------- Map gestures, as in a maps app ----------
@@ -2486,6 +2490,7 @@ function drawMap(trip) {
   drawDraft();
   frameMap(trip);
   fitPins();
+  drawSights();
 }
 // Frame the day on screen, or the drive on show, when either has changed since the map was last framed.
 function frameMap(trip) {
@@ -2654,6 +2659,91 @@ function focusStop(s) {
   const z = Math.max(map.getZoom(), 13);
   const p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
   moveCamera(map.unproject(p, z), z);
+}
+
+// ---------- Sights: what's worth seeing nearby, once the map is zoomed in ----------
+// As a maps app shows its places: zoomed in to a town or closer, the map names the best known attractions, museums,
+// viewpoints and nature in view, each a small marker in its type's color. They sit under the routes and the trip's pins,
+// and give way to them. Tapping one opens Add stop with that place filled in. Places already on the trip aren't repeated.
+// None while a stop is open, nor offline. They come from /api/sights a tile at a time (zoom 12), kept for the visit.
+const SIGHTS_FROM_ZOOM = 14;
+const SIGHT_TILE_ZOOM = 12;
+const SIGHTS_MAX = 20; // in view at once, at most, so they never crowd out the plan
+const SIGHT_GAP = 4; // px between two sights' markers and names, and around the trip's pins
+const sightTiles = new Map(); // "x/y" → its sights; a promise while it loads; { retry } after it failed, until then
+let sightLayer = null, sightsShown = new Map(); // id → its marker
+let sightsPausedUntil = 0; // after the server says too many, until then
+let measureCtx = null;
+// How wide a sight's name is drawn, for fitting names around each other (see .wt-sight__name)
+function nameWidth(name) {
+  measureCtx ??= document.createElement('canvas').getContext('2d');
+  measureCtx.font = `500 12px ${token('--wt-font-sans') || 'sans-serif'}`;
+  return Math.min(measureCtx.measureText(name).width, 160);
+}
+function loadSightTile(k) {
+  const t = sightTiles.get(k);
+  if (t && !(t.retry && Date.now() > t.retry)) return;
+  if (Date.now() < sightsPausedUntil) return;
+  sightTiles.set(k, api(`/sights?tile=${SIGHT_TILE_ZOOM}/${k}`).then(list => {
+    sightTiles.set(k, list);
+    drawSights();
+  }, err => {
+    if (err?.code === 'rate_limited') sightsPausedUntil = Date.now() + 60000;
+    sightTiles.set(k, { retry: Date.now() + 30000 });
+  }));
+}
+function drawSights() {
+  if (!map || !sightLayer) return;
+  const trip = cur?.stops ? cur : null, z = map.getZoom();
+  const show = new Map();
+  if (trip && !state.draft && !offlineNow() && z >= SIGHTS_FROM_ZOOM - 0.01) {
+    // The tiles under the view
+    const n = 2 ** SIGHT_TILE_ZOOM, view = map.getBounds();
+    const lo = map.project(view.getNorthWest(), SIGHT_TILE_ZOOM).divideBy(256).floor();
+    const hi = map.project(view.getSouthEast(), SIGHT_TILE_ZOOM).divideBy(256).floor(), found = new Map();
+    for (let y = Math.max(0, lo.y); y <= Math.min(n - 1, hi.y); y++) {
+      for (let x = lo.x; x <= hi.x; x++) {
+        const k = `${((x % n) + n) % n}/${y}`, list = sightTiles.get(k);
+        if (Array.isArray(list)) for (const s of list) found.set(s.id, s); else loadSightTile(k);
+      }
+    }
+    // The best known first, each where it fits: in the part of the map you can see, clear of the trip's pins and of the
+    // sights already placed. Its box is its marker and its name to the right, as in a maps app.
+    const size = map.getSize(), top = coveredTop(), bottom = size.y - coveredBottom();
+    const taken = pins.map(p => { const c = map.latLngToContainerPoint(p.ll), r = p.r + SIGHT_GAP; return [c.x - r, c.y - r, c.x + r, c.y + r]; });
+    const onTrip = s => trip.stops.some(t => (Math.abs(t.lat - s.lat) < 0.001 && Math.abs(t.lng - s.lng) < 0.0013)
+      || (t.name.toLowerCase() === s.name.toLowerCase() && Math.abs(t.lat - s.lat) < 0.02 && Math.abs(t.lng - s.lng) < 0.025));
+    const overlaps = (a, c) => a[0] < c[2] && c[0] < a[2] && a[1] < c[3] && c[1] < a[3];
+    for (const s of [...found.values()].sort((a, c) => c.rank - a.rank || a.id.localeCompare(c.id))) {
+      const p = map.latLngToContainerPoint([s.lat, s.lng]);
+      if (p.x < 0 || p.x > size.x || p.y < top || p.y > bottom || onTrip(s)) continue;
+      const box = [p.x - 10 - SIGHT_GAP / 2, p.y - 10 - SIGHT_GAP / 2, p.x + 14 + nameWidth(s.name) + SIGHT_GAP / 2, p.y + 10 + SIGHT_GAP / 2];
+      if (taken.some(t => overlaps(t, box))) continue;
+      taken.push(box);
+      show.set(s.id, s);
+      if (show.size === SIGHTS_MAX) break;
+    }
+  }
+  // Only what changed, so the sights still in view stay put as the map moves
+  for (const [id, m] of sightsShown) if (!show.has(id)) { sightLayer.removeLayer(m); sightsShown.delete(id); }
+  for (const [id, s] of show) {
+    if (sightsShown.has(id)) continue;
+    const m = L.marker([s.lat, s.lng], {
+      pane: 'sights',
+      icon: L.divIcon({ className: '', iconSize: [0, 0], html: sightHTML(s) }),
+    }).on('click', () => onMapTap(() => addSight(s))).addTo(sightLayer);
+    // A button to the keyboard too: Leaflet makes a marker focusable, but only a click opens it
+    m.getElement()?.setAttribute('aria-label', `${s.name}, ${KINDS[s.kind].label}. Add as a stop`);
+    m.getElement()?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addSight(s); } });
+    sightsShown.set(id, m);
+  }
+}
+const sightHTML = s => `<div class="wt-sight" style="--wt-kind-color: ${kindColor(s)}"><i class="wt-sight__marker">${kindIcon(s, 12)}</i><span class="wt-sight__name">${esc(s.name)}</span></div>`;
+// Add stop, with the sight as its place and type
+function addSight(s) {
+  const trip = cur?.stops ? cur : null;
+  if (!trip || state.draft || !needsConnection()) return;
+  openStopSheet(trip, null, { name: s.name, address: s.address, lat: s.lat, lng: s.lng, kind: s.kind });
 }
 
 // ---------- Edits ----------
@@ -3278,9 +3368,10 @@ function choicePage(sheet, { main, page, picker, onPick }) {
 // The first line is the place, a row like a calendar's Location: tapping it opens a search page, as in a maps app.
 // Type is one row that opens the types on a page of their own; it starts as a guess from the place you pick,
 // until you choose one yourself.
-function openStopSheet(trip, stop) {
+// A new stop can start from a place picked on the map (`place`: name, address, lat, lng and kind), rather than from search.
+function openStopSheet(trip, stop, place = null) {
   if ($sheets.innerHTML) closeSheet();
-  const draft = stop ? { ...stop, kind: kindOf(stop) } : { lat: null, lng: null, address: '', name: '', kind: 'place' };
+  const draft = stop ? { ...stop, kind: kindOf(stop) } : { lat: null, lng: null, address: '', name: '', kind: 'place', ...place };
   let chosen = !!stop, saved = false;
   const camera = map && { center: map.getCenter(), zoom: map.getZoom() };
   state.leg = null;
@@ -3569,7 +3660,7 @@ function openStopSheet(trip, stop) {
       if ($app.dataset.trip && cur?.stops) render();
     },
   });
-  if (stop) focusStop(stop);
+  if (stop || place) focusStop(draft);
 }
 
 // ---------- Notices: toasts and questions (see "Messages" in the design system) ----------
