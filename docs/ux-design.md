@@ -336,12 +336,12 @@ A big place often has several small stops in it: a national park's visitor cente
 
 ### Sights nearby
 
-Zoomed in to a town or closer (zoom 14), the map shows what's worth seeing around you, as Google and Apple Maps show their places: attractions, museums, viewpoints, historic sites and nature. Only what a traveler goes to see: no shops, restaurants or hotels, which search finds.
+Zoomed in to a town or closer (zoom 13), the map shows what's worth seeing around you, as Google and Apple Maps show their places: attractions, museums, viewpoints, historic sites and nature, and in a park its visitor center and trailheads, where a visit starts. Only what a traveler goes to see: no shops, restaurants or hotels, which search finds.
 - **Each is a small marker in its [type](#stop-types)'s color, with its icon and its name** beside it. They're quieter than the trip's pins (smaller, flat, no number) and sit under the routes, so the plan still leads.
 - **The best known come first,** and only as many as fit: never two overlapping, never over a pin, and at most 20 in view. Zoom in and more appear. A place already on the trip isn't shown again.
 - **Tapping one opens Add stop with it filled in:** its place, its address when known, and its type. Set the time and add it, or close the sheet and nothing changes. Like any tap on the map, it waits out a double-tap.
 - **Not while a stop is open,** so the stop being edited stands alone, and not offline.
-- **Where they come from:** OpenStreetMap, which has no reviews or visitor counts, so "best known" means a place with a Wikipedia article or a Wikidata item, then its kind (a museum or a castle before a memorial), then a mapped area before a single point.
+- **Where they come from:** OpenStreetMap, which has no reviews or visitor counts, so "best known" means a place with a Wikipedia article or a Wikidata item, then its kind (a museum or a castle before a memorial), then a mapped area before a single point. A place mapped more than once (a park's area and a point for it, three viewpoints with one name along a boardwalk) shows once.
 
 ### How the map and the list work together
 

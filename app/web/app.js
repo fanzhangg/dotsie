@@ -2666,7 +2666,7 @@ function focusStop(s) {
 // viewpoints and nature in view, each a small marker in its type's color. They sit under the routes and the trip's pins,
 // and give way to them. Tapping one opens Add stop with that place filled in. Places already on the trip aren't repeated.
 // None while a stop is open, nor offline. They come from /api/sights a tile at a time (zoom 12), kept for the visit.
-const SIGHTS_FROM_ZOOM = 14;
+const SIGHTS_FROM_ZOOM = 13;
 const SIGHT_TILE_ZOOM = 12;
 const SIGHTS_MAX = 20; // in view at once, at most, so they never crowd out the plan
 const SIGHT_GAP = 4; // px between two sights' markers and names, and around the trip's pins
