@@ -2650,17 +2650,17 @@ const pinHTML = (s, nums, cls = '') => {
 const folderPinHTML = (trip, fid, stops, n, cls = '') => `<div class="wt-pin wt-pin--folder ${cls}" role="img" aria-label="${n}. ${esc(folderName(trip, fid))}, a folder of ${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}" style="--wt-kind-color: var(--wt-kind-${folderKind(stops)})"><b class="wt-pin__num">${n}</b></div>`;
 let draftNums = []; // the number of the stop being edited, so its pin keeps it
 // Where pins crowd, they merge: a pin that would touch another joins it, and the first one's pin stands for them all,
-// with its own number and color and a rim around it (.wt-pin--cluster), as a folder's pin does for its stops: "3, and
-// more here". The others hide. Zoom in and it comes apart; tap it and the map zooms in to its stops. Numbers stay as
-// the list gives them, so the numbers it holds are the ones missing from the map. (A merged pin first showed them all,
-// "3–4", in a grey pill: the one wide pin on the map, grey like what's over, reading like a score. Before that,
-// crowded pins shrank to dots without numbers, which left stray numbers among dots that said nothing.)
+// with its own number and color, and on its corner how many more stops are under it (.wt-pin--cluster, "+1"). The
+// others hide. Zoom in and it comes apart; tap it and the map zooms in to its stops. Numbers stay as the list gives
+// them, so the numbers it holds are the ones missing from the map. (A merged pin first showed them all, "3–4", in a grey
+// pill: the one wide pin on the map, grey like what's over, reading like a score. Then it had only a rim, like a
+// folder's, which didn't say there was anything under it. Before that, crowded pins shrank to dots without numbers.)
 // - The list's order decides: each pin joins the first pin before it that it would touch, and merged pins that touch
 //   merge again, until none do.
 // - A selected pin, and both ends of a route on show, never merge: they stand on their own, on top.
 let pins = []; // for each pin on the map: { ll, nums, sel, muted, stops, group, marker, el, own, r, members, hidden }
 const PIN_GAP = 4; // px of map between two pins
-const PIN_EDGE = 2; // a pin for several stops' --wt-pin-fill edge, outside it
+const PIN_EDGE = 2, PIN_MORE = 10; // a folder's pin's edge, outside its rim; how much further a merged pin's "+1" reaches
 function addPin(marker, { nums = [], sel = false, muted = false, stops = [], group = false, tap = null } = {}) {
   marker.addTo(layer);
   const el = marker.getElement()?.firstElementChild;
@@ -2668,10 +2668,10 @@ function addPin(marker, { nums = [], sel = false, muted = false, stops = [], gro
   if (tap) marker.on('click', () => onMapTap(() => (p.members ? openMerged(p.members) : tap())));
   pins.push(p);
 }
-// How far a pin reaches from its center: half its width, its rim and edge included
+// How far a pin reaches from its center: half its width, a folder's rim and edge, and a merged pin's "+1", included
 function pinReach(members) {
-  const group = members.length > 1 || members[0].group, muted = members.every(m => m.muted);
-  return ((members[0].sel ? 32 : muted ? 20 : 24) + (group ? 4 : 0)) / 2 + (group ? PIN_EDGE : 0);
+  const group = members[0].group, muted = members[0].muted && members.every(m => m.muted);
+  return ((members[0].sel ? 32 : muted ? 20 : 24) + (group ? 4 : 0)) / 2 + (group ? PIN_EDGE : 0) + (members.length > 1 ? PIN_MORE : 0);
 }
 function fitPins() {
   if (!map || !pins.length) return;
@@ -2708,15 +2708,20 @@ function fitPins() {
     hidePin(lead, false);
   }
 }
-// A pin alone, or standing for its merged stops: the same pin, with a rim, muted only when they all are
+// A pin alone, or standing for its merged stops: the same pin, with "+1" on its corner, muted only when they all are
 function showMerged(p, members) {
   p.members = members;
   const el = p.el;
   if (!el) return;
   el.classList.toggle('wt-pin--cluster', !!members);
   el.classList.toggle('wt-pin--muted', members ? members.every(m => m.muted) : p.muted);
-  if (!members) return el.setAttribute('aria-label', p.own);
+  let more = el.querySelector('.wt-pin__more');
+  if (!members) { more?.remove(); return el.setAttribute('aria-label', p.own); }
   const nums = [...new Set(members.flatMap(m => m.nums))].sort((a, b) => a - b), stops = [...new Set(members.flatMap(m => m.stops))];
+  // how many more: the numbers under it, or the pins when they have none
+  const under = nums.filter(x => !p.nums.includes(x)).length || members.length - 1;
+  if (!more) { more = document.createElement('i'); more.className = 'wt-pin__more'; el.append(more); }
+  more.textContent = `+${under}`;
   el.setAttribute('aria-label', `${nums.join(', ')}. ${stops.length} stops here: ${stops.map(s => s.name).join(', ')}`);
 }
 function hidePin(p, hidden) {
