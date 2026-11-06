@@ -163,7 +163,7 @@ The list is a timeline with three columns: a **rail**, the **stop**, and its **t
 ```
 
 - **Rail:** a thin, light grey line down the day, unbroken from the first stop to the last. It's quiet so the markers and names stand out. Each stop sits on it as a **type marker**: the stop's [type](#stop-types) icon on its type's color. Its color is the stop's pin's color on the map, so you can match the list to the map at a glance. Drives sit on it as a smaller grey marker with a car, so stops and drives read as one family of icons.
-- **Stop:** the name in medium weight, the largest text in the list, on one line: a long name ends in `…`. The note is under it in grey. On a phone the notes are one line, run together with ` · ` (`2 nights · Drop bags · conf # in email`) and cut off with `…`, so a half list fits a stop with its neighbors; **the selected stop shows them in full**, since notes hold things like confirmation numbers. On a computer, with room to spare, notes are always in full. A link in a note (a booking, a post about the place) can be tapped: it shows just its site, `booking.com`, in blue, and opens the page without selecting the stop. A note runs across the time column too, so a long one (shown in full) wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop selects it and shows it on the map (see [Adding and editing a stop](#adding-and-editing-a-stop)); it doesn't open it.
+- **Stop:** the name in medium weight, the largest text in the list, on one line: a long name ends in `…`. The note is under it in grey. On a phone the notes are one line, run together with ` · ` (`2 nights · Drop bags · conf # in email`) and cut off with `…`, so a half list fits a stop with its neighbors; **the selected stop shows them in full**, since notes hold things like confirmation numbers. On a computer, with room to spare, notes are always in full. A link in a note can be tapped too: it shows just its site, `booking.com`, in blue, and opens the page without selecting the stop. But pages that belong to a stop go in its [links](#links). A note runs across the time column too, so a long one (shown in full) wraps to the row's full width: its lines start under the name and end in line with the times. Tapping a stop selects it and shows it on the map (see [Adding and editing a stop](#adding-and-editing-a-stop)); it doesn't open it.
 - **Time:** on the right, in grey, with a small AM/PM. The name leads the row, and the time is where a glance down the right edge finds it. Hotel rows at either end of the day have no time, so the right edge stays empty instead of leaving a gap before the name.
 
 A selected row (a stop or a drive, tapped or picked on the map) gets a grey background, with no border. It's a clear step darker than the sheet (`gray-200` on white; a lighter grey on the dark sheet): the first, paler grey was hard to see, above all in dark mode. A selected drive's car turns a darker grey. **Only one row is ever highlighted:** while something is selected, the row happening now loses its grey background but keeps its black ring or car (see [Today](#today)). A hotel that starts and ends the day highlights only the row you tapped; picked on the map, it's the first one.
@@ -271,6 +271,17 @@ A big place often has several small stops in it: a national park's visitor cente
 - **All days** shows folders closed, like a day.
 - **Co-editing:** folders and their names change live for everyone on the trip, like stops. An AI assistant connected over MCP sees each stop's folder and can make and rename folders.
 
+### Links
+
+A stop can have links: pages you'll want on the day, such as the flight, the hotel booking, the tickets, or the place's own page.
+
+- **Each link is a button** under the stop's notes: an outlined pill in blue, with the link's label (`UA 1234`, `Booking`) or, without one, its site (`recreation.gov`), and a small arrow that says it leaves the app. Tapping one opens the page in a new tab without selecting the stop. The buttons are 34px tall with a gap between them, so a finger gets the one it means; more than fit on a line wrap onto the next.
+- **On a phone, only the selected stop shows its buttons**, as it does with its full notes. Any other stop with links starts its notes' line with a grey link icon, so you can see it has them, and the half list still fits three stops. Tap the stop and its buttons appear. On a computer every stop shows its buttons.
+- **They show where the note does:** on the stop's own row, not on a hotel's other mornings and evenings, and not on All days.
+- **In the stop sheet,** Links comes after Note: a row for each link, with its label over its address and an ✕ to remove it, then **Add link**. Add link puts the cursor in a new row's address, ready to paste. The label is optional: its placeholder shows the site the button will say until you type one. `booking.com/…` gets `https://` added. Anything that isn't a web address stops Save with *This isn't a web address*; a row left empty is dropped. Up to 10 links.
+- **An AI assistant** adds links the same way (`add_link`): its instructions say that any page it finds or is given for a stop goes in its links, with a few words for a label, and that a flight's links go on the airport you fly from.
+- (Before this, links lived in the note, where each showed as its site. A note full of addresses was crowded, every `united.com` looked the same, and a word in a line of text is a small target.)
+
 ### What the list leaves out, and why
 
 | Removed | Why |
@@ -304,12 +315,13 @@ A big place often has several small stops in it: a national park's visitor cente
   - It finds the place by name and address, which opens the place itself; coordinates alone would open only a dropped pin.
 - **Editing.** Tap Edit stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
 - **The map follows the edit.** The stop's pin shows the draft: picking a place from search moves the pin there, and the map goes with it; choosing a type changes the pin's color. A new stop's pin appears once a place is picked. If the stop moves, its two drives fade until it's saved. You can pan and zoom the map while the sheet is open, and taps on the map don't change anything. Closing without saving puts the map back where it was.
-- **The stop sheet** has four fields, in this order (five for a hotel, and one more, Folder, when editing a stop):
+- **The stop sheet** has five fields, in this order (six for a hotel, and one more, Folder, when editing a stop):
   1. **Place.** The first line, like in the list: the place's name and address. Tapping it opens a search page, as in a maps app. A stop's name is its place's name. See [Place search](#place-search).
   2. **Type.** One row that opens the [stop types](#stop-types): a page of the sheet on a phone, a menu under the row on a computer.
   3. **Folder** (editing only). A row like Type, for the [folders](#folders) the stop can be in where it is. A new stop goes into a folder by its time, when it falls between two of the folder's stops.
   4. **Arrive.** Date and time. For a hotel it's **Check-in**, followed by **Check-out**, a day and time. See [Stop times](#stop-times).
   5. **Note.**
+  6. **Links.** See [Links](#links).
 - **Place search.** <a id="place-search"></a> It works as in Google or Apple Maps, and like the Location field in their calendars. Nothing here is our own invention.
   - **The Place row** shows the place's name, and its address under it, so two places with the same name can be told apart. Tapping it opens the search page.
   - **The search page** takes the sheet's place, and on a phone the whole screen, as a maps app's sheet rises when you search. The field is at the top with **Cancel** beside it, and the results fill the page under it.
@@ -320,7 +332,7 @@ A big place often has several small stops in it: a national park's visitor cente
   - **A moved stop keeps its type**, which may have been chosen on purpose. Each result's marker shows what the new place would be, so a difference is visible, and Type is one tap away. A new stop's type is still guessed from the place it's given.
   - **While it searches**, a spinner shows in the field and the last results stay put, so the list doesn't flash; going back to an earlier search shows its results at once. With nothing found, it says so and what to try (*Try adding the town, or check the spelling*).
   - (Tried and dropped, before settling on what maps apps do: results in a list under the field that pushed the form down, then in a pop-up over the form; the trip's own places offered first; and a free-text stop name beside the place's, with **Change** and **Undo**.)
-- **Save is always in reach.** The sheet's title and close button stay at the top and Delete and Save at the bottom, with the fields scrolling between them. On a phone the sheet is only about 60% of the screen, and a hotel's six fields don't fit, so Save used to sit below the fold.
+- **Save is always in reach.** The sheet's title and close button stay at the top and Delete and Save at the bottom, with the fields scrolling between them. On a phone the sheet is only about 60% of the screen, and a hotel's fields don't fit, so Save used to sit below the fold.
 - **Delete.** In the edit sheet, on the left of Save. Deleting shows a notice with **Undo**.
 
 ## The map

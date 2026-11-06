@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 9.6.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 9.7.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -212,7 +212,7 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `person-add` `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `directions` `map` `list` `fit` `alert` (something failed)
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `person-add` `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `directions` `map` `list` `fit` `alert` (something failed)
 
 Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
 
@@ -347,6 +347,18 @@ Labels are verbs that say exactly what happens.
 - Placeholders show an example, never the label.
 - Messages say what happened and what to do next, for example "No places match … Try adding the town, or check the spelling".
 - `textarea.wt-input` works the same way.
+- **A list of links** (`.wt-link-list`, a stop's Links): a `.wt-link-edit` row each, drawn like an input, with `.wt-link-edit__label` over `.wt-link-edit__url` (both 16px, so a phone doesn't zoom in) and a `.wt-icon-btn.wt-link-edit__remove`; then a `.wt-link-add` button, `plus` and "Add link" in link blue. Add link focuses the new row's address. Once there's an address, the label's placeholder is the site the button will show without one. The list hides itself when empty.
+
+  ```html
+  <div class="wt-field"><span class="wt-field__label" id="links-label">Links</span>
+    <div class="wt-link-list" role="group" aria-labelledby="links-label">
+      <div class="wt-link-edit"><span class="wt-link-edit__fields">
+        <input class="wt-link-edit__label" type="text" aria-label="Label" placeholder="Label" value="UA 1234">
+        <input class="wt-link-edit__url" type="text" inputmode="url" aria-label="Link" placeholder="Paste a link" value="https://…"></span>
+        <button type="button" class="wt-icon-btn wt-link-edit__remove" aria-label="Remove link">${icon('close')}</button></div>
+    </div>
+    <button type="button" class="wt-link-add">${icon('plus')}Add link</button></div>
+  ```
 - **A field picked by searching works as in Google or Apple Maps**, and their calendars' Location field. The form shows the choice as a row: its name, and under it a detail (a place's address, so two places with the same name can be told apart). Tapping the row opens a search page in place of the form, with the current name in the field and the cursor at its end, so you edit it rather than retype it. Results fill the page. Tapping one fills it in and comes back; **Cancel** (or Esc) comes back with nothing changed. Nothing typed is ever kept: only a picked result is. A choice that's required (a stop's place) can open on this page, and Cancel there closes the sheet.
 - **While the search page is open** the sheet takes the whole screen on a phone (`.wt-modal.is-full`), as a maps app's sheet rises when you search, so the results show above the keyboard. The search bar stays at the top as the results scroll.
 - **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
@@ -419,6 +431,14 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - **On a phone, notes are one line** (inside the `wt-trip` container, under 768px wide): they run together with ` · ` and end in an ellipsis. The selected stop (`is-selected`) shows them in full, with their line breaks; so does every stop on a wider screen.
   - Leave out `.wt-tl-notes` when there are none.
   - **Links in a note can be tapped.** Each shows only its site (`booking.com`), in blue, so a long link doesn't fill the row; tapping it opens the page and doesn't select the stop. Since a link can't sit inside a `<button>`, the row is a `div` with `role="button"`, `tabindex="0"` and `aria-pressed`, like a drive, and Enter or Space selects it.
+  - **A stop's links** (`.wt-tl-links`, after `.wt-tl-notes`): one `a.wt-tl-link` each, with `target="_blank"`, its label in `.wt-tl-link__label` (or the page's site when it has none) and the `external` icon. They're outlined pills in `--wt-text-link`, 34px tall, and wrap onto more lines. Tapping one opens the page without selecting the stop.
+
+    ```html
+    <span class="wt-tl-notes"><span class="wt-tl-links-hint" aria-hidden="true">${icon('link')}</span><span class="wt-tl-note">Drop bags</span></span>
+    <span class="wt-tl-links"><a class="wt-tl-link" href="…" target="_blank" rel="noopener"><span class="wt-tl-link__label">Booking</span>${icon('external')}</a></span>
+    ```
+
+    **On a phone only the selected stop shows them**, like its full notes. Put `.wt-tl-links-hint` (the `link` icon) first in `.wt-tl-notes`: the CSS shows it, in tertiary grey, on any other stop with links, so the half list keeps its height. Leave both out when a stop has no links.
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
 - **The day before's last stop:** with no hotel the night before, a day opens with that stop. In place of a time, `.wt-tl-time__day` says which day it was: "Yesterday", or the weekday ("Sat").
 - **Drive** (`.wt-tl-drive`): a car on the rail and "1 hr 49 min drive". The same row is any leg: put the way's icon in `.wt-tl-car` in place of the car and finish the sentence with it ("12 min walk", "25 min bike ride"); a leg with no time (transit, a flight) is just its name in the `<b>`: `<b>Flight</b>`. Tapping it shows its route; Directions to the maps app goes in the add bar (see [the add bar](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)), not in the row.
@@ -937,6 +957,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 9.7.0
+
+A stop's links (a booking, a flight, tickets) were addresses in its note: crowded, all alike, and small to tap.
+
+- New: `.wt-tl-links`, `.wt-tl-link` and `.wt-tl-link__label`, a stop's links as buttons under its notes, and `.wt-tl-links-hint`, the link icon a phone shows in their place on an unselected stop ([Timeline](#timeline-wt-tl)).
+- New: `.wt-link-list`, `.wt-link-edit` (with `__fields`, `__label`, `__url`, `__remove`) and `.wt-link-add`, for editing them ([Field](#field-wt-field-input-wt-input-search-page-wt-search-bar-wt-search-results-wt-results)).
+- `.wt-tl-stop` has a third content row, for its links, before its bottom padding.
+- New icon: `link` (icons v1.8.0).
+- Tokens are unchanged.
 
 ### Added in 9.6.0
 

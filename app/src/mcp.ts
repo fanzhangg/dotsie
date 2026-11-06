@@ -19,7 +19,8 @@ const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 const SERVER = { name: 'waythread', title: 'Waythread', version: '1.0.0' };
 const INSTRUCTIONS = `Waythread plans road trips. A trip is a list of stops, each with a trip-local time ("YYYY-MM-DDTHH:MM", no time zone).
 Call list_trips to find a trip and list_stops to see its plan; add_stop, edit_stop and delete_stop change it. Changes show at once for everyone on the trip.
-Stops that follow each other can share a folder, a name that groups them (the stops in a park, say). It isn't a place and has no time of its own. add_folder makes one; a stop goes in or out with its folder field.`;
+Stops that follow each other can share a folder, a name that groups them (the stops in a park, say). It isn't a place and has no time of its own. add_folder makes one; a stop goes in or out with its folder field.
+A stop's links are buttons under it in the app, one tap from the plan. Whenever you find or are given a web page for a stop, add it with add_link instead of writing the URL in the note: a booking or reservation, a flight (the airline's booking or its flight status), tickets, the place's own site, a guide to it. Label each in a few words ("UA 123", "Hotel booking", "Tickets"). A flight's links go on the airport you fly from, where you'll need them; with no stop there, on the one you land at.`;
 
 const ID = /^[A-Za-z0-9_-]{6,40}$/;
 const room = (env: Env, tripId: unknown) => {
@@ -49,9 +50,18 @@ const ERROR_TEXT: Record<string, string> = {
 // A stop as the assistant sees it: the fields it can edit, plus who changed it last
 const stopOut = (s: Stop, names: Map<string, string>) => ({
   id: s.id, name: s.name, address: s.address, lat: s.lat, lng: s.lng, time: s.time, checkout: s.checkout,
-  kind: s.kind, nights: s.nights, travel: s.travel ?? 'drive', back: s.back ?? {}, note: s.note, folder: s.folder, updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
+  kind: s.kind, nights: s.nights, travel: s.travel ?? 'drive', back: s.back ?? {}, note: s.note, links: s.links ?? [], folder: s.folder, updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
 });
 const memberNames = (members: { id: string; name: string }[]) => new Map(members.map(m => [m.id, m.name]));
+
+// A web page about a stop; the app shows it as a button with its label, or its site when it has none
+const LINK = {
+  type: 'object', required: ['url'], additionalProperties: false,
+  properties: {
+    url: { type: 'string', maxLength: 2000, pattern: '^https?://', description: 'An http(s) web page' },
+    label: { type: 'string', maxLength: 60, description: 'A few words for its button: "UA 123", "Hotel booking", "Tickets". Leave out to show the site (booking.com)' },
+  },
+} as const;
 
 const EDITABLE = {
   name: { type: 'string', maxLength: 200, description: 'The place’s name' },
@@ -67,7 +77,11 @@ const EDITABLE = {
     type: 'object', propertyNames: { pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, additionalProperties: { type: 'string', enum: [...TRAVEL] }, maxProperties: 31,
     description: 'A hotel only: how you get back to it each night, by the day you go back ("YYYY-MM-DD": way). Each night is its own leg; nights not listed are drives. Replaces the whole set, so send every night to keep',
   },
-  note: { type: 'string', maxLength: 2000 },
+  note: { type: 'string', maxLength: 2000, description: 'Anything to remember: confirmation numbers, tickets, tips. Put web pages in links (add_link), not here' },
+  links: {
+    type: 'array', maxItems: 10, items: LINK,
+    description: 'Pages about the stop, each a button under it in the app. Replaces the whole list, so send every link to keep, or [] for none. To add one, use add_link',
+  },
   folder: { type: ['string', 'null'], description: 'The id of the folder it’s in (from list_stops or add_folder), or null for none. A folder holds stops that follow each other by time: put a stop only in the folder of the stop just before or just after it' },
 };
 
@@ -147,6 +161,27 @@ const TOOLS: Tool[] = [
       const id = stopId(stop_id), changes = fieldsOf(fields);
       if (!Object.keys(changes).length) throw new ToolError(`Give at least one field to change: ${Object.keys(EDITABLE).join(', ')}.`);
       const stop = await room(env, trip_id).patchStop(user.id, id, changes);
+      return { stop: stopOut(stop, new Map([[user.id, user.name]])) };
+    },
+  },
+  {
+    name: 'add_link',
+    title: 'Add a link to a stop',
+    description: 'Add a web page to a stop’s links, which show as buttons under it in the app: a booking, flight, tickets, the place’s own page or a guide to it. The stop’s other links stay. If it has this page already, only its label changes. Returns the stop as saved.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        trip_id: { type: 'string', description: 'From list_trips' },
+        stop_id: { type: 'string', description: 'From list_stops' },
+        url: LINK.properties.url,
+        label: LINK.properties.label,
+      },
+      required: ['trip_id', 'stop_id', 'url'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    async run(env, user, { trip_id, stop_id, url, label }) {
+      const stop = await room(env, trip_id).addLink(user.id, stopId(stop_id), { url, label });
       return { stop: stopOut(stop, new Map([[user.id, user.name]])) };
     },
   },

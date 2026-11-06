@@ -46,7 +46,7 @@ document.addEventListener('error', e => { if (e.target.classList?.contains('wt-a
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // ---------- Icons (design system) ----------
-const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'chevron-up-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin', 'download', 'saved', 'cloud-off', 'alert', 'indent', 'outdent', 'stack-add']
+const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'chevron-up-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin', 'download', 'saved', 'cloud-off', 'alert', 'indent', 'outdent', 'stack-add', 'link', 'external']
   .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
@@ -116,9 +116,12 @@ function seed() {
       'white-sands': {
         id: 'white-sands', name: 'White Sands, NM', members: ['alex', 'sam'], createdBy: 'alex', updatedAt: t,
         spots: [
-          s('airport', 'El Paso International Airport', '6701 Convair Rd, El Paso, TX', 31.8072, -106.3779, '2026-11-20T10:30', 'UA 1234 lands · rental car at Hertz', 'alex'),
-          s('hotel', 'Holiday Inn Express Alamogordo', 'S White Sands Blvd, Alamogordo, NM', 32.8800, -105.9580, '2026-11-20T13:00', 'Drop bags · conf # in email', 'alex'),
-          { ...s('attraction', 'White Sands Visitor Center', '19955 US-70, Alamogordo, NM', 32.7797, -106.1717, '2026-11-20T15:00', 'Buy a sled + wax', 'sam'), checkout: '16:00' },
+          { ...s('airport', 'El Paso International Airport', '6701 Convair Rd, El Paso, TX', 31.8072, -106.3779, '2026-11-20T10:30', 'UA 1234 lands · rental car at Hertz', 'alex'),
+            links: [{ url: 'https://www.united.com/en/us/flightstatus', label: 'UA 1234' }, { url: 'https://www.hertz.com/rentacar/reservation/', label: 'Hertz' }] },
+          { ...s('hotel', 'Holiday Inn Express Alamogordo', 'S White Sands Blvd, Alamogordo, NM', 32.8800, -105.9580, '2026-11-20T13:00', 'Drop bags · conf # in email', 'alex'),
+            links: [{ url: 'https://www.booking.com/', label: 'Booking' }] },
+          { ...s('attraction', 'White Sands Visitor Center', '19955 US-70, Alamogordo, NM', 32.7797, -106.1717, '2026-11-20T15:00', 'Buy a sled + wax', 'sam'), checkout: '16:00',
+            links: [{ url: 'https://www.nps.gov/whsa/planyourvisit/', label: 'Plan your visit' }, { url: 'https://www.recreation.gov/', label: '' }] },
           s('nature', 'Interdune Boardwalk', 'Dunes Dr, White Sands National Park, NM', 32.7930, -106.2110, '2026-11-20T16:30', 'Sunset ~5:00 PM', 'sam'),
           s('museum', 'New Mexico Museum of Space History', '3198 NM-2001, Alamogordo, NM', 32.9214, -105.9213, '2026-11-21T09:30', '', 'alex'),
           s('restaurant', 'Cloudcroft', 'Burro Ave, Cloudcroft, NM', 32.9573, -105.7428, '2026-11-21T12:30', 'Lunch', 'sam'),
@@ -1873,37 +1876,54 @@ function driveItem(day, leg) {
 // Links in a note can be tapped. Each shows only its site (booking.com), so a long link doesn't fill the row;
 // punctuation right after one ("see https://…).") stays text.
 const LINK_RE = /\bhttps?:\/\/[^\s<>"']+/gi;
+const siteOf = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
 function noteHTML(text) {
   let html = '', at = 0;
   for (const m of text.matchAll(LINK_RE)) {
     const url = m[0].replace(/[.,;:!?)\]}，。；：！？）】」』]+$/, '');
-    let site;
-    try { site = new URL(url).hostname.replace(/^www\./, ''); } catch { continue; }
+    const site = siteOf(url);
+    if (!site) continue;
     html += `${esc(text.slice(at, m.index))}<a href="${esc(url)}" target="_blank" rel="noopener">${esc(site)}</a>`;
     at = m.index + url.length;
   }
   return html + esc(text.slice(at));
 }
-// A stop row: marker · name · time, with its notes below across the name and time. A hotel on its check-in day says how many nights.
+// A stop's links (a booking, a flight, tickets, a page about the place): a button each, named by its label or else its
+// site, that opens the page without selecting the stop. On a phone only the selected stop shows them, so the half list
+// still fits three stops; the others show a link icon at the start of their notes' line.
+const linkLabel = l => l.label || siteOf(l.url);
+// What someone typed or pasted as a link, as a web address: "booking.com/…" gets https://. '' if it isn't one.
+const MAX_LINKS = 10;
+function webUrl(text) {
+  const t = text.trim();
+  if (!t || /\s/.test(t)) return '';
+  try {
+    const u = new URL(/^https?:\/\//i.test(t) ? t : `https://${t.replace(/^\/+/, '')}`);
+    return u.hostname.includes('.') ? u.href : '';
+  } catch { return ''; }
+}
+const LINKS_HINT = `<span class="wt-tl-links-hint" aria-hidden="true">${ICON.link}</span>`;
+const linksHTML = links => `<span class="wt-tl-links">${links.map(l => `<a class="wt-tl-link" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(l.url)}"><span class="wt-tl-link__label">${esc(linkLabel(l))}</span>${ICON.external}</a>`).join('')}</span>`;
+// A stop row: marker · name · time, with its notes below across the name and time, and its links under them. A hotel on its check-in day says how many nights.
 // A row from another day than the one on screen can say which day in place of the time.
 // Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Open in Maps and Edit stop. Tapping it again keeps it selected.
 // It's a div acting as a button, like a drive, since a link in its note can't sit inside a <button>.
 // In an open folder (`inFolder`, with ' is-first' or ' is-last' where the folder's thread starts and ends), it hangs
 // from the folder's name, and its name leaves out the folder's when it starts with it (Visitor Center, in White Sands).
-function stopRow(s, { key, past, now, sel, inFolder, folder }, note, time, timeDay) {
-  const notes = note.filter(Boolean), marker = markerHTML(s, 'wt-tl-marker');
+function stopRow(s, { key, past, now, sel, inFolder, folder }, note, time, timeDay, links = []) {
+  const notes = note.filter(Boolean), marker = markerHTML(s, 'wt-tl-marker'), linked = links.length > 0;
   const name = folder && s.name.startsWith(`${folder} `) ? s.name.slice(folder.length + 1) : s.name;
   return `<div class="wt-tl-stop${inFolder ? ` wt-tl-stop--in${inFolder}` : ''}${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${esc(s.id)}" data-row="${esc(key)}"${key === s.id ? ' data-stop' : ''} tabindex="0" role="button" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
       ${inFolder ? `<span class="wt-tl-rail"></span><span class="wt-tl-thread">${marker}</span>` : `<span class="wt-tl-rail">${marker}</span>`}
-      <span class="wt-tl-name">${esc(name)}</span>${notes.length ? `<span class="wt-tl-notes">${notes.map(n => `<span class="wt-tl-note">${noteHTML(n)}</span>`).join('')}</span>` : ''}
+      <span class="wt-tl-name">${esc(name)}</span>${notes.length || linked ? `<span class="wt-tl-notes">${linked ? LINKS_HINT : ''}${notes.map(n => `<span class="wt-tl-note">${noteHTML(n)}</span>`).join('')}</span>` : ''}${linked ? linksHTML(links) : ''}
       <span class="wt-tl-time">${time ? timeHTML(time) : ''}${timeDay ? `<span class="wt-tl-time__day">${esc(timeDay)}</span>` : ''}</span>
     </div>`;
 }
-// `note` false leaves out the stop's own note (the overview), keeping a hotel's nights.
+// `note` false leaves out the stop's own note and links (the overview), keeping a hotel's nights.
 function stopItem(trip, s, { note = true } = {}) {
   const stay = kindOf(s) === 'hotel' && staysOf(trip).find(st => st.s === s);
   const nights = stay && stay.nights > 0 && `${stay.nights} ${stay.nights === 1 ? 'night' : 'nights'}`;
-  return { start: s.time, html: row => stopRow(s, row, [nights, note && s.note], s.time) };
+  return { start: s.time, html: row => stopRow(s, row, [nights, note && s.note], s.time, null, note ? s.links : []) };
 }
 // The hotel at either end of a day: where you wake up, and where you go back to at night. It has no time,
 // except on check-out morning, the one with something to do: `Check out`, at the check-out time. Tapping it selects the hotel.
@@ -2955,7 +2975,7 @@ function addStop(trip, data) {
 // Only the fields this person changed (against the stop as they opened it) are sent, so a
 // co-editor's edit to another field of the same stop survives.
 function editStop(trip, stop, fields) {
-  const changed = Object.fromEntries(Object.entries(fields).filter(([k, v]) => stop[k] !== v));
+  const changed = Object.fromEntries(Object.entries(fields).filter(([k, v]) => (k === 'links' ? JSON.stringify(stop.links || []) !== JSON.stringify(v) : stop[k] !== v)));
   if (!Object.keys(changed).length) return;
   const target = openTripOf(trip.id)?.stops.find(s => s.id === stop.id);
   if (target) Object.assign(target, changed, { by: me.id });
@@ -2969,10 +2989,10 @@ function deleteStop(trip, stop) {
   save(api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'DELETE' }));
   // Undo puts the same stop back under its old id
   toast(`Deleted ${stop.name}`, 'Undo', () => {
-    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {}, folder = null } = stop, travel = travelOf(stop);
+    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {}, folder = null, links = [] } = stop, travel = travelOf(stop);
     openTripOf(trip.id)?.stops.push({ ...stop, by: me.id });
     render();
-    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder } }));
+    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, links } }));
   });
 }
 
@@ -3559,6 +3579,9 @@ function openStopSheet(trip, stop, place = null) {
       <label class="wt-field"><span class="wt-field__label" data-when>Arrive</span><input class="wt-input" name="time" type="datetime-local" required></label>
       <label class="wt-field wt-stay" hidden><span class="wt-field__label">Check-out</span><input class="wt-input" name="checkout" type="datetime-local"></label>
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="2000" placeholder="Confirmation #, tickets, tips…"></textarea></label>
+      <div class="wt-field"><span class="wt-field__label" id="links-label">Links</span>
+        <div class="wt-link-list" role="group" aria-labelledby="links-label"></div>
+        <button type="button" class="wt-link-add" data-link-add>${ICON.plus}Add link</button></div>
       <div class="wt-modal__actions wt-modal__actions--sticky">${stop ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${stop ? 'Save' : 'Add'}</button></div>
     </form></div>
     ${choicePageHTML('stop-kinds', 'Type', KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>'))}
@@ -3577,6 +3600,49 @@ function openStopSheet(trip, stop, place = null) {
     let timeTouched = !!stop;
     if (stop) { F.time.value = stop.time; F.note.value = stop.note || ''; }
     else F.time.value = defaultTime(trip);
+
+    // ----- Links: a row each, its label over its address, and Add link under them. A label left empty shows the
+    // page's site, which its placeholder says once there's an address. Rows left empty are dropped on save. -----
+    const linkList = el.querySelector('.wt-link-list'), linkAdd = el.querySelector('[data-link-add]');
+    const showLinkAdd = () => { linkAdd.hidden = linkList.children.length >= MAX_LINKS; };
+    function addLinkRow(link = { url: '', label: '' }) {
+      linkList.insertAdjacentHTML('beforeend', `<div class="wt-link-edit">
+        <span class="wt-link-edit__fields">
+          <input class="wt-link-edit__label" type="text" maxlength="60" aria-label="Label" placeholder="Label" autocomplete="off" enterkeyhint="next" value="${esc(link.label)}">
+          <input class="wt-link-edit__url" type="text" inputmode="url" maxlength="2000" aria-label="Link" placeholder="Paste a link" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" value="${esc(link.url)}">
+        </span>
+        <button type="button" class="wt-icon-btn wt-link-edit__remove" aria-label="Remove link">${ICON.close}</button></div>`);
+      const row = linkList.lastElementChild, url = row.querySelector('.wt-link-edit__url'), label = row.querySelector('.wt-link-edit__label');
+      const hint = () => { label.placeholder = siteOf(webUrl(url.value)) || 'Label'; };
+      url.addEventListener('input', () => { url.setCustomValidity(''); hint(); });
+      row.querySelector('.wt-link-edit__remove').onclick = () => {
+        const next = row.nextElementSibling?.querySelector('input') || linkAdd;
+        row.remove();
+        showLinkAdd();
+        (linkAdd.hidden ? linkList.querySelector('input') : next)?.focus();
+      };
+      hint();
+      showLinkAdd();
+      return row;
+    }
+    for (const l of stop?.links || []) addLinkRow(l);
+    linkAdd.onclick = () => addLinkRow().querySelector('.wt-link-edit__url').focus();
+    // The links as saved, or null (with the field that's wrong showing why) when one isn't a web page
+    function readLinks() {
+      const links = [];
+      for (const row of linkList.children) {
+        const url = row.querySelector('.wt-link-edit__url'), label = row.querySelector('.wt-link-edit__label').value.trim();
+        if (!url.value.trim() && !label) continue;
+        const href = webUrl(url.value);
+        if (!href) {
+          url.setCustomValidity(url.value.trim() ? 'This isn’t a web address.' : 'Paste a link, or remove this one.');
+          url.reportValidity();
+          return null;
+        }
+        links.push({ url: href, label });
+      }
+      return links;
+    }
 
     // ----- Type: the picker row, and its page -----
     const showKind = () => {
@@ -3795,9 +3861,11 @@ function openStopSheet(trip, stop, place = null) {
     f.onsubmit = e => {
       e.preventDefault();
       if (draft.lat == null) return showPlacePage(true);
+      const links = readLinks();
+      if (!links) return;
       const hotel = draft.kind === 'hotel';
       const data = {
-        name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(),
+        name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(), links,
         kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? outTime : null,
       };
       const kept = folderAt(trip, stop?.id, data.time, folder === 'new' ? newFolder(trip, suggestFolderName(draft)) : folder);

@@ -17,11 +17,14 @@ export type Member = { id: string; name: string; image: string | null; identity:
 // folder is the id of the folder the stop is in, or null. A folder is a run of stops that follow each other (by time)
 // with the same folder; the app keeps them together. It isn't checked against the folders table, since a stop can
 // be saved a moment before its new folder's name.
+// links are pages about the stop (a booking, a flight, a post about the place), in the order they show, each with an
+// optional label ('' shows the link's site). [] for none.
 // done is no longer shown; it's kept so older clients' writes still validate.
 export type Stop = {
   id: string; name: string; address: string; lat: number; lng: number;
-  time: string; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; folder: string | null; done: boolean; by: string; updatedAt: number;
+  time: string; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; folder: string | null; links: Link[]; done: boolean; by: string; updatedAt: number;
 };
+export type Link = { url: string; label: string };
 // A folder groups stops under a name. It isn't a place: it has no place or time of its own, only its stops.
 export type Folder = { id: string; name: string };
 export type StopFields = Omit<Stop, 'id' | 'by' | 'updatedAt'>;
@@ -54,6 +57,7 @@ export type Travel = typeof TRAVEL[number];
 export type Back = Record<string, Travel>;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_NIGHTS = 30;
+const MAX_LINKS = 10, MAX_URL = 2000, MAX_LABEL = 60;
 // The home card's route sketch needs only where the stops are and how you get to each (and back to a hotel); a trip longer than this is cut off there.
 const PREVIEW_STOPS = 300;
 export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights' | 'travel' | 'back'>[] };
@@ -110,17 +114,32 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
     if (i.folder !== null && !(typeof i.folder === 'string' && ID.test(i.folder))) throw new Error(ERR.invalid);
     out.folder = i.folder as string | null;
   }
+  if (i.links !== undefined) {
+    // Only web pages: a link opens in a new tab, and anything else (javascript:, data:) has no business there
+    const l = i.links;
+    if (!Array.isArray(l) || l.length > MAX_LINKS) throw new Error(ERR.invalid);
+    out.links = l.map(x => {
+      if (!x || typeof x !== 'object') throw new Error(ERR.invalid);
+      const { url, label = '' } = x as Record<string, unknown>;
+      if (typeof url !== 'string' || url.length > MAX_URL || typeof label !== 'string' || label.length > MAX_LABEL) throw new Error(ERR.invalid);
+      let u: URL;
+      try { u = new URL(url.trim()); } catch { throw new Error(ERR.invalid); }
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error(ERR.invalid);
+      return { url: u.href, label: label.trim() };
+    });
+  }
   if (i.done !== undefined) {
     if (typeof i.done !== 'boolean') throw new Error(ERR.invalid);
     out.done = i.done;
   }
-  if (!partial) out = { address: '', note: '', kind: '', nights: null, checkout: null, travel: 'drive', back: {}, folder: null, done: false, ...out };
+  if (!partial) out = { address: '', note: '', kind: '', nights: null, checkout: null, travel: 'drive', back: {}, folder: null, links: [], done: false, ...out };
   return out;
 }
 
-type StopRow = Omit<Stop, 'done' | 'updatedAt' | 'back'> & { done: number; updated_at: number; back: string };
+type StopRow = Omit<Stop, 'done' | 'updatedAt' | 'back' | 'links'> & { done: number; updated_at: number; back: string; links: string };
 const parseBack = (back: string): Back => { try { return JSON.parse(back) || {}; } catch { return {}; } };
-const toStop = ({ done, updated_at, back, ...r }: StopRow): Stop => ({ ...r, back: parseBack(back), done: !!done, updatedAt: updated_at });
+const parseLinks = (links: string): Link[] => { try { return JSON.parse(links) || []; } catch { return []; } };
+const toStop = ({ done, updated_at, back, links, ...r }: StopRow): Stop => ({ ...r, back: parseBack(back), links: parseLinks(links), done: !!done, updatedAt: updated_at });
 
 export class TripRoom extends DurableObject<Env> {
   private sql = this.ctx.storage.sql;
@@ -143,6 +162,8 @@ export class TripRoom extends DurableObject<Env> {
     if (!cols.has('back')) this.sql.exec("alter table stops add column back text not null default '{}'");
     // ...and folders
     if (!cols.has('folder')) this.sql.exec('alter table stops add column folder text');
+    // ...and links
+    if (!cols.has('links')) this.sql.exec("alter table stops add column links text not null default '[]'");
     this.sql.exec('create table if not exists folders (id text primary key, name text not null)');
     // Answer keep-alive pings without waking the object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
@@ -203,8 +224,8 @@ export class TripRoom extends DurableObject<Env> {
     this.check(userId);
     const f = cleanStop(input, false) as StopFields;
     this.sql.exec(
-      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), f.folder, +f.done, userId, Date.now());
+      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, links, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), f.folder, JSON.stringify(f.links), +f.done, userId, Date.now());
     return this.afterStopWrite(stopId);
   }
 
@@ -214,11 +235,25 @@ export class TripRoom extends DurableObject<Env> {
     const f = cleanStop(input, true);
     if (!this.sql.exec('select 1 from stops where id = ?', stopId).toArray().length) throw new Error(ERR.notFound);
     const cols = Object.keys(f) as (keyof StopFields)[];
-    const vals = cols.map(k => (k === 'done' ? +f.done! : k === 'back' ? JSON.stringify(f.back) : f[k]));
+    const vals = cols.map(k => (k === 'done' ? +f.done! : k === 'back' || k === 'links' ? JSON.stringify(f[k]) : f[k]));
     this.sql.exec(
       `update stops set ${[...cols, 'by', 'updated_at'].map(c => `${c} = ?`).join(', ')} where id = ?`,
       ...vals, userId, Date.now(), stopId);
     return this.afterStopWrite(stopId);
+  }
+
+  // Adds a link to a stop's links, or relabels it if the stop has that page already (an empty label keeps the old one).
+  // Done here, in one step, so an assistant adding a link can't drop one someone added a moment before.
+  async addLink(userId: string, stopId: string, link: unknown) {
+    this.check(userId);
+    const row = this.sql.exec<{ links: string }>('select links from stops where id = ?', stopId).toArray()[0];
+    if (!row) throw new Error(ERR.notFound);
+    const [add] = cleanStop({ links: [link] }, true).links!;
+    const links = parseLinks(row.links), old = links.find(l => l.url === add.url);
+    if (old) old.label = add.label || old.label;
+    else if (links.length >= MAX_LINKS) throw new Error(ERR.invalid);
+    else links.push(add);
+    return this.patchStop(userId, stopId, { links });
   }
 
   // Returns the stop as it was (null if it was already gone), so the MCP server can say what it removed.
