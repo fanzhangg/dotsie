@@ -1,4 +1,4 @@
-/* Waythread design system — components v8.2.0
+/* Waythread design system — components v9.0.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -36,18 +36,14 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 }
 /* The one main action in a view is the only button in semibold; every other button is medium. */
 .wt-btn--primary { background: var(--wt-action-primary); color: var(--wt-action-primary-text); font-weight: 600; }
-.wt-btn--secondary {
+/* Every other button is the same white, outlined button: Copy, Make a new link, Sign out, Delete trip.
+   --danger is that button with a red label, for an action that destroys something. */
+.wt-btn--secondary, .wt-btn--danger {
   background: var(--wt-action-secondary); color: var(--wt-action-secondary-text);
   border-radius: var(--wt-radius-md); box-shadow: 0 0 0 1px var(--wt-border-subtle), var(--wt-shadow-hairline);
 }
-.wt-btn--secondary:active { background: var(--wt-surface-hover); }
-.wt-btn--ghost:hover, .wt-btn--ghost:active { background: var(--wt-surface-hover); }
-/* A text button: its padding hangs outside the content edge, so its word lines up with the labels above it.
-   --danger destroys something; --quiet is a rare, low-key action under what it's about (Make a new link, Sign out). */
-.wt-btn--danger, .wt-btn--quiet { padding: 0 var(--wt-space-1); margin-left: calc(-1 * var(--wt-space-1)); }
 .wt-btn--danger { color: var(--wt-text-danger); }
-.wt-btn--quiet { color: var(--wt-text-secondary); }
-.wt-btn--quiet:hover { color: var(--wt-text-primary); }
+.wt-btn--secondary:active, .wt-btn--danger:active { background: var(--wt-surface-hover); }
 .wt-btn--block { width: 100%; }
 /* Icon only: a round button as tall as the others, like Edit stop and the + beside Open in Maps. Give it an aria-label. */
 .wt-btn--icon { width: var(--wt-size-touch); padding: 0; flex: none; border-radius: var(--wt-radius-round); }
@@ -178,10 +174,6 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-section__hint { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-section > .wt-btn { display: flex; width: fit-content; }
 .wt-section > .wt-btn--block { width: 100%; }
-/* A text button keeps its touch height but not its air: it sits as close as text would */
-.wt-section > :is(.wt-btn--quiet, .wt-btn--danger) { margin: var(--wt-space-1) 0 0 calc(-1 * var(--wt-space-1)); }
-.wt-section > :is(.wt-btn--quiet, .wt-btn--danger):first-child { margin-top: calc(-1 * var(--wt-space-3)); }
-.wt-section > :is(.wt-btn--quiet, .wt-btn--danger):last-child { margin-bottom: calc(-1 * var(--wt-space-3)); }
 .wt-section > .wt-people { margin-top: var(--wt-space-2); }
 .wt-section > .wt-field { margin-top: var(--wt-space-3); }
 .wt-section > .wt-section__title + .wt-field, .wt-section > .wt-section__title + .wt-input, .wt-section > .wt-section__title + .wt-copy-row { margin-top: var(--wt-space-2); }
@@ -734,7 +726,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-dialog__text { margin: var(--wt-space-2) 0 0; color: var(--wt-text-secondary); }
 .wt-dialog__actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--wt-space-2); margin-top: var(--wt-space-5); }
 .wt-dialog__actions .wt-btn { justify-content: center; padding: 0 var(--wt-space-3); }
-/* The confirm button of a dialog that destroys something: filled red. Only here; elsewhere Delete is a red text button. */
+/* The confirm button of a dialog that destroys something: filled red. Only here; elsewhere Delete is --danger. */
 .wt-btn--destructive { background: var(--wt-action-danger); color: var(--wt-action-danger-text); font-weight: 600; }
 
 /* ---------- Trip card (Home) ---------- */

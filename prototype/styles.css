@@ -70,7 +70,6 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 .account-mcp__item:last-child { padding-bottom: 0; }
 .account-mcp__name { display: grid; min-width: 0; overflow-wrap: anywhere; }
 .account-mcp__meta { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-.account-mcp__item .wt-btn--danger { margin: 0 calc(-1 * var(--wt-space-1)) 0 0; }
 
 /* ---------- Trip: full-screen map with the list sheet on top ---------- */
 /* From 768px wide the sheet is a side panel (see the design system's wt-trip container), and the map sits beside it. */
