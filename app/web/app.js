@@ -1481,7 +1481,63 @@ function bufferedTileLayer(url, opts) {
   });
   return t;
 }
-let tiles = null; // the Stadia layer, when it's the one showing: the OpenStreetMap fallback isn't preloaded
+let tiles = null; // the Stadia pictures, shown or not: what's saved for offline. Not the OpenStreetMap fallback, which isn't preloaded
+
+// ---------- The basemap, drawn in the browser ----------
+// Stadia's pictures have the place and road names painted in, so a route drawn over them hides the names of the roads
+// it follows. Online, the map is Stadia's same style drawn by MapLibre from its vector tiles instead, in two layers:
+// land, water and roads under the routes, and the names, road numbers and places over them (the labels pane, between
+// the routes and the pins). The pictures stay for a trip opened from its saved copy, and when MapLibre can't run.
+// MapLibre is loaded the first time a trip opens.
+const MAPLIBRE = ['https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js', 'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js'];
+let glLoaded = null;
+const loadScript = src => new Promise((done, fail) => {
+  const s = document.createElement('script');
+  s.src = src;
+  s.onload = done;
+  s.onerror = () => { s.remove(); fail(); };
+  document.head.append(s);
+});
+const loadGL = () => (glLoaded ??= MAPLIBRE.reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
+  .then(() => true, () => { glLoaded = null; return false; }));
+const glStyles = {};
+const glStyle = dark => (glStyles[dark] ??= fetch(`https://tiles.stadiamaps.com/styles/alidade_smooth${dark ? '_dark' : ''}.json`)
+  .then(r => (r.ok ? r.json() : null), () => null).then(s => { if (!s) delete glStyles[dark]; return s; }));
+// Two changes to the plugin, so the map stays under the routes and pins, which move with every frame:
+// - while Leaflet zooms or flies, the plugin follows only the frames that change the zoom, and doesn't move its layer:
+//   a frame that only pans, or a pan at the same time (the keyboard's), left MapLibre's map behind. It follows each one here.
+// - it moves MapLibre's map and leaves the drawing for MapLibre's next frame, a frame late: it's drawn at once instead.
+const glLayer = opts => new (L.MaplibreGL.extend({
+  getEvents() {
+    const { zoom, ...events } = L.MaplibreGL.prototype.getEvents.call(this);
+    return { ...events, move: this._follow }; // a zoom always comes with a move
+  },
+  _follow(e) {
+    const m = this._map;
+    if (!this._zooming) return this._throttledUpdate(e);
+    if (m._animatingZoom) return; // in the zoom transition, CSS moves the layer
+    this._offset = m.containerPointToLayerPoint([0, 0]);
+    L.DomUtil.setPosition(this._container, this._roundPoint(this._offset.subtract(m.getSize().multiplyBy(this.options.padding))));
+    this._transformGL(this._glMap);
+  },
+  _transformGL(gl) { L.MaplibreGL.prototype._transformGL.call(this, gl); gl.redraw(); },
+}))({ validateStyle: false, ...opts });
+let basemap = null; // MapLibre's layers, [under the routes, over them], when they're the map showing
+// Show the map drawn by MapLibre; false if it can't be (MapLibre or the style didn't load, no WebGL)
+async function showGLMap(m, dark) {
+  const [ok, style] = await Promise.all([loadGL(), glStyle(dark)]);
+  if (!ok || !style || map !== m || !window.L?.MaplibreGL) return false;
+  const part = names => ({ ...structuredClone(style), layers: structuredClone(style.layers.filter(l => (l.type === 'symbol') === names)) });
+  const layers = [glLayer({ style: part(false) }), glLayer({ style: part(true), pane: 'labels' })];
+  try {
+    for (const l of layers) l.addTo(m);
+  } catch {
+    for (const l of layers) { try { m.removeLayer(l); } catch {} l.getContainer?.()?.remove(); }
+    return false;
+  }
+  basemap = layers;
+  return true;
+}
 
 // ---------- Preloading the trip's other days ----------
 // Once the day on screen has settled, load every other day's drives and the map tiles where its camera will land,
@@ -1505,8 +1561,11 @@ function preloadTrip() {
   }
   // the camera depends on how much of the map the open stop covers; wait until it's closed
   if (!tiles || navigator.connection?.saveData || state.draft) return;
-  if (tiles.isLoading()) { tiles.once('load', schedulePreload); return; } // the day on screen comes first
+  // the day on screen comes first
+  const gl = basemap?.[0].getMaplibreMap();
+  if (gl ? !gl.loaded() : tiles.isLoading()) { if (gl) gl.once('idle', schedulePreload); else tiles.once('load', schedulePreload); return; }
   topUpOffline(trip);
+  if (gl) return; // MapLibre fetches what it needs as the map moves
   const size = map.getSize(), shown = L.point(size.x, size.y - coveredBottom());
   if (shown.x <= 0 || shown.y <= 0) return;
   for (const d of days) {
@@ -1520,7 +1579,7 @@ function preloadTrip() {
 function teardownTrip() {
   if (map) { map.remove(); map = null; layer = routeLayer = sightLayer = null; fitKey = ''; }
   sightsShown.clear();
-  tiles = null;
+  tiles = basemap = null;
   tileQueue = [];
   clearTimeout(preloadTimer);
   clearTimeout(mapTapTimer);
@@ -1590,14 +1649,18 @@ function mountTrip(trip) {
     mapCredit = CREDIT.osm;
     $app.querySelector('.trip')?.classList.add('osm-tiles');
   };
-  stadiaServes().then(ok => {
+  stadiaServes().then(async ok => {
     if (map !== m) return; // left the trip meanwhile
     if (!ok) return osm();
     mapCredit = CREDIT.stadia;
     // A trip opened from its saved copy shows the map that was saved with it, light or dark, whichever the phone is now
-    const style = (trip.offline && savedTrip(trip.id)?.style) || `https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`;
-    const quiet = bufferedTileLayer(style, { maxZoom: 20 }).addTo(m);
+    const saved = trip.offline && savedTrip(trip.id)?.style;
+    const quiet = bufferedTileLayer(saved || `https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, { maxZoom: 20 });
+    const drawn = !saved && await showGLMap(m, dark);
+    if (map !== m) return;
     tiles = quiet;
+    if (drawn) return schedulePreload();
+    quiet.addTo(m);
     // A tile that fails with no connection is one that wasn't saved, not Stadia refusing the site: keep the rest
     const fallBack = () => {
       if (offlineNow()) return;
@@ -1607,8 +1670,9 @@ function mountTrip(trip) {
     quiet.on('tileerror', fallBack);
     schedulePreload();
   });
-  // Sights sit on the map under the routes (the overlay pane, 400) and the pins
+  // Sights sit on the map under the routes (the overlay pane, 400) and the pins; the map's names over the routes
   map.createPane('sights').style.zIndex = 350;
+  Object.assign(map.createPane('labels').style, { zIndex: 450, pointerEvents: 'none' });
   sightLayer = L.layerGroup().addTo(map);
   routeLayer = new RouteLayer().addTo(map);
   layer = L.layerGroup().addTo(map);

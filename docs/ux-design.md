@@ -332,7 +332,7 @@ A big place often has several small stops in it: a national park's visitor cente
 - **A folder is one pin** while it's closed, with one number for all its stops (see [Folders](#folders)). A route on show that goes into or out of the folder grows its pin like any other end, so you can see where the drive goes. (At first only a stop's pin grew: the folder's stayed small, faded with the rest, and where pins crowded it was a dot, so the drive seemed to end nowhere.)
 - **Where pins crowd, they shrink to small dots, all together.** If any two pins in view are too close for both to show their numbers (zoomed out, or places a few hundred meters apart), every pin is a small dot with no number, so a day zoomed out reads as a line of colored dots along its route. Zoom in until every pin in view has room and they all get their numbers back at once. Only the pins in view count, so a crowd at the other end of the trip doesn't take the numbers away from the place you're looking at. (Each pin used to decide for itself: zoomed out, the one pin with room kept its number among dots, and that lone number read as something special about that stop.) A selected pin, and both ends of a route on show, always keep their numbers, and a tap still selects a small dot: its tap target is larger than the dot.
 - **Routes** are drawn in blue along the roads (or paths, for a walk or a ride), and a transit or flight leg as a straight dashed blue line; on a trip day, past ones are grey. **Blue means routes and nothing else**: a selected stop is grey, no stop type is blue, and the list uses no blue at all: the drive you're on or have selected gets a darker grey car.
-- **The background map** is a light, low-contrast style (Stadia "Alidade Smooth"), so the routes stand out. Its credits are at the bottom of trip settings, not over the map.
+- **The background map** is a light, low-contrast style (Stadia "Alidade Smooth"), so the routes stand out. Its place names, road names and highway numbers sit over the routes, as in a maps app, so a route never hides the name of the road it follows; the pins sit over the names. (The map is drawn in the browser for this. A trip opened from its saved copy offline, or a browser that can't draw it, shows Stadia's pictures instead, whose names are under the routes.) Its credits are at the bottom of trip settings, not over the map.
 
 ### Sights nearby
 
@@ -424,7 +424,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
   | Routes | OSRM public demo server; OpenStreetMap Germany's routers on foot and by bike | Rate-limited. Results are cached, and if a request fails it falls back to a straight-line estimate. |
   | Place search | Nominatim | |
   | Sights on the map | Overpass API (OpenStreetMap) | Asked straight from the browser, a map tile at a time, kept for the visit. |
-  | Background map | Stadia | Falls back to OpenStreetMap if Stadia's map doesn't load. |
+  | Background map | Stadia | Vector tiles drawn by MapLibre; Stadia's pictures for a trip saved offline or where MapLibre can't run. Falls back to OpenStreetMap if Stadia's map doesn't load. |
 
   None of these are meant for production traffic.
 - **Data:** saved in the browser, one browser only. The app's server is answered in the browser, so share links, deleting with Undo and the rest work as in the app. Open tabs sync with each other, which simulates co-editing. There's no sign-in: you're Alex unless `?as=` says otherwise.
