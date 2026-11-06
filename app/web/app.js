@@ -182,20 +182,21 @@ function dayPlan(trip, day) {
   }
   for (const s of stops) plan.push({ key: s.id, place: s, role: 'stop' });
   const night = stayOnNight(trip, day);
-  if (night && plan.at(-1)?.place !== night.s) plan.push({ key: `night:${night.s.id}:${day}`, place: night.s, role: 'night' });
+  if (night && plan.at(-1)?.place !== night.s) plan.push({ key: `night:${night.s.id}:${day}`, place: night.s, role: 'night', day });
   return plan;
 }
 // The day's drives, between consecutive places in the plan. Arrival is the next stop's time; you leave that long before it.
-// The drive back to the hotel has no times: the day's last stop has no end.
+// The drive back to the hotel has no times: the day's last stop has no end. A leg goes the way its end says (`mode`);
+// transit and flights have no route, so no time.
 function dayLegs(trip, day) {
   const plan = dayPlan(trip, day), legs = [];
   for (let i = 1; i < plan.length; i++) {
     const a = plan[i - 1], b = plan[i];
     if (samePlace(a.place, b.place)) continue;
-    const r = getRoute(a.place, b.place);
+    const mode = wayTo(b), r = legRoute(a, b);
     const arrive = b.role === 'stop' ? b.place.time : null;
     const leave = arrive && r ? toInput(new Date(toDate(arrive) - r.duration * 1000)) : null;
-    legs.push({ key: b.key, from: a.place, to: b.place, fromEntry: a, toEntry: b, r, arrive, leave });
+    legs.push({ key: b.key, mode, from: a.place, to: b.place, fromEntry: a, toEntry: b, r, arrive, leave });
   }
   return legs;
 }
@@ -244,6 +245,26 @@ function guessKind(name = '', cat = '') {
 const kindOf = s => (KINDS[s.kind] ? s.kind : guessKind(s.name) !== 'place' ? guessKind(s.name) : /\b(breakfast|brunch|lunch|dinner)\b/i.test(s.note || '') ? 'restaurant' : 'place');
 const kindColor = s => `var(--wt-kind-${kindOf(s)})`;
 const kindIcon = (s, size = 16) => WaythreadIcons.svg(KINDS[kindOf(s)].icon, size);
+
+// ---------- How you get there: each stop says how you get to it from the place before (a hotel, also the way back each night) ----------
+// Drive, walk and bike follow a route, with a time that can run late. Transit and flights are drawn straight, with no
+// time: Waythread can't look up timetables, and the stops' own times already say when you leave and land.
+// `noun` finishes the row's sentence ("12 min walk"); `google` and `apple` are the maps apps' directions modes
+// (Apple Maps has none for bikes); `speed` (m/s) is the straight-line estimate when a route can't be looked up.
+// Keep the keys in sync with TRAVEL in src/trip.ts.
+const TRAVEL = {
+  drive: { label: 'Drive', icon: 'car', noun: 'drive', route: true, google: 'driving', apple: 'd', speed: 22 },
+  walk: { label: 'Walk', icon: 'walk', noun: 'walk', route: true, google: 'walking', apple: 'w', speed: 1.3 },
+  bike: { label: 'Bike', icon: 'bike', noun: 'bike ride', route: true, google: 'bicycling', apple: '', speed: 4.5 },
+  transit: { label: 'Transit', icon: 'train', noun: 'Transit', detail: 'Times are in your maps app', google: 'transit', apple: 'r' },
+  flight: { label: 'Flight', icon: 'plane', noun: 'Flight', detail: 'No time or directions' },
+};
+const travelOf = s => (TRAVEL[s.travel] ? s.travel : 'drive');
+// A hotel's way back on the night of `day`: each night's trip back is its own leg, a drive unless someone changed it
+const backOf = (s, day) => (TRAVEL[s.back?.[day]] ? s.back[day] : 'drive');
+// How you get to a place in a day's plan: the way back to a hotel at night is that night's; anywhere else, the stop's own
+const wayTo = e => (e.role === 'night' ? backOf(e.place, e.day) : travelOf(e.place));
+const travelIcon = (mode, size = 14) => WaythreadIcons.svg(TRAVEL[mode].icon, size);
 
 // ---------- Session ----------
 // An assistant connecting through OAuth sends you here to sign in (/?next=/api/oauth/authorize?…): once you're
@@ -300,31 +321,38 @@ function socialErrorMessage() {
   return { error: true, title: 'Couldn’t sign in with Google', detail: 'Try again in a moment.' };
 }
 
-// ---------- Routes: only the line and drive time; navigation is handed to the maps app ----------
+// ---------- Routes: only the line and the time it takes; navigation is handed to the maps app ----------
 const routes = (() => { try { return JSON.parse(localStorage.getItem(ROUTE_KEY)) || {}; } catch { return {}; } })();
 // One lookup at a time, so opening a trip doesn't burst the router. Drives the screen needs go first; the other
 // days' drives (preloaded so switching days is instant) wait behind them and go slowly, so a trip opened for the
 // first time can't use up the per-person limit that place search shares with routes.
 const BG_ROUTE_GAP = 1000; // ms between background lookups: at most 60 a minute, half the server's limit
 const pending = new Map(); // key → job
+let routeWatch = null; // called as each lookup finishes, while something outside the list shows routes (How you get there)
 const routeJobs = [];
 const bgRouteFailed = new Set(); // not retried in the background this visit; retried once its day is on screen
 let routeBusy = false, bgRouteNext = 0, bgRouteTimer = 0;
-const legKey = (a, b) => `${(+a.lng).toFixed(5)},${(+a.lat).toFixed(5)};${(+b.lng).toFixed(5)},${(+b.lat).toFixed(5)}`;
+// Drives keep the key they've always had, so routes saved on this device stay; a walk or a ride is `walk:`, `bike:`
+const legKey = (a, b, mode = 'drive') => `${mode === 'drive' ? '' : `${mode}:`}${(+a.lng).toFixed(5)},${(+a.lat).toFixed(5)};${(+b.lng).toFixed(5)},${(+b.lat).toFixed(5)}`;
 function haversine(a, b) {
   const R = 6371000, rad = x => x * Math.PI / 180;
   const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-function getRoute(a, b, { background = false } = {}) {
-  const k = legKey(a, b);
+// The route between two places in a day's plan, the way you get to the second; none for transit and flights
+function legRoute(a, b, opts) {
+  const mode = wayTo(b);
+  return TRAVEL[mode].route ? getRoute(a.place, b.place, { ...opts, mode }) : null;
+}
+function getRoute(a, b, { background = false, mode = 'drive' } = {}) {
+  const k = legKey(a, b, mode);
   if (routes[k]) return routes[k];
   if (a.lat === b.lat && a.lng === b.lng) return { ok: true, duration: 0, distance: 0, coords: [[a.lat, a.lng]] };
   if (background && bgRouteFailed.has(k)) return null;
   const job = pending.get(k);
   if (!job) {
-    const j = { a, b, k, background };
+    const j = { a, b, k, mode, background };
     pending.set(k, j);
     routeJobs.push(j);
   } else if (!background) job.background = false; // queued for later, but it's on screen now: it goes next
@@ -347,9 +375,9 @@ async function pumpRoutes() {
   pumpRoutes();
 }
 async function fetchRoute(job) {
-  const { a, b, k } = job;
+  const { a, b, k, mode = 'drive' } = job;
   try {
-    const rt = await api(`/route?from=${a.lat},${a.lng}&to=${b.lat},${b.lng}`);
+    const rt = await api(`/route?from=${a.lat},${a.lng}&to=${b.lat},${b.lng}${mode === 'drive' ? '' : `&mode=${mode}`}`);
     routes[k] = { ok: true, ...rt };
     try { localStorage.setItem(ROUTE_KEY, JSON.stringify(Object.fromEntries(Object.entries(routes).filter(([, v]) => v.ok)))); } catch {}
   } catch (e) {
@@ -360,10 +388,11 @@ async function fetchRoute(job) {
     } else {
       // Offline or unavailable: straight-line estimate so the plan still reads. Not persisted, so it retries next load.
       const d = haversine(a, b) * 1.3;
-      routes[k] = { ok: false, duration: d / 22, distance: d, coords: [[a.lat, a.lng], [b.lat, b.lng]] };
+      routes[k] = { ok: false, duration: d / TRAVEL[mode].speed, distance: d, coords: [[a.lat, a.lng], [b.lat, b.lng]] };
     }
   }
   pending.delete(k);
+  routeWatch?.();
   if (!job.background) scheduleRender(); // a preloaded route shows once its day does
 }
 // Leaving a trip drops its preloading; a lookup the screen asked for still finishes.
@@ -384,10 +413,11 @@ function setMapsApp(app) {
   mapsApp = app;
   try { localStorage.setItem(MAPS_KEY, app); } catch {}
 }
-function directionsURL(from, to) {
+function directionsURL(from, to, mode = 'drive') {
+  const { apple, google } = TRAVEL[mode];
   return mapsApp === 'apple'
-    ? `https://maps.apple.com/?saddr=${from.lat},${from.lng}&daddr=${to.lat},${to.lng}&dirflg=d`
-    : `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}&travelmode=driving`;
+    ? `https://maps.apple.com/?saddr=${from.lat},${from.lng}&daddr=${to.lat},${to.lng}${apple ? `&dirflg=${apple}` : ''}`
+    : `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}&travelmode=${google}`;
 }
 // A place, to see that it's the right one and whether it's worth going: photos, reviews, hours. Found by name and
 // address, which opens the place itself (Apple Maps searches near its coordinates); coordinates alone would open
@@ -478,8 +508,8 @@ async function saveOffline(trip, { quiet = false } = {}) {
   for (const d of daysOf(trip)) {
     const plan = dayPlan(trip, d);
     for (let i = 1; i < plan.length; i++) {
-      const a = plan[i - 1].place, b = plan[i].place, k = legKey(a, b);
-      if (!samePlace(a, b) && !routes[k]?.ok) legs.set(k, { a, b, k });
+      const a = plan[i - 1].place, b = plan[i].place, mode = wayTo(plan[i]), k = legKey(a, b, mode);
+      if (TRAVEL[mode].route && !samePlace(a, b) && !routes[k]?.ok) legs.set(k, { a, b, k, mode });
     }
   }
   const job = offlineJob = { id, done: 0, total: urls.length + legs.size, quiet, first: !savedTrip(id) };
@@ -1062,7 +1092,7 @@ function tripCardHTML(t, past, today) {
 // A trip's route for its card: a map picture with the drives and places drawn on it (see mapImageURL), and under it, a
 // sketch of the same, which shows while the picture loads and stays if it can't load. Like the overview's map, they
 // show each day's drives, along the roads where they've been looked up already (Home never looks routes up, so as not
-// to use up the limit), straight otherwise, and a dot for each place in its type's color, with north up.
+// to use up the limit), straight otherwise, as transit and flights always are, and a dot for each place in its type's color, with north up.
 const SKETCH_W = 320, SKETCH_H = 128, SKETCH_PAD = 16, SKETCH_MIN_SPAN = 0.01; // the sketch's own units (5:2, as its box); degrees
 const mercY = lat => -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * 180 / Math.PI; // down the page
 function tripMapHTML(t, past) {
@@ -1071,14 +1101,14 @@ function tripMapHTML(t, past) {
   const trip = { stops }, legs = [];
   for (const d of daysOf(trip)) {
     const plan = dayPlan(trip, d);
-    for (let i = 1; i < plan.length; i++) if (!samePlace(plan[i - 1].place, plan[i].place)) legs.push([plan[i - 1].place, plan[i].place]);
+    for (let i = 1; i < plan.length; i++) if (!samePlace(plan[i - 1].place, plan[i].place)) legs.push([plan[i - 1].place, plan[i].place, wayTo(plan[i])]);
   }
   const places = stops.filter((s, i) => stops.findIndex(o => samePlace(o, s)) === i);
   const hex = name => token(name).replace('#', '');
   const query = new URLSearchParams({
     theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
     route: hex(past ? '--wt-route-done' : '--wt-route'),
-    legs: legs.map(([a, b]) => `${stops.indexOf(a)}-${stops.indexOf(b)}`).join(','),
+    legs: legs.map(([a, b, way]) => `${stops.indexOf(a)}-${stops.indexOf(b)}${way === 'drive' ? '' : `:${way}`}`).join(','),
     dots: places.map(s => `${stops.indexOf(s)}:${hex(past ? '--wt-kind-past' : `--wt-kind-${kindOf(s)}`)}`).join(','),
     v: stops.map(s => `${s.lat},${s.lng}`).join(';').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0).toString(36), // a new picture when a place moves
   }).toString().replace(/%2C/g, ',').replace(/%3A/g, ':');
@@ -1086,7 +1116,7 @@ function tripMapHTML(t, past) {
   return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG(legs, places, past)}${src ? `<img class="wt-trip-card__photo" src="${esc(src)}" alt="" loading="lazy" decoding="async">` : ''}</span>`;
 }
 function routeSketchSVG(legs, places, past) {
-  const lines = legs.map(([a, b]) => { const r = routes[legKey(a, b)]; return r?.ok && r.coords.length > 1 ? { road: true, coords: r.coords } : { road: false, coords: [[a.lat, a.lng], [b.lat, b.lng]] }; });
+  const lines = legs.map(([a, b, way]) => { const r = routes[legKey(a, b, way)]; return r?.ok && r.coords.length > 1 ? { road: true, coords: r.coords } : { road: false, coords: [[a.lat, a.lng], [b.lat, b.lng]] }; });
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const [lat, lng] of [...places.map(s => [s.lat, s.lng]), ...lines.flatMap(l => l.coords)]) {
     const y = mercY(lat);
@@ -1411,7 +1441,7 @@ function preloadTrip() {
   for (const d of days) {
     if (d === ALL) continue;
     const plan = dayPlan(trip, d);
-    for (let i = 1; i < plan.length; i++) getRoute(plan[i - 1].place, plan[i].place, { background: true });
+    for (let i = 1; i < plan.length; i++) legRoute(plan[i - 1], plan[i], { background: true });
   }
   // the camera depends on how much of the map the open stop covers; wait until it's closed
   if (!tiles || navigator.connection?.saveData || state.draft) return;
@@ -1614,19 +1644,22 @@ const markerHTML = (s, cls) => `<i class="wt-marker ${cls}" role="img" aria-labe
 // ---------- Timeline: rail · stop · time. Each stop's marker is its pin on the map: same icon, same color. ----------
 const gapMin = (a, b) => (toDate(b) - toDate(a)) / 60000;
 // A drive reads as a sentence ("1 hr 49 min drive"), with a small car on the rail, and says when it won't make it.
+// Another way of getting there says so instead: "12 min walk", with someone walking on the rail; transit and flights
+// have no time, so they're just "Transit" and "Flight".
 // Tapping the row shows the route on the map, and the bar below the list offers Directions in the maps app.
 // Rows take `row`: { key, past (over: dimmed), now (happening now: highlighted), sel (the selected row) }.
 const rowState = (past, now) => `${past ? ' is-past' : ''}${now ? ' is-now' : ''}`;
 function driveItem(day, leg) {
-  const { r, to, fromEntry, toEntry } = leg, late = lateMin(leg);
+  const { r, to, fromEntry, toEntry, mode } = leg, T = TRAVEL[mode], late = lateMin(leg);
+  const time = T.route ? (r ? fmtDur(r.duration) : '…') : '';
   const cls = ['wt-tl-drive', state.leg === leg.key ? 'is-active' : '', late > 0 ? 'is-late' : ''];
   return {
     // when you set off (until the route is in, no earlier than you arrive); the drive back to the hotel has no time, so it comes last
     start: leg.leave || leg.arrive || (toEntry.role === 'night' ? `${day}T23:58` : fromEntry.place.time),
-    html: ({ past, now }) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="button" aria-pressed="${state.leg === leg.key}" aria-label="${r ? fmtDur(r.duration) : ''} drive to ${esc(to.name)}. Show the route on the map">
-      <span class="wt-tl-rail"><i class="wt-tl-car">${ICON.car}</i></span>
+    html: ({ past, now }) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="button" aria-pressed="${state.leg === leg.key}" aria-label="${time ? `${time} ${T.noun}` : T.noun} to ${esc(to.name)}. Show the route on the map">
+      <span class="wt-tl-rail"><i class="wt-tl-car">${travelIcon(mode)}</i></span>
       <span class="wt-tl-drive__body">
-        <span class="wt-tl-drive__what"><b>${r ? fmtDur(r.duration) : '…'}</b> drive</span>
+        <span class="wt-tl-drive__what">${time ? `<b>${time}</b> ${T.noun}` : `<b>${T.noun}</b>`}</span>
         ${late > 0 ? `<span class="wt-tl-drive__late">Arrives ${fmtDur(late * 60)} late</span>` : ''}
       </span>
     </div>`,
@@ -1681,14 +1714,20 @@ function fromItem(day, entry) {
 // The selected stop, if it's still in the trip (a co-editor may have deleted it).
 const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.sel)) || null;
 // Below the list, always in reach: Add stop; with a stop selected, Open in Maps (the place in the maps app, to see what it is)
-// and a round Edit stop; with a drive's route shown, Directions to the drive's end in the maps app. Either way a small + at the
-// end keeps adding one tap away. Each button has a `data-key`, the same in every set, so a change of set can morph (morphRow).
+// and a round Edit stop; with a drive's route shown, Directions to the drive's end in the maps app, the way you're going,
+// and a round button with that way's icon to change it (a flight has no directions: Open in Maps shows where it lands).
+// Either way a small + at the end keeps adding one tap away. Each button has a `data-key`, the same in every set, so a change of set can morph (morphRow).
 // Offline, adding and editing are greyed out (aria-disabled), and a tap says why (see needsConnection).
 function addBarHTML(trip) {
   const s = selectedStop(trip), off = offlineNow() ? ' aria-disabled="true"' : '';
   const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
   const plus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add"${off} aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
-  if (leg) return `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${directionsURL(leg.from, leg.to)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a>${plus}`;
+  if (leg) {
+    const travel = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="travel" data-leg="${esc(leg.key)}"${off} aria-label="${TRAVEL[leg.mode].label}. Change how you get there" title="Change how you get there">${travelIcon(leg.mode, 20)}</button>`;
+    return `${leg.mode === 'flight'
+      ? `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${esc(placeURL(leg.to))}" target="_blank" rel="noopener" aria-label="Open ${esc(leg.to.name)} in your maps app">${ICON.map}Open in Maps</a>`
+      : `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${directionsURL(leg.from, leg.to, leg.mode)}" target="_blank" rel="noopener" aria-label="Directions to ${esc(leg.to.name)} in your maps app">${ICON.directions}Directions</a>`}${travel}${plus}`;
+  }
   return s
     ? `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${esc(placeURL(s))}" target="_blank" rel="noopener" aria-label="Open ${esc(s.name)} in your maps app">${ICON.map}Open in Maps</a><button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="edit" data-id="${esc(s.id)}"${off} aria-label="Edit stop" title="Edit stop">${ICON.edit}</button>${plus}`
     : `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="add" data-action="add"${off}>${ICON.plus}Add stop</button>`;
@@ -2270,7 +2309,8 @@ function drawMap(trip) {
     return {
       coords: legCoords(l), casing: C.casing, casingWidth: isOn ? 11 : 8, width: isOn ? 7 : 4.5,
       color: isOn ? C.on : active || stale ? C.muted : pastLeg.has(l.key) ? C.done : C.route,
-      dash: l.r?.ok && !stale ? null : '1 9',
+      // a route not looked up yet is dotted; transit and flights, which have none, are dashed
+      dash: !TRAVEL[l.mode].route ? '10 8' : l.r?.ok && !stale ? null : '1 9',
     };
   };
   const order = l => (pastLeg.has(l.key) ? 0 : 1);
@@ -2479,11 +2519,45 @@ function deleteStop(trip, stop) {
   save(api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'DELETE' }));
   // Undo puts the same stop back under its old id
   toast(`Deleted ${stop.name}`, 'Undo', () => {
-    const { name, address, lat, lng, time, note, kind, nights, checkout = null } = stop;
+    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {} } = stop, travel = travelOf(stop);
     openTripOf(trip.id)?.stops.push({ ...stop, by: me.id });
     render();
-    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout } }));
+    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back } }));
   });
+}
+
+// How you get there, from a drive on show: the round button beside Directions opens the ways, one per row, like a stop's
+// Type. Each way that has a route says how long it takes, so they can be compared before picking: they're looked up as
+// the list opens (… until then). Picking one saves it at once, for everyone; the row, the route and Directions follow.
+// It's saved on the stop the leg ends at, as how you get there. The way back to a hotel at night is that night's alone,
+// saved by the day in the hotel's `back`, so getting there on check-in day and each night back are all their own.
+function openTravel(trip, leg) {
+  const to = leg.to, night = leg.toEntry.role === 'night' && leg.toEntry.day, now = leg.mode;
+  const timeOf = k => { if (!TRAVEL[k].route) return null; const r = getRoute(leg.from, to, { mode: k }); return r ? fmtDur(r.duration) : '…'; };
+  const option = k => optionHTML(k, TRAVEL[k].label, { marker: `<i class="wt-marker wt-marker--travel">${travelIcon(k)}</i>`, detail: TRAVEL[k].detail, meta: timeOf(k) });
+  openSheet(`${modalHead(`${night ? 'Getting back to' : 'Getting to'} ${esc(to.name)}`)}
+    <ul class="wt-options" role="radiogroup" aria-label="How you get there">${Object.keys(TRAVEL).map(option).join('')}</ul>`, el => {
+    routeWatch = () => {
+      for (const m of el.querySelectorAll('.wt-option__meta')) m.textContent = timeOf(m.closest('[data-value]').dataset.value);
+    };
+    for (const b of el.querySelectorAll('[data-value]')) {
+      b.setAttribute('aria-checked', b.dataset.value === now);
+      b.addEventListener('click', () => {
+        closeSheet();
+        const stop = openTripOf(trip.id)?.stops.find(s => s.id === to.id);
+        const way = b.dataset.value;
+        if (!stop) return;
+        if (!night) { if (way !== travelOf(stop)) editStop(trip, stop, { travel: way }); return; }
+        if (way === backOf(stop, night)) return;
+        // only the nights of the stay as it is now: a night it no longer has is dropped
+        const stay = staysOf(openTripOf(trip.id)).find(st => st.s.id === stop.id);
+        const back = Object.fromEntries(Object.entries({ ...stop.back, [night]: way })
+          .filter(([d, t]) => t !== 'drive' && (!stay || (d >= stay.checkIn && d < stay.checkOut))));
+        editStop(trip, stop, { back });
+      });
+    }
+    el.querySelector(`[data-value="${now}"]`)?.focus();
+  }, { onClose: () => { routeWatch = null; } });
 }
 
 // ---------- Sheets ----------
@@ -2726,8 +2800,9 @@ const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
 // the same options drop down under the row as a menu: one click to open, one to pick, Esc or a click outside to
 // close. A stop's Type and Account's Maps app both work this way, however few the options. See "Picker" in the
 // design system.
-const optionHTML = (value, label, { marker = '', detail = '' } = {}) =>
-  `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${ICON.check}</button></li>`;
+// `meta` is a short value on the right, before the check (a way's time in How you get there)
+const optionHTML = (value, label, { marker = '', detail = '', meta = null } = {}) =>
+  `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${meta != null ? `<span class="wt-option__meta">${esc(meta)}</span>` : ''}${ICON.check}</button></li>`;
 // `intro` is one line on what the choice affects, when the label alone doesn't say
 const choicePageHTML = (cls, title, options, intro = '') => `<div class="${cls}" hidden>
       <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-choice-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">${esc(title)}</h2></div>
@@ -3211,6 +3286,11 @@ document.addEventListener('click', e => {
     case 'leg': {
       const l = legsOn(trip, currentDay(trip)).find(x => x.key === el.dataset.leg);
       if (l) previewLeg(l);
+      break;
+    }
+    case 'travel': {
+      const l = legsOn(trip, currentDay(trip)).find(x => x.key === el.dataset.leg);
+      if (l && needsConnection()) openTravel(trip, l);
       break;
     }
     case 'account': openAccount(); break;
