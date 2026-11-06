@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v9.8.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v9.8.1</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -666,7 +666,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       </div>
       <ul class="rules">
         <li><b>The folder's row</b> is a stop row with <code>--folder</code>: a <code>wt-marker--stack</code> in its stops' type color (<code>place</code> when they differ), its name, and closed, a <code>wt-tl-note--quiet</code> line saying what's in it and the time it starts. Open, it has no note or time: its stops show them. Tapping it opens it, and again closes it.</li>
-        <li><b>Its stops and drives</b> follow it straight inside <code>.wt-tl</code>, with <code>--in</code>: an empty <code>.wt-tl-rail</code>, so the day's rail runs on, and a <code>.wt-tl-thread</code> holding the marker or car, one step in, its left edge in line with the folder's name. Same size and type as any row: the indent and the thread say they're in a folder. The thread runs from the first stop (<code>is-first</code>) to the last (<code>is-last</code>).</li>
+        <li><b>Its stops and drives</b> follow it straight inside <code>.wt-tl</code>, with <code>--in</code>: an empty <code>.wt-tl-rail</code>, so the day's rail runs on, and a <code>.wt-tl-thread</code> holding the marker or car, one step in, its left edge in line with the folder's name. Same size and type as any row. The indent and the thread say they're in a folder. It's one line: the day's rail bends into the thread at the first stop (<code>is-first</code>) and back out after the last (<code>is-last</code>).</li>
         <li><b>Swiping</b> a row sideways moves it (<code>is-swiping</code>) over a <code>.wt-tl-swipe</code> showing what letting go will do: <code>indent</code> into a folder, <code>stack-add</code> for a new one (<code>is-new</code>), <code>outdent</code> out of one. It darkens once it's armed (<code>is-armed</code>), and the folder it's going into is <code>is-swipe-target</code>.</li>
       </ul>
     </section>
@@ -1088,7 +1088,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v9.8.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v9.8.1 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 

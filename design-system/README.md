@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 9.8.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 9.8.1. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -422,7 +422,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 </div>
 ```
 
-- **Rows touch.** Put them straight inside `.wt-tl`, with nothing between, so the rail is one solid hairline (`--wt-border-rail`, 1.5px) from the first marker to the last. Rows have no top or bottom padding of their own, which would break the rail.
+- **Rows touch.** Put them straight inside `.wt-tl`, with nothing between, so the rail is one solid hairline (`--wt-border-rail`, 2px, `--wt-tl-line`) from the first marker to the last. Rows have no top or bottom padding of their own, which would break the rail.
 - **Surface:** put the timeline on `--wt-surface-raised`. Stop markers are ringed in that color.
 - **Stop** (`.wt-tl-stop`): marker, name, time, and optional notes. Nothing else.
   - Set `--wt-kind-color` on the row and the marker.
@@ -514,7 +514,8 @@ Stops that follow each other can share a folder: a name that groups them, like t
 ```
 
 - **The folder's row** is a stop row with `--folder`. Its marker is a `wt-marker--stack` in its stops' type color, or `place` when they differ: the pile says it holds more than one thing, without an icon of its own. Closed, `wt-tl-note--quiet` says what's in it, in `--wt-text-tertiary`, and the time is its first stop's. Open, both go: its stops show them.
-- **Its stops and drives** follow it straight inside `.wt-tl`, so the rows still touch. Each has an empty `.wt-tl-rail`, so the day's rail runs on beside them, and a `.wt-tl-thread` one step in that holds its marker or car: the marker's left edge lines up with the folder's name. They're the same size and type as any row. The indent and the thread say they're in a folder. The thread runs from the first stop's marker (`is-first`) to the last's (`is-last`).
+- **Its stops and drives** follow it straight inside `.wt-tl`, so the rows still touch. Each has an empty `.wt-tl-rail`, so the day's rail runs on beside them, and a `.wt-tl-thread` one step in that holds its marker or car: the marker's left edge lines up with the folder's name. They're the same size and type as any row. The indent and the thread say they're in a folder. Mark the first stop `is-first` and the last `is-last`.
+- **One line, bent:** the day's rail doesn't run on beside the thread. Down from the folder's marker, it bends right into the first stop's marker, runs down the thread, and after the last stop bends back left onto the rail. A folder that ends the day ends the line at its last stop. The empty `.wt-tl-rail` draws the bends, so there's nothing to add.
 - The drive into a folder and the one out of it stay on the day's rail.
 - **One highlight, as ever:** a folder tapped open is `is-selected`; one of its stops selected takes the highlight instead. Set `aria-expanded` on the folder's row.
 - **Swiping** a row sideways (`.wt-tl-stop` lets a finger pan up and down, so a sideways move is the script's): the row follows the finger, with `is-swiping` (raised, with `--wt-shadow-float`), over a `.wt-tl-swipe` the script places behind it, the row's size, at its place. It holds `__in` (the `indent` icon, or `stack-add` with `is-new`) and `__out` (`outdent`); `is-in` or `is-out` shows one. Once letting go will do it, it's `is-armed`: `--wt-surface-current` and primary ink. The folder it'll go into is `is-swipe-target` (`--wt-surface-sunken`). Letting go short of armed slides it back with `is-settling`. Put `is-swiping-row` on the root while a row is swiped, so the drag doesn't select text.
@@ -951,6 +952,13 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 9.8.1
+
+An open folder had two lines side by side: the day's rail and its stops' thread.
+
+- **One line:** beside an open folder's stops, the day's rail bends into their `.wt-tl-thread` at the first stop and back out after the last, with rounded corners, instead of running on beside it. The markup is unchanged.
+- **The rail is 2px** (`--wt-tl-line`, new), and the rail, the thread and the bends are all borders. At 1.5px the bends looked thinner than the rail: browsers round a 1.5px border down to 1px but snap a 1.5px background (the rail's, then) to 2px on a 3x screen. A whole pixel draws the same everywhere, and on a 3x phone the rail looks as it did.
 
 ### Added in 9.8.0
 
