@@ -4,7 +4,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
 import { cachedRoute, findRoute, ROUTE_MODES, searchPlaces, type RouteMode, staticMap, type StaticMap } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
-import { ERR, type Preview } from './trip';
+import { ERR, TRAVEL, type Preview, type Travel } from './trip';
 
 export { TripRoom } from './trip';
 
@@ -242,15 +242,15 @@ app.get('/trips/:id/map', async c => {
   const q = (k: string) => c.req.query(k) ?? '';
   const hex = (v = '') => (HEX.test(v) ? v.toLowerCase() : bad()) as string;
   const color = hex(q('route'));
-  const legs = q('legs') ? q('legs').split(',').map(l => l.split('-').map(at)) : [];
+  // a leg is "from-to", or "from-to:way" when it isn't a drive
+  const legs = q('legs') ? q('legs').split(',').map(l => { const [ends, way = 'drive'] = l.split(':'); return { ends: ends.split('-').map(at), way }; }) : [];
   const dots = q('dots').split(',').map(d => { const [i, h] = d.split(':'); return { ...at(i), color: hex(h) }; });
-  if (legs.some(l => l.length !== 2) || legs.length > MAP_LEGS || dots.length > MAP_DOTS) bad();
+  if (legs.some(l => l.ends.length !== 2 || !TRAVEL.includes(l.way as Travel)) || legs.length > MAP_LEGS || dots.length > MAP_DOTS) bad();
   // One line per run of drives that follow on from each other
   const lines: StaticMap['lines'] = [];
   let last: unknown = null;
-  for (const [a, b] of legs) {
-    const mode = (b.travel ?? 'drive') as string; // the stop says how you get to it; older previews don't, and are drives
-    const r = ROUTE_MODES.includes(mode as RouteMode) ? await cachedRoute(c.env, mode as RouteMode, a, b) : null;
+  for (const { ends: [a, b], way } of legs) {
+    const r = ROUTE_MODES.includes(way as RouteMode) ? await cachedRoute(c.env, way as RouteMode, a, b) : null;
     const coords: [number, number][] = r?.coords.length ? r.coords : [[a.lat, a.lng], [b.lat, b.lng]];
     if (last === a) lines.at(-1)!.coords.push(...coords.slice(1)); else lines.push({ coords, color });
     last = b;

@@ -182,7 +182,7 @@ function dayPlan(trip, day) {
   }
   for (const s of stops) plan.push({ key: s.id, place: s, role: 'stop' });
   const night = stayOnNight(trip, day);
-  if (night && plan.at(-1)?.place !== night.s) plan.push({ key: `night:${night.s.id}:${day}`, place: night.s, role: 'night' });
+  if (night && plan.at(-1)?.place !== night.s) plan.push({ key: `night:${night.s.id}:${day}`, place: night.s, role: 'night', day });
   return plan;
 }
 // The day's drives, between consecutive places in the plan. Arrival is the next stop's time; you leave that long before it.
@@ -193,7 +193,7 @@ function dayLegs(trip, day) {
   for (let i = 1; i < plan.length; i++) {
     const a = plan[i - 1], b = plan[i];
     if (samePlace(a.place, b.place)) continue;
-    const mode = travelOf(b.place), r = legRoute(a.place, b.place);
+    const mode = wayTo(b), r = legRoute(a, b);
     const arrive = b.role === 'stop' ? b.place.time : null;
     const leave = arrive && r ? toInput(new Date(toDate(arrive) - r.duration * 1000)) : null;
     legs.push({ key: b.key, mode, from: a.place, to: b.place, fromEntry: a, toEntry: b, r, arrive, leave });
@@ -260,6 +260,10 @@ const TRAVEL = {
   flight: { label: 'Flight', icon: 'plane', noun: 'Flight', detail: 'No time or directions' },
 };
 const travelOf = s => (TRAVEL[s.travel] ? s.travel : 'drive');
+// A hotel's way back on the night of `day`: each night's trip back is its own leg, a drive unless someone changed it
+const backOf = (s, day) => (TRAVEL[s.back?.[day]] ? s.back[day] : 'drive');
+// How you get to a place in a day's plan: the way back to a hotel at night is that night's; anywhere else, the stop's own
+const wayTo = e => (e.role === 'night' ? backOf(e.place, e.day) : travelOf(e.place));
 const travelIcon = (mode, size = 14) => WaythreadIcons.svg(TRAVEL[mode].icon, size);
 
 // ---------- Session ----------
@@ -336,10 +340,10 @@ function haversine(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-// The route from a to b, the way you get to b; none for transit and flights
+// The route between two places in a day's plan, the way you get to the second; none for transit and flights
 function legRoute(a, b, opts) {
-  const mode = travelOf(b);
-  return TRAVEL[mode].route ? getRoute(a, b, { ...opts, mode }) : null;
+  const mode = wayTo(b);
+  return TRAVEL[mode].route ? getRoute(a.place, b.place, { ...opts, mode }) : null;
 }
 function getRoute(a, b, { background = false, mode = 'drive' } = {}) {
   const k = legKey(a, b, mode);
@@ -504,7 +508,7 @@ async function saveOffline(trip, { quiet = false } = {}) {
   for (const d of daysOf(trip)) {
     const plan = dayPlan(trip, d);
     for (let i = 1; i < plan.length; i++) {
-      const a = plan[i - 1].place, b = plan[i].place, mode = travelOf(b), k = legKey(a, b, mode);
+      const a = plan[i - 1].place, b = plan[i].place, mode = wayTo(plan[i]), k = legKey(a, b, mode);
       if (TRAVEL[mode].route && !samePlace(a, b) && !routes[k]?.ok) legs.set(k, { a, b, k, mode });
     }
   }
@@ -1097,22 +1101,22 @@ function tripMapHTML(t, past) {
   const trip = { stops }, legs = [];
   for (const d of daysOf(trip)) {
     const plan = dayPlan(trip, d);
-    for (let i = 1; i < plan.length; i++) if (!samePlace(plan[i - 1].place, plan[i].place)) legs.push([plan[i - 1].place, plan[i].place]);
+    for (let i = 1; i < plan.length; i++) if (!samePlace(plan[i - 1].place, plan[i].place)) legs.push([plan[i - 1].place, plan[i].place, wayTo(plan[i])]);
   }
   const places = stops.filter((s, i) => stops.findIndex(o => samePlace(o, s)) === i);
   const hex = name => token(name).replace('#', '');
   const query = new URLSearchParams({
     theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
     route: hex(past ? '--wt-route-done' : '--wt-route'),
-    legs: legs.map(([a, b]) => `${stops.indexOf(a)}-${stops.indexOf(b)}`).join(','),
+    legs: legs.map(([a, b, way]) => `${stops.indexOf(a)}-${stops.indexOf(b)}${way === 'drive' ? '' : `:${way}`}`).join(','),
     dots: places.map(s => `${stops.indexOf(s)}:${hex(past ? '--wt-kind-past' : `--wt-kind-${kindOf(s)}`)}`).join(','),
-    v: stops.map(s => `${s.lat},${s.lng}${travelOf(s) === 'drive' ? '' : travelOf(s)}`).join(';').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0).toString(36), // a new picture when a place moves
+    v: stops.map(s => `${s.lat},${s.lng}`).join(';').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0).toString(36), // a new picture when a place moves
   }).toString().replace(/%2C/g, ',').replace(/%3A/g, ':');
   const src = mapImageURL(t.id, query);
   return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG(legs, places, past)}${src ? `<img class="wt-trip-card__photo" src="${esc(src)}" alt="" loading="lazy" decoding="async">` : ''}</span>`;
 }
 function routeSketchSVG(legs, places, past) {
-  const lines = legs.map(([a, b]) => { const r = routes[legKey(a, b, travelOf(b))]; return r?.ok && r.coords.length > 1 ? { road: true, coords: r.coords } : { road: false, coords: [[a.lat, a.lng], [b.lat, b.lng]] }; });
+  const lines = legs.map(([a, b, way]) => { const r = routes[legKey(a, b, way)]; return r?.ok && r.coords.length > 1 ? { road: true, coords: r.coords } : { road: false, coords: [[a.lat, a.lng], [b.lat, b.lng]] }; });
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const [lat, lng] of [...places.map(s => [s.lat, s.lng]), ...lines.flatMap(l => l.coords)]) {
     const y = mercY(lat);
@@ -1437,7 +1441,7 @@ function preloadTrip() {
   for (const d of days) {
     if (d === ALL) continue;
     const plan = dayPlan(trip, d);
-    for (let i = 1; i < plan.length; i++) legRoute(plan[i - 1].place, plan[i].place, { background: true });
+    for (let i = 1; i < plan.length; i++) legRoute(plan[i - 1], plan[i], { background: true });
   }
   // the camera depends on how much of the map the open stop covers; wait until it's closed
   if (!tiles || navigator.connection?.saveData || state.draft) return;
@@ -2515,23 +2519,23 @@ function deleteStop(trip, stop) {
   save(api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'DELETE' }));
   // Undo puts the same stop back under its old id
   toast(`Deleted ${stop.name}`, 'Undo', () => {
-    const { name, address, lat, lng, time, note, kind, nights, checkout = null } = stop, travel = travelOf(stop);
+    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {} } = stop, travel = travelOf(stop);
     openTripOf(trip.id)?.stops.push({ ...stop, by: me.id });
     render();
-    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel } }));
+    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back } }));
   });
 }
 
 // How you get there, from a drive on show: the round button beside Directions opens the ways, one per row, like a stop's
 // Type. Each way that has a route says how long it takes, so they can be compared before picking: they're looked up as
-// the list opens (… until then). Picking one saves it at once, for everyone, on the stop the leg ends at; the row, the
-// route and Directions follow. A hotel's way is also the way back to it each night, so its sheet says so.
+// the list opens (… until then). Picking one saves it at once, for everyone; the row, the route and Directions follow.
+// It's saved on the stop the leg ends at, as how you get there. The way back to a hotel at night is that night's alone,
+// saved by the day in the hotel's `back`, so getting there on check-in day and each night back are all their own.
 function openTravel(trip, leg) {
-  const to = leg.to, now = travelOf(to);
+  const to = leg.to, night = leg.toEntry.role === 'night' && leg.toEntry.day, now = leg.mode;
   const timeOf = k => { if (!TRAVEL[k].route) return null; const r = getRoute(leg.from, to, { mode: k }); return r ? fmtDur(r.duration) : '…'; };
   const option = k => optionHTML(k, TRAVEL[k].label, { marker: `<i class="wt-marker wt-marker--travel">${travelIcon(k)}</i>`, detail: TRAVEL[k].detail, meta: timeOf(k) });
-  openSheet(`${modalHead(`Getting to ${esc(to.name)}`)}
-    ${kindOf(to) === 'hotel' ? '<p class="wt-modal__text">Also the way back here each night.</p>' : ''}
+  openSheet(`${modalHead(`${night ? 'Getting back to' : 'Getting to'} ${esc(to.name)}`)}
     <ul class="wt-options" role="radiogroup" aria-label="How you get there">${Object.keys(TRAVEL).map(option).join('')}</ul>`, el => {
     routeWatch = () => {
       for (const m of el.querySelectorAll('.wt-option__meta')) m.textContent = timeOf(m.closest('[data-value]').dataset.value);
@@ -2541,7 +2545,15 @@ function openTravel(trip, leg) {
       b.addEventListener('click', () => {
         closeSheet();
         const stop = openTripOf(trip.id)?.stops.find(s => s.id === to.id);
-        if (stop && b.dataset.value !== travelOf(stop)) editStop(trip, stop, { travel: b.dataset.value });
+        const way = b.dataset.value;
+        if (!stop) return;
+        if (!night) { if (way !== travelOf(stop)) editStop(trip, stop, { travel: way }); return; }
+        if (way === backOf(stop, night)) return;
+        // only the nights of the stay as it is now: a night it no longer has is dropped
+        const stay = staysOf(openTripOf(trip.id)).find(st => st.s.id === stop.id);
+        const back = Object.fromEntries(Object.entries({ ...stop.back, [night]: way })
+          .filter(([d, t]) => t !== 'drive' && (!stay || (d >= stay.checkIn && d < stay.checkOut))));
+        editStop(trip, stop, { back });
       });
     }
     el.querySelector(`[data-value="${now}"]`)?.focus();
