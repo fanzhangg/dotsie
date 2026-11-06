@@ -306,13 +306,22 @@ Every stop has a type, shown as its icon in the list and the day list, and as it
 
 ## The map
 
-**The map shows only the routes and the pins.** Names, times, drive times and notes are in the list, so the map doesn't repeat them: no labels, no time tags.
+**The map shows only the routes and the pins,** and, zoomed in, [sights nearby](#sights-nearby). Names, times, drive times and notes are in the list, so the map doesn't repeat them: no labels on the pins, no time tags.
 
 - **Markers and pins are glossy,** like a maps app's: each is shaded from its own color, a little lighter and richer at the top and darker at the bottom in the same hue (a white and black overlay was tried first and made the colors look dirty), so it reads as an object on the map or the rail rather than a flat dot. A drive's car stays flat, so drives stay quieter than stops. The gradient is the same for every type and gentle enough that the icon or number stays readable.
 - **Pins** are round dots centered on their place, like stops on a transit map. The pin is the stop's [type](#stop-types) color, in a white ring that keeps it apart from the route running into it, and it holds one thing, the stop's **number**: 1, 2, 3 in the day's order, or on All days in the trip's, as its list reads. A place that isn't a numbered stop (the hotel you wake up in or come back to, or the day before's last stop) has a white dot instead; the hotel you check in to that day is a stop, so it's numbered. A selected stop's pin, and both ends of a route on show, grow to a larger dot with a deeper shadow, and the other pins fade, keeping their colors (fading, not grey, since grey means over). Growing a quarter alone was tried first: among pins of every color, the selected one was hard to find. A stop that's over shrinks and turns grey, and so do the pins a route on show doesn't start or end at. Stops at the same place share one pin, with the first one's number; for example, flying in and out of the same airport. (Pins used to be round, with the type's icon, no numbers, and a name label when selected: the icon and the label repeated the list, and the map couldn't show the order. Teardrops with numbers came next. Each stood well above its place, so zoomed out, a day's pins piled into one blob that hid the places and the routes between them.)
 - **Where pins crowd, they shrink to small dots, all together.** If any two pins in view are too close for both to show their numbers (zoomed out, or places a few hundred meters apart), every pin is a small dot with no number, so a day zoomed out reads as a line of colored dots along its route. Zoom in until every pin in view has room and they all get their numbers back at once. Only the pins in view count, so a crowd at the other end of the trip doesn't take the numbers away from the place you're looking at. (Each pin used to decide for itself: zoomed out, the one pin with room kept its number among dots, and that lone number read as something special about that stop.) A selected pin, and both ends of a route on show, always keep their numbers, and a tap still selects a small dot: its tap target is larger than the dot.
 - **Routes** are drawn in blue along the roads (or paths, for a walk or a ride), and a transit or flight leg as a straight dashed blue line; on a trip day, past ones are grey. **Blue means routes and nothing else**: a selected stop is grey, no stop type is blue, and the list uses no blue at all: the drive you're on or have selected gets a darker grey car.
 - **The background map** is a light, low-contrast style (Stadia "Alidade Smooth"), so the routes stand out. Its credits are at the bottom of trip settings, not over the map.
+
+### Sights nearby
+
+Zoomed in to a town or closer (zoom 14), the map shows what's worth seeing around you, as Google and Apple Maps show their places: attractions, museums, viewpoints, historic sites and nature. Only what a traveler goes to see: no shops, restaurants or hotels, which search finds.
+- **Each is a small marker in its [type](#stop-types)'s color, with its icon and its name** beside it. They're quieter than the trip's pins (smaller, flat, no number) and sit under the routes, so the plan still leads.
+- **The best known come first,** and only as many as fit: never two overlapping, never over a pin, and at most 20 in view. Zoom in and more appear. A place already on the trip isn't shown again.
+- **Tapping one opens Add stop with it filled in:** its place, its address when known, and its type. Set the time and add it, or close the sheet and nothing changes. Like any tap on the map, it waits out a double-tap.
+- **Not while a stop is open,** so the stop being edited stands alone, and not offline.
+- **Where they come from:** OpenStreetMap, which has no reviews or visitor counts, so "best known" means a place with a Wikipedia article or a Wikidata item, then its kind (a museum or a castle before a memorial), then a mapped area before a single point.
 
 ### How the map and the list work together
 
@@ -394,6 +403,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
   | --- | --- | --- |
   | Routes | OSRM public demo server; OpenStreetMap Germany's routers on foot and by bike | Rate-limited. Results are cached, and if a request fails it falls back to a straight-line estimate. |
   | Place search | Nominatim | |
+  | Sights on the map | Overpass API (OpenStreetMap) | Asked straight from the browser, a map tile at a time, kept for the visit. |
   | Background map | Stadia | Falls back to OpenStreetMap if Stadia's map doesn't load. |
 
   None of these are meant for production traffic.

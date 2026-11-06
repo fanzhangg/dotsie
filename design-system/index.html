@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v9.3.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v9.4.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -809,6 +809,10 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <path class="casing" d="M400 150 C450 130 480 90 540 70"/><path class="route" d="M400 150 C450 130 480 90 540 70"/>
               <text class="town" x="20" y="285">EL PASO</text><text class="town" x="380" y="190">ALAMOGORDO</text>
             </svg>
+            <div class="pin-layer">
+              <div class="wt-sight" role="button" tabindex="0" aria-label="White Sands National Park, Nature. Add as a stop" style="left:12%; top:30%; --wt-kind-color: var(--wt-kind-nature)"><i class="wt-sight__marker"><i data-icon="tree" data-size="12"></i></i><span class="wt-sight__name">White Sands National Park</span></div>
+              <div class="wt-sight" role="button" tabindex="0" aria-label="Alameda Park Zoo, Attraction. Add as a stop" style="left:52%; top:76%; --wt-kind-color: var(--wt-kind-attraction)"><i class="wt-sight__marker"><i data-icon="star" data-size="12"></i></i><span class="wt-sight__name">Alameda Park Zoo</span></div>
+            </div>
             <div class="pin-layer wt-pins">
               <div class="wt-pin wt-pin--muted" role="img" aria-label="Holiday Inn Express Alamogordo, Hotel" style="left:10%; top:83.3%; --wt-kind-color: var(--wt-kind-hotel)"><i class="wt-pin__dot"></i></div>
               <div class="wt-pin wt-pin--muted" role="img" aria-label="1. New Mexico Museum of Space History, Museum" style="left:35%; top:46.7%; --wt-kind-color: var(--wt-kind-museum)"><b class="wt-pin__num">1</b></div>
@@ -838,6 +842,9 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 // Leaflet: the pin's center lands on the marker's position. If any two pins in view are too close to show their numbers, add .wt-pin--dot to every pin (all or none). The pane holding the pins is .wt-pins, so the rest fade while one is selected.
 map.getPane('markerPane').classList.add('wt-pins');
 L.marker(latlng, { icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML }) });
+
+// A sight, zoomed in: its marker's center lands on the place, its name to the right. In a pane under the routes.
+&lt;div class="wt-sight" style="--wt-kind-color: var(--wt-kind-nature)"&gt;&lt;i class="wt-sight__marker"&gt;…tree icon…&lt;/i&gt;&lt;span class="wt-sight__name"&gt;White Sands National Park&lt;/span&gt;&lt;/div&gt;
 
 const token = n =&gt; getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const color = active ? '--wt-route-active' : anotherActive ? '--wt-route-muted' : past ? '--wt-route-done' : '--wt-route';
@@ -1011,7 +1018,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v9.3.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v9.4.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 

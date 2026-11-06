@@ -1,4 +1,4 @@
-/* Waythread design system — components v9.3.0
+/* Waythread design system — components v9.4.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -821,6 +821,29 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-pin--selected .wt-pin__dot { width: 10px; height: 10px; }
 /* A small dot has no room for its number */
 .wt-pin--dot:not(.wt-pin--selected) > * { opacity: 0; }
+
+/* ---------- Sight: a place worth seeing, on the map ---------- */
+/* What a maps app shows of its places, zoomed in: a small marker in the type's color with its icon, centered on the
+   place, and the place's name to its right, in secondary ink with a halo in the pin ring's color so it reads over any
+   map. Quieter than a stop's pin (smaller, flat, no number) because the plan comes first. Set --wt-kind-color. */
+.wt-sight {
+  position: absolute; display: flex; align-items: center; gap: 4px; transform: translate(-10px, -50%);
+  cursor: pointer; animation: wt-sight-in var(--wt-duration-base) var(--wt-ease-out);
+}
+.wt-sight__marker {
+  display: grid; place-items: center; flex: none; box-sizing: border-box; width: 20px; height: 20px;
+  border: 1.5px solid var(--wt-pin-fill); border-radius: var(--wt-radius-round);
+  background: var(--wt-kind-color, var(--wt-kind-place)); color: var(--wt-marker-ink); box-shadow: var(--wt-shadow-pin);
+}
+.wt-sight__marker .wt-icon { width: 12px; height: 12px; }
+.wt-sight__name {
+  max-width: 160px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font: 500 12px/16px var(--wt-font-sans); color: var(--wt-text-secondary);
+  text-shadow: 0 0 2px var(--wt-pin-fill), 0 0 2px var(--wt-pin-fill), 0 0 3px var(--wt-pin-fill);
+}
+/* A tap target taller than the marker, over the marker and the name */
+.wt-sight::after { content: ''; position: absolute; inset: -8px -4px; }
+@keyframes wt-sight-in { from { opacity: 0; } }
 
 /* ---------- Empty state ---------- */
 .wt-empty { margin: 0; padding: var(--wt-space-10) var(--wt-space-6); text-align: center; color: var(--wt-text-secondary); }

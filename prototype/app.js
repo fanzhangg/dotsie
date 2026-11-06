@@ -85,7 +85,7 @@ class ApiError extends Error {
 }
 // ---------- Prototype only: the app's /api, answered in the browser ----------
 // Trips are saved in localStorage, so they're in this browser only. Routes come from the public OSRM demo server, and
-// place search from Nominatim, as in the app's local dev without a Stadia key. Each change goes to the other open
+// place search from Nominatim, as in the app's local dev without a Stadia key, and the map's sights from Overpass. Each change goes to the other open
 // tabs as the server's live events (see connectLive), so two tabs work like two people on the trip.
 // There's no sign-in: you're Alex, or whoever ?as= names.
 const USERS = {
@@ -167,6 +167,7 @@ async function api(path, { method = 'GET', body, signal } = {}) {
   if (!navigator.onLine && route !== '/me' && route !== '/config') throw new ApiError(0, 'offline');
   if (route === '/route') return osrmRoute(q.get('from'), q.get('to'), q.get('mode') || 'drive');
   if (route === '/places') return searchPlaces(q.get('q'), q.get('near'), signal);
+  if (route === '/sights') return findSights(q.get('tile'), signal);
   // Read-modify-write against the latest copy, so edits from other tabs aren't clobbered
   const d = loadDB(), p = route.split('/').filter(Boolean), now = Date.now();
   const fail = (status, code) => { throw new ApiError(status, code); };
@@ -274,6 +275,63 @@ async function searchPlaces(text, near, signal) {
       category: `${p.category}:${p.type}`,
     };
   });
+}
+// What's worth seeing in a map tile, straight from OpenStreetMap's Overpass API, as the app's server asks it (see
+// findSights in app/src/maps.ts): the same query, kinds and ranks. The app keeps each tile for the visit.
+const SIGHT_QUERY = [
+  'nwr[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]',
+  'nwr[historic~"^(castle|palace|fort|monument|archaeological_site|ruins|ship|city_gate)$"][name]',
+  'nwr[historic=memorial][name][wikidata]',
+  'nwr[natural~"^(peak|volcano|beach|bay|cave_entrance|arch|cliff|hot_spring|geyser|glacier)$"][name][wikidata]',
+  'nwr[waterway=waterfall][name]',
+  'nwr[leisure~"^(park|garden|nature_reserve)$"][name][wikidata]',
+  'nwr[boundary~"^(national_park|protected_area)$"][name][wikidata]',
+  'nwr[man_made=lighthouse][name]',
+  'nwr[amenity=place_of_worship][name][wikipedia]',
+];
+function sightKind(t) {
+  const tourism = t.tourism, historic = t.historic;
+  if (tourism === 'museum') return { kind: 'museum', worth: 3 };
+  if (tourism === 'gallery') return { kind: 'museum', worth: 2 };
+  if (tourism === 'viewpoint') return { kind: 'viewpoint', worth: 2 };
+  if (/^(attraction|zoo|theme_park|aquarium)$/.test(tourism)) return { kind: 'attraction', worth: 3 };
+  if (t.boundary === 'national_park') return { kind: 'nature', worth: 3 };
+  if (/^(castle|palace|fort)$/.test(historic)) return { kind: 'attraction', worth: 3 };
+  if (/^(monument|archaeological_site|ship|city_gate)$/.test(historic)) return { kind: 'attraction', worth: 2 };
+  if (t.waterway === 'waterfall' || t.natural) return { kind: 'nature', worth: 2 };
+  if (t.leisure || t.boundary) return { kind: 'nature', worth: 1 };
+  if (historic || t.man_made === 'lighthouse' || t.amenity === 'place_of_worship') return { kind: 'attraction', worth: 1 };
+  return null;
+}
+async function findSights(tile, signal) {
+  const [z, x, y] = (tile || '').split('/').map(Number), n = 2 ** z;
+  const lng = i => (i / n) * 360 - 180, lat = j => (Math.atan(Math.sinh(Math.PI * (1 - (2 * j) / n))) * 180) / Math.PI;
+  const q = `[out:json][timeout:25][bbox:${lat(y + 1)},${lng(x)},${lat(y)},${lng(x + 1)}];(${SIGHT_QUERY.join(';')};);out center tags qt;`;
+  let res;
+  try {
+    res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: new URLSearchParams({ data: q }), signal });
+  } catch (e) { if (e.name === 'AbortError') throw e; throw new ApiError(0, 'offline'); }
+  if (!res.ok) throw new ApiError(503, 'unavailable');
+  const j = await res.json();
+  if (/error/i.test(j.remark || '')) throw new ApiError(503, 'unavailable');
+  const out = [];
+  for (const el of j.elements) {
+    const t = el.tags || {}, at = el.center || (el.lat != null ? { lat: el.lat, lon: el.lon } : null), what = sightKind(t);
+    if (!t.name || !at || !what) continue;
+    out.push({
+      id: `${el.type[0]}${el.id}`, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind,
+      rank: what.worth + (t.wikipedia ? 4 : t.wikidata ? 2 : 0) + (el.type === 'node' ? 0 : 1),
+      address: [[t['addr:housenumber'], t['addr:street']].filter(Boolean).join(' '), t['addr:city']].filter(Boolean).join(', '),
+    });
+  }
+  out.sort((a, b) => b.rank - a.rank);
+  const kept = [];
+  for (const sg of out) {
+    if (kept.some(k => k.name === sg.name && Math.abs(k.lat - sg.lat) < 0.003 && Math.abs(k.lng - sg.lng) < 0.004)) continue;
+    kept.push(sg);
+    if (kept.length === 80) break;
+  }
+  return kept;
 }
 // In trip settings: links to try co-editing as someone else, and to preview a trip day
 function protoNoteHTML(trip) {
@@ -1418,7 +1476,8 @@ function preloadTrip() {
 }
 
 function teardownTrip() {
-  if (map) { map.remove(); map = null; layer = routeLayer = null; fitKey = ''; }
+  if (map) { map.remove(); map = null; layer = routeLayer = sightLayer = null; fitKey = ''; }
+  sightsShown.clear();
   tiles = null;
   tileQueue = [];
   clearTimeout(preloadTimer);
@@ -1505,6 +1564,9 @@ function mountTrip(trip) {
     quiet.on('tileerror', fallBack);
     schedulePreload();
   });
+  // Sights sit on the map under the routes (the overlay pane, 400) and the pins
+  map.createPane('sights').style.zIndex = 350;
+  sightLayer = L.layerGroup().addTo(map);
   routeLayer = new RouteLayer().addTo(map);
   layer = L.layerGroup().addTo(map);
   // once you've touched the map, a new sheet height leaves the camera where you put it
@@ -1523,7 +1585,7 @@ function mountTrip(trip) {
     state.sel = state.selRow = state.leg = null;
     render();
   }));
-  map.on('moveend', () => { dayShown = dayFramed(); updateFitBtn(); });
+  map.on('moveend', () => { dayShown = dayFramed(); updateFitBtn(); drawSights(); });
 }
 
 // ---------- Map gestures, as in a maps app ----------
@@ -2314,6 +2376,7 @@ function drawMap(trip) {
   drawDraft();
   frameMap(trip);
   fitPins();
+  drawSights();
 }
 // Frame the day on screen, or the drive on show, when either has changed since the map was last framed.
 function frameMap(trip) {
@@ -2448,6 +2511,91 @@ function focusStop(s) {
   const z = Math.max(map.getZoom(), 13);
   const p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
   moveCamera(map.unproject(p, z), z);
+}
+
+// ---------- Sights: what's worth seeing nearby, once the map is zoomed in ----------
+// As a maps app shows its places: zoomed in to a town or closer, the map names the best known attractions, museums,
+// viewpoints and nature in view, each a small marker in its type's color. They sit under the routes and the trip's pins,
+// and give way to them. Tapping one opens Add stop with that place filled in. Places already on the trip aren't repeated.
+// None while a stop is open, nor offline. They come from /api/sights a tile at a time (zoom 12), kept for the visit.
+const SIGHTS_FROM_ZOOM = 14;
+const SIGHT_TILE_ZOOM = 12;
+const SIGHTS_MAX = 20; // in view at once, at most, so they never crowd out the plan
+const SIGHT_GAP = 4; // px between two sights' markers and names, and around the trip's pins
+const sightTiles = new Map(); // "x/y" → its sights; a promise while it loads; { retry } after it failed, until then
+let sightLayer = null, sightsShown = new Map(); // id → its marker
+let sightsPausedUntil = 0; // after the server says too many, until then
+let measureCtx = null;
+// How wide a sight's name is drawn, for fitting names around each other (see .wt-sight__name)
+function nameWidth(name) {
+  measureCtx ??= document.createElement('canvas').getContext('2d');
+  measureCtx.font = `500 12px ${token('--wt-font-sans') || 'sans-serif'}`;
+  return Math.min(measureCtx.measureText(name).width, 160);
+}
+function loadSightTile(k) {
+  const t = sightTiles.get(k);
+  if (t && !(t.retry && Date.now() > t.retry)) return;
+  if (Date.now() < sightsPausedUntil) return;
+  sightTiles.set(k, api(`/sights?tile=${SIGHT_TILE_ZOOM}/${k}`).then(list => {
+    sightTiles.set(k, list);
+    drawSights();
+  }, err => {
+    if (err?.code === 'rate_limited') sightsPausedUntil = Date.now() + 60000;
+    sightTiles.set(k, { retry: Date.now() + 30000 });
+  }));
+}
+function drawSights() {
+  if (!map || !sightLayer) return;
+  const trip = cur?.stops ? cur : null, z = map.getZoom();
+  const show = new Map();
+  if (trip && !state.draft && !offlineNow() && z >= SIGHTS_FROM_ZOOM - 0.01) {
+    // The tiles under the view
+    const n = 2 ** SIGHT_TILE_ZOOM, view = map.getBounds();
+    const lo = map.project(view.getNorthWest(), SIGHT_TILE_ZOOM).divideBy(256).floor();
+    const hi = map.project(view.getSouthEast(), SIGHT_TILE_ZOOM).divideBy(256).floor(), found = new Map();
+    for (let y = Math.max(0, lo.y); y <= Math.min(n - 1, hi.y); y++) {
+      for (let x = lo.x; x <= hi.x; x++) {
+        const k = `${((x % n) + n) % n}/${y}`, list = sightTiles.get(k);
+        if (Array.isArray(list)) for (const s of list) found.set(s.id, s); else loadSightTile(k);
+      }
+    }
+    // The best known first, each where it fits: in the part of the map you can see, clear of the trip's pins and of the
+    // sights already placed. Its box is its marker and its name to the right, as in a maps app.
+    const size = map.getSize(), top = coveredTop(), bottom = size.y - coveredBottom();
+    const taken = pins.map(p => { const c = map.latLngToContainerPoint(p.ll), r = p.r + SIGHT_GAP; return [c.x - r, c.y - r, c.x + r, c.y + r]; });
+    const onTrip = s => trip.stops.some(t => (Math.abs(t.lat - s.lat) < 0.001 && Math.abs(t.lng - s.lng) < 0.0013)
+      || (t.name.toLowerCase() === s.name.toLowerCase() && Math.abs(t.lat - s.lat) < 0.02 && Math.abs(t.lng - s.lng) < 0.025));
+    const overlaps = (a, c) => a[0] < c[2] && c[0] < a[2] && a[1] < c[3] && c[1] < a[3];
+    for (const s of [...found.values()].sort((a, c) => c.rank - a.rank || a.id.localeCompare(c.id))) {
+      const p = map.latLngToContainerPoint([s.lat, s.lng]);
+      if (p.x < 0 || p.x > size.x || p.y < top || p.y > bottom || onTrip(s)) continue;
+      const box = [p.x - 10 - SIGHT_GAP / 2, p.y - 10 - SIGHT_GAP / 2, p.x + 14 + nameWidth(s.name) + SIGHT_GAP / 2, p.y + 10 + SIGHT_GAP / 2];
+      if (taken.some(t => overlaps(t, box))) continue;
+      taken.push(box);
+      show.set(s.id, s);
+      if (show.size === SIGHTS_MAX) break;
+    }
+  }
+  // Only what changed, so the sights still in view stay put as the map moves
+  for (const [id, m] of sightsShown) if (!show.has(id)) { sightLayer.removeLayer(m); sightsShown.delete(id); }
+  for (const [id, s] of show) {
+    if (sightsShown.has(id)) continue;
+    const m = L.marker([s.lat, s.lng], {
+      pane: 'sights',
+      icon: L.divIcon({ className: '', iconSize: [0, 0], html: sightHTML(s) }),
+    }).on('click', () => onMapTap(() => addSight(s))).addTo(sightLayer);
+    // A button to the keyboard too: Leaflet makes a marker focusable, but only a click opens it
+    m.getElement()?.setAttribute('aria-label', `${s.name}, ${KINDS[s.kind].label}. Add as a stop`);
+    m.getElement()?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addSight(s); } });
+    sightsShown.set(id, m);
+  }
+}
+const sightHTML = s => `<div class="wt-sight" style="--wt-kind-color: ${kindColor(s)}"><i class="wt-sight__marker">${kindIcon(s, 12)}</i><span class="wt-sight__name">${esc(s.name)}</span></div>`;
+// Add stop, with the sight as its place and type
+function addSight(s) {
+  const trip = cur?.stops ? cur : null;
+  if (!trip || state.draft || !needsConnection()) return;
+  openStopSheet(trip, null, { name: s.name, address: s.address, lat: s.lat, lng: s.lng, kind: s.kind });
 }
 
 // ---------- Edits ----------
@@ -2806,9 +2954,10 @@ function choicePage(sheet, { main, page, picker, onPick }) {
 // The first line is the place, a row like a calendar's Location: tapping it opens a search page, as in a maps app.
 // Type is one row that opens the types on a page of their own; it starts as a guess from the place you pick,
 // until you choose one yourself.
-function openStopSheet(trip, stop) {
+// A new stop can start from a place picked on the map (`place`: name, address, lat, lng and kind), rather than from search.
+function openStopSheet(trip, stop, place = null) {
   if ($sheets.innerHTML) closeSheet();
-  const draft = stop ? { ...stop, kind: kindOf(stop) } : { lat: null, lng: null, address: '', name: '', kind: 'place' };
+  const draft = stop ? { ...stop, kind: kindOf(stop) } : { lat: null, lng: null, address: '', name: '', kind: 'place', ...place };
   let chosen = !!stop, saved = false;
   const camera = map && { center: map.getCenter(), zoom: map.getZoom() };
   state.leg = null;
@@ -3075,7 +3224,7 @@ function openStopSheet(trip, stop) {
       if ($app.dataset.trip && cur?.stops) render();
     },
   });
-  if (stop) focusStop(stop);
+  if (stop || place) focusStop(draft);
 }
 
 // ---------- Notices: toasts and questions (see "Messages" in the design system) ----------

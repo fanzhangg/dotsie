@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
-import { cachedRoute, findRoute, ROUTE_MODES, searchPlaces, type RouteMode, staticMap, type StaticMap } from './maps';
+import { cachedRoute, findRoute, findSights, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode, staticMap, type StaticMap } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
 import { ERR, TRAVEL, type Preview, type Travel } from './trip';
 
@@ -200,7 +200,7 @@ const point = (v: string | undefined) => {
 // Without a Stadia key, local dev falls back to the public OSM demo services; production returns 503.
 const mapsOff = (env: Env) => !env.STADIA_API_KEY && !isLocal(env);
 // Search runs as people type and a trip's routes load together, so the per-person limit is generous.
-for (const path of ['/places', '/route']) {
+for (const path of ['/places', '/route', '/sights']) {
   app.use(path, async (c, next) => {
     if (await tooMany(c.env.MAPS_LIMIT, c.get('user').id)) return rateLimited(c);
     await next();
@@ -219,6 +219,19 @@ app.get('/route', async c => {
   const a = point(c.req.query('from')), b = point(c.req.query('to')), mode = c.req.query('mode') ?? 'drive';
   if (!a || !b || !ROUTE_MODES.includes(mode as RouteMode)) bad();
   return c.json(await findRoute(c.env, mode as RouteMode, a!, b!));
+});
+
+// What's worth seeing in one tile of the map (zoom 12): x and y as in a tile's address. They come from OpenStreetMap,
+// not Stadia, so they need no key. The browser keeps them a day; the server, a month.
+app.get('/sights', async c => {
+  const [z, x, y] = (/^(\d+)\/(\d+)\/(\d+)$/.exec(c.req.query('tile') ?? '') ?? []).slice(1).map(Number), n = 2 ** SIGHT_ZOOM;
+  if (z !== SIGHT_ZOOM || !(x < n) || !(y < n)) bad();
+  try {
+    return c.json(await findSights(c.env, x, y), 200, { 'Cache-Control': 'private, max-age=86400' });
+  } catch (e) {
+    console.error(e);
+    return c.json({ error: 'unavailable' }, 503); // Overpass is busy or down: the map goes without for now
+  }
 });
 
 // A home card's map picture. The client says what to draw, as it does on the trip's map: its drives as pairs of stops
