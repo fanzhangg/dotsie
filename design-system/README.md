@@ -422,7 +422,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 </div>
 ```
 
-- **Rows touch.** Put them straight inside `.wt-tl`, with nothing between, so the rail is one solid hairline (`--wt-border-rail`, 1.5px) from the first marker to the last. Rows have no top or bottom padding of their own, which would break the rail.
+- **Rows touch.** Put them straight inside `.wt-tl`, with nothing between, so the rail is one solid hairline (`--wt-border-rail`, 2px, `--wt-tl-line`) from the first marker to the last. Rows have no top or bottom padding of their own, which would break the rail.
 - **Surface:** put the timeline on `--wt-surface-raised`. Stop markers are ringed in that color.
 - **Stop** (`.wt-tl-stop`): marker, name, time, and optional notes. Nothing else.
   - Set `--wt-kind-color` on the row and the marker.
@@ -958,6 +958,7 @@ Say what can go here, in the user's words. No illustrations.
 An open folder had two lines side by side: the day's rail and its stops' thread.
 
 - **One line:** beside an open folder's stops, the day's rail bends into their `.wt-tl-thread` at the first stop and back out after the last, with rounded corners, instead of running on beside it. The markup is unchanged.
+- **The rail is 2px** (`--wt-tl-line`, new), and the rail, the thread and the bends are all borders. At 1.5px the bends looked thinner than the rail: browsers round a 1.5px border down to 1px but snap a 1.5px background (the rail's, then) to 2px on a 3x screen. A whole pixel draws the same everywhere, and on a 3x phone the rail looks as it did.
 
 ### Added in 9.8.0
 
