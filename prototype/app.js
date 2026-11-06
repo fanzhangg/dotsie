@@ -463,6 +463,7 @@ const routes = (() => { try { return JSON.parse(localStorage.getItem(ROUTE_KEY))
 // first time can't use up the per-person limit that place search shares with routes.
 const BG_ROUTE_GAP = 1000; // ms between background lookups: at most 60 a minute, half the server's limit
 const pending = new Map(); // key → job
+let routeWatch = null; // called as each lookup finishes, while something outside the list shows routes (How you get there)
 const routeJobs = [];
 const bgRouteFailed = new Set(); // not retried in the background this visit; retried once its day is on screen
 let routeBusy = false, bgRouteNext = 0, bgRouteTimer = 0;
@@ -526,6 +527,7 @@ async function fetchRoute(job) {
     }
   }
   pending.delete(k);
+  routeWatch?.();
   if (!job.background) scheduleRender(); // a preloaded route shows once its day does
 }
 // Leaving a trip drops its preloading; a lookup the screen asked for still finishes.
@@ -2473,14 +2475,19 @@ function deleteStop(trip, stop) {
 }
 
 // How you get there, from a drive on show: the round button beside Directions opens the ways, one per row, like a stop's
-// Type. Picking one saves it at once, for everyone, on the stop the leg ends at; the row, the route and Directions follow.
-// A hotel's way is also the way back to it each night, so its sheet says so.
+// Type. Each way that has a route says how long it takes, so they can be compared before picking: they're looked up as
+// the list opens (… until then). Picking one saves it at once, for everyone, on the stop the leg ends at; the row, the
+// route and Directions follow. A hotel's way is also the way back to it each night, so its sheet says so.
 function openTravel(trip, leg) {
   const to = leg.to, now = travelOf(to);
-  const option = k => optionHTML(k, TRAVEL[k].label, { marker: `<i class="wt-marker wt-marker--travel">${travelIcon(k)}</i>`, detail: TRAVEL[k].detail });
+  const timeOf = k => { if (!TRAVEL[k].route) return null; const r = getRoute(leg.from, to, { mode: k }); return r ? fmtDur(r.duration) : '…'; };
+  const option = k => optionHTML(k, TRAVEL[k].label, { marker: `<i class="wt-marker wt-marker--travel">${travelIcon(k)}</i>`, detail: TRAVEL[k].detail, meta: timeOf(k) });
   openSheet(`${modalHead(`Getting to ${esc(to.name)}`)}
     ${kindOf(to) === 'hotel' ? '<p class="wt-modal__text">Also the way back here each night.</p>' : ''}
     <ul class="wt-options" role="radiogroup" aria-label="How you get there">${Object.keys(TRAVEL).map(option).join('')}</ul>`, el => {
+    routeWatch = () => {
+      for (const m of el.querySelectorAll('.wt-option__meta')) m.textContent = timeOf(m.closest('[data-value]').dataset.value);
+    };
     for (const b of el.querySelectorAll('[data-value]')) {
       b.setAttribute('aria-checked', b.dataset.value === now);
       b.addEventListener('click', () => {
@@ -2490,7 +2497,7 @@ function openTravel(trip, leg) {
       });
     }
     el.querySelector(`[data-value="${now}"]`)?.focus();
-  });
+  }, { onClose: () => { routeWatch = null; } });
 }
 
 // ---------- Sheets ----------
@@ -2709,8 +2716,9 @@ const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
 // the same options drop down under the row as a menu: one click to open, one to pick, Esc or a click outside to
 // close. A stop's Type and Account's Maps app both work this way, however few the options. See "Picker" in the
 // design system.
-const optionHTML = (value, label, { marker = '', detail = '' } = {}) =>
-  `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${ICON.check}</button></li>`;
+// `meta` is a short value on the right, before the check (a way's time in How you get there)
+const optionHTML = (value, label, { marker = '', detail = '', meta = null } = {}) =>
+  `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${meta != null ? `<span class="wt-option__meta">${esc(meta)}</span>` : ''}${ICON.check}</button></li>`;
 // `intro` is one line on what the choice affects, when the label alone doesn't say
 const choicePageHTML = (cls, title, options, intro = '') => `<div class="${cls}" hidden>
       <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-choice-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">${esc(title)}</h2></div>

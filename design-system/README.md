@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 9.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 9.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -381,6 +381,7 @@ Every type has its own color, so no two look alike. The colors follow maps apps 
 - Set `--wt-kind-color` on the marker or on a parent, to `var(--wt-kind-<kind>)`. Without one, the marker is grey.
 - The colors are about as light as each other, so no type looks more important than another; what matters more (a late drive, now) is louder than any of them.
 - `--sm` (20px) is for the day list. The default is 30px.
+- `.wt-option__meta`, after `__text`, puts a short value on the right of an option, such as a way's time (`17 min`).
 - `--travel` is a way of getting somewhere (Drive, Walk, Bike, Transit, Flight) in the list of them: flat `--wt-kind-drive` grey with no shading, like a drive's car on the rail, so a way never looks like a stop type. `<i class="wt-marker wt-marker--travel">${icon('walk')}</i>`
 - The `aria-label` names the type, so color is never the only signal.
 
@@ -873,6 +874,11 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 9.3.0
+
+- New: `.wt-option__meta`, a short value on the right of an option, before its check: how long each way of getting there takes. Secondary ink, tabular numbers.
+- Tokens are unchanged.
 
 ### Added in 9.2.0
 
