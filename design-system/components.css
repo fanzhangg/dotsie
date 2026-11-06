@@ -1,4 +1,4 @@
-/* Waythread design system — components v9.8.0
+/* Waythread design system — components v9.8.1
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -404,8 +404,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* Under a closed folder, what's in it ("3 stops: Visitor Center, …"), quieter than a note */
 .wt-tl-note--quiet { color: var(--wt-text-tertiary); }
 /* An open folder's stops and the drives between them, like files under a folder in a file tree: indented one step,
-   their markers' left edge in line with the folder's name, on a thread of their own (.wt-tl-thread) beside the day's
-   rail, which runs on. The thread starts at the first stop (.is-first) and ends at the last (.is-last). */
+   their markers' left edge in line with the folder's name, on a thread (.wt-tl-thread) one step in. It's still one
+   line: the day's rail bends into the thread at the first stop (.is-first) and back out of it after the last
+   (.is-last), and doesn't run beside it. A folder that ends the day leaves the line at its last stop. */
 .wt-tl-stop--in, .wt-tl-drive--in { grid-template-columns: var(--wt-tl-rail) 30px 1fr auto; }
 .wt-tl-stop--in > .wt-tl-thread { grid-column: 2; grid-row: 1 / -1; }
 .wt-tl-stop--in > .wt-tl-name { grid-column: 3; }
@@ -418,6 +419,24 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-stop--in.is-first > .wt-tl-thread::before { top: var(--wt-tl-mark-y); }
 .wt-tl-stop--in.is-last > .wt-tl-thread::before { bottom: calc(100% - var(--wt-tl-mark-y)); }
 .wt-tl-stop--in.is-first.is-last > .wt-tl-thread::before { display: none; }
+/* The bends: from the rail's centre to the thread's (half the rail and half the 30px thread column), with a rounded
+   corner. In: down from the folder's marker, then right into the first stop's. Out: left from the last stop's marker,
+   then down the rail. The markers' rings cover the ends. */
+.wt-tl .wt-tl-stop--in > .wt-tl-rail::before, .wt-tl .wt-tl-drive--in > .wt-tl-rail::before { display: none; }
+.wt-tl .wt-tl-stop--in:is(.is-first, .is-last) > .wt-tl-rail::before, .wt-tl .wt-tl-stop--in.is-last > .wt-tl-rail::after {
+  content: ''; display: block; position: absolute; box-sizing: border-box; left: calc(50% - .75px); width: calc(50% + 15px + .75px);
+  height: auto; background: none; border: 0 solid var(--wt-border-rail); --wt-tl-bend: 12px;
+}
+.wt-tl .wt-tl-stop--in.is-last:not(.is-first) > .wt-tl-rail::before { display: none; }
+.wt-tl .wt-tl-stop--in.is-first > .wt-tl-rail::before {
+  top: 0; bottom: auto; height: calc(var(--wt-tl-mark-y) + .75px);
+  border-left-width: 1.5px; border-bottom-width: 1.5px; border-bottom-left-radius: var(--wt-tl-bend);
+}
+.wt-tl .wt-tl-stop--in.is-last > .wt-tl-rail::after {
+  top: calc(var(--wt-tl-mark-y) - .75px); bottom: 0;
+  border-left-width: 1.5px; border-top-width: 1.5px; border-top-left-radius: var(--wt-tl-bend);
+}
+.wt-tl .wt-tl-stop--in.is-last:is(:last-child, :has(+ .wt-tl-day)) > .wt-tl-rail::after { display: none; }
 
 /* Swiping a row sideways: right puts it in a folder, left takes it out. The row follows the finger (.is-swiping) over
    what the swipe will do (.wt-tl-swipe, behind it): an indent (.is-in), a new folder (.is-in.is-new) or an outdent
