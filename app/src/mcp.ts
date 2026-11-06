@@ -56,7 +56,7 @@ const EDITABLE = {
   time: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$', description: 'When you arrive, trip-local: "YYYY-MM-DDTHH:MM". Stops are ordered by time' },
   checkout: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$', description: 'When you leave, "HH:MM". A hotel: its check-out time on the day its nights end (null shows 11:00). Any other stop: a time later the same day, or null for none' },
   kind: { type: 'string', enum: ['', ...KINDS], description: 'The stop’s type, which sets its icon. "" lets the app guess from the name' },
-  nights: { type: ['integer', 'null'], minimum: 1, maximum: 30, description: 'A hotel’s nights from check-in, or null to last until the next hotel or the trip’s last day' },
+  nights: { type: ['integer', 'null'], minimum: 0, maximum: 30, description: 'A hotel’s nights from check-in (0 checks out the same day, e.g. arriving after midnight), or null to last until the next hotel or the trip’s last day' },
   travel: { type: 'string', enum: [...TRAVEL], description: 'How you get to this stop from the one before it (for a hotel, on its check-in day). New stops are "drive"' },
   back: {
     type: 'object', propertyNames: { pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, additionalProperties: { type: 'string', enum: [...TRAVEL] }, maxProperties: 31,

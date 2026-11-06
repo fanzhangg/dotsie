@@ -8,7 +8,7 @@ import { DurableObject } from 'cloudflare:workers';
 // identity is 1–6, the design system's --wt-identity-N avatar colors
 export type Member = { id: string; name: string; image: string | null; identity: number };
 // kind is the stop's type ('' until someone picks one; the app guesses from the name). nights is for a
-// hotel: how many nights from its check-in, or null to last until the next hotel or the trip's last day.
+// hotel: how many nights from its check-in (0 checks out the same day), or null to last until the next hotel or the trip's last day.
 // checkout is a hotel's check-out time ("HH:MM"; the day comes from nights), or null for the app's default.
 // Other stops are null; some older clients saved a leave time there, which the app ignores.
 // travel is how you get to this stop from the place before it (for a hotel, on its check-in day). Drive unless someone
@@ -78,7 +78,7 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
     out.kind = i.kind as Kind | '';
   }
   if (i.nights !== undefined) {
-    if (i.nights !== null && !(Number.isInteger(i.nights) && (i.nights as number) >= 1 && (i.nights as number) <= MAX_NIGHTS)) throw new Error(ERR.invalid);
+    if (i.nights !== null && !(Number.isInteger(i.nights) && (i.nights as number) >= 0 && (i.nights as number) <= MAX_NIGHTS)) throw new Error(ERR.invalid);
     out.nights = i.nights as number | null;
   }
   if (i.checkout !== undefined) {
