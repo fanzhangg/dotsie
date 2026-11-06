@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 8.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 9.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -179,7 +179,6 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 - **Columns:** icons and text line up down the screen, the way the timeline's rail does.
   - **Trip screen:** home, the day bar's ‹, and every marker and car are centred on the rail (36px in from the screen edge on a phone). Settings, the day bar's › and Directions share a column on the right. The trip's name starts where stop names do. The header card, docked header and side panel all keep these positions, so nothing shifts as the sheet docks.
   - **Sheets:** two icon columns measured from the content edge: the options' markers on the left (23px), and their checks on the right (17px). The search icon, a picker's marker, a sub-page's back button, Close and a picker's chevron all sit on these columns. The typed search, a picker's value and a sub-page's title start where option names do.
-  - **Text buttons** (`--danger`) hang their padding outside the content edge, so their word lines up with the labels above.
 - **Space:** a 4px grid. `--wt-space-1` (4) · `2` (8) · `3` (12) · `4` (16) · `5` (20) · `6` (24) · `8` (32) · `10` (40). The side margin on a phone is `--wt-space-4`; the list's inner margin is `--wt-space-3`.
 - **Radius:** `--wt-radius-sm` (8, pin labels) · `md` (12, cards, inputs, block buttons, timeline rows) · `lg` (18, sheets) · `pill` (buttons, toasts) · `round` (avatars, markers, icon buttons).
 - **Size:** `--wt-size-touch` (44, the minimum for anything tapped often) · `icon-btn` (40) · `avatar` (26) · `check` (26, unused since 2.0.0) · `icon` (22) · `column` (480, the app column on large screens) · `panel` (360–440, 30% of the window: the plan's side panel from 768px wide) · `trip-head` (56, the trip header, below the top safe area).
@@ -240,22 +239,21 @@ Each entry shows the minimum markup. Your code supplies the content and the beha
 <button class="wt-btn wt-btn--primary wt-btn--block">${icon('plus')}Add stop</button>
 <button class="wt-btn wt-btn--secondary">Copy</button>
 <button class="wt-btn wt-btn--secondary wt-btn--icon" aria-label="Add stop">${icon('plus')}</button>
-<button class="wt-btn wt-btn--danger">Delete</button>
-<button class="wt-btn wt-btn--quiet">Make a new link</button>
+<button class="wt-btn wt-btn--danger">Delete trip</button>
 ```
 
 | Variant | Use for |
 | --- | --- |
 | `--primary` | The one main action in a view: Save, Add, Create. On the trip screen, Add stop, or Open in Maps while a stop is selected. Never more than one per view. |
-| `--secondary` | A quiet action next to content, like Copy beside the trip link. |
-| `--ghost` | Low-emphasis actions next to content. |
-| `--danger` | Destructive actions. Always leave a way back: an Undo toast or a confirmation. |
-| `--quiet` | A rare, low-key action under what it's about, as grey text: Make a new link, Remove from this device, Sign out. Its padding hangs outside the content edge, as `--danger`'s does. |
+| `--secondary` | Every other action: white with a hairline outline. Copy, Save for offline, Make a new link, Remove from this device, Sign out, Continue with Google. |
+| `--danger` | A destructive action: the same button as `--secondary`, with a red label. Delete trip, Delete (a stop), Disconnect. Always leave a way back: an Undo toast or a confirmation. |
 | `--destructive` | Filled red, only for the confirm button of a [dialog](#dialog-wt-dialog) that destroys something: "Delete trip". |
 | `--block` | Full width, at the bottom of a sheet or form. |
 | `--icon` | Icon only: a round button as tall as the others, for an action that sits beside a bigger one, like Edit stop and the `+` beside Open in Maps. White (`--secondary`). Needs an `aria-label`. |
 
 **Unavailable for now:** `aria-disabled="true"` on any variant makes it grey (`--wt-surface-sunken`, `--wt-text-tertiary`, no shadow) but leaves it tappable, so the tap can say why in a toast. Offline, Add stop, the round `+` and Edit stop work this way, and a tap shows the "You're offline" notice (a [rich toast](#toast-wt-toast)). Use `disabled` only where the reason is plain on screen, since a disabled button does nothing when tapped.
+
+**One look per kind of button.** A button is black (`--primary`), white and outlined (`--secondary`, or `--danger` with a red label), or, only in a dialog, filled red (`--destructive`). There are no text-only buttons: an action you can tap always has a shape, so it never reads as a label or a link. Text that's tappable inside a sentence (Change, after your email) is a link, not a button.
 
 Labels are verbs that say exactly what happens.
 
@@ -296,14 +294,14 @@ Labels are verbs that say exactly what happens.
   <h3 class="wt-section__title">Share link</h3>
   <p class="wt-section__text">Anyone with the link can join and edit this trip.</p>
   <div class="wt-copy-row"><input class="wt-input" readonly …><button class="wt-btn wt-btn--secondary">Copy</button></div>
-  <button class="wt-btn wt-btn--quiet">Make a new link</button>
+  <button class="wt-btn wt-btn--secondary">Make a new link</button>
 </section>
 <div class="wt-section"><button class="wt-btn wt-btn--danger">Delete trip</button></div>
 ```
 
-- **Trip settings and Account are a column of sections**, one thing each, divided by `--wt-border-default` hairlines. Every section reads in the same order: the title (`__title`, `--wt-type-heading`), a line on what it does (`__text`, body in `--wt-text-secondary`), its controls, then a hint under a control (`__hint`, caption) or a quiet text button. The spacing between them is set by the section, so each one has the same rhythm.
+- **Trip settings and Account are a column of sections**, one thing each, divided by `--wt-border-default` hairlines. Every section reads in the same order: the title (`__title`, `--wt-type-heading`), a line on what it does (`__text`, body in `--wt-text-secondary`), its controls, then a hint under a control (`__hint`, caption) or a button. The spacing between them is set by the section, so each one has the same rhythm.
 - **A section that is one field** is the field's `<form>`, with its title as the `<label>`. A picker goes in a `.wt-field` inside the section, so its menu drops down under it.
-- **No primary button.** Every change saves on its own (a name when you leave the field), so nothing in a settings sheet is black. Copy and Save for offline are `--secondary`; rare actions are `--quiet`; the destructive one (Delete trip) is `--danger`, last, in a section of its own. Sign out is `--quiet`: it destroys nothing, and a guest is asked first.
+- **No primary button.** Every change saves on its own (a name when you leave the field), so nothing in a settings sheet is black. Every button is the same white `--secondary` button (Copy, Save for offline, Make a new link, Remove from this device, Sign out), and the destructive one (Delete trip) is `--danger`, the same button with a red label, last, in a section of its own. Sign out is `--secondary`: it destroys nothing, and a guest is asked first.
 - **Words:** `__text` says what the section does, in one sentence. `__hint` says how to use the control above it ("People on your trips see this name").
 - The map's credits (`.wt-credit`) follow the last section in trip settings.
 
@@ -871,6 +869,15 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 9.0.0
+
+Buttons have one look per kind. Copy was an outlined button, but Make a new link and Sign out were grey text and Delete trip was red text, so the same sheet had three kinds of button.
+
+- `.wt-btn--danger` is now the outlined `--secondary` button with a red label, not red text. Its negative margin is gone, and in a `.wt-section` it gets the same spacing as any other control.
+- Removed: `.wt-btn--quiet`. Use `--secondary`.
+- Removed: `.wt-btn--ghost`. Use `--secondary`.
+- Tokens are unchanged.
 
 ### Added in 8.2.0
 

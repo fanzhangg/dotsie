@@ -604,13 +604,13 @@ function offlineFieldHTML(trip) {
       <button class="wt-btn wt-btn--secondary" data-offline-save${trip.offline ? ' disabled' : ''}>${ICON.download}Save for offline</button>` };
   }
   if (job) return { kind: 'saving', html: `${head('Saving the map: <span data-offline-pct>' + pctOf(job) + '</span>%')}
-      <button class="wt-btn wt-btn--quiet" data-offline-remove>${job.first ? 'Cancel' : 'Remove from this device'}</button>` };
+      <button class="wt-btn wt-btn--secondary" data-offline-remove>${job.first ? 'Cancel' : 'Remove from this device'}</button>` };
   // Safari in a browser tab clears a site's saved data after about a week without a visit; an app on the Home Screen keeps it
   const ios = navigator.standalone === false ? '<p class="wt-section__hint">On iPhone, Safari clears saved trips you haven’t opened in a week. To keep this one, add Waythread to your Home Screen, open it from there and save the trip again.</p>' : '';
   const map = t.noMap ? ' The map can’t be saved with this map provider.' : t.missing ? ' Part of the map didn’t download.' : '';
   return { kind: 'saved', html: `${head(`Saved on this device (${fmtMB(t.bytes)}), updated ${fmtAgo(t.savedAt)}. It updates whenever you open the trip online.${map}`)}${ios}
       ${t.missing && !trip.offline ? '<button class="wt-btn wt-btn--secondary" data-offline-save>Try again</button>' : ''}
-      <button class="wt-btn wt-btn--quiet" data-offline-remove>Remove from this device</button>` };
+      <button class="wt-btn wt-btn--secondary" data-offline-remove>Remove from this device</button>` };
 }
 function showOffline() {
   const trip = cur?.stops ? cur : null;
@@ -896,7 +896,7 @@ function authFlow(root, { joining = false, connecting = false, guest = false } =
       ${config.google ? googleBtnHTML : ''}
       ${config.apple ? appleBtnHTML : ''}
       ${config.password ? '<button type="button" class="wt-btn wt-btn--secondary wt-btn--block" data-to="email">Continue with email</button>' : ''}
-      ${guest ? `<button type="button" class="wt-btn wt-btn--ghost wt-btn--block" data-to="guest">${joining ? 'Join as a guest' : 'Continue as a guest'}</button>
+      ${guest ? `<button type="button" class="wt-btn wt-btn--secondary wt-btn--block" data-to="guest">${joining ? 'Join as a guest' : 'Continue as a guest'}</button>
       <p class="signin__hint signin__hint--center">No account needed, but you can only reach your trips from this browser.</p>` : ''}`,
     email: () => `${head('Continue with email', 'start')}
       <form data-submit="lookup">
@@ -1017,7 +1017,7 @@ function homeHTML() {
       ${trips && !list.length ? '<p class="wt-empty">No trips yet. Start one with New trip, or open the link a friend sent you.</p>' : ''}
       ${ahead.length ? group('Upcoming', ahead, false) : ''}
       ${past.length ? group('Past', past, true) : ''}
-      ${me.isGuest && trips?.length && canSignIn() ? '<button class="wt-btn wt-btn--ghost wt-btn--block home-guest" data-action="account">Sign in to keep your trips</button>' : ''}
+      ${me.isGuest && trips?.length && canSignIn() ? '<button class="wt-btn wt-btn--secondary wt-btn--block home-guest" data-action="account">Sign in to keep your trips</button>' : ''}
     </main>
     <div class="wt-add-bar home-add">${newTrip('wt-btn--block')}</div>`;
 }
@@ -2535,7 +2535,7 @@ function openSettings(trip) {
     <section class="wt-section"><h3 class="wt-section__title">Share link</h3>
       <p class="wt-section__text">Anyone with the link can join and edit this trip.</p>
       <div class="wt-copy-row"><input class="wt-input" readonly value="" placeholder="Loading…" aria-label="Trip link"><button class="wt-btn wt-btn--secondary" data-action="copy" disabled>Copy</button></div>
-      <button class="wt-btn wt-btn--quiet" data-new-link>Make a new link</button></section>
+      <button class="wt-btn wt-btn--secondary" data-new-link>Make a new link</button></section>
     <section class="wt-section settings-offline"></section>
     <div class="wt-section"><button class="wt-btn wt-btn--danger" data-del>Delete trip</button></div>
     <p class="wt-credit">Map ${mapCredit}</p>`, async el => {
@@ -2604,7 +2604,7 @@ function openAccount() {
     <div class="wt-section"><span class="wt-section__title" id="maps-label">Maps app</span>
       <div class="wt-field"><button type="button" class="wt-picker wt-picker--text" data-maps-open aria-labelledby="maps-label maps-value"></button></div></div>
     ${me.isGuest ? '' : '<section class="wt-section account-mcp"></section>'}
-    <div class="wt-section"><button class="wt-btn wt-btn--quiet" data-action="sign-out">Sign out</button></div></div>
+    <div class="wt-section"><button class="wt-btn wt-btn--secondary" data-action="sign-out">Sign out</button></div></div>
     ${choicePageHTML('account-maps', 'Maps app', Object.entries(MAPS_APPS).map(([k, label]) => optionHTML(k, label)).join(''), 'Places and directions open in this app. Saved on this device.')}`, el => {
     const f = el.querySelector('.account-name');
     f.elements.name.value = me.name;
