@@ -2631,7 +2631,8 @@ function selectStop(s, row = null) {
 // Open a folder (it's selected, and its stops and drives show in the list and on the map), or close it if it's open:
 // tapping a folder again closes it, as in a file tree. Only this closes a folder: selecting something else, tapping
 // empty map or changing the day leaves it open. Closing the folder in focus clears what's selected in it, since its
-// rows go. Neither moves the map: opening a folder only adds its stops to the day's route.
+// rows go. Opening a folder only adds its stops to the day's route, with nothing faded; the map goes to them if they
+// can't be seen from where it is. Closing it leaves the map where it is.
 function selectFolder(fid) {
   const trip = cur?.stops ? cur : null;
   if (!trip) return;
@@ -2647,7 +2648,22 @@ function selectFolder(fid) {
   setSnap('half', false);
   fitKey = key;
   render();
+  showFolder(trip, fid);
   centerFocus({ force: true });
+}
+// Bring an open folder's stops into view when they can't be seen from where the map is: some are off the map you can
+// see, or they're so close together that their pins pile up. Then the camera stays there, as if you'd moved it, so a
+// new sheet height doesn't take it back to the day; Whole day does.
+function showFolder(trip, fid) {
+  if (!map) return;
+  const pts = planOn(trip, currentDay(trip)).filter(e => e.role === 'stop' && e.place.folder === fid).map(e => L.latLng(e.place.lat, e.place.lng));
+  if (!pts.length) return;
+  const z = map.getZoom(), px = pts.map(p => map.project(p, z));
+  const apart = px.every((a, i) => px.every((b, j) => j <= i || a.distanceTo(b) >= 24 + PIN_GAP));
+  if (apart && pts.every(p => inView(p))) return;
+  const v = frameBounds(L.latLngBounds(pts), L.point(40, coveredTop() + 32), L.point(40, coveredBottom() + 32), 16);
+  moveCamera(v.center, v.zoom);
+  camFree = true;
 }
 // Pan a stop's pin into the middle of the map you can see, keeping the zoom, if it's out of view.
 function panTo(s) {
