@@ -119,6 +119,8 @@ Claude reaches the server from Anthropic's cloud, so a connector needs the deplo
 | `add_folder` | `trip_id`, `name` | `{ folder }`, with its new id. Empty until a stop's `folder` is set to it |
 | `rename_folder` | `trip_id`, `folder_id`, `name` | `{ folder }` |
 
+`links` takes what models send when they guess, or when their copy of the tools is older than links: a JSON string, bare addresses, one link on its own, `title` for `label`, an address without `https://`. A tool error names the field that's wrong and what it should be. Bump `SERVER.version` in `src/mcp.ts` whenever a tool or its arguments change, so clients have a reason to fetch the tools again.
+
 A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Changes go through `TripRoom`'s `putStop`, `patchStop`, `addLink`, `deleteStop` and `putFolder`, like the app's: the same checks, and everyone with the trip open sees them live.
 
 How it's built:
