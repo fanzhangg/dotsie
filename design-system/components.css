@@ -903,20 +903,22 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* Pins merged where they crowd (--cluster): round, like every pin. The first one's pin is in front, as it is, with its
    number; the next ones' pins are stacked behind it, up and to the right, each in its own color in its own
    --wt-pin-fill ring, like a fanned deck: one behind when two merge, two when more (--deep). Set their colors in
-   --wt-pin-behind-1 and -2. Flat behind, shaded in front, and one shadow around the whole stack. */
+   --wt-pin-behind-1 and -2. Behind, they're flat and faded, half their color over the ring's (--wt-pin-behind-soft), so
+   the pin in front leads; one shadow goes around the whole stack. */
 .wt-pin--cluster {
+  --wt-pin-behind-soft: 50%;
   filter: drop-shadow(var(--wt-shadow-pin));
-  box-shadow: 4px -4px 0 -2px var(--wt-pin-behind-1), 4px -4px 0 0 var(--wt-pin-fill);
+  box-shadow: 4px -4px 0 -2px color-mix(in oklab, var(--wt-pin-behind-1) var(--wt-pin-behind-soft), var(--wt-pin-fill)), 4px -4px 0 0 var(--wt-pin-fill);
 }
 /* A folder in front is a plain pin here: the stack already says there are several */
 .wt-pin--folder.wt-pin--cluster {
   --wt-pin-size: 24px; border: 2px solid var(--wt-pin-fill);
-  box-shadow: 4px -4px 0 -2px var(--wt-pin-behind-1), 4px -4px 0 0 var(--wt-pin-fill);
+  box-shadow: 4px -4px 0 -2px color-mix(in oklab, var(--wt-pin-behind-1) var(--wt-pin-behind-soft), var(--wt-pin-fill)), 4px -4px 0 0 var(--wt-pin-fill);
 }
 .wt-pin--folder.wt-pin--cluster.wt-pin--muted { --wt-pin-size: 20px; }
 .wt-pin--cluster.wt-pin--deep {
-  box-shadow: 4px -4px 0 -2px var(--wt-pin-behind-1), 4px -4px 0 0 var(--wt-pin-fill),
-    8px -8px 0 -2px var(--wt-pin-behind-2), 8px -8px 0 0 var(--wt-pin-fill);
+  box-shadow: 4px -4px 0 -2px color-mix(in oklab, var(--wt-pin-behind-1) var(--wt-pin-behind-soft), var(--wt-pin-fill)), 4px -4px 0 0 var(--wt-pin-fill),
+    8px -8px 0 -2px color-mix(in oklab, var(--wt-pin-behind-2) var(--wt-pin-behind-soft), var(--wt-pin-fill)), 8px -8px 0 0 var(--wt-pin-fill);
 }
 .wt-pin--cluster.wt-pin--muted { filter: none; }
 /* Unused since 9.5.1, kept until the next major version. While a folder is open (.is-folder-open on .wt-pins), the pins outside it fade, as they do around a selected pin;
