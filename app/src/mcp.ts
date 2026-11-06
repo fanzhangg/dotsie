@@ -1,5 +1,5 @@
 import type { McpProps } from './oauth';
-import { ERR, KINDS, type Stop, type TripRoom } from './trip';
+import { ERR, KINDS, TRAVEL, type Stop, type TripRoom } from './trip';
 
 /* An MCP server, so an AI assistant can read a trip's stops and add, change or remove them for you. It speaks MCP's
    Streamable HTTP transport without sessions: every POST to /api/mcp is one JSON-RPC message, answered with
@@ -49,7 +49,7 @@ const ERROR_TEXT: Record<string, string> = {
 // A stop as the assistant sees it: the fields it can edit, plus who changed it last
 const stopOut = (s: Stop, names: Map<string, string>) => ({
   id: s.id, name: s.name, address: s.address, lat: s.lat, lng: s.lng, time: s.time, checkout: s.checkout,
-  kind: s.kind, nights: s.nights, note: s.note, folder: s.folder, updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
+  kind: s.kind, nights: s.nights, travel: s.travel ?? 'drive', back: s.back ?? {}, note: s.note, folder: s.folder, updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
 });
 const memberNames = (members: { id: string; name: string }[]) => new Map(members.map(m => [m.id, m.name]));
 
@@ -61,7 +61,12 @@ const EDITABLE = {
   time: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$', description: 'When you arrive, trip-local: "YYYY-MM-DDTHH:MM". Stops are ordered by time' },
   checkout: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$', description: 'When you leave, "HH:MM". A hotel: its check-out time on the day its nights end (null shows 11:00). Any other stop: a time later the same day, or null for none' },
   kind: { type: 'string', enum: ['', ...KINDS], description: 'The stop’s type, which sets its icon. "" lets the app guess from the name' },
-  nights: { type: ['integer', 'null'], minimum: 1, maximum: 30, description: 'A hotel’s nights from check-in, or null to last until the next hotel or the trip’s last day' },
+  nights: { type: ['integer', 'null'], minimum: 0, maximum: 30, description: 'A hotel’s nights from check-in (0 checks out the same day, e.g. arriving after midnight), or null to last until the next hotel or the trip’s last day' },
+  travel: { type: 'string', enum: [...TRAVEL], description: 'How you get to this stop from the one before it (for a hotel, on its check-in day). New stops are "drive"' },
+  back: {
+    type: 'object', propertyNames: { pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, additionalProperties: { type: 'string', enum: [...TRAVEL] }, maxProperties: 31,
+    description: 'A hotel only: how you get back to it each night, by the day you go back ("YYYY-MM-DD": way). Each night is its own leg; nights not listed are drives. Replaces the whole set, so send every night to keep',
+  },
   note: { type: 'string', maxLength: 2000 },
   folder: { type: ['string', 'null'], description: 'The id of the folder it’s in (from list_stops or add_folder), or null for none. A folder holds stops that follow each other by time: put a stop only in the folder of the stop just before or just after it' },
 };

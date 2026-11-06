@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v9.1.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v9.3.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -479,6 +479,19 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li>On the types page, focus the checked option; coming back, focus the picker.</li>
         <li><b>Nights</b> is at least 1. Hide the row (<code>hidden</code>) for anything that isn't a hotel. Check-out's day comes from the nights, so only its time is an input; the day shows in the field before it (<code>.wt-input-group</code>).</li>
       </ul>
+      <h3>How you get there</h3>
+      <p class="intro">The same options list, for the way to a stop. Each way's marker is flat grey, like a drive's car on the rail (<code>.wt-marker--travel</code>), so the ways never look like stop types.</p>
+      <div class="demo">
+        <div class="demo__live demo__live--column demo__live--narrow demo__live--raised">
+          <ul class="wt-options" role="radiogroup" aria-label="How you get there">
+          <li><button class="wt-option" type="button" role="radio" aria-checked="false"><i class="wt-marker wt-marker--travel"><i data-icon="car"></i></i><span class="wt-option__text"><span class="wt-option__label">Drive</span></span><span class="wt-option__meta">17 min</span><i data-icon="check" data-size="18"></i></button></li>
+          <li><button class="wt-option" type="button" role="radio" aria-checked="true"><i class="wt-marker wt-marker--travel"><i data-icon="walk"></i></i><span class="wt-option__text"><span class="wt-option__label">Walk</span></span><span class="wt-option__meta">4 hr 45 min</span><i data-icon="check" data-size="18"></i></button></li>
+          <li><button class="wt-option" type="button" role="radio" aria-checked="false"><i class="wt-marker wt-marker--travel"><i data-icon="bike"></i></i><span class="wt-option__text"><span class="wt-option__label">Bike</span></span><span class="wt-option__meta">1 hr 22 min</span><i data-icon="check" data-size="18"></i></button></li>
+          <li><button class="wt-option" type="button" role="radio" aria-checked="false"><i class="wt-marker wt-marker--travel"><i data-icon="train"></i></i><span class="wt-option__text"><span class="wt-option__label">Transit</span><span class="wt-option__detail">Times are in your maps app</span></span><i data-icon="check" data-size="18"></i></button></li>
+          <li><button class="wt-option" type="button" role="radio" aria-checked="false"><i class="wt-marker wt-marker--travel"><i data-icon="plane"></i></i><span class="wt-option__text"><span class="wt-option__label">Flight</span><span class="wt-option__detail">No time or directions</span></span><i data-icon="check" data-size="18"></i></button></li>
+          </ul>
+        </div>
+      </div>
     </section>
 
     <section id="timeline">
@@ -1055,7 +1068,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v9.1.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v9.3.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 

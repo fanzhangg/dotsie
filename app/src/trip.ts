@@ -8,16 +8,19 @@ import { DurableObject } from 'cloudflare:workers';
 // identity is 1–6, the design system's --wt-identity-N avatar colors
 export type Member = { id: string; name: string; image: string | null; identity: number };
 // kind is the stop's type ('' until someone picks one; the app guesses from the name). nights is for a
-// hotel: how many nights from its check-in, or null to last until the next hotel or the trip's last day.
+// hotel: how many nights from its check-in (0 checks out the same day), or null to last until the next hotel or the trip's last day.
 // checkout is a hotel's check-out time ("HH:MM"; the day comes from nights), or null for the app's default.
 // Other stops are null; some older clients saved a leave time there, which the app ignores.
+// travel is how you get to this stop from the place before it (for a hotel, on its check-in day). Drive unless someone
+// picks another. back is a hotel's way back to it each night, by the day ("YYYY-MM-DD"): each night's is its own leg.
+// Nights not in it are drives, so it only holds the others; {} for every other stop.
 // folder is the id of the folder the stop is in, or null. A folder is a run of stops that follow each other (by time)
 // with the same folder; the app keeps them together. It isn't checked against the folders table, since a stop can
 // be saved a moment before its new folder's name.
 // done is no longer shown; it's kept so older clients' writes still validate.
 export type Stop = {
   id: string; name: string; address: string; lat: number; lng: number;
-  time: string; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; folder: string | null; done: boolean; by: string; updatedAt: number;
+  time: string; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; folder: string | null; done: boolean; by: string; updatedAt: number;
 };
 // A folder groups stops under a name. It isn't a place: it has no place or time of its own, only its stops.
 export type Folder = { id: string; name: string };
@@ -44,10 +47,16 @@ const MAX_FOLDER_NAME = 100;
 // Stop types; the app gives each an icon and color. Keep in sync with KINDS in web/app.js.
 export const KINDS = ['place', 'airport', 'hotel', 'restaurant', 'cafe', 'attraction', 'museum', 'viewpoint', 'nature', 'shopping', 'gas'] as const;
 type Kind = typeof KINDS[number];
+// How you get to a stop. Drive, walk and bike follow a route; transit and flights are drawn straight, with no time.
+// Keep in sync with TRAVEL in web/app.js.
+export const TRAVEL = ['drive', 'walk', 'bike', 'transit', 'flight'] as const;
+export type Travel = typeof TRAVEL[number];
+export type Back = Record<string, Travel>;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_NIGHTS = 30;
-// The home card's route sketch needs only where the stops are; a trip longer than this is cut off there.
+// The home card's route sketch needs only where the stops are and how you get to each (and back to a hotel); a trip longer than this is cut off there.
 const PREVIEW_STOPS = 300;
-export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights'>[] };
+export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights' | 'travel' | 'back'>[] };
 
 // Checks a full stop (create) or a partial one (patch); unknown keys are dropped.
 export function cleanStop(input: unknown, partial: boolean): Partial<StopFields> {
@@ -78,12 +87,24 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
     out.kind = i.kind as Kind | '';
   }
   if (i.nights !== undefined) {
-    if (i.nights !== null && !(Number.isInteger(i.nights) && (i.nights as number) >= 1 && (i.nights as number) <= MAX_NIGHTS)) throw new Error(ERR.invalid);
+    if (i.nights !== null && !(Number.isInteger(i.nights) && (i.nights as number) >= 0 && (i.nights as number) <= MAX_NIGHTS)) throw new Error(ERR.invalid);
     out.nights = i.nights as number | null;
   }
   if (i.checkout !== undefined) {
     if (i.checkout !== null && !(typeof i.checkout === 'string' && CLOCK.test(i.checkout))) throw new Error(ERR.invalid);
     out.checkout = i.checkout as string | null;
+  }
+  if (i.travel !== undefined) {
+    if (!TRAVEL.includes(i.travel as Travel)) throw new Error(ERR.invalid);
+    out.travel = i.travel as Travel;
+  }
+  if (i.back !== undefined) {
+    // A stay is at most 30 nights, and the check-in day can have its own way back
+    const b = i.back;
+    if (!b || typeof b !== 'object' || Array.isArray(b) || Object.keys(b).length > MAX_NIGHTS + 1) throw new Error(ERR.invalid);
+    const entries = Object.entries(b as Record<string, unknown>);
+    if (entries.some(([d, t]) => !DAY.test(d) || !TRAVEL.includes(t as Travel))) throw new Error(ERR.invalid);
+    out.back = Object.fromEntries(entries.filter(([, t]) => t !== 'drive')) as Back;
   }
   if (i.folder !== undefined) {
     if (i.folder !== null && !(typeof i.folder === 'string' && ID.test(i.folder))) throw new Error(ERR.invalid);
@@ -93,12 +114,13 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
     if (typeof i.done !== 'boolean') throw new Error(ERR.invalid);
     out.done = i.done;
   }
-  if (!partial) out = { address: '', note: '', kind: '', nights: null, checkout: null, folder: null, done: false, ...out };
+  if (!partial) out = { address: '', note: '', kind: '', nights: null, checkout: null, travel: 'drive', back: {}, folder: null, done: false, ...out };
   return out;
 }
 
-type StopRow = Omit<Stop, 'done' | 'updatedAt'> & { done: number; updated_at: number };
-const toStop = ({ done, updated_at, ...r }: StopRow): Stop => ({ ...r, done: !!done, updatedAt: updated_at });
+type StopRow = Omit<Stop, 'done' | 'updatedAt' | 'back'> & { done: number; updated_at: number; back: string };
+const parseBack = (back: string): Back => { try { return JSON.parse(back) || {}; } catch { return {}; } };
+const toStop = ({ done, updated_at, back, ...r }: StopRow): Stop => ({ ...r, back: parseBack(back), done: !!done, updatedAt: updated_at });
 
 export class TripRoom extends DurableObject<Env> {
   private sql = this.ctx.storage.sql;
@@ -112,11 +134,13 @@ export class TripRoom extends DurableObject<Env> {
         id text primary key, name text not null, address text not null, lat real not null, lng real not null,
         time text not null, note text not null, done integer not null, by text not null, updated_at integer not null
       );`);
-    // Added after launch: stop types, hotel nights and check-out time
+    // Added after launch: stop types, hotel nights, check-out time and how you get there
     const cols = new Set(this.sql.exec<{ name: string }>('pragma table_info(stops)').toArray().map(c => c.name));
     if (!cols.has('kind')) this.sql.exec("alter table stops add column kind text not null default ''");
     if (!cols.has('nights')) this.sql.exec('alter table stops add column nights integer');
     if (!cols.has('checkout')) this.sql.exec('alter table stops add column checkout text');
+    if (!cols.has('travel')) this.sql.exec("alter table stops add column travel text not null default 'drive'");
+    if (!cols.has('back')) this.sql.exec("alter table stops add column back text not null default '{}'");
     // ...and folders
     if (!cols.has('folder')) this.sql.exec('alter table stops add column folder text');
     this.sql.exec('create table if not exists folders (id text primary key, name text not null)');
@@ -179,8 +203,8 @@ export class TripRoom extends DurableObject<Env> {
     this.check(userId);
     const f = cleanStop(input, false) as StopFields;
     this.sql.exec(
-      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, checkout, folder, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, f.checkout, f.folder, +f.done, userId, Date.now());
+      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), f.folder, +f.done, userId, Date.now());
     return this.afterStopWrite(stopId);
   }
 
@@ -190,7 +214,7 @@ export class TripRoom extends DurableObject<Env> {
     const f = cleanStop(input, true);
     if (!this.sql.exec('select 1 from stops where id = ?', stopId).toArray().length) throw new Error(ERR.notFound);
     const cols = Object.keys(f) as (keyof StopFields)[];
-    const vals = cols.map(k => (k === 'done' ? +f.done! : f[k]));
+    const vals = cols.map(k => (k === 'done' ? +f.done! : k === 'back' ? JSON.stringify(f.back) : f[k]));
     this.sql.exec(
       `update stops set ${[...cols, 'by', 'updated_at'].map(c => `${c} = ?`).join(', ')} where id = ?`,
       ...vals, userId, Date.now(), stopId);
@@ -357,7 +381,8 @@ export class TripRoom extends DurableObject<Env> {
   private preview(): Preview {
     return {
       members: this.sql.exec<Member>('select id, name, image, identity from members order by joined_at').toArray(),
-      stops: this.sql.exec<Preview['stops'][number]>('select id, name, lat, lng, time, kind, nights from stops order by time, id limit ?', PREVIEW_STOPS).toArray(),
+      stops: this.sql.exec<Omit<Preview['stops'][number], 'back'> & { back: string }>('select id, name, lat, lng, time, kind, nights, travel, back from stops order by time, id limit ?', PREVIEW_STOPS)
+        .toArray().map(s => ({ ...s, back: parseBack(s.back) })),
     };
   }
   private broadcast(event: TripEvent, by?: string) {

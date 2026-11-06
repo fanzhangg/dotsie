@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 9.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 9.4.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -218,6 +218,7 @@ Offline: `download` (saving, and Save for offline), `saved` (saved on this devic
 
 Stop types: `plane` `bed` `utensils` `cup` `star` `museum` `tree` `camera` `bag` `fuel` (with `pin` for a plain place).
 
+How you get there: `car` `walk` `bike` `train` `plane` (Drive, Walk, Bike, Transit, Flight).
 Folders: `indent` (into a folder), `outdent` (out of one) and `stack-add` (a new folder: two discs piled up, as a folder's marker is, and a plus). They show behind a row being swiped.
 
 ```js
@@ -381,6 +382,8 @@ Every type has its own color, so no two look alike. The colors follow maps apps 
 - Set `--wt-kind-color` on the marker or on a parent, to `var(--wt-kind-<kind>)`. Without one, the marker is grey.
 - The colors are about as light as each other, so no type looks more important than another; what matters more (a late drive, now) is louder than any of them.
 - `--sm` (20px) is for the day list. The default is 30px.
+- `.wt-option__meta`, after `__text`, puts a short value on the right of an option, such as a way's time (`17 min`).
+- `--travel` is a way of getting somewhere (Drive, Walk, Bike, Transit, Flight) in the list of them: flat `--wt-kind-drive` grey with no shading, like a drive's car on the rail, so a way never looks like a stop type. `<i class="wt-marker wt-marker--travel">${icon('walk')}</i>`
 - `--stack` is a [folder](#folders-wt-tl-stop--folder)'s marker: its stops' type, with a second disc of the same color piled straight up behind it. The disc's rings are the color of what's behind the marker, `--wt-stack-ground` (set for you in the timeline, a picker and a checked option).
 - `--none` is an empty dashed ring where a folder's marker would be, for "None" in the Folder picker, so the names still line up.
 - The `aria-label` names the type, so color is never the only signal.
@@ -418,7 +421,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - **Links in a note can be tapped.** Each shows only its site (`booking.com`), in blue, so a long link doesn't fill the row; tapping it opens the page and doesn't select the stop. Since a link can't sit inside a `<button>`, the row is a `div` with `role="button"`, `tabindex="0"` and `aria-pressed`, like a drive, and Enter or Space selects it.
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
 - **The day before's last stop:** with no hotel the night before, a day opens with that stop. In place of a time, `.wt-tl-time__day` says which day it was: "Yesterday", or the weekday ("Sat").
-- **Drive** (`.wt-tl-drive`): a car on the rail and "1 hr 49 min drive". Tapping it shows its route; Directions to the maps app goes in the add bar (see [the add bar](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)), not in the row.
+- **Drive** (`.wt-tl-drive`): a car on the rail and "1 hr 49 min drive". The same row is any leg: put the way's icon in `.wt-tl-car` in place of the car and finish the sentence with it ("12 min walk", "25 min bike ride"); a leg with no time (transit, a flight) is just its name in the `<b>`: `<b>Flight</b>`. Tapping it shows its route; Directions to the maps app goes in the add bar (see [the add bar](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)), not in the row.
   - **Hierarchy:** the drive's text is 13px in `--wt-text-tertiary`, its duration medium in `--wt-text-secondary`. Stop names are the only strong text in the list, so the day reads as its stops, with drives as the links between them. The drive you're on darkens its duration to primary and its car to black; a late drive turns both red.
   - **Spacing:** stops get `--wt-tl-pad` (12px) above and below their text; drives are a 32px row. The rail column (`--wt-tl-rail`) is 40px. Change `--wt-tl-pad` on `.wt-tl` to tighten or loosen the list; the markers follow.
   - The car (`.wt-tl-car`) is a marker like a stop's: a 22px circle in `--wt-kind-drive` grey with the `car` icon in `--wt-marker-ink`. Smaller and greyer than any stop, so drives never outrank them. On the selected drive it turns a darker grey (`--wt-kind-drive-current`), on the drive you're on black (`--wt-now`), on a late drive red (`--wt-danger`), and once it's over light grey (`--wt-kind-past`). Never blue: blue is for routes on the map.
@@ -587,7 +590,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 - **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
 - **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Check-in and check-out". ↑ ↓ move between types.
 - **One time for a stop: Arrive**, when you get there. There's no leave time: the drive after a stop sets off just in time for the next one.
-- **Check-out** shows only for a hotel, under Check-in, and is a day and time like it. Arrive becomes Check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. Check-out is at least a night after check-in and at most 30 (`min` and `max`); a day outside that, or an empty field, goes back to the last good one when you leave the field. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 1–30 nights.
+- **Check-out** shows only for a hotel, under Check-in, and is a day and time like it. Arrive becomes Check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. Check-out is after check-in, as early as the same day (0 nights, for a stay that starts after midnight), and at most 30 nights later (`min` is the check-in, `max` 30 days on); a day after that, or an empty field, goes back to the last good one when you leave the field. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 0–30 nights.
 - **Date and time fields** (`.wt-input` on `date`, `time` and `datetime-local`) are drawn like any other field on iPhone, so they read from the left and stay inside the sheet, rather than Safari's centred control, which is wider than the sheet.
 - **`.wt-input-group`** is a `.wt-input` box with a fixed `__prefix` and a bare `<input>` after it. Make the box a `<label>` so a tap anywhere opens the input, and label the input with `aria-labelledby`.
 - `.wt-nights` (the stepper), `.wt-field-row` and `.wt-input-group` are no longer used: Check-out became a day and time, which replaced the stepper and the day shown before the time. They can go in the next major version.
@@ -634,7 +637,7 @@ With a stop selected, the add bar holds Open in Maps, a round Edit stop and a ro
 - **The map:** a new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route opens the sheet to half. Zooming doesn't move the sheet.
 - The top holds the grab handle and the day bar, with a 1px `--wt-border-default` line under it that divides the day bar from the list (left out when the day bar is hidden, on an empty trip). The handle is laid over the day bar's top edge rather than taking a row of its own; the day bar's buttons sit above it and take their own taps, and a tap anywhere else on that strip is the handle's. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
-- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes **Open in Maps** (the place in the maps app picked in Account, the same one Directions opens; `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`), then a round white **Edit stop** with only its pencil, then a round `+`, so adding is always one tap away. Seeing what a place is (its photos, reviews and hours) is what you most often want from a stop on the road, so it's the black button; editing is one tap to its right. A stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, as Open in Maps) with the same `+`. It's always one primary button. Every button in the bar is a pill (the 44px ones are circles), so the row reads as one set.
+- **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes **Open in Maps** (the place in the maps app picked in Account, the same one Directions opens; `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`), then a round white **Edit stop** with only its pencil, then a round `+`, so adding is always one tap away. Seeing what a place is (its photos, reviews and hours) is what you most often want from a stop on the road, so it's the black button; editing is one tap to its right. A stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, as Open in Maps), then a round white button with the leg's way (`car`, `walk`…) that changes it, then the same `+`. A flight has no directions, so its black button is Open in Maps, for where it lands. It's always one primary button. Every button in the bar is a pill (the 44px ones are circles), so the row reads as one set.
 - **Changing set morphs** (see [Motion](#elevation-motion-layers)): Add stop shrinks to the right into the `+`, Open in Maps grows from the left and Edit stop grows in between; clearing the selection runs it back. Open in Maps and Directions stretch into each other.
 - Tapping a selected stop or a shown drive again keeps it selected, and at half nothing animates: it's already in the middle.
 - **One row is the half list's focus**, and it sits in the middle of the list: the selected row (`.is-selected` or `.is-active`), or else, on today, the `is-now` row. When the sheet changes height and the list has to scroll, move both together, on one timeline, so the row goes straight to the middle. The app does this frame by frame and turns off the sheet's height transition.
@@ -911,7 +914,7 @@ Say what can go here, in the user's words. No illustrations.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
 
-### Added in 9.2.0
+### Added in 9.4.0
 
 Folders: stops that follow each other, grouped under a name.
 
@@ -920,7 +923,21 @@ Folders: stops that follow each other, grouped under a name.
 - New: `.wt-pin--folder`, `.wt-pin--open` and `.is-folder-open` on `.wt-pins`.
 - New: swiping a row, `.wt-tl-swipe` with `__in`, `__out`, `is-in`, `is-out`, `is-new`, `is-armed`; `is-swiping`, `is-settling` and `is-swipe-target` on rows; `is-swiping-row` on the root. `.wt-tl` is now `position: relative`, and `.wt-tl-stop` has `touch-action: pan-y`.
 - New: a `disabled` `.wt-option`.
-- New icons: `indent`, `outdent`, `stack-add` (icons v1.6.0).
+- New icons: `indent`, `outdent`, `stack-add` (icons v1.7.0).
+- Tokens are unchanged.
+
+### Added in 9.3.0
+
+- New: `.wt-option__meta`, a short value on the right of an option, before its check: how long each way of getting there takes. Secondary ink, tabular numbers.
+- Tokens are unchanged.
+
+### Added in 9.2.0
+
+A leg can be a walk, a bike ride, transit or a flight, not only a drive.
+
+- New icons: `walk`, `bike` and `train` (icons v1.6.0). With `car` and `plane`, they're the ways of getting somewhere.
+- New: `.wt-marker--travel`, a way in the list of them: a flat grey marker like a drive's car.
+- `.wt-tl-car` holds the leg's way's icon, not only `car`.
 - Tokens are unchanged.
 
 ### Added in 9.1.0

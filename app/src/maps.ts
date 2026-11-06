@@ -1,4 +1,4 @@
-/* Place search, drive routes and the home cards' map pictures, proxied so the Stadia key stays on the server, and
+/* Place search, routes (by car, on foot, by bike) and the home cards' map pictures, proxied so the Stadia key stays on the server, and
    routes and pictures are cached. Map tiles don't come through here: the browser loads them from Stadia directly,
    authorized by domain. */
 
@@ -8,6 +8,13 @@ export type Route = { duration: number; distance: number; coords: [number, numbe
 
 const STADIA = 'https://api.stadiamaps.com';
 const ROUTE_TTL = 60 * 60 * 24 * 30; // drive times barely change; refresh monthly
+// The ways of getting somewhere that follow a route. Transit and flights don't: the app draws them straight, with no time.
+export type RouteMode = 'drive' | 'walk' | 'bike';
+export const ROUTE_MODES: readonly RouteMode[] = ['drive', 'walk', 'bike'];
+const COSTING = { drive: 'auto', walk: 'pedestrian', bike: 'bicycle' } as const;
+// Drives keep the key they've always had, so routes already looked up stay
+const routeKey = (mode: RouteMode, a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+  `${mode}:${a.lng.toFixed(5)},${a.lat.toFixed(5)};${b.lng.toFixed(5)},${b.lat.toFixed(5)}`;
 
 // Autocomplete, biased toward the trip's area when the client sends one of its stops.
 export async function searchPlaces(env: Env, q: string, near?: { lat: number; lng: number }): Promise<Place[]> {
@@ -32,18 +39,18 @@ export async function searchPlaces(env: Env, q: string, near?: { lat: number; ln
   }));
 }
 
-export async function driveRoute(env: Env, a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<Route> {
-  const key = `drive:${a.lng.toFixed(5)},${a.lat.toFixed(5)};${b.lng.toFixed(5)},${b.lat.toFixed(5)}`;
+export async function findRoute(env: Env, mode: RouteMode, a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<Route> {
+  const key = routeKey(mode, a, b);
   const hit = await env.ROUTES.get<Route>(key, 'json');
   if (hit) return hit;
-  const route = env.STADIA_API_KEY ? await stadiaRoute(env, a, b) : await devRoute(a, b);
+  const route = env.STADIA_API_KEY ? await stadiaRoute(env, mode, a, b) : await devRoute(mode, a, b);
   await env.ROUTES.put(key, JSON.stringify(route), { expirationTtl: ROUTE_TTL });
   return route;
 }
 
-// A drive someone on the trip has already looked up, without looking it up now
-export const cachedRoute = (env: Env, a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
-  env.ROUTES.get<Route>(`drive:${a.lng.toFixed(5)},${a.lat.toFixed(5)};${b.lng.toFixed(5)},${b.lat.toFixed(5)}`, 'json');
+// A route someone on the trip has already looked up, without looking it up now
+export const cachedRoute = (env: Env, mode: RouteMode, a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+  env.ROUTES.get<Route>(routeKey(mode, a, b), 'json');
 
 // ---------- Static map: a home card's picture of the trip ----------
 // Stadia draws the lines and dots on its basemap and frames the picture to fit them. The cacheable endpoint is the one
@@ -95,11 +102,11 @@ async function sha256hex(s: string) {
   return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function stadiaRoute(env: Env, a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<Route> {
+async function stadiaRoute(env: Env, mode: RouteMode, a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<Route> {
   const res = await fetch(`${STADIA}/route/v1?api_key=${env.STADIA_API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ locations: [{ lat: a.lat, lon: a.lng }, { lat: b.lat, lon: b.lng }], costing: 'auto', units: 'kilometers' }),
+    body: JSON.stringify({ locations: [{ lat: a.lat, lon: a.lng }, { lat: b.lat, lon: b.lng }], costing: COSTING[mode], units: 'kilometers' }),
   });
   if (!res.ok) throw new Error(`Stadia route ${res.status}`);
   const { trip } = await res.json<{ trip: { summary: { time: number; length: number }; legs: { shape: string }[] } }>();
@@ -131,8 +138,15 @@ async function devSearch(q: string, near?: { lat: number; lng: number }): Promis
   });
 }
 
-async function devRoute(a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<Route> {
-  const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`, { headers: DEV_UA });
+// The OSRM demo server only drives; OpenStreetMap Germany's runs the same API on foot and by bike (as openstreetmap.org's
+// directions call it: the profile in the path is always driving, the server decides)
+const DEV_ROUTER = {
+  drive: 'https://router.project-osrm.org/route/v1/driving',
+  walk: 'https://routing.openstreetmap.de/routed-foot/route/v1/driving',
+  bike: 'https://routing.openstreetmap.de/routed-bike/route/v1/driving',
+};
+async function devRoute(mode: RouteMode, a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<Route> {
+  const res = await fetch(`${DEV_ROUTER[mode]}/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`, { headers: DEV_UA });
   const j = await res.json<{ code: string; routes: { duration: number; distance: number; geometry: { coordinates: [number, number][] } }[] }>();
   if (j.code !== 'Ok') throw new Error(`OSRM ${j.code}`);
   const rt = j.routes[0];
