@@ -1,5 +1,5 @@
 import type { McpProps } from './oauth';
-import { ERR, KINDS, TRAVEL, type Stop, type TripRoom } from './trip';
+import { ERR, KINDS, TRAVEL, cleanStop, type Stop, type TripRoom } from './trip';
 
 /* An MCP server, so an AI assistant can read a trip's stops and add, change or remove them for you. It speaks MCP's
    Streamable HTTP transport without sessions: every POST to /api/mcp is one JSON-RPC message, answered with
@@ -16,7 +16,8 @@ type Tool = {
 
 // Versions this server can speak. The tools use nothing that differs between them.
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
-const SERVER = { name: 'waythread', title: 'Waythread', version: '1.0.0' };
+// Bump the version whenever a tool or its arguments change: a client may keep its copy of the tools until it does.
+const SERVER = { name: 'waythread', title: 'Waythread', version: '1.1.0' };
 const INSTRUCTIONS = `Waythread plans road trips. A trip is a list of stops, each with a trip-local time ("YYYY-MM-DDTHH:MM", no time zone).
 Call list_trips to find a trip and list_stops to see its plan; add_stop, edit_stop and delete_stop change it. Changes show at once for everyone on the trip.
 Stops that follow each other can share a folder, a name that groups them (the stops in a park, say). It isn't a place and has no time of its own. add_folder makes one; a stop goes in or out with its folder field.
@@ -37,7 +38,56 @@ const folderId = (v: unknown) => {
 };
 // Like the app's ids for the stops and folders it adds (uid in web/app.js)
 const newId = () => [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join('');
-const fieldsOf = (args: Record<string, unknown>) => Object.fromEntries(Object.entries(args).filter(([k]) => k in EDITABLE));
+// The fields a tool was given that a stop has, each checked on its own, so an error names the one that's wrong
+function fieldsOf(args: Record<string, unknown>) {
+  const fields = Object.fromEntries(Object.entries(args).filter(([k]) => k in EDITABLE));
+  if (fields.links !== undefined) fields.links = linksOf(fields.links);
+  for (const [k, v] of Object.entries(fields)) {
+    try { cleanStop({ [k]: v }, true); } catch {
+      const about = (EDITABLE as Record<string, { description?: string }>)[k].description;
+      throw new ToolError(`${k} isn’t valid${about ? `: ${about}` : '. Check its format in the tool’s input schema'}.`);
+    }
+  }
+  return fields;
+}
+
+// Links as an assistant may send them, as [{ url, label }]. A client whose copy of the tools predates links, or a
+// model guessing, sends them as a JSON string, bare addresses, one link on its own, a title in place of a label, or
+// an address without https://. Each of those is taken; anything else gets an error that says what to send.
+const LINKS_FORMAT = 'Send links as an array of { "url": "https://…", "label": "a few words" }, or add one at a time with add_link.';
+function linksOf(v: unknown) {
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (/^[[{]/.test(t)) {
+      try { v = JSON.parse(t); } catch { throw new ToolError(`links isn’t valid JSON. ${LINKS_FORMAT}`); }
+    } else v = t ? [t] : [];
+  }
+  if (v && typeof v === 'object' && !Array.isArray(v)) v = [v];
+  if (!Array.isArray(v)) throw new ToolError(`links isn’t a list. ${LINKS_FORMAT}`);
+  if (v.length > MAX_LINKS) throw new ToolError(`A stop has at most ${MAX_LINKS} links; this sends ${v.length}.`);
+  return v.map((x, i) => linkOf(x, `links[${i}]`));
+}
+function linkOf(x: unknown, where: string) {
+  const o = typeof x === 'string' ? { url: x } : x && typeof x === 'object' ? x as Record<string, unknown> : null;
+  if (!o) throw new ToolError(`${where} isn’t a link. ${LINKS_FORMAT}`);
+  const url = webAddress(o.url ?? o.href ?? o.link), label = o.label ?? o.title ?? o.name ?? o.text ?? '';
+  if (!url) throw new ToolError(`${where}: ${JSON.stringify(o.url ?? o.href ?? o.link ?? null)} isn’t a web address. Links are http(s) pages.`);
+  if (typeof label !== 'string') throw new ToolError(`${where}: its label must be text.`);
+  // A long label is cut, not refused: the button shows a few words at most
+  const short = label.trim().length > MAX_LABEL ? `${label.trim().slice(0, MAX_LABEL - 1).trimEnd()}…` : label.trim();
+  return { url, label: short };
+}
+// "booking.com/…" becomes https://booking.com/…; '' for anything that isn't an http(s) address
+function webAddress(v: unknown) {
+  if (typeof v !== 'string') return '';
+  const t = v.trim();
+  if (!t || /\s/.test(t)) return '';
+  try {
+    const u = new URL(/^[a-z][a-z\d+.-]*:/i.test(t) && !/^[\w-]+(\.[\w-]+)+(:\d+)?(\/|$)/.test(t) ? t : `https://${t}`);
+    return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname.includes('.') ? u.href : '';
+  } catch { return ''; }
+}
+const MAX_LINKS = 10, MAX_LABEL = 60;
 // What a tool error says to the assistant, which can then fix its call
 class ToolError extends Error {}
 const ERROR_TEXT: Record<string, string> = {
@@ -181,7 +231,7 @@ const TOOLS: Tool[] = [
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     async run(env, user, { trip_id, stop_id, url, label }) {
-      const stop = await room(env, trip_id).addLink(user.id, stopId(stop_id), { url, label });
+      const stop = await room(env, trip_id).addLink(user.id, stopId(stop_id), linkOf({ url, label }, 'url'));
       return { stop: stopOut(stop, new Map([[user.id, user.name]])) };
     },
   },
