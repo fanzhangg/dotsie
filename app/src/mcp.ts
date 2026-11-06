@@ -18,7 +18,8 @@ type Tool = {
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 const SERVER = { name: 'waythread', title: 'Waythread', version: '1.0.0' };
 const INSTRUCTIONS = `Waythread plans road trips. A trip is a list of stops, each with a trip-local time ("YYYY-MM-DDTHH:MM", no time zone).
-Call list_trips to find a trip and list_stops to see its plan; add_stop, edit_stop and delete_stop change it. Changes show at once for everyone on the trip.`;
+Call list_trips to find a trip and list_stops to see its plan; add_stop, edit_stop and delete_stop change it. Changes show at once for everyone on the trip.
+Stops that follow each other can share a folder, a name that groups them (the stops in a park, say). It isn't a place and has no time of its own. add_folder makes one; a stop goes in or out with its folder field.`;
 
 const ID = /^[A-Za-z0-9_-]{6,40}$/;
 const room = (env: Env, tripId: unknown) => {
@@ -29,13 +30,17 @@ const stopId = (v: unknown) => {
   if (typeof v !== 'string' || !ID.test(v)) throw new ToolError('stop_id isn’t a stop id. Call list_stops for one.');
   return v;
 };
-// Like the app's ids for the stops it adds (uid in web/app.js)
-const newStopId = () => [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join('');
+const folderId = (v: unknown) => {
+  if (typeof v !== 'string' || !ID.test(v)) throw new ToolError('folder_id isn’t a folder id. Call list_stops for one.');
+  return v;
+};
+// Like the app's ids for the stops and folders it adds (uid in web/app.js)
+const newId = () => [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join('');
 const fieldsOf = (args: Record<string, unknown>) => Object.fromEntries(Object.entries(args).filter(([k]) => k in EDITABLE));
 // What a tool error says to the assistant, which can then fix its call
 class ToolError extends Error {}
 const ERROR_TEXT: Record<string, string> = {
-  [ERR.notFound]: 'No such trip or stop. Call list_trips or list_stops for ids.',
+  [ERR.notFound]: 'No such trip, stop or folder. Call list_trips or list_stops for ids.',
   [ERR.notMember]: 'You’re not on this trip.',
   [ERR.gone]: 'This trip was deleted.',
   [ERR.invalid]: 'A field isn’t valid. Check the formats in the tool’s input schema.',
@@ -44,7 +49,7 @@ const ERROR_TEXT: Record<string, string> = {
 // A stop as the assistant sees it: the fields it can edit, plus who changed it last
 const stopOut = (s: Stop, names: Map<string, string>) => ({
   id: s.id, name: s.name, address: s.address, lat: s.lat, lng: s.lng, time: s.time, checkout: s.checkout,
-  kind: s.kind, nights: s.nights, travel: s.travel ?? 'drive', back: s.back ?? {}, note: s.note, updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
+  kind: s.kind, nights: s.nights, travel: s.travel ?? 'drive', back: s.back ?? {}, note: s.note, folder: s.folder, updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
 });
 const memberNames = (members: { id: string; name: string }[]) => new Map(members.map(m => [m.id, m.name]));
 
@@ -63,6 +68,7 @@ const EDITABLE = {
     description: 'A hotel only: how you get back to it each night, by the day you go back ("YYYY-MM-DD": way). Each night is its own leg; nights not listed are drives. Replaces the whole set, so send every night to keep',
   },
   note: { type: 'string', maxLength: 2000 },
+  folder: { type: ['string', 'null'], description: 'The id of the folder it’s in (from list_stops or add_folder), or null for none. A folder holds stops that follow each other by time: put a stop only in the folder of the stop just before or just after it' },
 };
 
 const TOOLS: Tool[] = [
@@ -84,7 +90,7 @@ const TOOLS: Tool[] = [
   {
     name: 'list_stops',
     title: 'List stops',
-    description: 'A trip’s plan: its stops in time order. Give day to see just that day’s stops.',
+    description: 'A trip’s plan: its stops in time order, and the folders they’re in. Give day to see just that day’s stops.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -100,7 +106,8 @@ const TOOLS: Tool[] = [
       const snap = await room(env, trip_id).snapshot(user.id);
       const names = memberNames(snap.members);
       const stops = snap.stops.filter(s => !day || s.time.startsWith(day as string)).map(s => stopOut(s, names));
-      return { trip: snap.trip, stops };
+      const used = new Set(stops.map(s => s.folder));
+      return { trip: snap.trip, stops, folders: snap.folders.filter(f => used.has(f.id)) };
     },
   },
   {
@@ -117,7 +124,7 @@ const TOOLS: Tool[] = [
     async run(env, user, { trip_id, ...fields }) {
       const missing = ['name', 'lat', 'lng', 'time'].filter(k => fields[k] === undefined);
       if (missing.length) throw new ToolError(`A new stop needs ${missing.join(', ')}.`);
-      const stop = await room(env, trip_id).putStop(user.id, newStopId(), fieldsOf(fields));
+      const stop = await room(env, trip_id).putStop(user.id, newId(), fieldsOf(fields));
       return { stop: stopOut(stop, new Map([[user.id, user.name]])) };
     },
   },
@@ -141,6 +148,42 @@ const TOOLS: Tool[] = [
       if (!Object.keys(changes).length) throw new ToolError(`Give at least one field to change: ${Object.keys(EDITABLE).join(', ')}.`);
       const stop = await room(env, trip_id).patchStop(user.id, id, changes);
       return { stop: stopOut(stop, new Map([[user.id, user.name]])) };
+    },
+  },
+  {
+    name: 'add_folder',
+    title: 'Add a folder',
+    description: 'Make a folder: a name that groups stops that follow each other, such as the viewpoints in a park. It starts empty; put stops in it with edit_stop (folder) or add_stop. Returns the folder with its new id.',
+    inputSchema: {
+      type: 'object',
+      properties: { trip_id: { type: 'string', description: 'From list_trips' }, name: { type: 'string', maxLength: 100 } },
+      required: ['trip_id', 'name'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    async run(env, user, { trip_id, name }) {
+      return { folder: await room(env, trip_id).putFolder(user.id, newId(), { name }) };
+    },
+  },
+  {
+    name: 'rename_folder',
+    title: 'Rename a folder',
+    description: 'Give a folder a new name. Returns the folder.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        trip_id: { type: 'string', description: 'From list_trips' },
+        folder_id: { type: 'string', description: 'From list_stops' },
+        name: { type: 'string', maxLength: 100 },
+      },
+      required: ['trip_id', 'folder_id', 'name'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    async run(env, user, { trip_id, folder_id, name }) {
+      const r = room(env, trip_id), id = folderId(folder_id);
+      if (!(await r.snapshot(user.id)).folders.some(f => f.id === id)) throw new Error(ERR.notFound);
+      return { folder: await r.putFolder(user.id, id, { name }) };
     },
   },
   {
