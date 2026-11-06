@@ -368,8 +368,6 @@ function protoNoteHTML(trip) {
     ${others.map(u => `<a href="${base}?as=${u.id}#/join/${token}" target="_blank">as ${u.name}</a>`).join(' or ')} in another tab.
     ${first ? `Trip days highlight what's happening now: <a href="${base}?today=${dayOf(first)}&now=14:10#/trip/${trip.id}">preview day 1 at 2:10 PM</a>.` : ''}</div>`;
 }
-// The app's home cards show a map picture made by its server; with no server, they keep the route sketch
-const mapImageURL = () => null;
 const fromSnapshot = s => ({ id: s.trip.id, name: s.trip.name, members: s.members, stops: s.stops, folders: s.folders || [] });
 
 // Writes show at once and save in the background. If one fails, reload the trip so the screen
@@ -1208,10 +1206,11 @@ function tripCardHTML(t, past, today) {
       <span class="wt-visually-hidden">, with ${esc(people.map(m => m.name).join(', '))}</span>` : ''}
     </span></a>`;
 }
-// A trip's route for its card: a map picture with the drives and places drawn on it (see mapImageURL), and under it, a
-// sketch of the same, which shows while the picture loads and stays if it can't load. Like the overview's map, they
-// show each day's drives, along the roads where they've been looked up already (Home never looks routes up, so as not
-// to use up the limit), straight otherwise, as transit and flights always are, and a dot for each place in its type's color, with north up.
+// A trip's route for its card: a sketch of its drives and places, drawn here, so a card costs nothing from the Stadia
+// plan (a map picture from Stadia cost 2,000 credits each time a trip changed). Like the overview's map, it shows each
+// day's drives, along the roads where they've been looked up already (Home never looks routes up, so as not to use up
+// the limit), straight otherwise, as transit and flights always are, and a dot for each place in its type's color,
+// with north up.
 const SKETCH_W = 320, SKETCH_H = 128, SKETCH_PAD = 16, SKETCH_MIN_SPAN = 0.01; // the sketch's own units (5:2, as its box); degrees
 const mercY = lat => -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * 180 / Math.PI; // down the page
 function tripMapHTML(t, past) {
@@ -1223,16 +1222,7 @@ function tripMapHTML(t, past) {
     for (let i = 1; i < plan.length; i++) if (!samePlace(plan[i - 1].place, plan[i].place)) legs.push([plan[i - 1].place, plan[i].place, wayTo(plan[i])]);
   }
   const places = stops.filter((s, i) => stops.findIndex(o => samePlace(o, s)) === i);
-  const hex = name => token(name).replace('#', '');
-  const query = new URLSearchParams({
-    theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-    route: hex(past ? '--wt-route-done' : '--wt-route'),
-    legs: legs.map(([a, b, way]) => `${stops.indexOf(a)}-${stops.indexOf(b)}${way === 'drive' ? '' : `:${way}`}`).join(','),
-    dots: places.map(s => `${stops.indexOf(s)}:${hex(past ? '--wt-kind-past' : `--wt-kind-${kindOf(s)}`)}`).join(','),
-    v: stops.map(s => `${s.lat},${s.lng}`).join(';').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0).toString(36), // a new picture when a place moves
-  }).toString().replace(/%2C/g, ',').replace(/%3A/g, ':');
-  const src = mapImageURL(t.id, query);
-  return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG(legs, places, past)}${src ? `<img class="wt-trip-card__photo" src="${esc(src)}" alt="" loading="lazy" decoding="async">` : ''}</span>`;
+  return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG(legs, places, past)}</span>`;
 }
 function routeSketchSVG(legs, places, past) {
   const lines = legs.map(([a, b, way]) => { const r = routes[legKey(a, b, way)]; return r?.ok && r.coords.length > 1 ? { road: true, coords: r.coords } : { road: false, coords: [[a.lat, a.lng], [b.lat, b.lng]] }; });
@@ -1262,10 +1252,6 @@ function routeSketchSVG(legs, places, past) {
     ${places.map((s, i) => `<path class="wt-trip-card__stop" style="--wt-kind-color: ${past ? 'var(--wt-kind-past)' : kindColor(s)}" d="${dots[i]}"/>`).join('')}
   </svg>`;
 }
-// The picture fades in over the sketch once it's loaded; if it can't load, the sketch stays.
-// (load and error don't bubble, and load never reaches window, so these listen on the document, on the way down.)
-document.addEventListener('load', e => { if (e.target.classList?.contains('wt-trip-card__photo')) e.target.classList.add('is-loaded'); }, true);
-document.addEventListener('error', e => { if (e.target.classList?.contains('wt-trip-card__photo')) e.target.remove(); }, true);
 
 // ---------- Trip screen: map + one day of the plan ----------
 // Stadia answers a domain it doesn't know with a "401" picture instead of an error, which Leaflet

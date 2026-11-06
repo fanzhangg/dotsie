@@ -1,5 +1,5 @@
-/* Place search, routes (by car, on foot, by bike) and the home cards' map pictures, proxied so the Stadia key stays on the server, and
-   routes and pictures are cached. Also the map's sights, from OpenStreetMap (see Sights below). Map tiles don't come
+/* Place search and routes (by car, on foot, by bike), proxied so the Stadia key stays on the server, and routes are
+   cached. Also the map's sights, from OpenStreetMap (see Sights below). Map tiles don't come
    through here: the browser loads them from Stadia directly, authorized by domain. */
 
 // category is the source's place category (e.g. "accommodation", "tourism:museum"), for the app's first guess at a stop's type
@@ -51,56 +51,6 @@ export async function findRoute(env: Env, mode: RouteMode, a: { lat: number; lng
 // A route someone on the trip has already looked up, without looking it up now
 export const cachedRoute = (env: Env, mode: RouteMode, a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
   env.ROUTES.get<Route>(routeKey(mode, a, b), 'json');
-
-// ---------- Static map: a home card's picture of the trip ----------
-// Stadia draws the lines and dots on its basemap and frames the picture to fit them. The cacheable endpoint is the one
-// whose pictures may be kept, so each is made once: it's cached here by what's drawn, and only a change makes a new one.
-export type StaticMap = {
-  style: 'alidade_smooth' | 'alidade_smooth_dark';
-  lines: { coords: [number, number][]; color: string }[]; // [lat, lng]; colors are six hex digits, no '#'
-  dots: { lat: number; lng: number; color: string }[];
-};
-const MAP_SIZE = '500x200@2x'; // the card's 5:2 box, sharp on high-density screens
-const MAP_TTL = 60 * 60 * 24 * 30;
-export async function staticMap(env: Env, m: StaticMap, beforeMaking: () => Promise<void>): Promise<ArrayBuffer> {
-  const body = JSON.stringify({
-    size: MAP_SIZE,
-    lines: m.lines.map(l => ({ shape: encodePolyline6(l.coords), stroke_color: l.color, stroke_width: 3 })),
-    markers: m.dots.map(d => ({ lat: d.lat, lon: d.lng, color: d.color, style: `${m.style}_sm` })),
-  });
-  const key = new Request(`https://static-map.waythread.internal/${m.style}/${await sha256hex(body)}.png`);
-  const hit = await caches.default.match(key);
-  if (hit) return hit.arrayBuffer();
-  await beforeMaking();
-  const res = await fetch(`https://tiles.stadiamaps.com/static_cacheable/${m.style}?api_key=${env.STADIA_API_KEY}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
-  });
-  if (!res.ok || !res.headers.get('Content-Type')?.startsWith('image/')) {
-    throw new Error(`Stadia static map ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  }
-  const png = await res.arrayBuffer();
-  await caches.default.put(key, new Response(png, { headers: { 'Content-Type': 'image/png', 'Cache-Control': `public, max-age=${MAP_TTL}` } }));
-  return png;
-}
-// Stadia reads polylines at 6 digits of precision
-function encodePolyline6(coords: [number, number][]) {
-  let out = '', pLat = 0, pLng = 0;
-  const put = (v: number) => {
-    let n = v < 0 ? ~(v << 1) : v << 1;
-    while (n >= 0x20) { out += String.fromCharCode((0x20 | (n & 0x1f)) + 63); n >>= 5; }
-    out += String.fromCharCode(n + 63);
-  };
-  for (const [lat, lng] of coords) {
-    const a = Math.round(lat * 1e6), b = Math.round(lng * 1e6);
-    put(a - pLat); put(b - pLng);
-    pLat = a; pLng = b;
-  }
-  return out;
-}
-async function sha256hex(s: string) {
-  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 async function stadiaRoute(env: Env, mode: RouteMode, a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<Route> {
   const res = await fetch(`${STADIA}/route/v1?api_key=${env.STADIA_API_KEY}`, {
