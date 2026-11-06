@@ -492,7 +492,7 @@ const tileCache = id => `waythread-tiles:${id}`;
 const canSaveOffline = window.isSecureContext && 'caches' in window && 'serviceWorker' in navigator;
 const OFFLINE_WAIT = 4000; // ms a saved trip waits for the server before showing its copy (a weak signal)
 // Who's signed in and what sign-in offers, so the app opens offline, and each saved trip:
-// { snap (as /api/trips/:id sends it), savedAt, style (its map's tile address), tiles, bytes, missing, noMap }
+// { snap (as /api/trips/:id sends it), savedAt, style (its map: MapLibre's style, or the pictures' address), tiles, bytes, missing, noMap }
 let offline = { trips: {} };
 try { offline = JSON.parse(localStorage.getItem(OFFLINE_KEY)) || offline; } catch {}
 const storeOffline = () => { try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(offline)); } catch {} };
@@ -535,12 +535,19 @@ function keepOfflinePlan() {
   }, 1000);
 }
 
-// The map tiles a saved trip needs: each day's view, and the overview's, at its zoom (with a tile to spare around it),
-// a level out and a level in; and a street-level patch around each place. About 1–5 MB a day.
+// The map files a saved trip needs, for the map showing: each day's view, and the overview's, at its zoom (with a tile to
+// spare around it), a level out and a level in; and a street-level patch around each place. MapLibre's map also needs
+// its style, sprite and fonts, and its tiles go no closer than street level, where it enlarges them.
 function offlineTileURLs(trip) {
-  if (!map || !tiles) return [];
-  const urls = new Set([STADIA_CHECK]), size = map.getSize(), spare = L.point(128, 128), street = L.point(256, 256);
-  const add = (center, z, half) => { const c = map.project(center, z); for (const u of tiles.tileURLs(L.bounds(c.subtract(half), c.add(half)), z)) urls.add(u); };
+  const gs = basemap?.gs;
+  if (!map || !(tiles || gs)) return [];
+  const urls = new Set([STADIA_CHECK, ...(gs ? glFiles(gs) : [])]), size = map.getSize(), street = L.point(256, 256);
+  // MapLibre's map reaches a tenth of the map past each side (the plugin's padding)
+  const spare = L.point(128, 128).add(gs ? size.multiplyBy(0.1) : L.point(0, 0));
+  const add = (center, z, half) => {
+    const c = map.project(center, z), b = L.bounds(c.subtract(half), c.add(half));
+    for (const u of gs ? glTileURLs(gs, b, z) : tiles.tileURLs(b, z)) urls.add(u);
+  };
   for (const d of pagesOf(trip)) {
     const v = dayView(trip, d);
     if (!v) continue;
@@ -571,8 +578,10 @@ async function saveOffline(trip, { quiet = false } = {}) {
   const t = offline.trips[id] ||= { tiles: 0, bytes: 0 };
   t.snap = { trip: { id, name: trip.name }, members: trip.members, stops: trip.stops };
   t.savedAt = Date.now();
-  if (tiles) t.style = tiles._url;
-  t.noMap = !tiles;
+  // the map showing; a trip saved with the other kind keeps it until this one is all saved
+  const style = basemap?.gs.url || tiles?._url;
+  if (style && (!t.style || isGLStyle(t.style) === isGLStyle(style))) t.style = style;
+  t.noMap = !style;
   rememberSession();
   showOffline();
   // The app's own files: the page, its scripts and styles
@@ -612,6 +621,16 @@ async function saveOffline(trip, { quiet = false } = {}) {
   offlineJob = null;
   t.tiles = urls.length - missing;
   t.missing = cache ? missing : urls.length;
+  if (cache && !missing && style) {
+    t.style = style;
+    // tiles the trip no longer needs: around places taken out of it, or the other kind of map's
+    const keep = new Set(urls.map(u => new Request(u).url));
+    const gone = (await cache.keys()).filter(r => !keep.has(r.url) && /\/(tiles|data)\//.test(new URL(r.url).pathname));
+    if (gone.length) {
+      await Promise.all(gone.map(r => cache.delete(r)));
+      t.bytes = await cachedBytes(cache);
+    }
+  }
   storeOffline();
   showOffline();
   if (!quiet) {
@@ -619,6 +638,11 @@ async function saveOffline(trip, { quiet = false } = {}) {
       : { icon: ICON.saved, title: 'Available offline', detail: `${trip.name} is saved on this device.` });
   }
 }
+const cachedBytes = async cache => {
+  let n = 0;
+  for (const r of await cache.keys()) { const res = await cache.match(r); n += +res?.headers.get('content-length') || (await res?.blob())?.size || 0; }
+  return n;
+};
 // A saved trip, brought up to date once a visit, after the day on screen has loaded
 function topUpOffline(trip) {
   if (!savedTrip(trip.id) || trip.offline || toppedUp.has(trip.id) || !navigator.onLine) return;
@@ -1437,11 +1461,17 @@ const fetchedTiles = new Set(); // asked for once per visit; after that the brow
 let tileQueue = [], tilesInFlight = 0;
 function pumpTiles() {
   while (tilesInFlight < TILE_PRELOAD_PARALLEL && tileQueue.length) {
-    const img = new Image();
+    const src = tileQueue.shift(), done = () => { tilesInFlight--; pumpTiles(); };
     tilesInFlight++;
-    img.onload = img.onerror = () => { tilesInFlight--; pumpTiles(); };
-    img.src = tileQueue.shift();
+    // a picture as Leaflet loads it; MapLibre's tiles as sharedFetch does
+    if (src.endsWith('.pbf')) fetch(src, { priority: 'low' }).then(r => r.arrayBuffer()).catch(() => {}).finally(done);
+    else { const img = new Image(); img.onload = img.onerror = done; img.src = src; }
   }
+}
+// Tiles to load behind everything else, each once a visit
+function queueTiles(urls) {
+  for (const src of urls) if (!fetchedTiles.has(src)) { fetchedTiles.add(src); tileQueue.push(src); }
+  pumpTiles();
 }
 function bufferedTileLayer(url, opts) {
   const t = L.tileLayer(url, { keepBuffer: 4, ...opts });
@@ -1462,12 +1492,8 @@ function bufferedTileLayer(url, opts) {
   };
   // Every tile under pixel bounds `b` at zoom `z`: now, or with `later`, queued behind everything else
   t.prefetchArea = (b, z, later = false) => {
-    for (const src of t.tileURLs(b, z)) {
-      if (fetchedTiles.has(src)) continue;
-      fetchedTiles.add(src);
-      if (later) tileQueue.push(src); else new Image().src = src;
-    }
-    if (later) pumpTiles();
+    if (later) return queueTiles(t.tileURLs(b, z));
+    for (const src of t.tileURLs(b, z)) if (!fetchedTiles.has(src)) { fetchedTiles.add(src); new Image().src = src; }
   };
   t.on('load', () => {
     const m = t._map;
@@ -1485,9 +1511,9 @@ let tiles = null; // the Stadia pictures, shown or not: what's saved for offline
 
 // ---------- The basemap, drawn in the browser ----------
 // Stadia's pictures have the place and road names painted in, so a route drawn over them hides the names of the roads
-// it follows. Online, the map is Stadia's same style drawn by MapLibre from its vector tiles instead, in two layers:
-// land, water and roads under the routes, and the names, road numbers and places over them (the labels pane, between
-// the routes and the pins). The pictures stay for a trip opened from its saved copy, and when MapLibre can't run.
+// it follows. The map is Stadia's same style drawn by MapLibre from its vector tiles instead, in two layers: land,
+// water and roads under the routes, and the names, road numbers and places over them (the labels pane, between the
+// routes and the pins). The pictures stay when MapLibre can't run, and for a trip saved for offline with them.
 // MapLibre is loaded the first time a trip opens.
 const MAPLIBRE = ['https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js', 'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js'];
 let glLoaded = null;
@@ -1499,37 +1525,65 @@ const loadScript = src => new Promise((done, fail) => {
   document.head.append(s);
 });
 const loadGL = () => (glLoaded ??= MAPLIBRE.reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
-  .then(() => { maplibregl.addProtocol('wt-shared', sharedTile); return true; }, () => { glLoaded = null; return false; }));
-// Both layers draw from the same tiles and ask for each at the same moment, too soon for the browser's cache to answer
-// the second: they share one fetch per tile instead, so a tile counts once against the Stadia plan. Each gets its own
-// copy of the bytes, since MapLibre hands them over to its worker.
-const tileFetches = new Map();
-function sharedTile({ url }) {
+  .then(() => { maplibregl.addProtocol('wt-shared', sharedFetch); return true; }, () => { glLoaded = null; return false; }));
+// MapLibre asks for Stadia's tiles, sprite and fonts through this. Both layers draw from the same tiles and ask for each
+// at the same moment, too soon for the browser's cache to answer the second: they share one fetch per file instead, so
+// a tile counts once against the Stadia plan. Each gets its own copy of the bytes, since MapLibre hands them over to its
+// worker. The sprite and fonts asked for are noted, so saving the trip for offline saves them.
+const glFetches = new Map(), glUsed = new Set();
+function sharedFetch({ url, type }) {
   url = url.replace(/^wt-shared:/, 'https:');
-  let got = tileFetches.get(url);
+  if (!url.endsWith('.pbf') || url.includes('/fonts/')) glUsed.add(url);
+  let got = glFetches.get(url);
   if (!got) {
     got = fetch(url).then(r => {
       if (r.status === 401 || r.status === 403) glRefused?.();
       return r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`));
     });
-    tileFetches.set(url, got);
-    got.finally(() => tileFetches.delete(url)).catch(() => {}); // after that the browser's cache has it
+    glFetches.set(url, got);
+    got.finally(() => glFetches.delete(url)).catch(() => {}); // after that the browser's cache has it
   }
-  return got.then(buf => ({ data: buf.slice(0) }));
+  return got.then(buf => ({ data: type === 'json' ? JSON.parse(new TextDecoder().decode(buf)) : buf.slice(0) }));
 }
 const getJSON = url => fetch(url).then(r => (r.ok ? r.json() : null), () => null);
+const glStyleURL = dark => `https://tiles.stadiamaps.com/styles/alidade_smooth${dark ? '_dark' : ''}.json`;
+const isGLStyle = url => url.endsWith('.json'); // a saved trip's map: the vector style, or the pictures' address
+// A style, ready for MapLibre: { url, style, tiles (the tiles' address), minzoom, maxzoom, fonts, files (what else it reads) }.
+// Its tile source's description is read once here rather than by each layer, and everything Stadia serves for it goes
+// through sharedFetch.
 const glStyles = {};
-const glStyle = dark => (glStyles[dark] ??= getJSON(`https://tiles.stadiamaps.com/styles/alidade_smooth${dark ? '_dark' : ''}.json`).then(async s => {
-  // each tile source's description read once here, rather than by each layer, and its tiles fetched through sharedTile
-  for (const src of Object.values(s?.sources || {})) {
-    if (!src.url) continue;
-    const tj = await getJSON(src.url);
-    if (!tj?.tiles) return null;
-    Object.assign(src, { tiles: tj.tiles.map(t => t.replace(/^https:/, 'wt-shared:')), minzoom: tj.minzoom, maxzoom: tj.maxzoom, attribution: tj.attribution });
-    delete src.url;
+const glStyle = url => (glStyles[url] ??= getJSON(url).then(async style => {
+  const src = Object.values(style?.sources || {}).find(s => s.type === 'vector');
+  const tj = src?.url ? await getJSON(src.url) : src;
+  if (!tj?.tiles?.length) return null;
+  const files = [url, ...(src.url ? [src.url] : [])];
+  const shared = u => u.replace(/^https:/, 'wt-shared:');
+  Object.assign(src, { tiles: tj.tiles.map(shared), minzoom: tj.minzoom ?? 0, maxzoom: tj.maxzoom ?? 14, attribution: tj.attribution });
+  delete src.url;
+  if (typeof style.sprite === 'string') style.sprite = shared(style.sprite);
+  if (style.glyphs) style.glyphs = shared(style.glyphs);
+  const fonts = new Set(style.layers.map(l => l.layout?.['text-font']).filter(f => Array.isArray(f) && f.every(x => typeof x === 'string')).map(f => f.join(',')));
+  return { url, style, tiles: tj.tiles[0], minzoom: src.minzoom, maxzoom: src.maxzoom, fonts: [...fonts], files };
+}).then(s => { if (!s) delete glStyles[url]; return s; }));
+// The vector tiles MapLibre draws Leaflet's pixel bounds `b` at zoom `z` from. MapLibre's zoom is Leaflet's less one (its
+// tiles are twice the size), and it draws from the whole level below a fractional zoom, no closer than the tiles' highest
+// level. A tile at a level covers what one of Leaflet's 256-pixel tiles at that level does.
+function glTileURLs(gs, b, z) {
+  const k = Math.max(gs.minzoom, Math.min(gs.maxzoom, Math.floor(z - 1))), s = 2 ** (k - z), n = 2 ** k, out = [];
+  const lo = b.min.multiplyBy(s).divideBy(256).floor(), hi = b.max.multiplyBy(s).divideBy(256).floor();
+  for (let y = Math.max(lo.y, 0); y <= Math.min(hi.y, n - 1); y++) {
+    for (let x = lo.x; x <= hi.x; x++) out.push(gs.tiles.replace('{z}', k).replace('{x}', ((x % n) + n) % n).replace('{y}', y));
   }
-  return s;
-}).then(s => { if (!s) delete glStyles[dark]; return s; }));
+  return out;
+}
+// Everything else a style needs to be drawn with no connection: its own files, the sprite, and the fonts for Latin
+// names (the alphabet and its accents) and for any other names drawn so far
+function glFiles(gs) {
+  const sprite = gs.style.sprite?.replace(/^wt-shared:/, 'https:'), retina = devicePixelRatio > 1 ? '@2x' : '';
+  const glyphs = gs.style.glyphs?.replace(/^wt-shared:/, 'https:');
+  const fonts = glyphs ? gs.fonts.flatMap(f => ['0-255', '256-511'].map(r => glyphs.replace('{fontstack}', f).replace('{range}', r))) : [];
+  return [...gs.files, ...(sprite ? [`${sprite}${retina}.json`, `${sprite}${retina}.png`] : []), ...fonts, ...glUsed];
+}
 // Two changes to the plugin, so the map stays under the routes and pins, which move with every frame:
 // - while Leaflet zooms or flies, the plugin follows only the frames that change the zoom, and doesn't move its layer:
 //   a frame that only pans, or a pan at the same time (the keyboard's), left MapLibre's map behind. It follows each one here.
@@ -1549,16 +1603,17 @@ const glLayer = opts => new (L.MaplibreGL.extend({
   },
   _transformGL(gl) { L.MaplibreGL.prototype._transformGL.call(this, gl); gl.redraw(); },
 }))({ validateStyle: false, ...opts });
-let basemap = null; // MapLibre's layers, [under the routes, over them], when they're the map showing
+// The map MapLibre is drawing: { layers: [under the routes, over them], gs: its style (see glStyle) }
+let basemap = null;
 // Stadia gives anyone its style and fonts but refuses its tiles to a site not registered with it, which would leave the
 // names over an empty map: a refused tile puts the pictures back instead (and those fall back to OpenStreetMap)
 let glRefused = null;
-// Show the map drawn by MapLibre; false if it can't be (MapLibre or the style didn't load, no WebGL)
-async function showGLMap(m, dark) {
-  const [ok, style] = await Promise.all([loadGL(), glStyle(dark)]);
-  if (!ok || !style || map !== m || !window.L?.MaplibreGL) return false;
+// Show the map drawn by MapLibre in the style at `url`; false if it can't be (MapLibre or the style didn't load, no WebGL)
+async function showGLMap(m, url) {
+  const [ok, gs] = await Promise.all([loadGL(), glStyle(url)]);
+  if (!ok || !gs || map !== m || !window.L?.MaplibreGL) return false;
   const part = names => {
-    const s = structuredClone(style);
+    const s = structuredClone(gs.style);
     s.layers = s.layers.filter(l => (l.type === 'symbol') === names);
     if (!names) delete s.sprite; // only the names and road numbers use its pictures
     return s;
@@ -1570,7 +1625,7 @@ async function showGLMap(m, dark) {
     for (const l of layers) { try { m.removeLayer(l); } catch {} l.getContainer?.()?.remove(); }
     return false;
   }
-  basemap = layers;
+  basemap = { layers, gs };
   return true;
 }
 
@@ -1597,17 +1652,17 @@ function preloadTrip() {
   // the camera depends on how much of the map the open stop covers; wait until it's closed
   if (!tiles || navigator.connection?.saveData || state.draft) return;
   // the day on screen comes first
-  const gl = basemap?.[0].getMaplibreMap();
+  const gl = basemap?.layers[0].getMaplibreMap();
   if (gl ? !gl.loaded() : tiles.isLoading()) { if (gl) gl.once('idle', schedulePreload); else tiles.once('load', schedulePreload); return; }
   topUpOffline(trip);
-  if (gl) return; // MapLibre fetches what it needs as the map moves
   const size = map.getSize(), shown = L.point(size.x, size.y - coveredBottom());
   if (shown.x <= 0 || shown.y <= 0) return;
   for (const d of days) {
     const v = dayView(trip, d);
     if (!v) continue;
-    const z = Math.round(v.zoom), c = map.project(v.center, z), tl = c.subtract(size.divideBy(2));
-    tiles.prefetchArea(L.bounds(tl, tl.add(shown)), z, true);
+    // Leaflet's pictures are at the nearest whole zoom; MapLibre's tiles depend on the zoom itself (see glTileURLs)
+    const z = gl ? v.zoom : Math.round(v.zoom), c = map.project(v.center, z), tl = c.subtract(size.divideBy(2)), b = L.bounds(tl, tl.add(shown));
+    if (gl) queueTiles(glTileURLs(basemap.gs, b, z)); else tiles.prefetchArea(b, z, true);
   }
 }
 
@@ -1688,10 +1743,11 @@ function mountTrip(trip) {
     if (map !== m) return; // left the trip meanwhile
     if (!ok) return osm();
     mapCredit = CREDIT.stadia;
-    // A trip opened from its saved copy shows the map that was saved with it, light or dark, whichever the phone is now
-    const saved = trip.offline && savedTrip(trip.id)?.style;
-    const quiet = bufferedTileLayer(saved || `https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, { maxZoom: 20 });
-    const drawn = !saved && await showGLMap(m, dark);
+    // A trip opened from its saved copy shows the map that was saved with it, light or dark, whichever the phone is now:
+    // drawn by MapLibre, or Stadia's pictures for a trip saved with those
+    const saved = trip.offline && savedTrip(trip.id)?.style, pictured = saved && !isGLStyle(saved);
+    const quiet = bufferedTileLayer(pictured ? saved : `https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, { maxZoom: 20 });
+    const drawn = !pictured && await showGLMap(m, saved || glStyleURL(dark));
     if (map !== m) return;
     tiles = quiet;
     const pictures = () => {
@@ -1707,7 +1763,7 @@ function mountTrip(trip) {
     if (drawn) {
       glRefused = () => {
         if (map !== m || !basemap) return;
-        for (const l of basemap) m.removeLayer(l);
+        for (const l of basemap.layers) m.removeLayer(l);
         basemap = glRefused = null;
         pictures();
       };
