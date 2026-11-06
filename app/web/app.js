@@ -2703,6 +2703,8 @@ function loadSightTile(k) {
   if (t && !(t.retry && Date.now() > t.retry)) return;
   if (Date.now() < sightsPausedUntil) return;
   sightTiles.set(k, api(`/sights?tile=${SIGHT_TILE_ZOOM}/${k}`).then(list => {
+    // Still being looked up (a tile no one has looked at yet can take half a minute): ask again in a moment
+    if (!Array.isArray(list)) { sightTiles.set(k, { retry: Date.now() + 4000 }); setTimeout(drawSights, 4500); return; }
     sightTiles.set(k, list);
     drawSights();
   }, err => {
