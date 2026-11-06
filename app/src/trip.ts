@@ -14,15 +14,21 @@ export type Member = { id: string; name: string; image: string | null; identity:
 // travel is how you get to this stop from the place before it (for a hotel, on its check-in day). Drive unless someone
 // picks another. back is a hotel's way back to it each night, by the day ("YYYY-MM-DD"): each night's is its own leg.
 // Nights not in it are drives, so it only holds the others; {} for every other stop.
+// folder is the id of the folder the stop is in, or null. A folder is a run of stops that follow each other (by time)
+// with the same folder; the app keeps them together. It isn't checked against the folders table, since a stop can
+// be saved a moment before its new folder's name.
 // done is no longer shown; it's kept so older clients' writes still validate.
 export type Stop = {
   id: string; name: string; address: string; lat: number; lng: number;
-  time: string; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; done: boolean; by: string; updatedAt: number;
+  time: string; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; folder: string | null; done: boolean; by: string; updatedAt: number;
 };
+// A folder groups stops under a name. It isn't a place: it has no place or time of its own, only its stops.
+export type Folder = { id: string; name: string };
 export type StopFields = Omit<Stop, 'id' | 'by' | 'updatedAt'>;
 export type TripEvent =
   | { type: 'stop.upserted'; stop: Stop }
   | { type: 'stop.removed'; id: string; name: string }
+  | { type: 'folder.upserted'; folder: Folder }
   | { type: 'member.joined'; member: Member }
   | { type: 'member.updated'; member: Member }
   | { type: 'member.left'; id: string; name: string }
@@ -35,6 +41,9 @@ export const ERR = { notFound: 'not_found', notMember: 'not_member', notOwner: '
 const IDENTITIES = 6;
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
+// Ids the client picks: stops' and folders'
+export const ID = /^[A-Za-z0-9_-]{6,40}$/;
+const MAX_FOLDER_NAME = 100;
 // Stop types; the app gives each an icon and color. Keep in sync with KINDS in web/app.js.
 export const KINDS = ['place', 'airport', 'hotel', 'restaurant', 'cafe', 'attraction', 'museum', 'viewpoint', 'nature', 'shopping', 'gas'] as const;
 type Kind = typeof KINDS[number];
@@ -97,11 +106,15 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
     if (entries.some(([d, t]) => !DAY.test(d) || !TRAVEL.includes(t as Travel))) throw new Error(ERR.invalid);
     out.back = Object.fromEntries(entries.filter(([, t]) => t !== 'drive')) as Back;
   }
+  if (i.folder !== undefined) {
+    if (i.folder !== null && !(typeof i.folder === 'string' && ID.test(i.folder))) throw new Error(ERR.invalid);
+    out.folder = i.folder as string | null;
+  }
   if (i.done !== undefined) {
     if (typeof i.done !== 'boolean') throw new Error(ERR.invalid);
     out.done = i.done;
   }
-  if (!partial) out = { address: '', note: '', kind: '', nights: null, checkout: null, travel: 'drive', back: {}, done: false, ...out };
+  if (!partial) out = { address: '', note: '', kind: '', nights: null, checkout: null, travel: 'drive', back: {}, folder: null, done: false, ...out };
   return out;
 }
 
@@ -128,6 +141,9 @@ export class TripRoom extends DurableObject<Env> {
     if (!cols.has('checkout')) this.sql.exec('alter table stops add column checkout text');
     if (!cols.has('travel')) this.sql.exec("alter table stops add column travel text not null default 'drive'");
     if (!cols.has('back')) this.sql.exec("alter table stops add column back text not null default '{}'");
+    // ...and folders
+    if (!cols.has('folder')) this.sql.exec('alter table stops add column folder text');
+    this.sql.exec('create table if not exists folders (id text primary key, name text not null)');
     // Answer keep-alive pings without waking the object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
@@ -154,6 +170,7 @@ export class TripRoom extends DurableObject<Env> {
       trip: { id: trip.id, name: trip.name, owner: trip.created_by },
       members: this.sql.exec<Member>('select id, name, image, identity from members order by joined_at').toArray(),
       stops: this.stops(),
+      folders: this.folders(),
     };
   }
 
@@ -186,8 +203,8 @@ export class TripRoom extends DurableObject<Env> {
     this.check(userId);
     const f = cleanStop(input, false) as StopFields;
     this.sql.exec(
-      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), +f.done, userId, Date.now());
+      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), f.folder, +f.done, userId, Date.now());
     return this.afterStopWrite(stopId);
   }
 
@@ -213,6 +230,19 @@ export class TripRoom extends DurableObject<Env> {
     await this.syncSummary();
     this.broadcast({ type: 'stop.removed', id: stopId, name: row.name }, userId);
     return toStop(row);
+  }
+
+  // ---------- Folders ----------
+  // Create a folder, or rename one. The client picks the id. A folder whose stops have all left it stays here (Undo can
+  // put them back), and the app shows only the folders that hold stops.
+  async putFolder(userId: string, folderId: string, input: unknown) {
+    this.check(userId);
+    const name = (input as { name?: unknown } | null)?.name;
+    if (!ID.test(folderId) || typeof name !== 'string' || !name.trim() || name.length > MAX_FOLDER_NAME) throw new Error(ERR.invalid);
+    const folder: Folder = { id: folderId, name: name.trim() };
+    this.sql.exec('insert or replace into folders (id, name) values (?, ?)', folder.id, folder.name);
+    this.broadcast({ type: 'folder.upserted', folder }, userId);
+    return folder;
   }
 
   // ---------- People ----------
@@ -317,6 +347,9 @@ export class TripRoom extends DurableObject<Env> {
   }
   private stops() {
     return this.sql.exec<StopRow>('select * from stops order by time, id').toArray().map(toStop);
+  }
+  private folders() {
+    return this.sql.exec<Folder>('select id, name from folders order by id').toArray();
   }
   private addMember(user: Omit<Member, 'identity'>): Member {
     // The first identity nobody on the trip has yet; past six, they repeat
