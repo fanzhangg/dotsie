@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 9.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 9.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -273,11 +273,12 @@ Labels are verbs that say exactly what happens.
 ```html
 <button class="wt-avatar-stack" aria-label="People and sharing">
   <span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-1)">A</span>
-  <span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-2)">S</span>
+  <span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-2)">S<img class="wt-avatar__img" src="…" alt="" referrerpolicy="no-referrer"></span>
 </button>
 ```
 
 - The stack shows who's on the trip. Trip settings lists everyone by name (`.wt-people`), with "(you)" in `.wt-people__meta`.
+- A photo (`.wt-avatar__img`) goes inside the avatar, after the initial, and covers it. Keep the initial and the identity color: they show while the photo loads, and if it fails, remove the `<img>`. The name is always next to it or in a label, so `alt` stays empty.
 - With only one person on the trip, show the `person-add` icon instead. (A trip card shows its one person: there, the stack says who's on the trip, not how to add someone.)
 - Set `--wt-avatar-ring` to the surface behind the stack.
 - Out of room: `<span class="wt-avatar wt-avatar--more">+3</span>` stands for the rest, in quiet grey.
@@ -869,6 +870,13 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 9.1.0
+
+Avatars show the person's Google photo when they have one, over their initial.
+
+- New: `.wt-avatar__img`, a photo inside `.wt-avatar`. The initial and identity color stay underneath while it loads, and if it fails.
+- Tokens are unchanged.
 
 ### Changed in 9.0.0
 

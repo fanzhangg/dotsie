@@ -1,4 +1,4 @@
-/* Waythread design system — components v9.0.0
+/* Waythread design system — components v9.1.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -64,11 +64,14 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 
 /* ---------- Avatar ---------- */
 .wt-avatar {
+  position: relative; overflow: hidden;
   width: var(--wt-size-avatar); height: var(--wt-size-avatar); flex: none;
   display: grid; place-items: center; border-radius: var(--wt-radius-round);
   background: var(--wt-avatar-color, var(--wt-identity-1)); color: var(--wt-identity-text);
   font: var(--wt-type-micro); font-weight: 600;
 }
+/* A photo covers the initial; the initial stays underneath as the fallback. */
+.wt-avatar__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .wt-avatar--lg { width: 32px; height: 32px; font-size: 13px; }
 /* "+2": the rest of a stack that's out of room */
 .wt-avatar--more { --wt-avatar-color: var(--wt-surface-hover); color: var(--wt-text-secondary); }

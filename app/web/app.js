@@ -32,7 +32,13 @@ const uid = () => crypto.randomUUID().replace(/-/g, '').slice(0, 16);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = n => String(n).padStart(2, '0');
 const memberOf = id => cur?.members?.find(m => m.id === id);
-const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-${m.identity || 1})">${esc((m.name || '?')[0].toUpperCase())}</span>`;
+// The initial sits under the photo, so it shows while the photo loads and if it fails (see below).
+// Google's photo host can refuse requests that carry a referrer.
+const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-${m.identity || 1})">${esc((m.name || '?')[0].toUpperCase())}${
+  m.image ? `<img class="wt-avatar__img" src="${esc(m.image)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
+// A photo that won't load (expired, offline, blocked) drops away to reveal the initial. Error events
+// don't bubble, so this listens while they travel down.
+document.addEventListener('error', e => { if (e.target.classList?.contains('wt-avatar__img')) e.target.remove(); }, true);
 // Map drawing can't use CSS classes, so it reads the design tokens directly (theme-aware).
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
@@ -1011,7 +1017,7 @@ function homeHTML() {
   return `
     <header class="home-head"><h1>Waythread</h1>
       <div class="home-head__actions">${newTrip('home-new')}
-        <button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, identity: 1 })}</button>
+        <button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>
       </div></header>
     <main class="home">
       ${trips && !list.length ? '<p class="wt-empty">No trips yet. Start one with New trip, or open the link a friend sent you.</p>' : ''}
