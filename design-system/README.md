@@ -248,7 +248,7 @@ Each entry shows the minimum markup. Your code supplies the content and the beha
 | Variant | Use for |
 | --- | --- |
 | `--primary` | The one main action in a view: Save, Add, Create. On the trip screen, Add stop, or Open in Maps while a stop is selected. Never more than one per view. |
-| `--secondary` | Every other action: white with a hairline outline. Copy, Save for offline, Make a new link, Remove from this device, Sign out, Continue with Google. |
+| `--secondary` | Every other action: white with a hairline outline. Copy, Share, Save for offline, Make a new link, Remove from this device, Sign out, Continue with Google. |
 | `--danger` | A destructive action: the same button as `--secondary`, with a red label. Delete trip, Delete (a stop), Disconnect. Always leave a way back: an Undo toast or a confirmation. |
 | `--destructive` | Filled red, only for the confirm button of a [dialog](#dialog-wt-dialog) that destroys something: "Delete trip". |
 | `--block` | Full width, at the bottom of a sheet or form. |
@@ -297,7 +297,7 @@ Labels are verbs that say exactly what happens.
 <section class="wt-section">
   <h3 class="wt-section__title">Share link</h3>
   <p class="wt-section__text">Anyone with the link can join and edit this trip.</p>
-  <div class="wt-copy-row"><input class="wt-input" readonly …><button class="wt-btn wt-btn--secondary">Copy</button></div>
+  <div class="wt-copy-row"><input class="wt-input" readonly …><button class="wt-btn wt-btn--secondary">Copy</button><button class="wt-btn wt-btn--secondary">Share</button></div>
   <button class="wt-btn wt-btn--secondary">Make a new link</button>
 </section>
 <div class="wt-section"><button class="wt-btn wt-btn--danger">Delete trip</button></div>
@@ -305,7 +305,7 @@ Labels are verbs that say exactly what happens.
 
 - **Trip settings and Account are a column of sections**, one thing each, divided by `--wt-border-default` hairlines. Every section reads in the same order: the title (`__title`, `--wt-type-heading`), a line on what it does (`__text`, body in `--wt-text-secondary`), its controls, then a hint under a control (`__hint`, caption) or a button. The spacing between them is set by the section, so each one has the same rhythm.
 - **A section that is one field** is the field's `<form>`, with its title as the `<label>`. A picker goes in a `.wt-field` inside the section, so its menu drops down under it.
-- **No primary button.** Every change saves on its own (a name when you leave the field), so nothing in a settings sheet is black. Every button is the same white `--secondary` button (Copy, Save for offline, Make a new link, Remove from this device, Sign out), and the destructive one (Delete trip) is `--danger`, the same button with a red label, last, in a section of its own. Sign out is `--secondary`: it destroys nothing, and a guest is asked first.
+- **No primary button.** Every change saves on its own (a name when you leave the field), so nothing in a settings sheet is black. Every button is the same white `--secondary` button (Copy, Share, Save for offline, Make a new link, Remove from this device, Sign out), and the destructive one (Delete trip) is `--danger`, the same button with a red label, last, in a section of its own. Sign out is `--secondary`: it destroys nothing, and a guest is asked first.
 - **Words:** `__text` says what the section does, in one sentence. `__hint` says how to use the control above it ("People on your trips see this name").
 - The map's credits (`.wt-credit`) follow the last section in trip settings.
 

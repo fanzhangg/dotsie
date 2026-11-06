@@ -3418,7 +3418,7 @@ function openSettings(trip) {
       <ul class="wt-people">${trip.members.map(m => `<li class="wt-people__item">${avatarHTML(m)}<span>${esc(m.name)}${m.id === me.id ? ' <span class="wt-people__meta">(you)</span>' : ''}${m.id === trip.owner ? ' <span class="wt-people__meta">· Owner</span>' : ''}</span></li>`).join('')}</ul></section>
     <section class="wt-section"><h3 class="wt-section__title">Share link</h3>
       <p class="wt-section__text">Anyone with the link can join and edit this trip.</p>
-      <div class="wt-copy-row"><input class="wt-input" readonly value="" placeholder="Loading…" aria-label="Trip link"><button class="wt-btn wt-btn--secondary" data-action="copy" disabled>Copy</button></div>
+      <div class="wt-copy-row"><input class="wt-input" readonly value="" placeholder="Loading…" aria-label="Trip link"><button class="wt-btn wt-btn--secondary" data-action="copy" disabled>Copy</button>${navigator.share ? '<button class="wt-btn wt-btn--secondary" data-share disabled>Share</button>' : ''}</div>
       <button class="wt-btn wt-btn--secondary" data-new-link>Make a new link</button></section>
     <section class="wt-section settings-offline"></section>
     <div class="wt-section">${owner ? '<button class="wt-btn wt-btn--danger" data-del>Delete trip</button>' : '<button class="wt-btn wt-btn--danger" data-leave>Leave trip</button>'}</div>
@@ -3471,8 +3471,12 @@ function openSettings(trip) {
       closeSheetTo('#/');
       toast(`Left ${trip.name}`);
     });
-    const input = el.querySelector('.wt-copy-row input'), copy = el.querySelector('[data-action="copy"]');
-    const show = url => { input.value = url; copy.dataset.text = url; copy.disabled = false; };
+    const input = el.querySelector('.wt-copy-row input'), copy = el.querySelector('[data-action="copy"]'), share = el.querySelector('[data-share]');
+    const show = url => { input.value = url; copy.dataset.text = url; copy.disabled = false; if (share) share.disabled = false; };
+    // Share opens the phone's (or computer's) own share sheet, so the link goes straight into a chat or a post. Only
+    // where the browser has one; Copy covers the rest.
+    if (share) share.onclick = () => navigator.share({ title: trip.name, text: `Join “${trip.name}” on Waythread`, url: input.value })
+      .catch(err => { if (err.name !== 'AbortError') toast({ error: true, title: 'Couldn’t share', detail: 'Copy the link instead.' }); });
     // A new link is for when the old one went somewhere it shouldn't have: the old one stops working.
     el.querySelector('[data-new-link]').onclick = async () => {
       if (!(await ask({ title: 'Make a new link?', detail: 'The current link stops working. Everyone already on the trip stays on it.', action: 'Make new link' }))) return;
