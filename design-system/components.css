@@ -1,4 +1,4 @@
-/* Waythread design system — components v9.6.0
+/* Waythread design system — components v9.7.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -844,33 +844,34 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 
 /* ---------- Map pin ---------- */
 /* A round dot centered on its place, like a stop on a transit map: the stop's type color, shaded like a marker, in a
-   --wt-pin-fill ring that keeps it apart from the route under it, with the stop's number inside (.wt-pin__num) or, for a
-   place that isn't a numbered stop, a smaller dot (.wt-pin__dot). Nothing else: names and times are in the list.
-   Where pins crowd (the map zoomed out, or places close together), a pin first shrinks with a smaller number
-   (.wt-pin--compact), and only where even that has no room becomes a small dot with no number (.wt-pin--dot), so every
-   place and the routes between them stay visible instead of piling up; zoomed in, they grow back. Selected: larger, with a deeper shadow, always numbered, and the other pins in the same .wt-pins (the
-   element that holds them) fade, still in their colors. Muted (over, the day before's last stop, or off the route on
-   show): smaller and grey, as what's over is grey in the list. Placed by its center, at the marker's position on the map.
-   --wt-pin-size is the dot's whole width, ring included. */
+   --wt-pin-fill ring that keeps it apart from the route under it, with the stop's number inside (.wt-pin__num). Every
+   pin has a number: its row's in the list. Several rows at one place ("1, 6") make it a pill around its numbers.
+   Nothing else: names and times are in the list.
+   A pin for several stops (--folder, and --cluster: pins merged where they crowd) wears a ring of their color around
+   its own, so the pin and its ring read as one badge. Selected: larger, with a deeper shadow, and the other pins in
+   the same .wt-pins (the element that holds them) fade, still in their colors. Muted (over, the day before's last
+   stop, or off the route on show): smaller and grey, as what's over is grey in the list. Placed by its center, at the
+   marker's position on the map. --wt-pin-size is the pin's height, and its width with one number, ring included. */
 .wt-pin {
   --wt-pin-size: 24px;
-  position: absolute; box-sizing: border-box; width: var(--wt-pin-size); height: var(--wt-pin-size);
-  display: grid; place-items: center; transform: translate(-50%, -50%);
-  border: 2px solid var(--wt-pin-fill); border-radius: var(--wt-radius-round);
+  position: absolute; box-sizing: border-box; min-width: var(--wt-pin-size); height: var(--wt-pin-size); padding: 0 5px;
+  display: grid; place-items: center; transform: translate(-50%, -50%); white-space: nowrap;
+  border: 2px solid var(--wt-pin-fill); border-radius: var(--wt-radius-pill);
   background-color: var(--wt-marker-fill); background-image: var(--wt-marker-shade); box-shadow: var(--wt-shadow-pin);
-  transition: width var(--wt-duration-base), height var(--wt-duration-base), opacity var(--wt-duration-base), box-shadow var(--wt-duration-base);
+  transition: min-width var(--wt-duration-base), height var(--wt-duration-base), opacity var(--wt-duration-base), box-shadow var(--wt-duration-base);
 }
-/* A tap target larger than a small dot, centered on it */
+/* A tap target larger than a small pin, centered on it */
 .wt-pin::after {
-  content: ''; position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; border-radius: var(--wt-radius-round);
+  content: ''; position: absolute; left: 50%; top: 50%; width: max(36px, 100%); height: 36px; border-radius: var(--wt-radius-round);
   transform: translate(-50%, -50%);
 }
+/* Unused since 9.7.0 (crowded pins merge instead), kept until the next major version */
 .wt-pin--compact { --wt-pin-size: 18px; }
 .wt-pin--dot { --wt-pin-size: 14px; }
 .wt-pin--muted { --wt-pin-size: 20px; opacity: .85; box-shadow: none; background: var(--wt-kind-past); }   /* flat grey, as in the list */
 .wt-pin--muted.wt-pin--compact { --wt-pin-size: 16px; }
 .wt-pin--muted.wt-pin--dot { --wt-pin-size: 10px; border-width: 1.5px; }
-.wt-pin--selected { --wt-pin-size: 32px; box-shadow: var(--wt-shadow-pin-selected); }
+.wt-pin--selected { --wt-pin-size: 32px; padding: 0 7px; box-shadow: var(--wt-shadow-pin-selected); }
 /* Faded, not grey: grey means over */
 .wt-pins:has(.wt-pin--selected) .wt-pin:not(.wt-pin--selected) { opacity: .55; }
 .wt-pin__num {
@@ -882,17 +883,26 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-pin--compact .wt-pin__num { font-size: 10.5px; letter-spacing: -.04em; }
 .wt-pin--muted.wt-pin--compact .wt-pin__num { font-size: 9.5px; }
 .wt-pin--compact .wt-pin__dot { width: 6px; height: 6px; }
+/* A stop not saved yet, which has no row and so no number */
 .wt-pin__dot { width: 8px; height: 8px; border-radius: var(--wt-radius-round); background: var(--wt-marker-ink); transition: opacity var(--wt-duration-base); }
 .wt-pin--muted .wt-pin__dot { width: 6px; height: 6px; }
 .wt-pin--selected .wt-pin__dot { width: 10px; height: 10px; }
-/* A small dot has no room for its number */
 .wt-pin--dot:not(.wt-pin--selected) > * { opacity: 0; }
-/* A folder's pin: its number, at its first stop, with a second disc of its color piled behind it, as on its marker */
-.wt-pin--folder { box-shadow: 0 -6px 0 -2px var(--wt-stack-tint), 0 -6px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
-.wt-pin--folder.wt-pin--compact { box-shadow: 0 -5px 0 -2px var(--wt-stack-tint), 0 -5px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
-.wt-pin--folder.wt-pin--dot { box-shadow: 0 -4px 0 -1.5px var(--wt-stack-tint), 0 -4px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin); }
-.wt-pin--folder.wt-pin--selected { box-shadow: 0 -7px 0 -2px var(--wt-stack-tint), 0 -7px 0 0 var(--wt-pin-fill), var(--wt-shadow-pin-selected); }
-.wt-pin--folder.wt-pin--muted { --wt-stack-tint: var(--wt-kind-past); box-shadow: 0 -5px 0 -2px var(--wt-stack-tint), 0 -5px 0 0 var(--wt-pin-fill); }
+/* A pin for several stops: a folder's (its number), or pins merged where they crowd (--cluster, their numbers, "2–4").
+   One badge, a little larger than a stop's: its ring is a rim of its own color, lighter (darker in dark mode), with
+   the --wt-pin-fill edge outside it, so it reads as one solid piece rather than a disc with another peeking out. */
+.wt-pin--folder, .wt-pin--cluster {
+  --wt-pin-size: 28px;
+  --wt-stack-tint: color-mix(in oklab, var(--wt-kind-color, var(--wt-kind-place)) 40%, var(--wt-pin-fill));
+  border: 3px solid var(--wt-stack-tint); box-shadow: 0 0 0 2px var(--wt-pin-fill), var(--wt-shadow-pin);
+}
+.wt-pin--folder.wt-pin--selected, .wt-pin--cluster.wt-pin--selected {
+  --wt-pin-size: 36px; border-width: 4px; box-shadow: 0 0 0 2px var(--wt-pin-fill), var(--wt-shadow-pin-selected);
+}
+.wt-pin--folder.wt-pin--muted, .wt-pin--cluster.wt-pin--muted {
+  --wt-pin-size: 24px; --wt-stack-tint: color-mix(in oklab, var(--wt-kind-past) 40%, var(--wt-pin-fill));
+  border-width: 2.5px; box-shadow: 0 0 0 1.5px var(--wt-pin-fill);
+}
 /* Unused since 9.5.1, kept until the next major version. While a folder is open (.is-folder-open on .wt-pins), the pins outside it fade, as they do around a selected pin;
    its own (--open) keep their color, around its selected stop too */
 .wt-pins.is-folder-open .wt-pin:not(.wt-pin--open, .wt-pin--selected) { opacity: .55; }
