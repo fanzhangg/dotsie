@@ -3076,8 +3076,7 @@ function drawSights() {
     // sights already placed. Its box is its marker.
     const size = map.getSize(), top = coveredTop(), bottom = size.y - coveredBottom();
     const taken = pins.filter(p => !p.hidden).map(p => { const c = map.latLngToContainerPoint(p.ll), r = p.r + SIGHT_GAP; return [c.x - r, c.y - r, c.x + r, c.y + r]; });
-    const onTrip = s => trip.stops.some(t => (Math.abs(t.lat - s.lat) < 0.001 && Math.abs(t.lng - s.lng) < 0.0013)
-      || (t.name.toLowerCase() === s.name.toLowerCase() && Math.abs(t.lat - s.lat) < 0.02 && Math.abs(t.lng - s.lng) < 0.025));
+    const onTrip = s => sightOnTrip(trip, s);
     const overlaps = (a, c) => a[0] < c[2] && c[0] < a[2] && a[1] < c[3] && c[1] < a[3];
     for (const s of [...found.values()].sort((a, c) => c.rank - a.rank || a.id.localeCompare(c.id))) {
       const p = map.latLngToContainerPoint([s.lat, s.lng]);
@@ -3115,6 +3114,39 @@ function addSight(s) {
 // the same name nearby (2 km or so: a park's sight is its middle), or one name inside the other right at the place
 // (100 m or so: "Museum of Art" for "New Mexico Museum of Art"). From the sights of the place's tile, loaded if they
 // aren't yet; null for none, or offline before they were loaded.
+// A sight that's already one of the trip's stops: at its place, or with its name close by
+const sightOnTrip = (trip, s) => trip.stops.some(t => (Math.abs(t.lat - s.lat) < 0.001 && Math.abs(t.lng - s.lng) < 0.0013)
+  || (t.name.toLowerCase() === s.name.toLowerCase() && Math.abs(t.lat - s.lat) < 0.02 && Math.abs(t.lng - s.lng) < 0.025));
+
+// What place search suggests before anything's typed: the best known sights on the way (see wayAround), within
+// ON_THE_WAY_KM of it and not on the trip yet. From the sights' tiles along the way, loaded if they aren't yet: at most
+// ALONG_TILES of them, spread along a long drive, so a day's drive can't use up the per-person limit. `waiting` while
+// some are still loading (or the route is still being looked up), so the page asks again.
+const ALONG_TILES = 16, ALONG_MAX = 8;
+function sightsAlong(trip, way) {
+  if (!window.L || offlineNow()) return { list: [], waiting: false };
+  const n = 2 ** SIGHT_TILE_ZOOM, keys = new Set();
+  for (const [lat, lng] of way.line) {
+    const [kx, ky] = kmPerDeg(lat), dLat = ON_THE_WAY_KM / ky, dLng = ON_THE_WAY_KM / kx;
+    for (const y of [-dLat, 0, dLat]) for (const x of [-dLng, 0, dLng]) {
+      const t = L.CRS.EPSG3857.latLngToPoint(L.latLng(lat + y, lng + x), SIGHT_TILE_ZOOM).divideBy(256).floor();
+      keys.add(`${((t.x % n) + n) % n}/${Math.min(n - 1, Math.max(0, t.y))}`);
+    }
+  }
+  let tiles = [...keys];
+  if (tiles.length > ALONG_TILES) tiles = Array.from({ length: ALONG_TILES }, (_, i) => tiles[Math.round(i * (tiles.length - 1) / (ALONG_TILES - 1))]);
+  const found = new Map();
+  let waiting = !way.routed;
+  for (const k of tiles) {
+    loadSightTile(k);
+    const list = sightTiles.get(k);
+    if (Array.isArray(list)) for (const s of list) found.set(s.id, s); else waiting = true;
+  }
+  const list = [...found.values()].filter(s => !sightOnTrip(trip, s) && kmOff(s, way.line) <= ON_THE_WAY_KM)
+    .sort((a, c) => c.rank - a.rank || a.id.localeCompare(c.id)).slice(0, ALONG_MAX);
+  return { list, waiting };
+}
+
 const plainName = n => (n || '').normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 function sightAt(p) {
   if (!window.L) return Promise.resolve(null); // no map script (offline before it was ever loaded): no sights either
@@ -3702,13 +3734,60 @@ function defaultTime(trip) {
   else { d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
   return toInput(d);
 }
-// Search leans toward where the trip already is
-function nearParam(trip) {
-  if (!trip.stops.length) return '';
-  const lat = trip.stops.reduce((a, s) => a + s.lat, 0) / trip.stops.length;
-  const lng = trip.stops.reduce((a, s) => a + s.lng, 0) / trip.stops.length;
-  return `&near=${lat.toFixed(4)},${lng.toFixed(4)}`;
+// Search leans toward a place: where the stop is, or where a new one goes (see wayAround). It used to lean toward the
+// middle of all the trip's stops, which on a long road trip is somewhere none of them are.
+const nearParam = p => (p ? `&near=${(+p.lat).toFixed(4)},${(+p.lng).toFixed(4)}` : '');
+
+// Where a stop at `time` goes in the plan: between the place you'd come from and the one you'd go on to (that day's
+// stops, last night's hotel and tonight's; else the trip's stops before and after), leaving out `skip`, the stop being
+// moved. `line` is the way between them as [lat, lng] points, thinned: its route once it's been looked up (`routed`), a
+// straight line until then. With only one of them, or no route between them (a flight), it's that one place, and `to`
+// is null. Null for a trip with no stops.
+function wayAround(trip, time, skip) {
+  const day = time.slice(0, 10);
+  const at = e => e.at || (e.role === 'stop' ? e.place.time : e.role === 'night' ? `${day}T23:59` : `${day}T00:00`);
+  let from = null, to = null;
+  for (const e of dayPlan(trip, day)) {
+    if (e.place.id === skip) continue;
+    if (at(e) <= time) from = e; else to ||= e;
+  }
+  const others = stopsOf(trip).filter(s => s.id !== skip), entry = s => s && { place: s, role: 'stop' };
+  from ||= entry(others.filter(s => s.time <= time).at(-1));
+  to ||= entry(others.find(s => s.time > time));
+  const a = from?.place, b = to?.place;
+  if (!a || !b || samePlace(a, b) || !TRAVEL[wayTo(to)].route) {
+    const p = a || b;
+    return p ? { from: p, to: null, line: [[+p.lat, +p.lng]], routed: true } : null;
+  }
+  const r = legRoute(from, to);
+  return { from: a, to: b, line: thinLine(r?.coords?.length > 1 ? r.coords : [[+a.lat, +a.lng], [+b.lat, +b.lng]]), routed: !!r };
 }
+// km east and north per degree, at a latitude (flat, which is close enough over a few km)
+const kmPerDeg = lat => [111.32 * Math.cos(lat * Math.PI / 180), 110.57];
+// A route's points, at least 300 m apart: a long drive has thousands, and a sight's distance to it needs far fewer
+function thinLine(line) {
+  const out = [line[0]];
+  for (const p of line.slice(1)) {
+    const q = out.at(-1), [kx, ky] = kmPerDeg(q[0]);
+    if (Math.hypot((p[1] - q[1]) * kx, (p[0] - q[0]) * ky) >= 0.3) out.push(p);
+  }
+  if (out.at(-1) !== line.at(-1)) out.push(line.at(-1));
+  return out;
+}
+// How far a place is from a line of [lat, lng] points, in km
+function kmOff(p, line) {
+  const [kx, ky] = kmPerDeg(p.lat), xy = q => [(q[1] - p.lng) * kx, (q[0] - p.lat) * ky];
+  if (line.length === 1) return Math.hypot(...xy(line[0]));
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = xy(line[i - 1]), [bx, by] = xy(line[i]), dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy;
+    const t = len ? Math.min(1, Math.max(0, -(ax * dx + ay * dy) / len)) : 0;
+    best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+  }
+  return best;
+}
+// A place this close to the way is on it: ten minutes or so there and back
+const ON_THE_WAY_KM = 5;
 
 // A hotel you add starts at a 3 PM check-in, and checks out at 11 AM unless you set another time.
 const HOTEL_CHECK_IN = '15:00', HOTEL_CHECK_OUT = '11:00';
@@ -3989,6 +4068,17 @@ function openStopSheet(trip, stop, place = null) {
     const showPlace = () => {
       placeRow.innerHTML = `<span class="wt-picker__value"><span class="wt-picker__name">${esc(draft.name)}</span>${draft.address ? `<span class="wt-picker__detail">${esc(draft.address)}</span>` : ''}</span>${ICON.forward}`;
     };
+    // Where this stop goes, for search to lean toward and to suggest what's on the way (see wayAround). Looked at
+    // again while the page waits for the route and the sights' tiles.
+    let way = null, along = { list: [], waiting: false }, alongTimer, alongUntil = 0;
+    function loadAlong() {
+      clearTimeout(alongTimer);
+      if (placePage.hidden) return;
+      way = wayAround(trip, F.time.value || defaultTime(trip), stop?.id);
+      along = way ? sightsAlong(trip, way) : { list: [], waiting: false };
+      if (input.value.trim().length < 3) paint();
+      if (along.waiting && Date.now() < alongUntil) alongTimer = setTimeout(loadAlong, 1500);
+    }
     // The search page takes the sheet's place, and on a phone the whole screen, like a maps app's search
     let placeScroll = 0;
     function showPlacePage(open) {
@@ -3997,10 +4087,16 @@ function openStopSheet(trip, stop, place = null) {
       placePage.hidden = !open;
       el.classList.toggle('is-full', open);
       el.scrollTop = open ? 0 : placeScroll;
-      if (!open) { clearTimeout(timer); ctrl?.abort(); spinner.hidden = true; placeRow.focus(); return; }
+      if (!open) { clearTimeout(timer); clearTimeout(alongTimer); ctrl?.abort(); spinner.hidden = true; placeRow.focus(); return; }
+      // A sheet that opens on this page (a new stop) appears where it'll stay rather than sliding up: on an iPhone,
+      // focusing the field while it was still below the screen panned the page down to it, and the field was left out
+      // of view above, over a blank screen. It has to be focused now, in the tap, for the keyboard to come up.
+      if (!$sheets.classList.contains('is-open')) el.classList.add('wt-modal--in-place');
       input.value = draft.name || '';
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
+      alongUntil = Date.now() + 45000;
+      loadAlong();
       onType();
     }
     function cancelPlace() {
@@ -4020,24 +4116,35 @@ function openStopSheet(trip, stop, place = null) {
       }
       return out + esc(text.slice(last));
     }
-    const optionHTML = (p, i, q) => `<div class="wt-option" role="option" id="place-opt-${i}" data-i="${i}" aria-selected="false">${markerHTML(p, '')}<span class="wt-option__text"><span class="wt-option__label">${highlight(p.name, q)}</span>${p.address ? `<span class="wt-option__detail">${esc(p.address)}</span>` : ''}</span></div>`;
+    // A result on the way says so first, in its detail line
+    const optionHTML = (p, i, q) => {
+      const detail = [p.on && `<span class="wt-option__tag">${way.to ? 'On the way' : 'Nearby'}</span>`, (p.detail || p.address) && esc(p.detail || p.address)].filter(Boolean).join(' · ');
+      return `<div class="wt-option" role="option" id="place-opt-${i}" data-i="${i}" aria-selected="false">${markerHTML(p, '')}<span class="wt-option__text"><span class="wt-option__label">${highlight(p.name, q)}</span>${detail ? `<span class="wt-option__detail">${detail}</span>` : ''}</span></div>`;
+    };
 
     // Draw the suggestions for what's typed now: the latest search results (kept on screen while the next search
-    // runs, so the list doesn't flash), or a message that says what happened and what to try.
+    // runs, so the list doesn't flash), or a message that says what happened and what to try. Those on the way come
+    // first, in the order search gave them, then the rest. Before anything's typed, the best known sights on the way,
+    // under a heading that says which way; none of them is picked by Return until you move to it.
     function paint() {
-      const q = input.value.trim();
-      const results = q.length >= 3 ? found.list.map(p => ({ ...p, kind: guessKind(p.name, p.category) })) : [];
+      const q = input.value.trim(), typed = q.length >= 3;
+      const results = typed
+        ? found.list.map(p => ({ ...p, kind: guessKind(p.name, p.category), on: !!way && kmOff(p, way.line) <= ON_THE_WAY_KM })).sort((a, b) => b.on - a.on)
+        : along.list.map(s => ({ ...s, detail: s.address || KINDS[s.kind].label }));
       let msg = '';
-      if (q.length >= 3 && phase === 'error') msg = failText;
-      else if (q.length >= 3 && phase === 'done' && !results.length) msg = `<b>No places match “${esc(q)}”</b>Try adding the town, or check the spelling.`;
+      if (typed && phase === 'error') msg = failText;
+      else if (typed && phase === 'done' && !results.length) msg = `<b>No places match “${esc(q)}”</b>Try adding the town, or check the spelling.`;
+      const head = !typed && results.length ? (way.to ? `On the way to ${way.to.name}` : `Near ${way.from.name}`) : '';
       const prev = opts[active];
       opts = results;
-      list.innerHTML = opts.map((p, i) => optionHTML(p, i, q)).join('') + (msg ? `<div class="wt-results__msg" role="presentation">${msg}</div>` : '');
+      list.innerHTML = (head ? `<div class="wt-results__head" role="presentation">${esc(head)}</div>` : '')
+        + opts.map((p, i) => optionHTML(p, i, typed ? q : '')).join('') + (msg ? `<div class="wt-results__msg" role="presentation">${msg}</div>` : '');
       input.setAttribute('aria-expanded', String(!!opts.length));
       // Return picks the top match, or the one moved to with the arrows, which stays put as results arrive
       const kept = prev ? opts.findIndex(p => placeKey(p) === placeKey(prev) && p.name === prev.name) : -1;
-      setActive(kept >= 0 ? kept : opts.length ? 0 : -1, false);
-      status.textContent = msg ? list.querySelector('.wt-results__msg').textContent : opts.length ? `${opts.length} ${opts.length === 1 ? 'place' : 'places'}` : '';
+      setActive(kept >= 0 ? kept : typed && opts.length ? 0 : -1, false);
+      status.textContent = msg ? list.querySelector('.wt-results__msg').textContent
+        : head ? `${head}: ${opts.length} ${opts.length === 1 ? 'place' : 'places'}` : opts.length ? `${opts.length} ${opts.length === 1 ? 'place' : 'places'}` : '';
     }
     function setActive(i, scroll = true) {
       active = i;
@@ -4062,7 +4169,7 @@ function openStopSheet(trip, stop, place = null) {
       ctrl?.abort();
       ctrl = new AbortController();
       try {
-        const list = await api(`/places?q=${encodeURIComponent(q)}${nearParam(trip)}`, { signal: ctrl.signal });
+        const list = await api(`/places?q=${encodeURIComponent(q)}${nearParam(stop || way?.from)}`, { signal: ctrl.signal });
         cache.set(q.toLowerCase(), list);
         found = { q, list };
         phase = 'done';

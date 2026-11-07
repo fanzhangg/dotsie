@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v10.1.1</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v10.2.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -415,12 +415,27 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
           <div class="wt-results" id="demo-results" role="listbox" aria-label="Places">
             <div class="wt-option" role="option" aria-selected="true"><i class="wt-marker" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-hotel)"><i data-icon="bed"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Inn</span><span class="wt-option__detail">61259 29 Palms Hwy, Joshua Tree, CA</span></span></div>
             <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Café" style="--wt-kind-color: var(--wt-kind-cafe)"><i data-icon="cup"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree Coffee Company</span><span class="wt-option__detail">61738 29 Palms Hwy, Joshua Tree, CA</span></span></div>
-            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree National Park</span><span class="wt-option__detail">Twentynine Palms, CA</span></span></div>
+            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><span class="wt-option__text"><span class="wt-option__label"><mark class="wt-option__match">Joshua</mark> Tree National Park</span><span class="wt-option__detail"><span class="wt-option__tag">On the way</span> · Twentynine Palms, CA</span></span></div>
+          </div>
+        </div>
+      </div>
+      <p class="intro">Before anything's typed, the page suggests the best known sights on the way, under a heading that says which way.</p>
+      <div class="demo">
+        <div class="demo__live demo__live--column demo__live--narrow demo__live--raised demo-search" data-snippet>
+          <div class="wt-search-bar">
+            <label class="wt-input wt-input-group wt-search"><i data-icon="search"></i><input type="text" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="demo-along" aria-label="Search a place" placeholder="Search a place" autocomplete="off"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden><i data-icon="close"></i></button></label>
+            <button type="button" class="wt-search-bar__cancel">Cancel</button>
+          </div>
+          <div class="wt-results" id="demo-along" role="listbox" aria-label="Places">
+            <div class="wt-results__head" role="presentation">On the way to Joshua Tree Inn</div>
+            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><span class="wt-option__text"><span class="wt-option__label">Joshua Tree National Park</span><span class="wt-option__detail">Nature</span></span></div>
+            <div class="wt-option" role="option" aria-selected="false"><i class="wt-marker" role="img" aria-label="Viewpoint" style="--wt-kind-color: var(--wt-kind-viewpoint)"><i data-icon="camera"></i></i><span class="wt-option__text"><span class="wt-option__label">Keys View</span><span class="wt-option__detail">Viewpoint</span></span></div>
           </div>
         </div>
       </div>
       <ul class="rules">
         <li>The field starts with the current name, cursor at the end. Only a picked result is kept; nothing typed is.</li>
+        <li>Results on the way come first, with <b>On the way</b> at the start of their detail, in the name's ink.</li>
         <li>↑ ↓ move the grey row, Return picks it, Esc is Cancel.</li>
       </ul>
 
@@ -1133,7 +1148,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v10.1.1 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v10.2.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
