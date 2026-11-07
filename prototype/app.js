@@ -3019,7 +3019,25 @@ const SIGHTS_FROM_ZOOM = 13;
 const SIGHT_TILE_ZOOM = 12;
 const SIGHTS_MAX = 20; // in view at once, at most, so they never crowd out the plan
 const SIGHT_GAP = 4; // px between two sights' markers, and around the trip's pins
-const sightTiles = new Map(); // "x/y" → its sights; a promise while it loads; { retry } after it failed, until then
+// A Map that keeps only the `max` entries used last: get() and set() make an entry the newest, and set() drops the
+// oldest past `max`. For what the map loads as you move it around, which would otherwise grow for as long as the page is open.
+class Recent extends Map {
+  constructor(max) { super(); this.max = max; }
+  get(k) {
+    if (!super.has(k)) return undefined;
+    const v = super.get(k);
+    super.delete(k);
+    super.set(k, v);
+    return v;
+  }
+  set(k, v) {
+    super.delete(k);
+    super.set(k, v);
+    while (this.size > this.max) super.delete(this.keys().next().value);
+    return this;
+  }
+}
+const sightTiles = new Recent(200); // "x/y" → its sights; a promise while it loads; { retry } after it failed, until then
 let sightLayer = null, sightsShown = new Map(); // id → its marker
 let sightsPausedUntil = 0; // after the server says too many, until then
 function loadSightTile(k) {
@@ -3097,7 +3115,7 @@ function addSight(s) {
 // map stays in view with the sight marked; tapping empty map closes it. A stop added from a sight keeps its Wikidata
 // item, and its own sheet shows the same lines (see aboutHTML).
 let sightOpen = null; // the sight whose card is open
-const abouts = new Map(); // Wikidata item → what /api/about said (null for nothing), or a promise while it loads
+const abouts = new Recent(300); // Wikidata item → what /api/about said (null for nothing), or a promise while it loads
 function loadAbout(qid) {
   if (abouts.has(qid)) return Promise.resolve(abouts.get(qid));
   if (offlineNow()) return Promise.resolve(null);

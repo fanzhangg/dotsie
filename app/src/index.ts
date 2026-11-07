@@ -229,7 +229,7 @@ app.get('/route', async c => {
 });
 
 // What's worth seeing in one tile of the map (zoom 12): x and y as in a tile's address. They come from OpenStreetMap,
-// not Stadia, so they need no key. The browser keeps them a day; the server, a month.
+// not Stadia, so they need no key. The browser keeps them a day; the server, as long as people look at them (see KEEP in maps.ts).
 app.get('/sights', async c => {
   const [z, x, y] = (/^(\d+)\/(\d+)\/(\d+)$/.exec(c.req.query('tile') ?? '') ?? []).slice(1).map(Number), n = 2 ** SIGHT_ZOOM;
   if (z !== SIGHT_ZOOM || !(x < n) || !(y < n)) bad();
@@ -245,12 +245,12 @@ app.get('/sights', async c => {
 });
 
 // A sight's photo and a few lines about it, by its Wikidata item (?id=Q123), from Wikipedia and Wikimedia Commons:
-// null when there's nothing. The browser keeps it a day; the server, a month.
+// null when there's nothing. The browser keeps it a day; the server, as long as people look at it (see KEEP in maps.ts).
 app.get('/about', async c => {
   const id = c.req.query('id') ?? '';
   if (!QID.test(id)) bad();
   try {
-    return c.json(await findAbout(c.env, id), 200, { 'Cache-Control': 'private, max-age=86400' });
+    return c.json(await findAbout(c.env, c.executionCtx, id), 200, { 'Cache-Control': 'private, max-age=86400' });
   } catch (e) {
     console.error(e);
     return c.json({ error: 'unavailable' }, 503); // Wikipedia is busy or down: the card goes without for now
