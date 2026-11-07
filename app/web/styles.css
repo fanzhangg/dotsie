@@ -101,6 +101,15 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
   transition: background var(--wt-duration-fast);
 }
 .trip.is-editing .trip-fit { display: none; }
+/* A sight's name shows while it's selected or hovered (see .wt-sight): its marker comes in front of the others, so the
+   name isn't under them. */
+.leaflet-marker-icon:has(.wt-sight.is-selected), .leaflet-marker-icon:has(.wt-sight:hover) { z-index: 1000 !important; }
+/* A sight's card (openSight in app.js): like a stop's sheet on a phone, it takes the list's place at the bottom. Its type
+   sits beside the sight's own marker, then what Wikipedia says (.wt-about), then Add to trip. */
+.trip.has-card .wt-sheet { visibility: hidden; }
+.trip.has-card .trip-fit { display: none; }
+.sight-type { display: flex; align-items: center; gap: var(--wt-space-2); }
+.sight-type + .sight-add { margin-top: var(--wt-space-2); }
 /* Only the busier fallback basemap needs quieting. */
 .trip.osm-tiles .leaflet-tile-pane { filter: saturate(.55) brightness(1.03); }
 @media (prefers-color-scheme: dark) {

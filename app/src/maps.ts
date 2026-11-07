@@ -75,7 +75,8 @@ async function stadiaRoute(env: Env, mode: RouteMode, a: { lat: number; lng: num
 // about how popular a place is, so each sight gets a rank from what it is and whether it has a Wikipedia article or a
 // Wikidata item, which well-known places mostly have and a roadside plaque mostly doesn't. The app shows the best ranked
 // that fit on screen.
-export type Sight = { id: string; name: string; address: string; lat: number; lng: number; kind: SightKind; rank: number };
+// wikidata is its Wikidata item ("Q123"), when OpenStreetMap has one: the app asks /api/about for its photo and a few lines.
+export type Sight = { id: string; name: string; address: string; lat: number; lng: number; kind: SightKind; rank: number; wikidata?: string };
 type SightKind = 'attraction' | 'museum' | 'viewpoint' | 'nature';
 export const SIGHT_ZOOM = 12;
 const SIGHT_TTL = 60 * 60 * 24 * 30;
@@ -136,7 +137,7 @@ export function tileBounds(x: number, y: number) {
 const sightsLoading = new Map<string, Promise<Sight[]>>();
 // A tile's sights, or 'pending' while Overpass looks them up. Throws once a tile has just failed on both servers.
 export async function findSights(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, x: number, y: number): Promise<Sight[] | 'pending'> {
-  const key = `sights:v2:${x}/${y}`, failed = `sights:failed:${x}/${y}`, loading = `sights:loading:${x}/${y}`;
+  const key = `sights:v3:${x}/${y}`, failed = `sights:failed:${x}/${y}`, loading = `sights:loading:${x}/${y}`;
   const hit = await env.ROUTES.get<Sight[]>(key, 'json');
   if (hit) return hit;
   // A tile Overpass couldn't answer just now: everyone looking at it would ask again every few seconds
@@ -194,7 +195,7 @@ async function overpassSights([s, w, n, e]: number[]) {
   }
 }
 export function sightsFrom(elements: OsmElement[]): Sight[] {
-  const out: (Sight & { wikidata?: string })[] = [];
+  const out: Sight[] = [];
   for (const el of elements) {
     const t = el.tags ?? {}, at = el.center ?? (el.lat != null ? { lat: el.lat, lon: el.lon! } : null), what = sightKind(t);
     if (!t.name || !at || !what) continue;
@@ -202,7 +203,7 @@ export function sightsFrom(elements: OsmElement[]): Sight[] {
     // walls) beats a point (a statue, a sign) of the same kind.
     const rank = what.worth + (t.wikipedia ? 4 : t.wikidata ? 2 : 0) + (el.type === 'node' ? 0 : 1);
     out.push({
-      id: `${el.type[0]}${el.id}`, wikidata: t.wikidata, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind, rank,
+      id: `${el.type[0]}${el.id}`, wikidata: QID.test(t.wikidata ?? '') ? t.wikidata : undefined, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind, rank,
       address: [[t['addr:housenumber'], t['addr:street']].filter(Boolean).join(' '), t['addr:city']].filter(Boolean).join(', '),
     });
   }
@@ -211,15 +212,72 @@ export function sightsFrom(elements: OsmElement[]): Sight[] {
   // "Interdune" along one boardwalk)
   out.sort((a, b) => b.rank - a.rank);
   const kept: Sight[] = [], names = new Set<string>(), items = new Set<string>();
-  for (const { wikidata, ...sg } of out) {
-    if (names.has(sg.name) || (wikidata && items.has(wikidata))) continue;
+  for (const sg of out) {
+    if (names.has(sg.name) || (sg.wikidata && items.has(sg.wikidata))) continue;
     names.add(sg.name);
-    if (wikidata) items.add(wikidata);
+    if (sg.wikidata) items.add(sg.wikidata);
+    else delete sg.wikidata;
     kept.push(sg);
     if (kept.length === SIGHTS_PER_TILE) break;
   }
   return kept;
 }
+
+// ---------- About a sight: a few lines from English Wikipedia and its photo from Wikimedia Commons ----------
+// From the sight's Wikidata item: its English Wikipedia article, that article's first sentences and its lead picture
+// (only a free one, so it's on Commons), then the picture's author and license, which the app shows under it. null
+// when there's no article. Kept in KV a month (a week when there's nothing), as `about:v1:Q123`. Nothing needs a key.
+export type About = {
+  title: string; text: string; url: string;
+  image: { src: string; width: number; height: number; credit: string; license: string; page: string } | null;
+} | null;
+export const QID = /^Q[1-9]\d{0,11}$/;
+const ABOUT_TTL = 60 * 60 * 24 * 30, ABOUT_NONE_TTL = 60 * 60 * 24 * 7;
+const ABOUT_TEXT = 1200, ABOUT_CREDIT = 100;
+const ABOUT_PHOTO = 960; // px wide: a card's photo on a phone at 2x, from Wikimedia's standard thumbnail sizes
+
+export async function findAbout(env: Env, qid: string): Promise<About> {
+  const key = `about:v1:${qid}`;
+  const hit = await env.ROUTES.get<{ about: About }>(key, 'json');
+  if (hit) return hit.about;
+  const about = await wikiAbout(qid);
+  await env.ROUTES.put(key, JSON.stringify({ about }), { expirationTtl: about ? ABOUT_TTL : ABOUT_NONE_TTL });
+  return about;
+}
+// The prototype has a copy of this, asked straight from the browser: keep them the same
+async function wikiAbout(qid: string): Promise<About> {
+  const get = async (host: string, params: Record<string, string>) => {
+    const res = await fetch(`https://${host}/w/api.php?${new URLSearchParams({ format: 'json', formatversion: '2', ...params })}`, { headers: OSM_UA, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`${host} ${res.status}`);
+    return res.json<any>();
+  };
+  const item = await get('www.wikidata.org', { action: 'wbgetentities', ids: qid, props: 'sitelinks', sitefilter: 'enwiki' });
+  const title = item.entities?.[qid]?.sitelinks?.enwiki?.title;
+  if (!title) return null;
+  const page = (await get('en.wikipedia.org', {
+    action: 'query', titles: title, redirects: '1', prop: 'extracts|pageimages|info|pageprops',
+    exintro: '1', explaintext: '1', exsentences: '3', piprop: 'name', pilicense: 'free', inprop: 'url', ppprop: 'disambiguation',
+  })).query?.pages?.[0];
+  const text = (page?.extract ?? '').replace(/\s+/g, ' ').trim();
+  if (!page || page.missing || page.pageprops?.disambiguation !== undefined || !text) return null;
+  let image = null;
+  // A drawing (a logo, a map, a flag) isn't a picture of the place
+  if (page.pageimage && !/\.svg$/i.test(page.pageimage)) {
+    const info = (await get('commons.wikimedia.org', {
+      action: 'query', titles: `File:${page.pageimage}`, prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: String(ABOUT_PHOTO),
+      iiextmetadatafilter: 'Artist|LicenseShortName',
+    })).query?.pages?.[0]?.imageinfo?.[0];
+    const meta = info?.extmetadata ?? {}, license = plainText(meta.LicenseShortName?.value ?? '');
+    if (info?.thumburl && license) image = {
+      src: info.thumburl, width: info.thumbwidth, height: info.thumbheight, license, page: info.descriptionurl,
+      credit: plainText(meta.Artist?.value ?? '').slice(0, ABOUT_CREDIT),
+    };
+  }
+  return { title: page.title, text: text.slice(0, ABOUT_TEXT), url: page.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, '_'))}`, image };
+}
+// Commons gives an author as HTML (a link to their user page, often): just the words
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' };
+const plainText = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e) => ENTITIES[e]).replace(/\s+/g, ' ').trim();
 
 // ---------- Local dev without a Stadia key: the public OSM demo servers (not for production traffic) ----------
 const DEV_UA = { 'User-Agent': 'Waythread-dev (local development)' }; // Nominatim requires one

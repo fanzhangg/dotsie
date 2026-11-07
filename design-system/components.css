@@ -1,4 +1,4 @@
-/* Waythread design system — components v10.0.0
+/* Waythread design system — components v10.1.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -983,8 +983,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 
 /* ---------- Sight: a place worth seeing, on the map ---------- */
 /* What a maps app shows of its places, zoomed in: a small marker in the type's color with its icon, centered on the
-   place, and the place's name to its right, in secondary ink with a halo in the pin ring's color so it reads over any
-   map. Quieter than a stop's pin (smaller, flat, no number) because the plan comes first. Set --wt-kind-color. */
+   place. Its name, to its right in secondary ink with a halo in the pin ring's color so it reads over any map, shows
+   only while it's selected or (with a mouse) hovered: the map's own names stay readable, and tapping it says the rest.
+   Quieter than a stop's pin (smaller, flat, no number) because the plan comes first. Set --wt-kind-color. */
 .wt-sight {
   position: absolute; display: flex; align-items: center; gap: 4px; transform: translate(-10px, -50%);
   cursor: pointer; animation: wt-sight-in var(--wt-duration-base) var(--wt-ease-out);
@@ -996,13 +997,51 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-sight__marker .wt-icon { width: 12px; height: 12px; }
 .wt-sight__name {
-  max-width: 160px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  display: none; max-width: 160px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   font: 500 12px/16px var(--wt-font-sans); color: var(--wt-text-secondary);
   text-shadow: 0 0 2px var(--wt-pin-fill), 0 0 2px var(--wt-pin-fill), 0 0 3px var(--wt-pin-fill);
 }
-/* A tap target taller than the marker, over the marker and the name */
-.wt-sight::after { content: ''; position: absolute; inset: -8px -4px; }
+/* A tap target bigger than the marker (36px square), and over the name while it shows */
+.wt-sight::after { content: ''; position: absolute; inset: -8px; }
+.wt-sight.is-selected .wt-sight__name { display: block; }
+@media (hover: hover) { .wt-sight:hover .wt-sight__name { display: block; } }
 @keyframes wt-sight-in { from { opacity: 0; } }
+/* Selected: its card is open. The marker grows about its center (the margins keep the name where it would be) and
+   its name shows, in primary ink. */
+.wt-sight.is-selected .wt-sight__marker { width: 28px; height: 28px; margin-left: -4px; box-shadow: var(--wt-shadow-pin-selected); }
+.wt-sight.is-selected .wt-sight__marker .wt-icon { width: 16px; height: 16px; }
+.wt-sight.is-selected .wt-sight__name { color: var(--wt-text-primary); }
+
+/* ---------- About a place: a photo, a few lines, and where they're from ---------- */
+/* As in a sight's card: the photo across the top, then the lines (at most four), then the photo's credit and a link
+   to the article. --compact puts a small square photo beside them, three lines in caption type: the top of a stop's
+   sheet. --loading holds the place with grey blocks. */
+.wt-about { margin-bottom: var(--wt-space-4); }
+.wt-about__photo {
+  display: block; width: 100%; height: 144px; object-fit: cover;
+  border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken);
+}
+.wt-about__text {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden;
+  margin: var(--wt-space-3) 0 0; color: var(--wt-text-secondary);
+}
+.wt-about__src {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--wt-space-3);
+  margin-top: var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-tertiary);
+}
+.wt-about__credit { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: inherit; text-decoration: none; }
+.wt-about__more { display: inline-flex; align-items: center; gap: 2px; flex: none; margin-left: auto; color: var(--wt-text-link); text-decoration: none; }
+.wt-about__more .wt-icon { width: 12px; height: 12px; }
+@media (hover: hover) { .wt-about__credit:hover, .wt-about__more:hover { text-decoration: underline; } }
+.wt-about--compact { display: flex; align-items: flex-start; gap: var(--wt-space-3); }
+.wt-about--compact .wt-about__photo { flex: none; width: 72px; height: 72px; }
+.wt-about--compact .wt-about__body { flex: 1; min-width: 0; }
+.wt-about--compact .wt-about__text { margin: 0; -webkit-line-clamp: 3; line-clamp: 3; font: var(--wt-type-caption); }
+.wt-about--compact .wt-about__src { margin-top: var(--wt-space-1); }
+.wt-about--loading .wt-about__line { display: block; height: 12px; margin-top: var(--wt-space-2); border-radius: var(--wt-radius-sm); background: var(--wt-surface-sunken); }
+.wt-about--loading:not(.wt-about--compact) .wt-about__line:first-child { margin-top: var(--wt-space-3); }
+.wt-about--loading .wt-about__line:last-child { width: 60%; }
+.wt-about--compact.wt-about--loading .wt-about__line:first-child { margin-top: 0; }
 
 /* ---------- Empty state ---------- */
 .wt-empty { margin: 0; padding: var(--wt-space-10) var(--wt-space-6); text-align: center; color: var(--wt-text-secondary); }

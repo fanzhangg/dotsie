@@ -162,6 +162,43 @@ function inviteToken(tripId) {
   if (!t.invite) { t.invite = newToken(); storeDB(d); }
   return t.invite;
 }
+// A sight's photo and a few lines about it, straight from Wikidata, English Wikipedia and Wikimedia Commons, as the
+// app's server asks them (see wikiAbout in app/src/maps.ts): null when there's no article. The app keeps each for the visit.
+async function findAbout(qid, signal) {
+  if (!/^Q[1-9]\d{0,11}$/.test(qid || '')) throw new ApiError(400, 'invalid');
+  const get = async (host, params) => {
+    let res;
+    try {
+      res = await fetch(`https://${host}/w/api.php?${new URLSearchParams({ format: 'json', formatversion: '2', origin: '*', ...params })}`, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(8000)]) : AbortSignal.timeout(8000) });
+    } catch (e) { if (e.name === 'AbortError') throw e; throw new ApiError(e.name === 'TimeoutError' ? 503 : 0, e.name === 'TimeoutError' ? 'unavailable' : 'offline'); }
+    if (!res.ok) throw new ApiError(503, 'unavailable');
+    return res.json();
+  };
+  const item = await get('www.wikidata.org', { action: 'wbgetentities', ids: qid, props: 'sitelinks', sitefilter: 'enwiki' });
+  const title = item.entities?.[qid]?.sitelinks?.enwiki?.title;
+  if (!title) return null;
+  const page = (await get('en.wikipedia.org', {
+    action: 'query', titles: title, redirects: '1', prop: 'extracts|pageimages|info|pageprops',
+    exintro: '1', explaintext: '1', exsentences: '3', piprop: 'name', pilicense: 'free', inprop: 'url', ppprop: 'disambiguation',
+  })).query?.pages?.[0];
+  const text = (page?.extract ?? '').replace(/\s+/g, ' ').trim();
+  if (!page || page.missing || page.pageprops?.disambiguation !== undefined || !text) return null;
+  let image = null;
+  if (page.pageimage && !/\.svg$/i.test(page.pageimage)) {
+    const info = (await get('commons.wikimedia.org', {
+      action: 'query', titles: `File:${page.pageimage}`, prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '960',
+      iiextmetadatafilter: 'Artist|LicenseShortName',
+    })).query?.pages?.[0]?.imageinfo?.[0];
+    const meta = info?.extmetadata ?? {}, license = plainText(meta.LicenseShortName?.value ?? '');
+    if (info?.thumburl && license) image = {
+      src: info.thumburl, width: info.thumbwidth, height: info.thumbheight, license, page: info.descriptionurl,
+      credit: plainText(meta.Artist?.value ?? '').slice(0, 100),
+    };
+  }
+  return { title: page.title, text: text.slice(0, 1200), url: page.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, '_'))}`, image };
+}
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' };
+const plainText = html => html.replace(/<[^>]*>/g, ' ').replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e) => ENTITIES[e]).replace(/\s+/g, ' ').trim();
 const bc = 'BroadcastChannel' in window ? new BroadcastChannel('waythread') : null;
 const broadcast = (trip, m) => bc?.postMessage({ trip, ...m, by: ME });
 
@@ -173,6 +210,7 @@ async function api(path, { method = 'GET', body, signal } = {}) {
   if (route === '/route') return osrmRoute(q.get('from'), q.get('to'), q.get('mode') || 'drive');
   if (route === '/places') return searchPlaces(q.get('q'), q.get('near'), signal);
   if (route === '/sights') return findSights(q.get('tile'), signal);
+  if (route === '/about') return findAbout(q.get('id'), signal);
   // Read-modify-write against the latest copy, so edits from other tabs aren't clobbered
   const d = loadDB(), p = route.split('/').filter(Boolean), now = Date.now();
   const fail = (status, code) => { throw new ApiError(status, code); };
@@ -344,17 +382,18 @@ async function findSights(tile, signal) {
     const t = el.tags || {}, at = el.center || (el.lat != null ? { lat: el.lat, lon: el.lon } : null), what = sightKind(t);
     if (!t.name || !at || !what) continue;
     out.push({
-      id: `${el.type[0]}${el.id}`, wikidata: t.wikidata, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind,
+      id: `${el.type[0]}${el.id}`, wikidata: /^Q[1-9]\d{0,11}$/.test(t.wikidata || '') ? t.wikidata : undefined, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind,
       rank: what.worth + (t.wikipedia ? 4 : t.wikidata ? 2 : 0) + (el.type === 'node' ? 0 : 1),
       address: [[t['addr:housenumber'], t['addr:street']].filter(Boolean).join(' '), t['addr:city']].filter(Boolean).join(', '),
     });
   }
   out.sort((a, b) => b.rank - a.rank);
   const kept = [], names = new Set(), items = new Set();
-  for (const { wikidata, ...sg } of out) {
-    if (names.has(sg.name) || (wikidata && items.has(wikidata))) continue;
+  for (const sg of out) {
+    if (names.has(sg.name) || (sg.wikidata && items.has(sg.wikidata))) continue;
     names.add(sg.name);
-    if (wikidata) items.add(wikidata);
+    if (sg.wikidata) items.add(sg.wikidata);
+    else delete sg.wikidata;
     kept.push(sg);
     if (kept.length === 80) break;
   }
@@ -1791,8 +1830,8 @@ function mountTrip(trip) {
     } else pictures();
     schedulePreload();
   });
-  // Sights sit on the map under the routes (the overlay pane, 400) and the pins; the map's names over the routes
-  map.createPane('sights').style.zIndex = 350;
+  // The map's names over the routes (the overlay pane, 400); sights over both, so no name hides them, and under the pins
+  map.createPane('sights').style.zIndex = 500;
   Object.assign(map.createPane('labels').style, { zIndex: 450, pointerEvents: 'none' });
   sightLayer = L.layerGroup().addTo(map);
   routeLayer = new RouteLayer().addTo(map);
@@ -1808,6 +1847,7 @@ function mountTrip(trip) {
   // Tapping empty map clears the selection; a route's preview goes back to the whole day.
   // While a stop is open, the map is there to look at, so taps leave everything as it is.
   map.on('click', () => onMapTap(() => {
+    if (sightOpen) return closeSheet();
     if (state.draft || (!state.sel && !state.leg && !state.folder)) return;
     if (state.leg) fitKey = '';
     state.sel = state.selRow = state.leg = state.folder = null;
@@ -2555,7 +2595,7 @@ addEventListener('resize', () => {
 // doesn't show, so the camera is placed for half, where the list goes back to. Nothing covers the map on a wide screen.
 function coveredBottom() {
   if (isWide()) return 0;
-  const panel = state.draft && $sheets.querySelector('.wt-modal');
+  const panel = (state.draft || sightOpen) && $sheets.querySelector('.wt-modal');
   return panel ? panel.offsetHeight : snaps().half;
 }
 // The header card covers the map's top on a phone; on a wide screen it sits in the side panel.
@@ -2970,24 +3010,18 @@ function focusStop(s) {
 }
 
 // ---------- Sights: what's worth seeing nearby, once the map is zoomed in ----------
-// As a maps app shows its places: zoomed in to a town or closer, the map names the best known attractions, museums,
-// viewpoints and nature in view, each a small marker in its type's color. They sit under the routes and the trip's pins,
-// and give way to them. Tapping one opens Add stop with that place filled in. Places already on the trip aren't repeated.
+// As a maps app shows its places: zoomed in to a town or closer, the map marks the best known attractions, museums,
+// viewpoints and nature in view, each a small marker in its type's color and icon, with no name: the map's own names
+// stay readable, and a tap says the rest. They sit over the routes and the map's names, under the trip's pins, and give
+// way to the pins. Tapping one opens its card (see openSight). Places already on the trip aren't repeated.
 // None while a stop is open, nor offline. They come from /api/sights a tile at a time (zoom 12), kept for the visit.
 const SIGHTS_FROM_ZOOM = 13;
 const SIGHT_TILE_ZOOM = 12;
 const SIGHTS_MAX = 20; // in view at once, at most, so they never crowd out the plan
-const SIGHT_GAP = 4; // px between two sights' markers and names, and around the trip's pins
+const SIGHT_GAP = 4; // px between two sights' markers, and around the trip's pins
 const sightTiles = new Map(); // "x/y" → its sights; a promise while it loads; { retry } after it failed, until then
 let sightLayer = null, sightsShown = new Map(); // id → its marker
 let sightsPausedUntil = 0; // after the server says too many, until then
-let measureCtx = null;
-// How wide a sight's name is drawn, for fitting names around each other (see .wt-sight__name)
-function nameWidth(name) {
-  measureCtx ??= document.createElement('canvas').getContext('2d');
-  measureCtx.font = `500 12px ${token('--wt-font-sans') || 'sans-serif'}`;
-  return Math.min(measureCtx.measureText(name).width, 160);
-}
 function loadSightTile(k) {
   const t = sightTiles.get(k);
   if (t && !(t.retry && Date.now() > t.retry)) return;
@@ -3018,7 +3052,7 @@ function drawSights() {
       }
     }
     // The best known first, each where it fits: in the part of the map you can see, clear of the trip's pins and of the
-    // sights already placed. Its box is its marker and its name to the right, as in a maps app.
+    // sights already placed. Its box is its marker.
     const size = map.getSize(), top = coveredTop(), bottom = size.y - coveredBottom();
     const taken = pins.filter(p => !p.hidden).map(p => { const c = map.latLngToContainerPoint(p.ll), r = p.r + SIGHT_GAP; return [c.x - r, c.y - r, c.x + r, c.y + r]; });
     const onTrip = s => trip.stops.some(t => (Math.abs(t.lat - s.lat) < 0.001 && Math.abs(t.lng - s.lng) < 0.0013)
@@ -3027,7 +3061,7 @@ function drawSights() {
     for (const s of [...found.values()].sort((a, c) => c.rank - a.rank || a.id.localeCompare(c.id))) {
       const p = map.latLngToContainerPoint([s.lat, s.lng]);
       if (p.x < 0 || p.x > size.x || p.y < top || p.y > bottom || onTrip(s)) continue;
-      const box = [p.x - 10 - SIGHT_GAP / 2, p.y - 10 - SIGHT_GAP / 2, p.x + 14 + nameWidth(s.name) + SIGHT_GAP / 2, p.y + 10 + SIGHT_GAP / 2];
+      const box = [p.x - 10 - SIGHT_GAP / 2, p.y - 10 - SIGHT_GAP / 2, p.x + 10 + SIGHT_GAP / 2, p.y + 10 + SIGHT_GAP / 2];
       if (taken.some(t => overlaps(t, box))) continue;
       taken.push(box);
       show.set(s.id, s);
@@ -3041,19 +3075,79 @@ function drawSights() {
     const m = L.marker([s.lat, s.lng], {
       pane: 'sights',
       icon: L.divIcon({ className: '', iconSize: [0, 0], html: sightHTML(s) }),
-    }).on('click', () => onMapTap(() => addSight(s))).addTo(sightLayer);
+    }).on('click', () => onMapTap(() => openSight(s))).addTo(sightLayer);
     // A button to the keyboard too: Leaflet makes a marker focusable, but only a click opens it
-    m.getElement()?.setAttribute('aria-label', `${s.name}, ${KINDS[s.kind].label}. Add as a stop`);
-    m.getElement()?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addSight(s); } });
+    m.getElement()?.setAttribute('aria-label', `${s.name}, ${KINDS[s.kind].label}. Show more`);
+    m.getElement()?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSight(s); } });
     sightsShown.set(id, m);
   }
 }
-const sightHTML = s => `<div class="wt-sight" style="--wt-kind-color: ${kindColor(s)}"><i class="wt-sight__marker">${kindIcon(s, 12)}</i><span class="wt-sight__name">${esc(s.name)}</span></div>`;
+const sightHTML = s => `<div class="wt-sight${s.id === sightOpen?.id ? ' is-selected' : ''}" style="--wt-kind-color: ${kindColor(s)}"><i class="wt-sight__marker">${kindIcon(s, 12)}</i><span class="wt-sight__name">${esc(s.name)}</span></div>`;
 // Add stop, with the sight as its place and type
 function addSight(s) {
   const trip = cur?.stops ? cur : null;
   if (!trip || state.draft || !needsConnection()) return;
-  openStopSheet(trip, null, { name: s.name, address: s.address, lat: s.lat, lng: s.lng, kind: s.kind });
+  openStopSheet(trip, null, { name: s.name, address: s.address, lat: s.lat, lng: s.lng, kind: s.kind, ...(s.wikidata && { wikidata: s.wikidata }) });
+}
+
+// ---------- A sight's card: what it is, before you add it ----------
+// Tapping a sight opens its card, as a maps app does: its name and type, then, when OpenStreetMap knows its Wikidata
+// item, a photo and the first lines of its English Wikipedia article (from /api/about), with who took the photo and
+// a link to the article. Add to trip opens Add stop with the place filled in. It's a panel, like the stop sheet, so the
+// map stays in view with the sight marked; tapping empty map closes it. A stop added from a sight keeps its Wikidata
+// item, and its own sheet shows the same lines (see aboutHTML).
+let sightOpen = null; // the sight whose card is open
+const abouts = new Map(); // Wikidata item → what /api/about said (null for nothing), or a promise while it loads
+function loadAbout(qid) {
+  if (abouts.has(qid)) return Promise.resolve(abouts.get(qid));
+  if (offlineNow()) return Promise.resolve(null);
+  const p = api(`/about?id=${encodeURIComponent(qid)}`).then(a => { abouts.set(qid, a); return a; }, () => { abouts.delete(qid); return null; });
+  abouts.set(qid, p);
+  return p;
+}
+// A photo, the article's first lines and where they're from; `compact` puts a small photo beside them (a stop's sheet).
+// Before it has loaded, grey blocks hold its place.
+function aboutHTML(a, compact) {
+  const cls = `wt-about${compact ? ' wt-about--compact' : ''}`;
+  if (a === undefined) return `<div class="${cls} wt-about--loading" aria-hidden="true"><span class="wt-about__photo"></span><span class="wt-about__body"><span class="wt-about__line"></span><span class="wt-about__line"></span><span class="wt-about__line"></span></span></div>`;
+  const img = a.image, credit = img && `Photo: ${img.credit ? `${img.credit} · ` : ''}${img.license}`;
+  return `<div class="${cls}">${img ? `<img class="wt-about__photo" src="${esc(img.src)}" alt="" width="${+img.width || ''}" height="${+img.height || ''}" loading="lazy">` : ''}
+    <div class="wt-about__body"><p class="wt-about__text">${esc(a.text)}</p>
+    <div class="wt-about__src">${img ? `<a class="wt-about__credit" href="${esc(img.page)}" target="_blank" rel="noopener" title="${esc(credit)}">${esc(credit)}</a>` : ''}<a class="wt-about__more" href="${esc(a.url)}" target="_blank" rel="noopener">Wikipedia${ICON.external}</a></div></div></div>`;
+}
+// What a sheet starts with for a Wikidata item: what's known already, grey blocks while it loads, or nothing (none, or
+// offline before it ever loaded). showAbout then fills the blocks in.
+function aboutSlot(qid, compact) {
+  const known = qid ? abouts.get(qid) : null;
+  if (known === null || (known === undefined && (!qid || offlineNow()))) return '';
+  return aboutHTML(known instanceof Promise ? undefined : known, compact);
+}
+// Fills a placeholder from aboutHTML once the lines arrive; with nothing to say, it goes
+function showAbout(box, qid, compact) {
+  const done = a => { if (!box.isConnected) return; if (a) box.outerHTML = aboutHTML(a, compact); else box.remove(); };
+  const now = abouts.get(qid);
+  if (now !== undefined && !(now instanceof Promise)) done(now); else loadAbout(qid).then(done);
+}
+function markSight(s) {
+  if (sightOpen) sightsShown.get(sightOpen.id)?.getElement()?.querySelector('.wt-sight')?.classList.remove('is-selected');
+  sightOpen = s;
+  $app.querySelector('.trip')?.classList.toggle('has-card', !!s);
+  if (s) sightsShown.get(s.id)?.getElement()?.querySelector('.wt-sight')?.classList.add('is-selected');
+}
+function openSight(s) {
+  const trip = cur?.stops ? cur : null;
+  if (!trip || state.draft) return;
+  openSheet(`${modalHead(esc(s.name))}
+    <p class="wt-modal__text sight-type"><i class="wt-sight__marker" style="--wt-kind-color: ${kindColor(s)}">${kindIcon(s, 12)}</i>${KINDS[s.kind].label}</p>
+    ${aboutSlot(s.wikidata, false)}
+    <button class="wt-btn wt-btn--primary wt-btn--block sight-add" data-add>${ICON.plus}Add to trip</button>`, el => {
+    el.querySelector('[data-add]').onclick = () => addSight(s);
+    const about = el.querySelector('.wt-about--loading');
+    if (about) showAbout(about, s.wikidata, false);
+  }, { panel: true, onClose: () => { markSight(null); drawSights(); } });
+  markSight(s);
+  // The sight in the part of the map the card leaves, if it's under it
+  requestAnimationFrame(() => { if (sightOpen === s && map && !inView([s.lat, s.lng])) focusStop(s); });
 }
 
 // ---------- Edits ----------
@@ -3085,10 +3179,10 @@ function deleteStop(trip, stop) {
   save(api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'DELETE' }));
   // Undo puts the same stop back under its old id
   toast(`Deleted ${stop.name}`, 'Undo', () => {
-    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {}, folder = null, links = [] } = stop, travel = travelOf(stop);
+    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {}, folder = null, links = [], wikidata = null } = stop, travel = travelOf(stop);
     openTripOf(trip.id)?.stops.push({ ...stop, by: me.id });
     render();
-    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, links } }));
+    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, links, wikidata } }));
   });
 }
 
@@ -3670,6 +3764,7 @@ function openStopSheet(trip, stop, place = null) {
   const option = k => optionHTML(k, KINDS[k].label, { marker: markerHTML({ kind: k }, ''), detail: KIND_HINTS[k] });
   openSheet(`<div class="stop-main">${modalHead(stop ? 'Edit stop' : 'Add stop', true)}
     <form>
+      ${stop ? aboutSlot(draft.wikidata, true) : ''}
       <div class="wt-field"><span class="wt-field__label" id="place-label">Place</span>
         <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
@@ -3695,6 +3790,8 @@ function openStopSheet(trip, stop, place = null) {
       <span class="wt-visually-hidden" role="status" data-place-status></span>
     </div>`, el => {
     const f = el.querySelector('form'), F = f.elements;
+    const about = f.querySelector('.wt-about--loading');
+    if (about) showAbout(about, draft.wikidata, true);
     const main = el.querySelector('.stop-main'), kindsPage = el.querySelector('.stop-kinds'), picker = el.querySelector('[data-kind-open]');
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!stop;
@@ -3923,6 +4020,8 @@ function openStopSheet(trip, stop, place = null) {
     }
     function pick(p) {
       Object.assign(draft, { lat: p.lat, lng: p.lng, address: p.address, name: p.name });
+      // Another place isn't the sight it was
+      if (draft.wikidata && (p.lat !== stop?.lat || p.lng !== stop?.lng)) { draft.wikidata = null; el.querySelector('.wt-about')?.remove(); }
       showPlace();
       status.textContent = `${p.name} picked`;
       if (!chosen) setKind(p.kind);
@@ -3967,6 +4066,7 @@ function openStopSheet(trip, stop, place = null) {
       const data = {
         name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(), links,
         kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? outTime : null,
+        ...(draft.wikidata !== undefined && { wikidata: draft.wikidata }),
       };
       const kept = folderAt(trip, stop?.id, data.time, folder === 'new' ? newFolder(trip, suggestFolderName(draft)) : folder);
       data.folder = kept;

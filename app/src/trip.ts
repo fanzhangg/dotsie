@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+import { QID } from './maps';
 
 /* One TripRoom per trip (addressed by idFromName(tripId)). It owns the trip's stops and members in
    its own SQLite, applies writes one at a time, and pushes every change to the trip's open WebSockets.
@@ -19,10 +20,12 @@ export type Member = { id: string; name: string; image: string | null; identity:
 // be saved a moment before its new folder's name.
 // links are pages about the stop (a booking, a flight, a post about the place), in the order they show, each with an
 // optional label ('' shows the link's site). [] for none.
+// wikidata is the place's Wikidata item ("Q123") when it was added from a sight on the map, so its sheet can show what
+// Wikipedia says about it; null otherwise.
 // done is no longer shown; it's kept so older clients' writes still validate.
 export type Stop = {
   id: string; name: string; address: string; lat: number; lng: number;
-  time: string; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; folder: string | null; links: Link[]; done: boolean; by: string; updatedAt: number;
+  time: string; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; folder: string | null; links: Link[]; wikidata: string | null; done: boolean; by: string; updatedAt: number;
 };
 export type Link = { url: string; label: string };
 // A folder groups stops under a name. It isn't a place: it has no place or time of its own, only its stops.
@@ -128,11 +131,15 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
       return { url: u.href, label: label.trim() };
     });
   }
+  if (i.wikidata !== undefined) {
+    if (i.wikidata !== null && !(typeof i.wikidata === 'string' && QID.test(i.wikidata))) throw new Error(ERR.invalid);
+    out.wikidata = i.wikidata as string | null;
+  }
   if (i.done !== undefined) {
     if (typeof i.done !== 'boolean') throw new Error(ERR.invalid);
     out.done = i.done;
   }
-  if (!partial) out = { address: '', note: '', kind: '', nights: null, checkout: null, travel: 'drive', back: {}, folder: null, links: [], done: false, ...out };
+  if (!partial) out = { address: '', note: '', kind: '', nights: null, checkout: null, travel: 'drive', back: {}, folder: null, links: [], wikidata: null, done: false, ...out };
   return out;
 }
 
@@ -164,6 +171,8 @@ export class TripRoom extends DurableObject<Env> {
     if (!cols.has('folder')) this.sql.exec('alter table stops add column folder text');
     // ...and links
     if (!cols.has('links')) this.sql.exec("alter table stops add column links text not null default '[]'");
+    // ...and the Wikidata item of a stop added from a sight
+    if (!cols.has('wikidata')) this.sql.exec('alter table stops add column wikidata text');
     this.sql.exec('create table if not exists folders (id text primary key, name text not null)');
     // Answer keep-alive pings without waking the object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
@@ -224,8 +233,8 @@ export class TripRoom extends DurableObject<Env> {
     this.check(userId);
     const f = cleanStop(input, false) as StopFields;
     this.sql.exec(
-      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, links, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), f.folder, JSON.stringify(f.links), +f.done, userId, Date.now());
+      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, links, wikidata, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), f.folder, JSON.stringify(f.links), f.wikidata, +f.done, userId, Date.now());
     return this.afterStopWrite(stopId);
   }
 
@@ -233,7 +242,10 @@ export class TripRoom extends DurableObject<Env> {
   async patchStop(userId: string, stopId: string, input: unknown) {
     this.check(userId);
     const f = cleanStop(input, true);
-    if (!this.sql.exec('select 1 from stops where id = ?', stopId).toArray().length) throw new Error(ERR.notFound);
+    const was = this.sql.exec<{ lat: number; lng: number }>('select lat, lng from stops where id = ?', stopId).toArray()[0];
+    if (!was) throw new Error(ERR.notFound);
+    // A stop moved to another place isn't that sight any more
+    if (f.wikidata === undefined && ((f.lat ?? was.lat) !== was.lat || (f.lng ?? was.lng) !== was.lng)) f.wikidata = null;
     const cols = Object.keys(f) as (keyof StopFields)[];
     const vals = cols.map(k => (k === 'done' ? +f.done! : k === 'back' || k === 'links' ? JSON.stringify(f[k]) : f[k]));
     this.sql.exec(

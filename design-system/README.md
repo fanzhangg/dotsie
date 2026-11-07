@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 10.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 10.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -859,11 +859,35 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 </div>
 ```
 
-- **A place worth seeing, on the map**, as a maps app shows its places once you zoom in: a 20px marker in the type's color (`--wt-kind-color`) with the type's icon at 12px, and the place's name to its right.
-- **Placed by its marker's center**, at the place, like a [pin](#map-pin-wt-pin). The name runs to the right, in 12px secondary ink with a halo in `--wt-pin-fill`, so it reads over the light and the dark map. A long name stops at 160px with an ellipsis.
-- **Quieter than a pin:** smaller, flat (no marker shading), and never numbered. The trip's pins and routes come first: put sights in a layer under the routes, and leave a place for a sight only where its marker and name clear the pins and the other sights.
-- **It's a button.** Give it (or the element holding it) `role="button"`, a tab stop and an `aria-label` that says what tapping does ("Alameda Park Zoo, Attraction. Add as a stop"). Its tap target reaches 8px above and below and 4px to either side.
+- **A place worth seeing, on the map**, as a maps app shows its places once you zoom in: a 20px marker in the type's color (`--wt-kind-color`) with the type's icon at 12px. Its name is in the markup but hidden: the icon says what kind of place it is, and its card says the rest.
+- **Placed by its marker's center**, at the place, like a [pin](#map-pin-wt-pin).
+- **Its name shows while it's selected, or hovered with a mouse:** to the marker's right, in 12px ink with a halo in `--wt-pin-fill`, so it reads over the light and the dark map. A long name stops at 160px with an ellipsis. Bring that marker in front of the others while its name shows.
+- **Quieter than a pin:** smaller, flat (no marker shading), and never numbered. Put sights in a layer over the routes and the map's own names, so no name hides them, and under the pins; leave a place for a sight only where its marker clears the pins and the other sights. (Their names used to show, under the routes and the map's names, which covered them.)
+- **It's a button.** Give it (or the element holding it) `role="button"`, a tab stop and an `aria-label` that says its name and what tapping does ("Alameda Park Zoo, Attraction. Show more"). Its tap target is 36px square, around the marker.
+- **`.is-selected`** while its card is open: the marker grows to 28px (its icon to 16px) about the same center, with the selected pin's shadow, and its name shows in primary ink.
 - It fades in on `--wt-duration-base` when it appears.
+
+### About `.wt-about`
+
+```html
+<div class="wt-about">                                  <!-- --compact: small photo beside the lines -->
+  <img class="wt-about__photo" src="…" alt="">          <!-- only when there's a free picture -->
+  <div class="wt-about__body">
+    <p class="wt-about__text">White Sands National Park is …</p>
+    <div class="wt-about__src">
+      <a class="wt-about__credit" href="(its Commons page)">Photo: Jane Doe · CC BY-SA 4.0</a>
+      <a class="wt-about__more" href="(the article)">Wikipedia <!-- icon('external', 12) --></a>
+    </div>
+  </div>
+</div>
+```
+
+- **What a place is, from Wikipedia:** the article's lead picture, its first lines, and where both are from. A [sight](#sight-wt-sight)'s card has it under the name and type, and a stop added from a sight has it at the top of its sheet.
+- **The photo** is 144px tall across the card, cropped to fill (`object-fit: cover`), on `--wt-surface-sunken` until it loads, with `--wt-radius-md` corners. Leave it out when there's no free picture: nothing takes its place.
+- **The lines** are body type in secondary ink, four at most, then an ellipsis: the card is for deciding, the article is a tap away.
+- **Under them,** in caption type: the photo's author and license in tertiary ink, linking to its Commons page (a CC license asks for the credit), cut with an ellipsis when long; and **Wikipedia ↗** in link blue at the right, which never shrinks. With no photo, only the link.
+- **`--compact`:** a 72px square photo beside the lines, three at most, in caption type. For the top of a stop's sheet, where the fields matter more.
+- **`--loading`:** grey blocks where the photo and three lines will be (`.wt-about__line`, the last one shorter), so the card doesn't jump when they come. If nothing comes, take it out.
 
 ### Empty state `.wt-empty`
 
@@ -950,6 +974,15 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 10.1.0
+
+Tapping a sight on the map opened Add stop straight away: you couldn't see what a place was before starting to add it. Now it opens a card that says.
+
+- New: `.wt-about` (and `--compact`, `--loading`), a place's photo, first lines from Wikipedia, and their credit (see [About](#about-wt-about)).
+- New: `.wt-sight.is-selected`, the sight whose card is open. It shows its name.
+- **A sight's name is hidden** unless it's selected or hovered, and its tap target is a 36px square: sights go over the map's own names now, and their names covered them. The markup is unchanged.
+- Tokens are unchanged.
 
 ### Changed in 10.0.0
 

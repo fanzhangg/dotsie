@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v10.0.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v10.1.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -208,6 +208,7 @@
       <li><a href="#toast">Toast</a></li>
       <li><a href="#dialog">Dialog</a></li>
       <li><a href="#map">Map pins, routes, buttons</a></li>
+      <li><a href="#about">Sight card and About</a></li>
       <li><a href="#misc">Trip card, empty state</a></li>
       <li class="group">Guidance</li>
       <li><a href="#patterns">Patterns</a></li>
@@ -865,8 +866,8 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               <text class="town" x="20" y="285">EL PASO</text><text class="town" x="380" y="190">ALAMOGORDO</text>
             </svg>
             <div class="pin-layer">
-              <div class="wt-sight" role="button" tabindex="0" aria-label="White Sands National Park, Nature. Add as a stop" style="left:12%; top:30%; --wt-kind-color: var(--wt-kind-nature)"><i class="wt-sight__marker"><i data-icon="tree" data-size="12"></i></i><span class="wt-sight__name">White Sands National Park</span></div>
-              <div class="wt-sight" role="button" tabindex="0" aria-label="Alameda Park Zoo, Attraction. Add as a stop" style="left:52%; top:76%; --wt-kind-color: var(--wt-kind-attraction)"><i class="wt-sight__marker"><i data-icon="star" data-size="12"></i></i><span class="wt-sight__name">Alameda Park Zoo</span></div>
+              <div class="wt-sight" role="button" tabindex="0" aria-label="White Sands National Park, Nature. Show more" style="left:12%; top:30%; --wt-kind-color: var(--wt-kind-nature)"><i class="wt-sight__marker"><i data-icon="tree" data-size="12"></i></i><span class="wt-sight__name">White Sands National Park</span></div>
+              <div class="wt-sight" role="button" tabindex="0" aria-label="Alameda Park Zoo, Attraction. Show more" style="left:52%; top:76%; --wt-kind-color: var(--wt-kind-attraction)"><i class="wt-sight__marker"><i data-icon="star" data-size="12"></i></i><span class="wt-sight__name">Alameda Park Zoo</span></div>
             </div>
             <div class="pin-layer wt-pins">
               <div class="wt-pin wt-pin--muted" role="img" aria-label="1. Holiday Inn Express Alamogordo, Hotel" style="left:10%; top:83.3%; --wt-kind-color: var(--wt-kind-hotel)"><b class="wt-pin__num">1</b></div>
@@ -968,6 +969,50 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
         <li>Whole day is the only button over the map. It stays there, disabled while the map already shows the whole day.</li>
         <li>Keep pins clear of the buttons: pad the top when fitting the map to the day.</li>
       </ul>
+    </section>
+
+    <section id="about">
+      <h2>Sight card and About</h2>
+      <p class="intro">Tapping a sight on the map opens its card, a panel like the stop sheet: its marker grows (<code>.wt-sight.is-selected</code>), and the card says what it is with <code>.wt-about</code>: a photo, the first lines of its Wikipedia article, and where they're from. A stop added from a sight shows the same, smaller, at the top of its sheet (<code>--compact</code>). Grey blocks hold the place while it loads (<code>--loading</code>).</p>
+      <div class="demo">
+        <div class="demo__live demo__live--column">
+          <div class="stage" style="height: 90px">
+            <div class="pin-layer">
+              <div class="wt-sight is-selected" role="button" tabindex="0" aria-label="White Sands National Park, Nature. Show more" style="left:12%; top:50%; --wt-kind-color: var(--wt-kind-nature)"><i class="wt-sight__marker"><i data-icon="tree" data-size="12"></i></i><span class="wt-sight__name">White Sands National Park</span></div>
+              <div class="wt-sight" role="button" tabindex="0" aria-label="Alkali Flat Overlook, Viewpoint. Show more" style="left:60%; top:50%; --wt-kind-color: var(--wt-kind-viewpoint)"><i class="wt-sight__marker"><i data-icon="camera" data-size="12"></i></i><span class="wt-sight__name">Alkali Flat Overlook</span></div>
+            </div>
+          </div>
+          <div style="max-width: 390px; margin-top: var(--wt-space-3); padding: var(--wt-space-4); border-radius: var(--wt-radius-lg); background: var(--wt-surface-raised)">
+            <div class="wt-about">
+              <img class="wt-about__photo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 140'%3E%3Crect width='300' height='70' fill='%2387b0db'/%3E%3Crect y='60' width='300' height='80' fill='%23f1ebdf'/%3E%3Cpath d='M0 90 Q70 55 150 80 T300 75 V140 H0Z' fill='%23e6dcc8'/%3E%3Cpath d='M0 120 Q90 95 180 115 T300 110 V140 H0Z' fill='%23fbf8f2'/%3E%3C/svg%3E" alt="" width="300" height="140">
+              <div class="wt-about__body"><p class="wt-about__text">White Sands National Park is a national park of the United States in southern New Mexico. It protects the southern part of a field of white gypsum dunes, the largest gypsum dunefield on Earth.</p>
+              <div class="wt-about__src"><a class="wt-about__credit" href="#about">Photo: Jane Doe · CC BY-SA 4.0</a><a class="wt-about__more" href="#about">Wikipedia<i data-icon="external" data-size="12"></i></a></div></div>
+            </div>
+          </div>
+          <div style="max-width: 390px; margin-top: var(--wt-space-3); padding: var(--wt-space-4); border-radius: var(--wt-radius-lg); background: var(--wt-surface-raised)">
+            <div class="wt-about wt-about--compact">
+              <img class="wt-about__photo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 140'%3E%3Crect width='300' height='70' fill='%2387b0db'/%3E%3Crect y='60' width='300' height='80' fill='%23f1ebdf'/%3E%3Cpath d='M0 90 Q70 55 150 80 T300 75 V140 H0Z' fill='%23e6dcc8'/%3E%3Cpath d='M0 120 Q90 95 180 115 T300 110 V140 H0Z' fill='%23fbf8f2'/%3E%3C/svg%3E" alt="" width="300" height="140">
+              <div class="wt-about__body"><p class="wt-about__text">White Sands National Park is a national park of the United States in southern New Mexico. It protects the southern part of a field of white gypsum dunes, the largest gypsum dunefield on Earth.</p>
+              <div class="wt-about__src"><a class="wt-about__credit" href="#about">Photo: Jane Doe · CC BY-SA 4.0</a><a class="wt-about__more" href="#about">Wikipedia<i data-icon="external" data-size="12"></i></a></div></div>
+            </div>
+            <div class="wt-about wt-about--compact wt-about--loading" aria-hidden="true"><span class="wt-about__photo"></span><span class="wt-about__body"><span class="wt-about__line"></span><span class="wt-about__line"></span><span class="wt-about__line"></span></span></div>
+          </div>
+        </div>
+        <details><summary>Markup</summary><pre><code>&lt;div class="wt-about"&gt;              &lt;!-- --compact: a small square photo beside three lines --&gt;
+  &lt;img class="wt-about__photo" src="…" alt=""&gt;   &lt;!-- only when there's a free picture --&gt;
+  &lt;div class="wt-about__body"&gt;
+    &lt;p class="wt-about__text"&gt;White Sands National Park is …&lt;/p&gt;
+    &lt;div class="wt-about__src"&gt;
+      &lt;a class="wt-about__credit" href="(the picture's Commons page)"&gt;Photo: Jane Doe · CC BY-SA 4.0&lt;/a&gt;
+      &lt;a class="wt-about__more" href="(the article)"&gt;Wikipedia ${icon('external', 12)}&lt;/a&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- While it loads --&gt;
+&lt;div class="wt-about wt-about--loading" aria-hidden="true"&gt;&lt;span class="wt-about__photo"&gt;&lt;/span&gt;
+  &lt;span class="wt-about__body"&gt;&lt;span class="wt-about__line"&gt;&lt;/span&gt;&lt;span class="wt-about__line"&gt;&lt;/span&gt;&lt;span class="wt-about__line"&gt;&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;</code></pre></details>
+      </div>
     </section>
 
     <section id="misc">
@@ -1088,7 +1133,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v10.0.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v10.1.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 

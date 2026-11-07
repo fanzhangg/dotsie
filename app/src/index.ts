@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
-import { findRoute, findSights, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
+import { findAbout, findRoute, findSights, QID, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
 import { ERR, type Preview } from './trip';
 
@@ -207,7 +207,7 @@ const point = (v: string | undefined) => {
 // Without a Stadia key, local dev falls back to the public OSM demo services; production returns 503.
 const mapsOff = (env: Env) => !env.STADIA_API_KEY && !isLocal(env);
 // Search runs as people type and a trip's routes load together, so the per-person limit is generous.
-for (const path of ['/places', '/route', '/sights']) {
+for (const path of ['/places', '/route', '/sights', '/about']) {
   app.use(path, async (c, next) => {
     if (await tooMany(c.env.MAPS_LIMIT, c.get('user').id)) return rateLimited(c);
     await next();
@@ -241,6 +241,19 @@ app.get('/sights', async c => {
   } catch (e) {
     console.error(e);
     return c.json({ error: 'unavailable' }, 503); // Overpass is busy or down: the map goes without for now
+  }
+});
+
+// A sight's photo and a few lines about it, by its Wikidata item (?id=Q123), from Wikipedia and Wikimedia Commons:
+// null when there's nothing. The browser keeps it a day; the server, a month.
+app.get('/about', async c => {
+  const id = c.req.query('id') ?? '';
+  if (!QID.test(id)) bad();
+  try {
+    return c.json(await findAbout(c.env, id), 200, { 'Cache-Control': 'private, max-age=86400' });
+  } catch (e) {
+    console.error(e);
+    return c.json({ error: 'unavailable' }, 503); // Wikipedia is busy or down: the card goes without for now
   }
 });
 
