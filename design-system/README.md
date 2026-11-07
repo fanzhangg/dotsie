@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 10.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 10.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -806,6 +806,10 @@ A question before an action that can't be undone, or that other people will noti
     <span class="wt-visually-hidden">, with Alex, Sam</span>
   </span>
 </a>
+<!-- photos of its places, in place of __map -->
+<span class="wt-trip-card__photos" aria-hidden="true">
+  <img class="wt-trip-card__photo" src="…" alt="" title="Photo: Jane Doe · CC BY-SA 4.0"><img class="wt-trip-card__photo" src="…" alt="" title="…">
+</span>
 <!-- no stops yet -->
 <span class="wt-trip-card__map wt-trip-card__map--empty">No stops yet</span>
 ```
@@ -818,9 +822,10 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
   - The `svg` is a sketch of the route. Draw it in any units with `preserveAspectRatio="xMidYMid meet"`: lines and dots keep their pixel widths at any card size (`vector-effect: non-scaling-stroke`).
   - `__casing` then `__route`: the drives, in `--wt-route` over `--wt-route-casing`, like routes on the map. Add `.is-estimate` to both for drives not looked up yet: dotted, as on the map.
   - `__ring` then one `__stop` per place, like the map's pins: a dot is a path of no length (`M x y h0`), drawn by its round cap. `__ring` holds every dot, in `--wt-pin-fill` with `--wt-shadow-pin`; each `__stop` sets `--wt-kind-color`.
+- `__photos`, in place of `__map` when the trip's places have photos: one to three `__photo`s side by side in the same 5:2 box, each cut to fill its share (`object-fit: cover`), with a 2px gap of the card between them. A photo tells you where a trip goes faster than its route does, so use them when you have them, and the sketch when you don't. Say who took each one and its license in its `title`, as `.wt-about` does.
 - `__body`: the name (`--wt-type-name`, as a stop's; one line, cut off with an ellipsis), the dates and `__when` (how soon), and the people as a `.wt-avatar-stack` on the right. The stack's ring follows the card's surface, hovered too. Hide the stack from screen readers and say the names in a `.wt-visually-hidden` span, so the link reads "White Sands, NM, Nov 20 – 22, with Alex, Sam".
 - `.is-now`: the trip is under way. `__when` ("Day 2 of 3") is in primary ink, like the row happening now.
-- `.is-past`: the trip is over. Its route turns `--wt-route-done`; give its dots `--wt-kind-past`, as past pins have.
+- `.is-past`: the trip is over. Its route turns `--wt-route-done`; give its dots `--wt-kind-past`, as past pins have. Its photos lose most of their color.
 
 ### Map pin `.wt-pin`
 
@@ -978,7 +983,7 @@ Say what can go here, in the user's words. No illustrations.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
 
-### Added in 10.2.0
+### Added in 10.3.0
 
 Adding a stop on an iPhone opened a blank screen: the search field was focused while the sheet was still sliding up from below the screen, so Safari panned the page down to it. Place search also now suggests what's on the way.
 
@@ -986,6 +991,13 @@ Adding a stop on an iPhone opened a blank screen: the search field was focused w
 - New: `.wt-results__head`, a heading over suggestions shown before anything's typed.
 - New: `.wt-option__tag`, a word at the start of an option's detail that sets it apart (*On the way*).
 - Tokens are unchanged.
+
+### Added in 10.2.0
+
+A trip's card showed only the sketch of its route, and a line on a blank map doesn't say where a trip goes. Now it shows photos of its places when they have them.
+
+- New: `.wt-trip-card__photos` and `__photo`, up to three photos across the top of a card, in place of `__map` (see [Trip card](#trip-card-wt-trip-card)). `.is-past` drains their color.
+- The sketch's markup is unchanged. Tokens are unchanged.
 
 ### Changed in 10.1.1
 

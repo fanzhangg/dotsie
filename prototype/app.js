@@ -41,7 +41,10 @@ const avatarHTML = m => `<span class="wt-avatar" style="--wt-avatar-color: var(-
   m.image ? `<img class="wt-avatar__img" src="${esc(m.image)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
 // A photo that won't load (expired, offline, blocked) drops away to reveal the initial. Error events
 // don't bubble, so this listens while they travel down.
-document.addEventListener('error', e => { if (e.target.classList?.contains('wt-avatar__img')) e.target.remove(); }, true);
+document.addEventListener('error', e => {
+  if (e.target.classList?.contains('wt-avatar__img')) e.target.remove();
+  else if (e.target.classList?.contains('wt-trip-card__photo')) cardPhotoFailed(e.target);
+}, true);
 // Map drawing can't use CSS classes, so it reads the design tokens directly (theme-aware).
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
@@ -123,8 +126,8 @@ function seed() {
           { ...s('attraction', 'White Sands Visitor Center', '19955 US-70, Alamogordo, NM', 32.7797, -106.1717, '2026-11-20T15:00', 'Buy a sled + wax', 'sam'), checkout: '16:00',
             links: [{ url: 'https://www.nps.gov/whsa/planyourvisit/', label: 'Plan your visit' }, { url: 'https://www.recreation.gov/', label: '' }] },
           s('nature', 'Interdune Boardwalk', 'Dunes Dr, White Sands National Park, NM', 32.7930, -106.2110, '2026-11-20T16:30', 'Sunset ~5:00 PM', 'sam'),
-          s('museum', 'New Mexico Museum of Space History', '3198 NM-2001, Alamogordo, NM', 32.9214, -105.9213, '2026-11-21T09:30', '', 'alex'),
-          s('restaurant', 'Cloudcroft', 'Burro Ave, Cloudcroft, NM', 32.9573, -105.7428, '2026-11-21T12:30', 'Lunch', 'sam'),
+          { ...s('museum', 'New Mexico Museum of Space History', '3198 NM-2001, Alamogordo, NM', 32.9214, -105.9213, '2026-11-21T09:30', '', 'alex'), wikidata: 'Q7010217' },
+          { ...s('restaurant', 'Cloudcroft', 'Burro Ave, Cloudcroft, NM', 32.9573, -105.7428, '2026-11-21T12:30', 'Lunch', 'sam'), wikidata: 'Q432556' },
           s('airport', 'El Paso International Airport', '6701 Convair Rd, El Paso, TX', 31.8072, -106.3779, '2026-11-22T11:00', 'Fly home · return car by 10:00', 'alex'),
         ],
       },
@@ -132,9 +135,9 @@ function seed() {
         id: 'big-bend', name: 'Big Bend in spring', members: ['alex', 'jo', 'sam'], createdBy: 'jo', updatedAt: t - 1,
         spots: [
           s('airport', 'Midland International Air & Space Port', '9506 Laforce Blvd, Midland, TX', 31.9425, -102.2019, '2026-03-13T09:40', 'WN 2210 lands', 'jo'),
-          s('restaurant', 'Marfa', 'Highland Ave, Marfa, TX', 30.3094, -104.0206, '2026-03-13T13:00', 'Lunch', 'sam'),
-          { ...s('hotel', 'Chisos Mountains Lodge', '1 Basin Rural Station, Big Bend National Park, TX', 29.2700, -103.3005, '2026-03-13T17:30', '', 'jo'), nights: 3 },
-          s('nature', 'Lost Mine Trail', 'Basin Junction Rd, Big Bend National Park, TX', 29.2728, -103.2858, '2026-03-14T08:00', 'Start early, it gets hot', 'alex'),
+          { ...s('restaurant', 'Marfa', 'Highland Ave, Marfa, TX', 30.3094, -104.0206, '2026-03-13T13:00', 'Lunch', 'sam'), wikidata: 'Q982507' },
+          { ...s('hotel', 'Chisos Mountains Lodge', '1 Basin Rural Station, Big Bend National Park, TX', 29.2700, -103.3005, '2026-03-13T17:30', '', 'jo'), nights: 3, wikidata: 'Q105444692' },
+          { ...s('nature', 'Lost Mine Trail', 'Basin Junction Rd, Big Bend National Park, TX', 29.2728, -103.2858, '2026-03-14T08:00', 'Start early, it gets hot', 'alex'), wikidata: 'Q132200719' },
           s('nature', 'Santa Elena Canyon', 'Ross Maxwell Scenic Dr, Big Bend National Park, TX', 29.1672, -103.6089, '2026-03-14T14:00', '', 'sam'),
           s('nature', 'Boquillas Hot Springs', 'Hot Springs Rd, Big Bend National Park, TX', 29.1776, -102.9530, '2026-03-15T10:00', 'Bring a towel', 'jo'),
           s('attraction', 'Terlingua Ghost Town', 'Ivey St, Terlingua, TX', 29.3216, -103.6160, '2026-03-15T18:00', 'Dinner at the Starlight Theatre', 'alex'),
@@ -226,7 +229,7 @@ async function api(path, { method = 'GET', body, signal } = {}) {
   if (call === 'GET trips' && !p[1]) {
     return Object.values(d.trips).filter(t => !t.deleted && t.members.includes(ME)).sort((a, b) => b.updatedAt - a.updatedAt).map(t => {
       const times = t.spots.map(s => s.time).sort();
-      const stops = t.spots.map(({ id, name, lat, lng, time, kind, nights, travel, back }) => ({ id, name, lat, lng, time, kind, nights, travel, back }));
+      const stops = t.spots.map(({ id, name, lat, lng, time, kind, nights, travel, back, wikidata = null }) => ({ id, name, lat, lng, time, kind, nights, travel, back, wikidata }));
       return { id: t.id, name: t.name, start: times[0] || null, end: times.at(-1) || null, members: snapshotOf(d, t).members, stops };
     });
   }
@@ -1156,6 +1159,7 @@ function render() {
     if (trips === null) loadTrips();
     $app.dataset.page = 'home';
     $app.innerHTML = homeHTML();
+    loadCardPhotos();
     return;
   }
   trips = null; // the home list reloads on the way back
@@ -1197,7 +1201,7 @@ function render() {
 
 
 // ---------- Home ----------
-// One card per trip: a sketch of its route, its name and dates, and who's on it. Trips that are over go under Past,
+// One card per trip: photos of where it goes, or a sketch of its route, then its name and dates, and who's on it. Trips that are over go under Past,
 // below the rest; each group keeps the server's order, last edited first.
 function homeHTML() {
   const today = nowStamp().slice(0, 10), list = trips || [];
@@ -1238,8 +1242,8 @@ function tripCardHTML(t, past, today) {
   const end = t.end || t.start, y1 = t.start?.slice(0, 4), y2 = end?.slice(0, 4);
   const dates = !t.start ? 'No dates yet' : y1 !== y2 ? `${fmtRange(t.start, t.start)}, ${y1} – ${fmtRange(end, end)}, ${y2}`
     : `${fmtRange(t.start, end)}${y1 !== today.slice(0, 4) ? `, ${y1}` : ''}`;
-  return `<a class="wt-trip-card${past ? ' is-past' : ''}${when?.now ? ' is-now' : ''}" href="#/trip/${esc(t.id)}">
-    ${tripMapHTML(t, past)}
+  return `<a class="wt-trip-card${past ? ' is-past' : ''}${when?.now ? ' is-now' : ''}" href="#/trip/${esc(t.id)}" data-trip="${esc(t.id)}">
+    ${tripPictureHTML(t, past)}
     <span class="wt-trip-card__body">
       <span class="wt-trip-card__text"><span class="wt-trip-card__name">${esc(t.name)}</span>
         <span class="wt-trip-card__dates">${dates}${when ? ` · <span class="wt-trip-card__when">${when.text}</span>` : ''}</span></span>
@@ -1247,6 +1251,60 @@ function tripCardHTML(t, past, today) {
       <span class="wt-visually-hidden">, with ${esc(people.map(m => m.name).join(', '))}</span>` : ''}
     </span></a>`;
 }
+// The top of a trip's card: photos of its places when they have them, so you can tell at a glance where it goes, else
+// the sketch of its route. The photos are those of its first places with a Wikidata item (added from a sight on the
+// map, or at one), in the plan's order, whose Wikipedia article has a free photo: what /api/about says, as a stop's
+// sheet shows. The sketch shows until they're in, and offline, as Wikimedia's photos aren't saved for offline.
+const CARD_PHOTOS = 3, CARD_PHOTO_TRIES = 6; // photos on a card, at most; places asked for one, at most, per trip
+const badPhotos = new Set(); // photos that wouldn't load: the next place's stands in
+const photoItems = t => [...new Set((t.stops || []).map(s => s.wikidata).filter(Boolean))].slice(0, CARD_PHOTO_TRIES);
+// The card's photos, from what's known already; undefined while one it would show hasn't been asked for or answered
+function cardPhotos(t) {
+  const shots = [];
+  for (const q of photoItems(t)) {
+    const a = abouts.get(q);
+    if (a === undefined || a instanceof Promise) return undefined;
+    if (a?.image && !badPhotos.has(a.image.src) && shots.push(a.image) === CARD_PHOTOS) break;
+  }
+  return shots;
+}
+function tripPictureHTML(t, past) {
+  const shots = offlineNow() ? null : cardPhotos(t);
+  if (!shots?.length) return tripMapHTML(t, past);
+  // Commons makes thumbnails in set widths; a narrow photo needs a smaller one than a card-wide one. If that one fails, the 960px.
+  const w = shots.length > 1 ? 500 : 960;
+  return `<span class="wt-trip-card__photos" aria-hidden="true">${shots.map(img => `<img class="wt-trip-card__photo" src="${esc(img.src.replace(/\/960px-([^/]+)$/, `/${w}px-$1`))}" data-full="${esc(img.src)}" alt="" title="${esc(photoCredit(img))}" decoding="async">`).join('')}</span>`;
+}
+// Asks for each card's photos, a card's worth at a time, until there are enough or no more places to ask about, and
+// puts them on the card when they're in. Each place's answer is kept a day (by the browser and the server), so a
+// visit to Home asks again only about new ones.
+const photosAsking = new Set(); // trips whose photos are being asked for
+function loadCardPhotos() {
+  if (offlineNow()) return;
+  for (const t of trips || []) {
+    if (photosAsking.has(t.id) || cardPhotos(t) !== undefined) continue;
+    photosAsking.add(t.id);
+    (async () => {
+      const items = photoItems(t);
+      for (let i = 0; i < items.length && cardPhotos(t) === undefined; i += CARD_PHOTOS) await Promise.all(items.slice(i, i + CARD_PHOTOS).map(loadAbout));
+      photosAsking.delete(t.id);
+      if (cardPhotos(t)?.length) showCardPicture(t.id);
+    })();
+  }
+}
+function showCardPicture(id) {
+  const t = trips?.find(x => x.id === id), card = [...$app.querySelectorAll('.wt-trip-card')].find(c => c.dataset.trip === id);
+  if (t && card) card.firstElementChild.outerHTML = tripPictureHTML(t, card.classList.contains('is-past'));
+}
+// A photo that won't load: its 960px thumbnail, then, if that fails too, the next place's photo, or the sketch
+function cardPhotoFailed(img) {
+  const full = img.dataset.full;
+  if (img.getAttribute('src') !== full) { img.setAttribute('src', full); return; }
+  badPhotos.add(full);
+  const card = img.closest('.wt-trip-card');
+  if (card) showCardPicture(card.dataset.trip);
+}
+
 // A trip's route for its card: a sketch of its drives and places, drawn here, so a card costs nothing from the Stadia
 // plan (a map picture from Stadia cost 2,000 credits each time a trip changed). Like the overview's map, it shows each
 // day's drives, along the roads where they've been looked up already (Home never looks routes up, so as not to use up
@@ -3178,12 +3236,13 @@ function loadAbout(qid) {
   abouts.set(qid, p);
   return p;
 }
+const photoCredit = img => `Photo: ${img.credit ? `${img.credit} · ` : ''}${img.license}`;
 // A photo, the article's first lines and where they're from; `compact` puts a small photo beside them (a stop's sheet).
 // Before it has loaded, grey blocks hold its place.
 function aboutHTML(a, compact) {
   const cls = `wt-about${compact ? ' wt-about--compact' : ''}`;
   if (a === undefined) return `<div class="${cls} wt-about--loading" aria-hidden="true"><span class="wt-about__photo"></span><span class="wt-about__body"><span class="wt-about__line"></span><span class="wt-about__line"></span><span class="wt-about__line"></span></span></div>`;
-  const img = a.image, credit = img && `Photo: ${img.credit ? `${img.credit} · ` : ''}${img.license}`;
+  const img = a.image, credit = img && photoCredit(img);
   return `<div class="${cls}">${img ? `<img class="wt-about__photo" src="${esc(img.src)}" alt="" width="${+img.width || ''}" height="${+img.height || ''}" loading="lazy">` : ''}
     <div class="wt-about__body"><p class="wt-about__text">${esc(a.text)}</p>
     <div class="wt-about__src">${img ? `<a class="wt-about__credit" href="${esc(img.page)}" target="_blank" rel="noopener" title="${esc(credit)}">${esc(credit)}</a>` : ''}<a class="wt-about__more" href="${esc(a.url)}" target="_blank" rel="noopener">Wikipedia${ICON.external}</a></div></div></div>`;
