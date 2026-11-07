@@ -20,11 +20,12 @@
     { "binding": "DB", "database_name": "waythread", "database_id": "a1a82345-9cf8-42bf-a5f1-d59bd27bb598", "migrations_dir": "migrations" }
   ],
 
-  // One Durable Object per trip: the trip's source of truth and its live-edit hub
+  // One Durable Object per trip: the trip's source of truth and its live-edit hub. And one per map tile whose sights
+  // are being looked up (src/sights.ts), since Overpass can take longer to answer than a request can wait.
   "durable_objects": {
-    "bindings": [{ "name": "TRIP", "class_name": "TripRoom" }]
+    "bindings": [{ "name": "TRIP", "class_name": "TripRoom" }, { "name": "SIGHTS", "class_name": "SightsLookup" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripRoom"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripRoom"] }, { "tag": "v2", "new_sqlite_classes": ["SightsLookup"] }],
 
   // Drive routes, keyed by their endpoints ("drive:…"). OAUTH_KV is the MCP server's OAuth records (clients, grants,
   // tokens, all under their own prefixes); it shares the namespace so there's nothing to create before deploying.

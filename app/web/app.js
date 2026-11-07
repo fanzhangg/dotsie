@@ -2971,8 +2971,9 @@ function loadSightTile(k) {
   if (t && !(t.retry && Date.now() > t.retry)) return;
   if (Date.now() < sightsPausedUntil) return;
   sightTiles.set(k, api(`/sights?tile=${SIGHT_TILE_ZOOM}/${k}`).then(list => {
-    // Still being looked up (a tile no one has looked at yet can take half a minute): ask again in a moment
-    if (!Array.isArray(list)) { sightTiles.set(k, { retry: Date.now() + 4000 }); setTimeout(drawSights, 4500); return; }
+    // Still being looked up (Overpass can take half a minute or more for a tile no one has looked at yet): ask again in a
+    // while, not so often that it uses up the per-person limit search and routes share
+    if (!Array.isArray(list)) { sightTiles.set(k, { retry: Date.now() + 8000 }); setTimeout(drawSights, 8500); return; }
     sightTiles.set(k, list);
     drawSights();
   }, err => {
