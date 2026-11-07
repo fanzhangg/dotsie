@@ -106,16 +106,18 @@ const tripName = (v: unknown) => (typeof v === 'string' && v.trim() && v.length 
 // Guests have no email; the client asks them for a name (POST /api/auth/update-user) and offers sign-in later.
 app.get('/me', c => c.json({ ...c.get('user'), isGuest: c.get('guest') }));
 
-// Home screen: one card per trip, newest edit first, with its people and stops for the card's avatars and route sketch
+// Home screen: one card per trip, newest edit first, with its people and stops for the card's avatars, route sketch and photos
 app.get('/trips', async c => {
   const { results } = await c.env.DB.prepare(
     `select t.id, t.name, t.first_stop as start, t.last_stop as end, t.preview from trips t
      join trip_members m on m.trip_id = t.id
      where m.user_id = ? and t.deleted_at is null order by t.updated_at desc`,
   ).bind(c.get('user').id).all<{ id: string; name: string; start: string | null; end: string | null; preview: string | null }>();
-  // A trip last written before previews were kept gets one from its TripRoom, once
+  // A trip last written before previews were kept, or before they had the stops' Wikidata items (for the card's
+  // photos), gets one from its TripRoom, once
   const cards = await Promise.all(results.map(async ({ preview, ...t }) => {
-    const p: Preview | null = preview ? JSON.parse(preview) : await room(c.env, t.id).summary().catch(() => null);
+    const kept: Preview | null = preview ? JSON.parse(preview) : null;
+    const p = kept?.stops.every(s => 'wikidata' in s) ? kept : (await room(c.env, t.id).summary().catch(() => null)) ?? kept;
     return { ...t, members: p?.members ?? [], stops: p?.stops ?? [] };
   }));
   return c.json(cards);
