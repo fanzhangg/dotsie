@@ -480,6 +480,11 @@ function placeURL(p) {
   const q = encodeURIComponent([p.name, p.address].filter(Boolean).join(', '));
   return mapsApp === 'apple' ? `https://maps.apple.com/?q=${q}&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
+// Places to eat around a place, in the maps app, whose reviews and hours say where's good: no free source Waythread
+// could use does (sights come from OpenStreetMap, which has restaurants but no reviews)
+function foodURL(p) {
+  return mapsApp === 'apple' ? `https://maps.apple.com/?q=restaurants&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/restaurants/@${p.lat},${p.lng},15z`;
+}
 
 // ---------- Offline: a trip saved on this device ----------
 // Trip settings can save a trip on this device, to see it with no signal: its plan (the last copy the server sent), its
@@ -3130,11 +3135,12 @@ function addSight(s) {
 const sightOnTrip = (trip, s) => trip.stops.some(t => (Math.abs(t.lat - s.lat) < 0.001 && Math.abs(t.lng - s.lng) < 0.0013)
   || (t.name.toLowerCase() === s.name.toLowerCase() && Math.abs(t.lat - s.lat) < 0.02 && Math.abs(t.lng - s.lng) < 0.025));
 
-// What place search suggests before anything's typed: the best known sights on the way (see wayAround), within
-// ON_THE_WAY_KM of it and not on the trip yet. From the sights' tiles along the way, loaded if they aren't yet: at most
+// What place search suggests before anything's typed: sights on the way (see wayAround), within ON_THE_WAY_KM of it
+// and not on the trip yet: the ALONG_PICK best known, then the nearest to where you'd be (`way.from`) first, so what's
+// around you comes before what's at the other end of the drive. From the sights' tiles along the way, loaded if they aren't yet: at most
 // ALONG_TILES of them, spread along a long drive, so a day's drive can't use up the per-person limit. `waiting` while
 // some are still loading (or the route is still being looked up), so the page asks again.
-const ALONG_TILES = 16, ALONG_MAX = 8;
+const ALONG_TILES = 16, ALONG_PICK = 16, ALONG_MAX = 8;
 function sightsAlong(trip, way) {
   if (!window.L || offlineNow()) return { list: [], waiting: false };
   const n = 2 ** SIGHT_TILE_ZOOM, keys = new Set();
@@ -3155,8 +3161,10 @@ function sightsAlong(trip, way) {
     if (Array.isArray(list)) for (const s of list) found.set(s.id, s); else waiting = true;
   }
   const list = [...found.values()].filter(s => !sightOnTrip(trip, s) && kmOff(s, way.line) <= ON_THE_WAY_KM)
-    .sort((a, c) => c.rank - a.rank || a.id.localeCompare(c.id)).slice(0, ALONG_MAX);
-  return { list, waiting };
+    .sort((a, c) => c.rank - a.rank || a.id.localeCompare(c.id)).slice(0, ALONG_PICK);
+  const here = [[+way.from.lat, +way.from.lng]];
+  list.sort((a, c) => kmOff(a, here) - kmOff(c, here));
+  return { list: list.slice(0, ALONG_MAX), waiting };
 }
 
 const plainName = n => (n || '').normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
@@ -3761,9 +3769,27 @@ async function assistantField(box) {
   try { show(await api('/assistants')); } catch { box.innerHTML = `${head}<p class="wt-section__hint">Couldn’t load this. Check your connection.</p>`; }
 }
 
-// Two hours after the day's last stop; 9 AM on a day with none yet (a hotel day), or 9 AM tomorrow for an empty trip.
+// Where you are when you tap Add stop or its +: the stop selected; with a folder selected, its first stop (so the new
+// stop goes in the folder); with a drive shown, the stop it leaves from (so the new one is on that drive). Null for
+// none, or a drive from last night's hotel.
+function anchorStop(trip) {
+  const s = selectedStop(trip);
+  if (s) return s;
+  if (state.folder) return stopsOf(trip).find(x => x.folder === state.folder) || null;
+  const leg = state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
+  return leg?.fromEntry.role === 'stop' ? leg.from : null;
+}
+// After `after` (see anchorStop): halfway to the next stop that day, on a 5-minute mark, so it goes in between; or two
+// hours later when it's the day's last.
+// Else two hours after the day's last stop; 9 AM on a day with none yet (a hotel day), or 9 AM tomorrow for an empty trip.
 // From the overview, the trip's last day: a stop added there most often extends the trip.
-function defaultTime(trip) {
+function defaultTime(trip, after = null) {
+  if (after) {
+    const t = toDate(after.time), next = dayStops(trip, dayOf(after)).find(s => s.time > after.time);
+    if (!next) { t.setHours(Math.min(t.getHours() + 2, 22), 0, 0, 0); return toInput(t > toDate(after.time) ? t : new Date(toDate(after.time).getTime() + 60000)); }
+    const mid = new Date(Math.floor((t.getTime() + toDate(next.time).getTime()) / 2 / 300000) * 300000);
+    return toInput(mid > t ? mid : new Date(t.getTime() + 60000));
+  }
   const day = currentDay(trip) === ALL ? daysOf(trip).at(-1) : currentDay(trip), s = dayStops(trip, day);
   let d;
   if (s.length) { d = toDate(s.at(-1).time); d.setHours(Math.min(d.getHours() + 2, 22), 0, 0, 0); }
@@ -3915,6 +3941,7 @@ function openStopSheet(trip, stop, place = null) {
   const draft = stop ? { ...stop, kind: kindOf(stop) } : { lat: null, lng: null, address: '', name: '', kind: 'place', ...place };
   let chosen = !!stop, saved = false;
   const camera = map && { center: map.getCenter(), zoom: map.getZoom() };
+  const after = stop ? null : anchorStop(trip); // before the selection's cleared
   state.leg = null;
   if (state.sel !== stop?.id) state.selRow = null;
   state.sel = stop?.id || null;
@@ -3947,6 +3974,7 @@ function openStopSheet(trip, stop, place = null) {
         <button type="button" class="wt-search-bar__cancel" data-place-cancel>Cancel</button>
       </div>
       <div class="wt-results" id="place-results" role="listbox" aria-label="Places"></div>
+      <a class="wt-results__more" data-place-food target="_blank" rel="noopener" hidden>Places to eat nearby${ICON.external}</a>
       <span class="wt-visually-hidden" role="status" data-place-status></span>
     </div>`, el => {
     const f = el.querySelector('form'), F = f.elements;
@@ -3972,7 +4000,7 @@ function openStopSheet(trip, stop, place = null) {
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!stop;
     if (stop) { F.time.value = stop.time; F.note.value = stop.note || ''; }
-    else F.time.value = defaultTime(trip);
+    else F.time.value = defaultTime(trip, after);
 
     // ----- Links: a row each, its label over its address, and Add link under them. A label left empty shows the
     // page's site, which its placeholder says once there's an address. Rows left empty are dropped on save. -----
@@ -4026,7 +4054,7 @@ function openStopSheet(trip, stop, place = null) {
     function setKind(kind) {
       draft.kind = kind;
       // A new hotel starts at check-in time; anything else goes back to the usual default.
-      if (!timeTouched) F.time.value = kind === 'hotel' ? `${F.time.value.slice(0, 10)}T${HOTEL_CHECK_IN}` : defaultTime(trip);
+      if (!timeTouched) F.time.value = kind === 'hotel' ? `${F.time.value.slice(0, 10)}T${HOTEL_CHECK_IN}` : defaultTime(trip, after);
       showKind();
       showNights();
       if (cur?.stops) drawMap(cur);
@@ -4099,6 +4127,7 @@ function openStopSheet(trip, stop, place = null) {
     const input = placePage.querySelector('#stop-place'), box = input.closest('.wt-search');
     const spinner = box.querySelector('.wt-spinner'), clear = box.querySelector('.wt-search__clear');
     const list = placePage.querySelector('.wt-results'), status = placePage.querySelector('[data-place-status]');
+    const food = placePage.querySelector('[data-place-food]');
 
     const placeKey = p => `${(+p.lat).toFixed(4)},${(+p.lng).toFixed(4)}`;
     const cache = new Map(); // query → places, so backspacing doesn't search again
@@ -4114,7 +4143,7 @@ function openStopSheet(trip, stop, place = null) {
     function loadAlong() {
       clearTimeout(alongTimer);
       if (placePage.hidden) return;
-      way = wayAround(trip, F.time.value || defaultTime(trip), stop?.id);
+      way = wayAround(trip, F.time.value || defaultTime(trip, after), stop?.id);
       along = way ? sightsAlong(trip, way) : { list: [], waiting: false };
       if (input.value.trim().length < 3) paint();
       if (along.waiting && Date.now() < alongUntil) alongTimer = setTimeout(loadAlong, 1500);
@@ -4180,6 +4209,9 @@ function openStopSheet(trip, stop, place = null) {
       list.innerHTML = (head ? `<div class="wt-results__head" role="presentation">${esc(head)}</div>` : '')
         + opts.map((p, i) => optionHTML(p, i, typed ? q : '')).join('') + (msg ? `<div class="wt-results__msg" role="presentation">${msg}</div>` : '');
       input.setAttribute('aria-expanded', String(!!opts.length));
+      // Under them, before anything's typed: where to eat around there, in the maps app
+      food.hidden = typed || !way || offlineNow();
+      if (!food.hidden) food.href = foodURL(way.from);
       // Return picks the top match, or the one moved to with the arrows, which stays put as results arrive
       const kept = prev ? opts.findIndex(p => placeKey(p) === placeKey(prev) && p.name === prev.name) : -1;
       setActive(kept >= 0 ? kept : typed && opts.length ? 0 : -1, false);

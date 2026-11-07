@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 10.5.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 10.6.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -363,7 +363,7 @@ Labels are verbs that say exactly what happens.
 - **A field picked by searching works as in Google or Apple Maps**, and their calendars' Location field. The form shows the choice as a row: its name, and under it a detail (a place's address, so two places with the same name can be told apart). Tapping the row opens a search page in place of the form, with the current name in the field and the cursor at its end, so you edit it rather than retype it. Results fill the page. Tapping one fills it in and comes back; **Cancel** (or Esc) comes back with nothing changed. Nothing typed is ever kept: only a picked result is. A choice that's required (a stop's place) can open on this page, and Cancel there closes the sheet.
 - **While the search page is open** the sheet takes the whole screen on a phone (`.wt-modal.is-full`), as a maps app's sheet rises when you search, so the results show above the keyboard. The search bar stays at the top as the results scroll.
 - **Results are options** (`.wt-option`, below), the same rows as the type list. Each shows the marker of the type the place would get, so the type's guess is never a surprise. The part of the name that matches what's typed is `.wt-option__match`.
-- **Before anything's typed**, the page can suggest places under a `.wt-results__head` that says why (*On the way to Joshua Tree Inn*). No suggestion is the grey row until you move to it, so Return on an empty field picks nothing.
+- **Before anything's typed**, the page can suggest places under a `.wt-results__head` that says why (*On the way to Joshua Tree Inn*). No suggestion is the grey row until you move to it, so Return on an empty field picks nothing. Under the results, outside the listbox, `.wt-results__more` links to more in another app (*Places to eat nearby*, with `external`), in link blue.
 - **A result that's set apart** (on the way) says so first in its detail, with `.wt-option__tag`: in the name's ink and weight 500, then ` · ` and the address. Never a color: a highlight is grey or ink.
 - **A sheet that opens on the search page** with its field focused (a new stop) takes `.wt-modal--in-place`: on a phone it fades in where it'll stay instead of sliding up. Focus the field in the tap, so the keyboard comes up; on an iPhone a field focused while it's still below the screen pans the page down to it, and the field is left out of view above a blank screen.
 - **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it, Esc is Cancel. Keep focus in the input while a result is tapped: `preventDefault()` on the results' `mousedown`.
@@ -985,6 +985,13 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 10.6.0
+
+Place search's suggestions were only sights; for somewhere to eat, it now points to the maps app.
+
+- New: `.wt-results__more`, a link under the results to more in another app, in link blue with the `external` icon.
+- Tokens are unchanged.
 
 ### Changed in 10.5.0
 
