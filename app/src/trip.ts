@@ -61,9 +61,10 @@ export type Back = Record<string, Travel>;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_NIGHTS = 30;
 const MAX_LINKS = 10, MAX_URL = 2000, MAX_LABEL = 60;
-// The home card's route sketch needs only where the stops are and how you get to each (and back to a hotel); a trip longer than this is cut off there.
+// The home card's route sketch needs only where the stops are and how you get to each (and back to a hotel), and its
+// photos each stop's Wikidata item; a trip longer than this is cut off there.
 const PREVIEW_STOPS = 300;
-export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights' | 'travel' | 'back'>[] };
+export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights' | 'travel' | 'back' | 'wikidata'>[] };
 
 // Checks a full stop (create) or a partial one (patch); unknown keys are dropped.
 export function cleanStop(input: unknown, partial: boolean): Partial<StopFields> {
@@ -428,7 +429,7 @@ export class TripRoom extends DurableObject<Env> {
   private preview(): Preview {
     return {
       members: this.sql.exec<Member>('select id, name, image, identity from members order by joined_at').toArray(),
-      stops: this.sql.exec<Omit<Preview['stops'][number], 'back'> & { back: string }>('select id, name, lat, lng, time, kind, nights, travel, back from stops order by time, id limit ?', PREVIEW_STOPS)
+      stops: this.sql.exec<Omit<Preview['stops'][number], 'back'> & { back: string }>('select id, name, lat, lng, time, kind, nights, travel, back, wikidata from stops order by time, id limit ?', PREVIEW_STOPS)
         .toArray().map(s => ({ ...s, back: parseBack(s.back) })),
     };
   }
