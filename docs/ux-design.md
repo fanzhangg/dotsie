@@ -440,8 +440,8 @@ The full visual language (tokens, components, light and dark themes, accessibili
   | --- | --- | --- |
   | Routes | OSRM public demo server; OpenStreetMap Germany's routers on foot and by bike | Rate-limited. Results are cached, and if a request fails it falls back to a straight-line estimate. |
   | Place search | Nominatim | |
-  | Sights on the map | Overpass API (OpenStreetMap) | Asked straight from the browser, a map tile at a time, kept for the visit. |
-  | A sight's photo and lines | Wikidata, English Wikipedia, Wikimedia Commons | Asked straight from the browser when a card opens, kept for the visit. |
+  | Sights on the map | Overpass API (OpenStreetMap) | Asked straight from the browser, a map tile at a time; the last 200 tiles are kept for the visit. |
+  | A sight's photo and lines | Wikidata, English Wikipedia, Wikimedia Commons | Asked straight from the browser when a card opens; the last 300 are kept for the visit. |
   | Background map | Stadia | Vector tiles drawn by MapLibre, online and saved for offline; Stadia's pictures where MapLibre can't run. Falls back to OpenStreetMap if Stadia's map doesn't load. |
 
   None of these are meant for production traffic.

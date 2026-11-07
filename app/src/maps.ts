@@ -79,11 +79,19 @@ async function stadiaRoute(env: Env, mode: RouteMode, a: { lat: number; lng: num
 export type Sight = { id: string; name: string; address: string; lat: number; lng: number; kind: SightKind; rank: number; wikidata?: string };
 type SightKind = 'attraction' | 'museum' | 'viewpoint' | 'nature';
 export const SIGHT_ZOOM = 12;
-const SIGHT_TTL = 60 * 60 * 24 * 30;
+// How the sights and the lines about them are kept in KV: with when they were looked up, for a year after that. Past
+// FRESH, whoever asks gets what's kept at once while it's looked up again after the answer (waitUntil), which keeps it
+// another year. So a place people look at never has to wait for Overpass again, even when Overpass is down, and one
+// nobody has looked at for a year drops out on its own: what an LRU cache would do, without a write for each read.
+type Kept<T> = { at: number; value: T };
+const KEEP = 60 * 60 * 24 * 365, FRESH = 1000 * 60 * 60 * 24 * 30;
+const stale = (k: { at: number }, fresh = FRESH) => Date.now() - k.at > fresh;
+const keep = <T>(env: Env, key: string, value: T) => env.ROUTES.put(key, JSON.stringify({ at: Date.now(), value } satisfies Kept<T>), { expirationTtl: KEEP });
 const SIGHTS_PER_TILE = 80; // the best ranked: more than ever fit on a screen showing this tile
 // The main public server, then another public one when it's busy or too slow
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
-const SIGHT_RETRY = 60 * 2; // after both fail on a tile, it isn't asked again for this long
+// After both fail on a tile, it isn't asked again for this long; an hour when there's an older copy to show meanwhile
+const SIGHT_RETRY = 60 * 2, SIGHT_RETRY_STALE = 60 * 60;
 // A tile Overpass hasn't answered yet: the request waits this long for it, then answers "still loading" and the lookup
 // carries on after the response (waitUntil), up to the time Cloudflare gives it: about 30 s, shared by both servers.
 const SIGHT_WAIT = 8000, SIGHT_DEADLINE = 28000;
@@ -136,27 +144,32 @@ export function tileBounds(x: number, y: number) {
 // The lookup of a tile that's running, in this isolate; another isolate sees the KV mark instead
 const sightsLoading = new Map<string, Promise<Sight[]>>();
 // A tile's sights, or 'pending' while Overpass looks them up. Throws once a tile has just failed on both servers.
+// A copy older than FRESH is answered at once and looked up again behind it.
 export async function findSights(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, x: number, y: number): Promise<Sight[] | 'pending'> {
   const key = `sights:v3:${x}/${y}`, failed = `sights:failed:${x}/${y}`, loading = `sights:loading:${x}/${y}`;
-  const hit = await env.ROUTES.get<Sight[]>(key, 'json');
-  if (hit) return hit;
+  const hit = await env.ROUTES.get<Kept<Sight[]>>(key, 'json');
+  if (hit && !stale(hit)) return hit.value;
   // A tile Overpass couldn't answer just now: everyone looking at it would ask again every few seconds
-  if (await env.ROUTES.get(failed)) throw new Error('Overpass failed on this tile a moment ago');
+  if (await env.ROUTES.get(failed)) {
+    if (hit) return hit.value;
+    throw new Error('Overpass failed on this tile a moment ago');
+  }
   let p = sightsLoading.get(key);
   if (!p) {
     // Being looked up elsewhere: one Overpass call per tile, since a second one only makes both slower
-    if (await env.ROUTES.get(loading)) return 'pending';
+    if (await env.ROUTES.get(loading)) return hit ? hit.value : 'pending';
     await env.ROUTES.put(loading, '1', { expirationTtl: 60 });
     p = overpassSights(tileBounds(x, y)).then(async list => {
-      await env.ROUTES.put(key, JSON.stringify(list), { expirationTtl: SIGHT_TTL });
+      await keep(env, key, list);
       return list;
     }, async e => {
-      await env.ROUTES.put(failed, '1', { expirationTtl: SIGHT_RETRY });
+      await env.ROUTES.put(failed, '1', { expirationTtl: hit ? SIGHT_RETRY_STALE : SIGHT_RETRY });
       throw e;
     }).finally(() => { sightsLoading.delete(key); ctx.waitUntil(env.ROUTES.delete(loading)); });
     sightsLoading.set(key, p);
     ctx.waitUntil(p.catch(() => {})); // finishes and is kept even after this request has answered
   }
+  if (hit) return hit.value;
   const wait = new Promise<'pending'>(done => setTimeout(() => done('pending'), SIGHT_WAIT));
   return Promise.race([p, wait]);
 }
@@ -226,23 +239,31 @@ export function sightsFrom(elements: OsmElement[]): Sight[] {
 // ---------- About a sight: a few lines from English Wikipedia and its photo from Wikimedia Commons ----------
 // From the sight's Wikidata item: its English Wikipedia article, that article's first sentences and its lead picture
 // (only a free one, so it's on Commons), then the picture's author and license, which the app shows under it. null
-// when there's no article. Kept in KV a month (a week when there's nothing), as `about:v1:Q123`. Nothing needs a key.
+// when there's no article. Kept in KV as `about:v1:Q123` like the sights (see KEEP), looked up again after a month, or a
+// week when there was nothing. Nothing needs a key.
 export type About = {
   title: string; text: string; url: string;
   image: { src: string; width: number; height: number; credit: string; license: string; page: string } | null;
 } | null;
 export const QID = /^Q[1-9]\d{0,11}$/;
-const ABOUT_TTL = 60 * 60 * 24 * 30, ABOUT_NONE_TTL = 60 * 60 * 24 * 7;
+const ABOUT_NONE_FRESH = 1000 * 60 * 60 * 24 * 7;
 const ABOUT_TEXT = 1200, ABOUT_CREDIT = 100;
 const ABOUT_PHOTO = 960; // px wide: a card's photo on a phone at 2x, from Wikimedia's standard thumbnail sizes
 
-export async function findAbout(env: Env, qid: string): Promise<About> {
+// The lookups running in this isolate, so a card many people open at once is looked up again only once
+const aboutsLoading = new Map<string, Promise<About>>();
+export async function findAbout(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, qid: string): Promise<About> {
   const key = `about:v1:${qid}`;
-  const hit = await env.ROUTES.get<{ about: About }>(key, 'json');
-  if (hit) return hit.about;
-  const about = await wikiAbout(qid);
-  await env.ROUTES.put(key, JSON.stringify({ about }), { expirationTtl: about ? ABOUT_TTL : ABOUT_NONE_TTL });
-  return about;
+  const hit = await env.ROUTES.get<Kept<About>>(key, 'json');
+  if (hit && !stale(hit, hit.value ? FRESH : ABOUT_NONE_FRESH)) return hit.value;
+  let p = aboutsLoading.get(key);
+  if (!p) {
+    p = wikiAbout(qid).then(async about => { await keep(env, key, about); return about; }).finally(() => aboutsLoading.delete(key));
+    aboutsLoading.set(key, p);
+    ctx.waitUntil(p.catch(e => console.error(e)));
+  }
+  // An older copy answers now; if Wikipedia fails, it's still there to answer the next time
+  return hit ? hit.value : p;
 }
 // The prototype has a copy of this, asked straight from the browser: keep them the same
 async function wikiAbout(qid: string): Promise<About> {
