@@ -7,6 +7,7 @@ import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpU
 import { ERR, type Preview } from './trip';
 
 export { TripRoom } from './trip';
+export { SightsLookup } from './sights';
 
 /* Waythread API. Static files are served by the assets binding; only /api/* reaches this Worker.
    Auth is a session cookie (Better Auth). Each trip's data lives in its TripRoom Durable Object,
@@ -234,7 +235,7 @@ app.get('/sights', async c => {
   const [z, x, y] = (/^(\d+)\/(\d+)\/(\d+)$/.exec(c.req.query('tile') ?? '') ?? []).slice(1).map(Number), n = 2 ** SIGHT_ZOOM;
   if (z !== SIGHT_ZOOM || !(x < n) || !(y < n)) bad();
   try {
-    const list = await findSights(c.env, c.executionCtx, x, y);
+    const list = await findSights(c.env, x, y);
     // Not looked up yet: ask again in a few seconds
     if (list === 'pending') return c.json({ pending: true }, 202, { 'Cache-Control': 'no-store', 'Retry-After': '4' });
     return c.json(list, 200, { 'Cache-Control': 'private, max-age=86400' });

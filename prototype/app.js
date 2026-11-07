@@ -327,8 +327,7 @@ async function searchPlaces(text, near, signal) {
   });
 }
 // What's worth seeing in a map tile, straight from OpenStreetMap's Overpass API, as the app's server asks it (see
-// findSights in app/src/maps.ts): the same quarters, query, kinds and ranks. The app keeps each tile for the visit, even
-// one with a quarter missing.
+// findSights in app/src/maps.ts): the same servers, query, kinds and ranks. The app keeps each tile for the visit.
 const SIGHT_QUERY = [
   'nw[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]',
   'nw[historic~"^(castle|palace|fort|monument|archaeological_site|ruins|ship|city_gate)$"][name]',
@@ -362,31 +361,24 @@ function sightKind(t) {
 async function findSights(tile, signal) {
   const [z, x, y] = (tile || '').split('/').map(Number), n = 2 ** z;
   const lng = i => (i / n) * 360 - 180, lat = j => (Math.atan(Math.sinh(Math.PI * (1 - (2 * j) / n))) * 180) / Math.PI;
-  // Asked as quarters, two at a time, each of the first server and then the other, as the app's server asks them
-  const parts = [];
-  for (let i = 0; i < 2; i++) for (let k = 0; k < 2; k++) parts.push([lat(y + 1 - i / 2), lng(x + k / 2), lat(y + 1 - (i + 1) / 2), lng(x + (k + 1) / 2)]);
-  let offline = false, next = 0;
-  const until = Date.now() + 28000; // all of it, as the app's server gives it
-  const ask = async ([s, w, nn, e]) => {
-    const q = `[out:json][timeout:12][bbox:${s},${w},${nn},${e}];(${SIGHT_QUERY.join(';')};);out center tags qt;`;
-    for (const url of OVERPASS) {
-      const left = until - Date.now();
-      if (left < 2000) break;
-      try {
-        const res = await fetch(url, { method: 'POST', body: new URLSearchParams({ data: q }), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(Math.min(left, 15000))]) : AbortSignal.timeout(Math.min(left, 15000)) });
-        if (!res.ok) continue;
-        const got = await res.json();
-        if (/error/i.test(got.remark || '')) continue;
-        return got.elements;
-      } catch (e) { if (e.name === 'AbortError') throw e; if (e.name !== 'TimeoutError') offline = true; }
-    }
-    return null;
+  // Both servers at once, the first good answer, each given a minute, as the app's server asks them
+  const q = `[out:json][timeout:60][bbox:${lat(y + 1)},${lng(x)},${lat(y)},${lng(x + 1)}];(${SIGHT_QUERY.join(';')};);out center tags qt;`;
+  const done = new AbortController();
+  let offline = false;
+  const ask = async url => {
+    try {
+      const res = await fetch(url, { method: 'POST', body: new URLSearchParams({ data: q }), signal: AbortSignal.any([done.signal, AbortSignal.timeout(75000), ...(signal ? [signal] : [])]) });
+      if (!res.ok) throw new Error(res.status);
+      const got = await res.json();
+      if (/error/i.test(got.remark || '')) throw new Error(got.remark);
+      return got.elements;
+    } catch (e) { if (e.name === 'TypeError') offline = true; throw e; }
   };
-  const got = [];
-  await Promise.all([0, 1].map(async () => { while (next < parts.length) { const i = next++; got[i] = await ask(parts[i]); } }));
-  if (!got.some(Boolean)) throw new ApiError(offline ? 0 : 503, offline ? 'offline' : 'unavailable');
-  const seen = new Set(), elements = [];
-  for (const el of got.filter(Boolean).flat()) if (!seen.has(el.type + el.id)) { seen.add(el.type + el.id); elements.push(el); }
+  let elements;
+  try { elements = await Promise.any(OVERPASS.map(ask)); } catch {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    throw new ApiError(offline ? 0 : 503, offline ? 'offline' : 'unavailable');
+  } finally { done.abort(); }
   const out = [];
   for (const el of elements) {
     const t = el.tags || {}, at = el.center || (el.lat != null ? { lat: el.lat, lon: el.lon } : null), what = sightKind(t);
@@ -3055,8 +3047,9 @@ function loadSightTile(k) {
   if (t && !(t.retry && Date.now() > t.retry)) return;
   if (Date.now() < sightsPausedUntil) return;
   sightTiles.set(k, api(`/sights?tile=${SIGHT_TILE_ZOOM}/${k}`).then(list => {
-    // Still being looked up (a tile no one has looked at yet can take half a minute): ask again in a moment
-    if (!Array.isArray(list)) { sightTiles.set(k, { retry: Date.now() + 4000 }); setTimeout(drawSights, 4500); return; }
+    // Still being looked up (Overpass can take half a minute or more for a tile no one has looked at yet): ask again in a
+    // while, not so often that it uses up the per-person limit search and routes share
+    if (!Array.isArray(list)) { sightTiles.set(k, { retry: Date.now() + 8000 }); setTimeout(drawSights, 8500); return; }
     sightTiles.set(k, list);
     drawSights();
   }, err => {
