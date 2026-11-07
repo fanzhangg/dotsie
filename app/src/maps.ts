@@ -243,13 +243,57 @@ export async function findAbout(env: Env, ctx: { waitUntil(p: Promise<unknown>):
   // An older copy answers now; if Wikipedia fails, it's still there to answer the next time
   return hit ? hit.value : p;
 }
+
+// A place that isn't a sight on the map (found by place search, or added by an assistant) has no Wikidata item, but
+// it may have an English Wikipedia article all the same: the Home card's photos ask for it by its name and where it is.
+// It's the article Wikipedia's search puts first whose title is the place's name (or starts its name: "White Sands
+// National Park" for its visitor center) and whose place is within PLACE_NEAR of it. Then it's that article's item,
+// as above. Which item a place is, or that it has none, is kept in KV as `place:v1:<name>@<where>`, like an about.
+const PLACE_NEAR = 50; // km: a park's or a town's article is placed at its middle
+export async function findPlaceAbout(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, name: string, at: { lat: number; lng: number }): Promise<About> {
+  const key = `place:v1:${placeKey(name)}@${at.lat.toFixed(3)},${at.lng.toFixed(3)}`;
+  const hit = await env.ROUTES.get<Kept<string | null>>(key, 'json');
+  let qid = hit?.value ?? null;
+  if (!hit || stale(hit, hit.value ? FRESH : ABOUT_NONE_FRESH)) {
+    try {
+      qid = await wikiPlace(name, at);
+      ctx.waitUntil(keep(env, key, qid).catch(e => console.error(e)));
+    } catch (e) {
+      if (!hit) throw e; // an older answer stands in while Wikipedia fails
+    }
+  }
+  return qid ? findAbout(env, ctx, qid) : null;
+}
+// A name as titles are compared: no "(Santa Fe, New Mexico)" or ", New Mexico", no leading "The", "St." for "Saint",
+// then letters and digits only
+const placeKey = (n: string) => n.replace(/\s*\([^)]*\)/g, '').replace(/,.*$/, '').replace(/^\s*the\s+/i, '').replace(/\bsaint\b/gi, 'st')
+  .normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+const kmBetween = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+  const r = Math.PI / 180, x = (b.lng - a.lng) * r * Math.cos(((a.lat + b.lat) / 2) * r), y = (b.lat - a.lat) * r;
+  return Math.hypot(x, y) * 6371;
+};
+// The prototype has a copy of this, asked straight from the browser: keep them the same
+async function wikiPlace(name: string, at: { lat: number; lng: number }): Promise<string | null> {
+  const n = placeKey(name);
+  if (n.length < 4) return null;
+  const pages: any[] = (await wikiGet('en.wikipedia.org', {
+    action: 'query', generator: 'search', gsrsearch: name, gsrnamespace: '0', gsrlimit: '5', prop: 'coordinates|pageprops', ppprop: 'wikibase_item|disambiguation',
+  })).query?.pages ?? [];
+  const page = pages.sort((a, b) => a.index - b.index).find(p => {
+    const t = placeKey(p.title), c = p.coordinates?.[0];
+    return (t === n || (t.length >= 8 && n.startsWith(t))) && c && kmBetween(at, { lat: c.lat, lng: c.lon }) <= PLACE_NEAR
+      && p.pageprops?.disambiguation === undefined && QID.test(p.pageprops?.wikibase_item ?? '');
+  });
+  return page?.pageprops.wikibase_item ?? null;
+}
+const wikiGet = async (host: string, params: Record<string, string>) => {
+  const res = await fetch(`https://${host}/w/api.php?${new URLSearchParams({ format: 'json', formatversion: '2', ...params })}`, { headers: OSM_UA, signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`${host} ${res.status}`);
+  return res.json<any>();
+};
 // The prototype has a copy of this, asked straight from the browser: keep them the same
 async function wikiAbout(qid: string): Promise<About> {
-  const get = async (host: string, params: Record<string, string>) => {
-    const res = await fetch(`https://${host}/w/api.php?${new URLSearchParams({ format: 'json', formatversion: '2', ...params })}`, { headers: OSM_UA, signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`${host} ${res.status}`);
-    return res.json<any>();
-  };
+  const get = wikiGet;
   const item = await get('www.wikidata.org', { action: 'wbgetentities', ids: qid, props: 'sitelinks', sitefilter: 'enwiki' });
   const title = item.entities?.[qid]?.sitelinks?.enwiki?.title;
   if (!title) return null;
