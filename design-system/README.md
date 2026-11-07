@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 10.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 10.5.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -133,6 +133,7 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-marker-lift`, `--wt-marker-sink`, `--wt-marker-boost` | The shading on a stop's marker and pin, as on a maps app's. Each builds its own gradient from its color (`--wt-marker-fill`) with OKLCH relative colors: `lift` lighter and `boost` times the chroma at the top, `sink` darker at the bottom, one hue throughout. Not on a drive's car, which stays flat, nor on what's over. |
 | `--wt-marker-gloss` | Unused since 6.2.0: a white-and-black overlay that greyed the colors. Kept until the next major version. |
 | `--wt-marker-ink` | The icon on a marker, the number or dot on a map pin, and the car on a drive. Meets 3:1 on every kind color, `--wt-kind-drive`, `--wt-kind-drive-current`, `--wt-now`, `--wt-danger` and `--wt-route`. Not on `--wt-kind-past`: what's over is faded on purpose. |
+| `--wt-pin-faded-mix`, `--wt-pin-faded-ink-lift` | A pin stepping back while another is selected: `mix` is how much of its type color goes over `--wt-pin-fill` (45%, lighter in light mode, deeper in dark), and its number is its own type color, `ink-lift` lighter in OKLCH (negative: darker in light mode), so it stays legible. |
 | `--wt-danger`, `--wt-danger-surface` | "Doesn't fit" and destructive states; a late drive's car. The loudest color. |
 | `--wt-now` | The ring on the stop happening now and the car on the drive you're on: the blackest ink (`gray-950`; `gray-100` in dark). |
 | `--wt-highlight` | Flashing a co-editor's change once. |
@@ -853,7 +854,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal; a merged pin's gives all its numbers and names its stops.
 - Variants: `--selected` (32px, 36px for several stops, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (20px and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). A merged pin is muted only when all its stops are. The pins still in color are the ones that matter now.
 - **A tap target of 36px**, centered on the pin (`::after`).
-- **Put the pins in a `.wt-pins` element** (with Leaflet, the marker pane). While one of them is `--selected`, the rest fade to 55%, keeping their colors, so the selected pin stands out among pins of every type. They fade rather than turn grey, since grey means over.
+- **Put the pins in a `.wt-pins` element** (with Leaflet, the marker pane). While one of them is `--selected`, the rest step back: still solid, flat, in a lighter version of their color (`--wt-pin-faded-mix` of it over `--wt-pin-fill`; deeper in dark mode), with the number in their own color, so the selected pin stands out among pins of every type. Not see-through, so the route and the map don't show through them (they used to fade to 55% opacity, which muddied them). They keep their colors rather than turn grey, since grey means over; a pin that's over stays as it is.
 - **A folder** is one pin while it's closed: `--folder`, with the folder's number (it takes one for all its stops), at its first stop, where you go in, in its stops' type color (`place` when they differ). Open, its stops are pins with their own numbers, among the day's other pins: nothing else fades. Several folders can be open at once.
 - The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves half a selected pin clear at the edges.
 - `--compact`, `--dot` and `.wt-pin__dot` on a saved stop are unused since 9.8.0; they stay until the next major version.
@@ -867,12 +868,14 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 </div>
 ```
 
-- **A place worth seeing, on the map**, as a maps app shows its places once you zoom in: a 20px marker in the type's color (`--wt-kind-color`) with the type's icon at 12px. Its name is in the markup but hidden: the icon says what kind of place it is, and its card says the rest.
+- **A place worth seeing, on the map**, as a maps app shows its places once you zoom in. It's part of the map, not of the plan, so it's drawn like the map's own places: a 16px disc tinted with the type's color (`--wt-kind-color`, 20% over `--wt-pin-fill`), the type's icon at 10px in that color, a hairline of the color around the edge, and no shadow. Its name is in the markup but hidden: the icon says what kind of place it is, and its card says the rest.
 - **Placed by its marker's center**, at the place, like a [pin](#map-pin-wt-pin).
+- **Pointed at with a mouse, or focused** (it, or the element holding it), it's the solid marker: 20px in the type's color, the icon at 12px in `--wt-marker-ink`, a `--wt-pin-fill` ring and the pin's shadow, the same about its center. On its own, outside a `.wt-sight` (as in a sight's card), `.wt-sight__marker` is that solid marker.
 - **Its name shows while it's hovered with a mouse:** to the marker's right, in 12px ink with a halo in `--wt-pin-fill`, so it reads over the light and the dark map. A long name stops at 160px with an ellipsis. Bring that marker in front of the others while its name shows. Not while it's selected: its card is open, with the name at the top.
-- **Quieter than a pin:** smaller, flat (no marker shading), and never numbered. Put sights in a layer over the routes and the map's own names, so no name hides them, and under the pins; leave a place for a sight only where its marker clears the pins and the other sights. (Their names used to show, under the routes and the map's names, which covered them.)
+- **The plan comes first.** A stop's pin is a solid color with a white number, standing off the map; a sight is tinted, flat, smaller and never numbered, so the pins and the routes read first. Put sights in a layer over the map's own names, so no name hides them, and under the pins; leave a place for a sight only where its marker clears the pins, the routes and the other sights, so the day's line runs unbroken from stop to stop. (They used to be solid 20px markers with a shadow, as strong as the pins, and sat on the routes, breaking the line.)
+- **While a pin is `--selected`,** the other pins step back to a lighter solid color and the sights fade to 40%, so none outshines the plan. This works for sights inside the element that holds the `.wt-pins` element (with Leaflet, the map pane).
 - **It's a button.** Give it (or the element holding it) `role="button"`, a tab stop and an `aria-label` that says its name and what tapping does ("Alameda Park Zoo, Attraction. Show more"). Its tap target is 36px square, around the marker.
-- **`.is-selected`** while its card is open: the marker grows to 28px (its icon to 16px) about the same center, with the selected pin's shadow, and no name beside it (its card says it). Bring it in front of the other sights.
+- **`.is-selected`** while its card is open: the solid marker grows to 28px (its icon to 16px) about the same center, with the selected pin's shadow, and no name beside it (its card says it). Bring it in front of the other sights.
 - It fades in on `--wt-duration-base` when it appears.
 
 ### About `.wt-about`
@@ -982,6 +985,21 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 10.5.0
+
+While a pin was selected, the other pins faded to 55% opacity: the route and the map showed through them, and they looked muddy.
+
+- **The pins beside a selected one are now solid,** flat, in a lighter version of their color (deeper in dark mode), with the number in their own color. A pin that's over (`--muted`) is unchanged. The markup is unchanged.
+- New tokens: `--wt-pin-faded-mix` and `--wt-pin-faded-ink-lift`.
+
+### Changed in 10.4.0
+
+Sights were as loud as the trip's own pins: solid 20px markers in the type's color with a shadow, sitting on the routes. Zoomed in to a town, they crowded out the stops and broke up the day's line.
+
+- **`.wt-sight`'s marker is now a 16px tinted disc** with its icon in the type's color, a hairline edge and no shadow. Hovered, focused or selected, it's the solid marker it was. `.wt-sight__marker` on its own (a sight's card) is unchanged. The markup is unchanged.
+- New: while a `.wt-pin--selected` is in the `.wt-pins` element, the sights beside it fade to 40%.
+- Tokens are unchanged.
 
 ### Added in 10.3.0
 

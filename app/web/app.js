@@ -1461,6 +1461,28 @@ const RouteLayer = window.L && L.Layer.extend({
     for (const route of this._routes.values()) this._drawRoute(route);
     for (const route of this._leaving) this._drawRoute(route);
   },
+  // The cells of a `cell`-pixel grid over the map's container that a route on the map runs through, as "x,y": so the
+  // sights can keep off the routes (see drawSights). Each segment in view is walked in steps of half a cell.
+  cells(cell) {
+    const m = this._map, out = new Set();
+    if (!m) return out;
+    const v = viewOf(m), tl = m.containerPointToLayerPoint([0, 0]), size = m.getSize();
+    const ox = v.ox + tl.x, oy = v.oy + tl.y, inView = (x, y) => x > -cell && y > -cell && x < size.x + cell && y < size.y + cell;
+    for (const route of this._routes.values()) {
+      const w = route.world, [x0, y0, x1, y1] = route.box;
+      if (x1 * v.s - ox < 0 || x0 * v.s - ox > size.x || y1 * v.s - oy < 0 || y0 * v.s - oy > size.y) continue;
+      for (let i = 0; i < w.length / 2 - 1; i++) {
+        const ax = w[i * 2] * v.s - ox, ay = w[i * 2 + 1] * v.s - oy, bx = w[i * 2 + 2] * v.s - ox, by = w[i * 2 + 3] * v.s - oy;
+        if (!inView(ax, ay) && !inView(bx, by) && !L.LineUtil.clipSegment(L.point(ax, ay), L.point(bx, by), L.bounds([0, 0], size))) continue;
+        const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / (cell / 2)));
+        for (let k = 0; k <= steps; k++) {
+          const x = ax + ((bx - ax) * k) / steps, y = ay + ((by - ay) * k) / steps;
+          if (inView(x, y)) out.add(`${Math.floor(x / cell)},${Math.floor(y / cell)}`);
+        }
+      }
+    }
+    return out;
+  },
   // The route as a path at the current view: points less than a pixel apart are merged, and the line is cut where it
   // leaves the drawing, so a long drive at a close zoom stays a short path.
   _drawRoute(route) {
@@ -2995,14 +3017,17 @@ function focusStop(s) {
 
 // ---------- Sights: what's worth seeing nearby, once the map is zoomed in ----------
 // As a maps app shows its places: zoomed in to a town or closer, the map marks the best known attractions, museums,
-// viewpoints and nature in view, each a small marker in its type's color and icon, with no name: the map's own names
-// stay readable, and a tap says the rest. They sit over the routes and the map's names, under the trip's pins, and give
-// way to the pins. Tapping one opens its card (see openSight). Places already on the trip aren't repeated.
+// viewpoints and nature in view, each a small marker tinted with its type's color, with its icon and no name: the map's
+// own names stay readable, and a tap says the rest. They're part of the map, not the plan, so they give way to it: they
+// sit over the map's names but under the trip's pins, and none goes on a pin or on a route, so the day's line runs
+// unbroken from stop to stop. Tapping one opens its card (see openSight). Places already on the trip aren't repeated.
 // None while a stop is open, nor offline. They come from /api/sights a tile at a time (zoom 12), kept for the visit.
 const SIGHTS_FROM_ZOOM = 13;
 const SIGHT_TILE_ZOOM = 12;
-const SIGHTS_MAX = 20; // in view at once, at most, so they never crowd out the plan
+const SIGHTS_MAX = 12; // in view at once, at most, so they never crowd out the plan
 const SIGHT_GAP = 4; // px between two sights' markers, and around the trip's pins
+const SIGHT_R = 8; // px, a sight's marker's radius
+const SIGHT_ROUTE_CELL = 6; // px, the grid a route's cells are counted in: a sight keeps a cell or so off the line
 // A Map that keeps only the `max` entries used last: get() and set() make an entry the newest, and set() drops the
 // oldest past `max`. For what the map loads as you move it around, which would otherwise grow for as long as the page is open.
 class Recent extends Map {
@@ -3054,17 +3079,22 @@ function drawSights() {
         if (Array.isArray(list)) for (const s of list) found.set(s.id, s); else loadSightTile(k);
       }
     }
-    // The best known first, each where it fits: in the part of the map you can see, clear of the trip's pins and of the
-    // sights already placed. Its box is its marker.
+    // The best known first, each where it fits: in the part of the map you can see, clear of the trip's pins, its routes
+    // and the sights already placed. Its box is its marker.
     const size = map.getSize(), top = coveredTop(), bottom = size.y - coveredBottom();
     const taken = pins.filter(p => !p.hidden).map(p => { const c = map.latLngToContainerPoint(p.ll), r = p.r + SIGHT_GAP; return [c.x - r, c.y - r, c.x + r, c.y + r]; });
     const onTrip = s => sightOnTrip(trip, s);
     const overlaps = (a, c) => a[0] < c[2] && c[0] < a[2] && a[1] < c[3] && c[1] < a[3];
+    const routeCells = routeLayer ? routeLayer.cells(SIGHT_ROUTE_CELL) : new Set(), G = SIGHT_ROUTE_CELL;
+    const onRoute = b => {
+      for (let y = Math.floor(b[1] / G); y <= Math.floor(b[3] / G); y++) for (let x = Math.floor(b[0] / G); x <= Math.floor(b[2] / G); x++) if (routeCells.has(`${x},${y}`)) return true;
+      return false;
+    };
     for (const s of [...found.values()].sort((a, c) => c.rank - a.rank || a.id.localeCompare(c.id))) {
       const p = map.latLngToContainerPoint([s.lat, s.lng]);
       if (p.x < 0 || p.x > size.x || p.y < top || p.y > bottom || onTrip(s)) continue;
-      const box = [p.x - 10 - SIGHT_GAP / 2, p.y - 10 - SIGHT_GAP / 2, p.x + 10 + SIGHT_GAP / 2, p.y + 10 + SIGHT_GAP / 2];
-      if (taken.some(t => overlaps(t, box))) continue;
+      const r = SIGHT_R + SIGHT_GAP / 2, box = [p.x - r, p.y - r, p.x + r, p.y + r];
+      if (taken.some(t => overlaps(t, box)) || onRoute(box)) continue;
       taken.push(box);
       show.set(s.id, s);
       if (show.size === SIGHTS_MAX) break;
