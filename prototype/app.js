@@ -2911,34 +2911,42 @@ document.addEventListener('pointerover', e => {
   if (cur?.stops) drawMap(cur);
 });
 // Select a stop: its row and its pin are highlighted, and Add stop becomes Open in Maps and Edit stop.
-// Tapping a pin or a row scrolls the row to the middle of the list. Tapping a row (`row`, its key) moves the pin into view if it's
-// off the map you can see, keeping the zoom; the map is never zoomed for it. Tapping the selected row (or its pin) again keeps it selected;
-// tapping empty map, changing the day or Esc clears it.
+// Tapping a pin or a row scrolls the row to the middle of the list. Tapping a row (`row`, its key) brings the map up close
+// to the stop (see zoomToStop); a pin is already in front of you, so tapping one leaves the map where it is. Tapping the
+// selected row (or its pin) again keeps it selected; tapping empty map, changing the day or Esc clears it.
 function selectStop(s, row = null) {
-  // Again, at half: it's already the focus, so nothing animates. A row still brings its pin back if it's out of view.
+  // Again, at half: it's already the focus, so nothing animates. A row still brings its pin back up close if it's out of view.
   // (A hotel that starts and ends the day has two rows: its other row isn't the highlighted one.)
   if (state.sel === s.id && state.snap === 'half' && !isWide() && (!row || $app.querySelector('.wt-tl .is-selected')?.dataset.row === row)) {
-    if (row) panTo(s);
+    if (row) zoomToStop(s);
     centerFocus({ animate: false });
     return;
   }
   state.leg = null;
   state.sel = s.id;
   state.selRow = row;
-  // The map keeps its zoom: leaving a drive's preview or the whole-day list doesn't re-frame it for the day.
-  // Only the pin is panned into view (Whole day brings the day back).
+  // Leaving a drive's preview or the whole-day list doesn't re-frame the map for the day: a row brings the map to
+  // the stop instead, and a pin leaves it where it is (Whole day brings the day back).
   const key = fitKey;
   setSnap('half', false); // the whole-day list covers the map
   fitKey = key;
   render();
-  if (row) panTo(s);
+  if (row) zoomToStop(s);
   // in the middle of the list, so the stops before and after it show too
   centerFocus({ force: true });
 }
-// Pan a stop's pin into the middle of the map you can see, keeping the zoom, if it's out of view.
-function panTo(s) {
-  if (!map || s.lat == null || inView([s.lat, s.lng])) return;
-  const z = map.getZoom(), p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
+// Street level: where a stop's streets show, and the sights around it. Offline saves each place's map at this zoom.
+const STOP_ZOOM = 15;
+// Bring a stop up close: its pin in the middle of the map you can see, zoomed in to street level, or left closer if
+// the map already is; it never zooms out. Already that close, with the pin in view, the map stays put. Zoomed out to
+// a road trip's day, a selected pin was a dot on a map of the region, with no streets around it and no sights.
+function zoomToStop(s) {
+  if (!map || s.lat == null) return;
+  const flying = camTarget && performance.now() < camTarget.until;
+  const z = Math.max(flying ? camTarget.zoom : map.getZoom(), STOP_ZOOM);
+  if (!flying && map.getZoom() > STOP_ZOOM - 0.01 && inView([s.lat, s.lng])) return;
+  camFree = true; // the map is placed for the stop: a new sheet height leaves it there rather than re-fitting the day
+  const p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
   moveCamera(map.unproject(p, z), z);
 }
 // Move a place into the middle of the map you can see: above the stop sheet on a phone, the whole map on a wide screen.
