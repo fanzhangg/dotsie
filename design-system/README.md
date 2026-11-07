@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 11.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 12.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -116,22 +116,17 @@ The values live in [`tokens.css`](tokens.css). The demo page shows each one live
 | `--wt-border-default` | Input borders, list dividers. |
 | `--wt-border-strong` | The sheet's grab handle (decorative). |
 | `--wt-border-rail` | The timeline's rail: a quiet hairline, dimmer than `--wt-border-strong`, one step darker than `--wt-surface-current` so it shows through a highlighted row. |
-| `--wt-border-control` | Control borders that must meet 3:1 on cards. No component uses it since 2.0.0. |
 | `--wt-border-focus` | Focus rings, the focused input. |
 | `--wt-action-primary`, `--wt-action-primary-text` | The one main action in a view, like Add stop. |
 | `--wt-action-danger`, `--wt-action-danger-text` | The confirm button of a dialog that destroys something (`.wt-btn--destructive`). |
 | `--wt-action-secondary`, `--wt-action-secondary-text` | Quiet actions, like Copy. |
-| `--wt-action-done`, `--wt-action-done-text` | Unused since 2.0.0, when checks were removed. Kept until the next major version. |
 | `--wt-route`, `--wt-route-active`, `--wt-route-muted`, `--wt-route-done`, `--wt-route-casing` | Route lines: normal, selected, the others while one is selected, past (on today: the same grey as `--wt-kind-past`), and the outline under each line. |
 | `--wt-pin-fill` | The outline around a map pin. |
-| `--wt-pin-ring`, `--wt-pin-ring-muted`, `--wt-pin-ring-done` | Unused since 2.0.0, when pins became markers. Kept until the next major version. |
 | `--wt-kind-place`, `--wt-kind-hotel`, `--wt-kind-airport`, `--wt-kind-gas`, `--wt-kind-restaurant`, `--wt-kind-cafe`, `--wt-kind-attraction`, `--wt-kind-viewpoint`, `--wt-kind-nature`, `--wt-kind-museum`, `--wt-kind-shopping` | Stop types, one color each, so no two types look alike (see [Marker](#marker-wt-marker)). Named for the type's key, so a stop's color is `--wt-kind-<kind>`. Only on markers, pins and the type picker. Each is as vivid as its hue allows (OKLCH chroma up to .21 in light, .18 in dark) at about one lightness (L .62 in light, .74 in dark), so markers are bright and colorful and a type says what a place is, never that it matters more. Café, gas, nature and airport sit a little deeper, to stay apart from their neighbors. L .62 is as light as a type can be with `--wt-marker-ink` still at 3:1. None is blue or red. Place stays a neutral. |
-| `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight`, `--wt-kind-shop` | Unused since 6.6.0, when each type got its own color. Each is now its group's first type (airport, hotel, restaurant, attraction, shopping). Kept until the next major version. |
 | `--wt-kind-drive` | The car marker on a drive in the timeline: grey, and quieter than any stop type. |
 | `--wt-kind-drive-current` | The car on the selected drive: a darker grey, never blue. |
 | `--wt-kind-past` | Markers, cars and muted pins of what's over: light grey. |
 | `--wt-marker-lift`, `--wt-marker-sink`, `--wt-marker-boost` | The shading on a stop's marker and pin, as on a maps app's. Each builds its own gradient from its color (`--wt-marker-fill`) with OKLCH relative colors: `lift` lighter and `boost` times the chroma at the top, `sink` darker at the bottom, one hue throughout. Not on a drive's car, which stays flat, nor on what's over. |
-| `--wt-marker-gloss` | Unused since 6.2.0: a white-and-black overlay that greyed the colors. Kept until the next major version. |
 | `--wt-marker-ink` | The icon on a marker, the number or dot on a map pin, and the car on a drive. Meets 3:1 on every kind color, `--wt-kind-drive`, `--wt-kind-drive-current`, `--wt-now`, `--wt-danger` and `--wt-route`. Not on `--wt-kind-past`: what's over is faded on purpose. |
 | `--wt-pin-faded-mix`, `--wt-pin-faded-ink-lift` | A pin stepping back while another is selected: `mix` is how much of its type color goes over `--wt-pin-fill` (45%, lighter in light mode, deeper in dark), and its number is its own type color, `ink-lift` lighter in OKLCH (negative: darker in light mode), so it stays legible. |
 | `--wt-danger`, `--wt-danger-surface` | "Doesn't fit" and destructive states; a late drive's car. The loudest color. |
@@ -182,7 +177,7 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
   - **Sheets:** two icon columns measured from the content edge: the options' markers on the left (23px), and their checks on the right (17px). The search icon, a picker's marker, a sub-page's back button, Close and a picker's chevron all sit on these columns. The typed search, a picker's value and a sub-page's title start where option names do.
 - **Space:** a 4px grid. `--wt-space-1` (4) · `2` (8) · `3` (12) · `4` (16) · `5` (20) · `6` (24) · `8` (32) · `10` (40). The side margin on a phone is `--wt-space-4`; the list's inner margin is `--wt-space-3`.
 - **Radius:** `--wt-radius-sm` (8, pin labels) · `md` (12, cards, inputs, block buttons, timeline rows) · `lg` (18, sheets) · `pill` (buttons, toasts) · `round` (avatars, markers, icon buttons).
-- **Size:** `--wt-size-touch` (44, the minimum for anything tapped often) · `icon-btn` (40) · `avatar` (26) · `check` (26, unused since 2.0.0) · `icon` (22) · `column` (480, the app column on large screens) · `panel` (360–440, 30% of the window: the plan's side panel from 768px wide) · `trip-head` (56, the trip header, below the top safe area).
+- **Size:** `--wt-size-touch` (44, the minimum for anything tapped often) · `icon-btn` (40) · `avatar` (26) · `icon` (22) · `column` (480, the app column on large screens) · `panel` (360–440, 30% of the window: the plan's side panel from 768px wide) · `trip-head` (56, the trip header, below the top safe area).
 
 ### Elevation, motion, layers
 
@@ -213,7 +208,7 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `person-add` `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `directions` `map` `list` `fit` `alert` (something failed)
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `directions` `map` `list` `fit` `alert` (something failed)
 
 Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
 
@@ -264,12 +259,10 @@ Labels are verbs that say exactly what happens.
 
 ```html
 <button class="wt-icon-btn" aria-label="Close">${icon('close')}</button>
-<button class="wt-icon-btn wt-icon-btn--sm wt-icon-btn--muted" aria-label="Edit trip">${icon('edit')}</button>
 ```
 
 - Only for actions whose icon is universally understood: add, back, close, edit, home, settings, the day arrows and Directions.
 - Everything else gets a text label.
-- `--muted` is for secondary actions next to a title.
 
 ### Avatar `.wt-avatar` and stack `.wt-avatar-stack`
 
@@ -282,7 +275,6 @@ Labels are verbs that say exactly what happens.
 
 - The stack shows who's on the trip. Trip settings lists everyone by name (`.wt-people`), with "(you)" in `.wt-people__meta`.
 - A photo (`.wt-avatar__img`) goes inside the avatar, after the initial, and covers it. Keep the initial and the identity color: they show while the photo loads, and if it fails, remove the `<img>`. The name is always next to it or in a label, so `alt` stays empty.
-- With only one person on the trip, show the `person-add` icon instead. (A trip card shows its one person: there, the stack says who's on the trip, not how to add someone.)
 - Set `--wt-avatar-ring` to the surface behind the stack.
 - Out of room: `<span class="wt-avatar wt-avatar--more">+3</span>` stands for the rest, in quiet grey.
 
@@ -367,7 +359,6 @@ Labels are verbs that say exactly what happens.
 - **A sheet that opens on the search page** with its field focused (a new stop) takes `.wt-modal--in-place`: on a phone it fades in where it'll stay instead of sliding up. Focus the field in the tap, so the keyboard comes up; on an iPhone a field focused while it's still below the screen pans the page down to it, and the field is left out of view above a blank screen.
 - **Keyboard:** ↑ ↓ move the grey row (`aria-selected`, with `aria-activedescendant` on the input), Return picks it, Esc is Cancel. Keep focus in the input while a result is tapped: `preventDefault()` on the results' `mousedown`.
 - **While it searches**, the spinner shows in the field and the last results stay on the page, so the list doesn't flash.
-- `ul.wt-results` with `.wt-results__item`, `__name` and `__detail` (the list under the field before 4.6.0) are still in the stylesheet, though neither the app nor the prototype uses them. They can go in the next major version.
 
 ### Marker `.wt-marker`
 
@@ -447,7 +438,6 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - **Spacing:** stops get `--wt-tl-pad` (12px) above and below their text; drives are a 32px row. The rail column (`--wt-tl-rail`) is 40px. Change `--wt-tl-pad` on `.wt-tl` to tighten or loosen the list; the markers follow.
   - The car (`.wt-tl-car`) is a marker like a stop's: a 22px circle in `--wt-kind-drive` grey with the `car` icon in `--wt-marker-ink`. Smaller and greyer than any stop, so drives never outrank them. On the selected drive it turns a darker grey (`--wt-kind-drive-current`), on the drive you're on black (`--wt-now`), on a late drive red (`--wt-danger`), and once it's over light grey (`--wt-kind-past`). Never blue: blue is for routes on the map.
   - Give the row `role="button"` and `aria-pressed` while its route is shown.
-  - `.wt-tl-drive__go`, a small Directions icon in the time column, is no longer used by the app (since 4.5.0) or the prototype. It can go in the next major version.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
 - **Day heading** (`.wt-tl-day`): the overview, **All days**, puts every day in one timeline, each day's stops under its name. See [All days](#all-days-wt-tl-day).
@@ -573,15 +563,12 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 - **Type** keeps the stop sheet short this way, so the map stays in view above it.
 - In the app, `optionHTML`, `choicePageHTML` and `choicePage` in `app/web/app.js` build and wire any picker, as a page on a phone and a menu on a computer; use them for a new one.
 - Type starts as a guess from the place's name and category, until someone picks one.
-- **An option that can't be picked here** is a `disabled` button: its label and marker fade, and its detail line says why, in full.
 - **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
 - **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Check-in and check-out". ↑ ↓ move between types.
 - **One time for a stop: Arrive**, when you get there. There's no leave time: the drive after a stop sets off just in time for the next one.
 - **Check-out** shows only for a hotel, under Check-in, and is a day and time like it. Arrive becomes Check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. Check-out is after check-in, as early as the same day (0 nights, for a stay that starts after midnight), and at most 30 nights later (`min` is the check-in, `max` 30 days on); a day after that, or an empty field, goes back to the last good one when you leave the field. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 0–30 nights.
 - **Date and time fields** (`.wt-input` on `date`, `time` and `datetime-local`) are drawn like any other field on iPhone, so they read from the left and stay inside the sheet, rather than Safari's centred control, which is wider than the sheet.
-- **`.wt-input-group`** is a `.wt-input` box with a fixed `__prefix` and a bare `<input>` after it. Make the box a `<label>` so a tap anywhere opens the input, and label the input with `aria-labelledby`.
-- `.wt-nights` (the stepper), `.wt-field-row` and `.wt-input-group` are no longer used: Check-out became a day and time, which replaced the stepper and the day shown before the time. They can go in the next major version.
-- `.wt-kinds`, a grid of every type, is no longer used: the app and the prototype both use the picker. It can go in the next major version.
+- **`.wt-input-group`** is a `.wt-input` box with something fixed before a bare `<input>`, such as the search field's icon. Make the box a `<label>` so a tap anywhere opens the input.
 
 ### Trip header `.wt-trip-head`, bottom sheet `.wt-sheet` and add bar `.wt-add-bar`
 
@@ -639,20 +626,12 @@ With a stop selected, the add bar holds Open in Maps, a round Edit stop and a ro
 
 Pad the top when you fit the map on a phone, so pins stay clear of the header card. From 768px wide, the header and the sheet stack into a full-height panel on the left, `--wt-size-panel` wide, and the map fills the rest. Your code clears the sheet's `height` there: no snapping, no dragging, and the grab handle hides. Without the `wt-trip` container, the header floats and the sheet is a bottom sheet at every width.
 
-`.wt-view-toggle` (Map/List in the header) is unused since 4.1.0: the heights are reached by dragging, as in a maps app. It can go in the next major version.
-
-### Map buttons `.wt-map-bar` and credit `.wt-credit`
+### Map credit `.wt-credit`
 
 ```html
-<nav class="wt-map-bar">
-  <a class="wt-icon-btn wt-map-btn" href="#/" aria-label="All trips">${icon('home')}</a>
-  <button class="wt-icon-btn wt-map-btn" aria-label="Trip settings and sharing">${icon('settings')}</button>
-</nav>
-
 <p class="wt-credit">Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</p>
 ```
 
-- `.wt-map-bar` floated home and settings over the map's top corners. The trip header replaced it in the app and the prototype, so it's no longer used and can go in the next major version.
 - The map's credits go at the bottom of trip settings, not on the map.
 
 ### Whole day `.wt-map-btn`
@@ -817,7 +796,6 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - **A tap target of 36px**, centered on the pin (`::after`).
 - **Put the pins in a `.wt-pins` element** (with Leaflet, the marker pane). While one of them is `--selected`, the rest step back: still solid, flat, in a lighter version of their color (`--wt-pin-faded-mix` of it over `--wt-pin-fill`; deeper in dark mode), with the number in their own color, so the selected pin stands out among pins of every type. Not see-through, so the route and the map don't show through them (they used to fade to 55% opacity, which muddied them). They keep their colors rather than turn grey, since grey means over; a pin that's over stays as it is.
 - The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves half a selected pin clear at the edges.
-- `--compact`, `--dot` and `.wt-pin__dot` on a saved stop are unused since 9.8.0; they stay until the next major version.
 
 ### Sight `.wt-sight`
 
@@ -945,6 +923,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 12.0.0
+
+A clear-out: everything the app and the prototype no longer use, which earlier versions kept until a major version.
+
+- Removed classes: `.wt-kinds` (and `__item`, `__icon`), `.wt-nights` (and `__row`, `__step`, `__n`, `__out`), `.wt-field-row`, `.wt-input-group__prefix`, `ul.wt-results` with `.wt-results__item`, `__name` and `__detail`, `.wt-tl-drive__go`, `.wt-view-toggle`, `.wt-map-bar`, `.wt-pin--compact`, `.wt-pin--dot`, `.wt-icon-btn--sm`, `.wt-icon-btn--muted`, `.wt-avatar--lg`, and the faded look of a `disabled` `.wt-option`, which only the stop sheet's Folder picker used.
+- Removed icon: `person-add` (icons v3.0.0). Nothing shows it since the trip header lost its people.
+- Removed tokens (tokens v2.0.0): `--wt-border-control`, `--wt-action-done`, `--wt-action-done-text`, `--wt-pin-ring`, `--wt-pin-ring-muted`, `--wt-pin-ring-done`, `--wt-kind-travel`, `--wt-kind-stay`, `--wt-kind-food`, `--wt-kind-sight`, `--wt-kind-shop`, `--wt-marker-gloss` and `--wt-size-check`.
+- `.wt-input-group` stays: the search field uses it for its icon.
+- The demo page's stop sheet shows Check-out as a day and time, as the app does, and its drives no longer have a Directions icon.
 
 ### Changed in 11.0.0
 
