@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
-import { findAbout, findRoute, findSights, QID, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
+import { findAbout, findPlaceAbout, findRoute, findSights, QID, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
 import { ERR, type Preview } from './trip';
 
@@ -248,12 +248,14 @@ app.get('/sights', async c => {
 });
 
 // A sight's photo and a few lines about it, by its Wikidata item (?id=Q123), from Wikipedia and Wikimedia Commons:
-// null when there's nothing. The browser keeps it a day; the server, as long as people look at it (see KEEP in maps.ts).
+// null when there's nothing. A place with no item is asked for by its name and where it is (?name=…&at=lat,lng): its
+// article, if Wikipedia has one there. The browser keeps it a day; the server, as long as people look at it (see KEEP in maps.ts).
 app.get('/about', async c => {
-  const id = c.req.query('id') ?? '';
-  if (!QID.test(id)) bad();
+  const id = c.req.query('id'), name = c.req.query('name')?.trim() ?? '', at = point(c.req.query('at'));
+  if (id !== undefined ? !QID.test(id) : !at || !name || name.length > 200) bad();
   try {
-    return c.json(await findAbout(c.env, c.executionCtx, id), 200, { 'Cache-Control': 'private, max-age=86400' });
+    const about = id !== undefined ? await findAbout(c.env, c.executionCtx, id) : await findPlaceAbout(c.env, c.executionCtx, name, at!);
+    return c.json(about, 200, { 'Cache-Control': 'private, max-age=86400' });
   } catch (e) {
     console.error(e);
     return c.json({ error: 'unavailable' }, 503); // Wikipedia is busy or down: the card goes without for now

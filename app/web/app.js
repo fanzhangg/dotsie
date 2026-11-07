@@ -1181,19 +1181,24 @@ function tripCardHTML(t, past, today) {
     </span></a>`;
 }
 // The top of a trip's card: photos of its places when they have them, so you can tell at a glance where it goes, else
-// the sketch of its route. The photos are those of its first places with a Wikidata item (added from a sight on the
-// map, or at one), in the plan's order, whose Wikipedia article has a free photo: what /api/about says, as a stop's
-// sheet shows. The sketch shows until they're in, and offline, as Wikimedia's photos aren't saved for offline.
+// the sketch of its route. The photos are those of its first places, in the plan's order, whose English Wikipedia
+// article has a free photo: what /api/about says, as a stop's sheet shows. A place added from a sight on the map (or
+// at one) is asked for by its Wikidata item; any other by its name and where it is. Airports, hotels and places to eat
+// are left out: their photos don't say where a trip goes. The sketch shows until they're in, and offline, as
+// Wikimedia's photos aren't saved for offline.
 const CARD_PHOTOS = 3, CARD_PHOTO_TRIES = 6; // photos on a card, at most; places asked for one, at most, per trip
+const NO_CARD_PHOTO = new Set(['airport', 'hotel', 'restaurant', 'cafe', 'gas']);
 const badPhotos = new Set(); // photos that wouldn't load: the next place's stands in
-const photoItems = t => [...new Set((t.stops || []).map(s => s.wikidata).filter(Boolean))].slice(0, CARD_PHOTO_TRIES);
+const photoItems = t => [...new Set((t.stops || []).filter(s => !NO_CARD_PHOTO.has(s.kind) && s.name)
+  .map(s => s.wikidata || `${s.name}@${(+s.lat).toFixed(4)},${(+s.lng).toFixed(4)}`))].slice(0, CARD_PHOTO_TRIES);
 // The card's photos, from what's known already; undefined while one it would show hasn't been asked for or answered
 function cardPhotos(t) {
   const shots = [];
   for (const q of photoItems(t)) {
     const a = abouts.get(q);
     if (a === undefined || a instanceof Promise) return undefined;
-    if (a?.image && !badPhotos.has(a.image.src) && shots.push(a.image) === CARD_PHOTOS) break;
+    // Two places can have one article (a park and its visitor center): its photo shows once
+    if (a?.image && !badPhotos.has(a.image.src) && !shots.some(i => i.src === a.image.src) && shots.push(a.image) === CARD_PHOTOS) break;
   }
   return shots;
 }
@@ -2564,11 +2569,13 @@ document.addEventListener('touchmove', e => {
   if (swipe?.lock) { drag.mode = 'swipe'; if (e.cancelable) e.preventDefault(); return; }
   const y = e.touches[0].clientY, dy = drag.y0 - y;
   if (!drag.mode) {
-    const pullDown = state.snap === 'full' && dy < 0 && drag.list.scrollTop <= 0;
-    // claim a pull down from the top at once, before the browser starts its own scroll (and, on iPhone, its bounce)
-    if (pullDown && e.cancelable) e.preventDefault();
+    // Nothing is claimed until the finger has clearly gone one way. On an iPhone, holding back a touch's first move
+    // stops the list scrolling for the whole touch, and a finger setting off up the list often first moves a pixel
+    // down: a pull down from the top used to be claimed at once, so the first swipe up the whole day from its top
+    // did nothing, and it took a second. A pull down the browser has started scrolling doesn't bounce the list
+    // instead of moving the sheet: at its top, the whole day has no overscroll (styles.css).
     if (Math.abs(dy) < 6) return;
-    drag.mode = state.snap !== 'full' || pullDown ? 'sheet' : 'scroll';
+    drag.mode = state.snap !== 'full' || (dy < 0 && drag.list.scrollTop <= 1) ? 'sheet' : 'scroll';
   }
   if (drag.mode !== 'sheet') return;
   if (e.cancelable) e.preventDefault();
@@ -3190,11 +3197,13 @@ function sightAt(p) {
 // map stays in view with the sight marked; tapping empty map closes it. A stop added from a sight keeps its Wikidata
 // item, and its own sheet shows the same lines (see aboutHTML).
 let sightOpen = null; // the sight whose card is open
-const abouts = new Recent(300); // Wikidata item → what /api/about said (null for nothing), or a promise while it loads
+const abouts = new Recent(300); // Wikidata item (or "name@lat,lng") → what /api/about said (null for nothing), or a promise while it loads
+// By its Wikidata item, or for a place with none, "name@lat,lng" (a Home card's photos)
 function loadAbout(qid) {
   if (abouts.has(qid)) return Promise.resolve(abouts.get(qid));
   if (offlineNow()) return Promise.resolve(null);
-  const p = api(`/about?id=${encodeURIComponent(qid)}`).then(a => { abouts.set(qid, a); return a; }, () => { abouts.delete(qid); return null; });
+  const at = qid.lastIndexOf('@');
+  const p = api(at < 0 ? `/about?id=${encodeURIComponent(qid)}` : `/about?name=${encodeURIComponent(qid.slice(0, at))}&at=${qid.slice(at + 1)}`).then(a => { abouts.set(qid, a); return a; }, () => { abouts.delete(qid); return null; });
   abouts.set(qid, p);
   return p;
 }
