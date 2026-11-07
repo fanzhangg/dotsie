@@ -1,4 +1,4 @@
-/* Waythread design system — components v10.1.0
+/* Waythread design system — components v10.1.1
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -984,7 +984,8 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* ---------- Sight: a place worth seeing, on the map ---------- */
 /* What a maps app shows of its places, zoomed in: a small marker in the type's color with its icon, centered on the
    place. Its name, to its right in secondary ink with a halo in the pin ring's color so it reads over any map, shows
-   only while it's selected or (with a mouse) hovered: the map's own names stay readable, and tapping it says the rest.
+   only while a mouse is on it: the map's own names stay readable, and tapping it says the rest. Selected, its card says
+   its name, so the map doesn't repeat it.
    Quieter than a stop's pin (smaller, flat, no number) because the plan comes first. Set --wt-kind-color. */
 .wt-sight {
   position: absolute; display: flex; align-items: center; gap: 4px; transform: translate(-10px, -50%);
@@ -1003,14 +1004,11 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 /* A tap target bigger than the marker (36px square), and over the name while it shows */
 .wt-sight::after { content: ''; position: absolute; inset: -8px; }
-.wt-sight.is-selected .wt-sight__name { display: block; }
-@media (hover: hover) { .wt-sight:hover .wt-sight__name { display: block; } }
+@media (hover: hover) { .wt-sight:not(.is-selected):hover .wt-sight__name { display: block; } }
 @keyframes wt-sight-in { from { opacity: 0; } }
-/* Selected: its card is open. The marker grows about its center (the margins keep the name where it would be) and
-   its name shows, in primary ink. */
+/* Selected: its card is open. The marker grows about its center, with no name beside it. */
 .wt-sight.is-selected .wt-sight__marker { width: 28px; height: 28px; margin-left: -4px; box-shadow: var(--wt-shadow-pin-selected); }
 .wt-sight.is-selected .wt-sight__marker .wt-icon { width: 16px; height: 16px; }
-.wt-sight.is-selected .wt-sight__name { color: var(--wt-text-primary); }
 
 /* ---------- About a place: a photo, a few lines, and where they're from ---------- */
 /* As in a sight's card: the photo across the top, then the lines (at most four), then the photo's credit and a link

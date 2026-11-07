@@ -101,8 +101,7 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
   transition: background var(--wt-duration-fast);
 }
 .trip.is-editing .trip-fit { display: none; }
-/* A sight's name shows while it's selected or hovered (see .wt-sight): its marker comes in front of the others, so the
-   name isn't under them. */
+/* The selected sight's bigger marker, and a hovered sight's name (see .wt-sight), come in front of the other sights. */
 .leaflet-marker-icon:has(.wt-sight.is-selected), .leaflet-marker-icon:has(.wt-sight:hover) { z-index: 1000 !important; }
 /* A sight's card (openSight in app.js): like a stop's sheet on a phone, it takes the list's place at the bottom. Its type
    sits beside the sight's own marker, then what Wikipedia says (.wt-about), then Add to trip. */
