@@ -179,13 +179,6 @@ app.delete('/trips/:id/stops/:stopId', async c => {
   return c.body(null, 204);
 });
 
-// ---------- Folders ----------
-// Create or rename. A stop goes in or out of one by its own folder field.
-app.put('/trips/:id/folders/:folderId', async c => {
-  const folderId = ID.test(c.req.param('folderId')) ? c.req.param('folderId') : bad();
-  return c.json(await room(c.env, c.req.param('id')).putFolder(c.get('user').id, folderId, await body(c.req.raw)));
-});
-
 // ---------- Connected assistants, in Account ----------
 // Not under /api/mcp: everything there needs an assistant's token, and these take your session.
 app.get('/assistants', async c => c.json({ url: mcpURL(c.env), connections: await listConnections(c.env, c.get('user').id) }));

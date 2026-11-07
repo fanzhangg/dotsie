@@ -17,10 +17,9 @@ type Tool = {
 // Versions this server can speak. The tools use nothing that differs between them.
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 // Bump the version whenever a tool or its arguments change: a client may keep its copy of the tools until it does.
-const SERVER = { name: 'waythread', title: 'Waythread', version: '1.1.0' };
+const SERVER = { name: 'waythread', title: 'Waythread', version: '2.0.0' };
 const INSTRUCTIONS = `Waythread plans road trips. A trip is a list of stops, each with a trip-local time ("YYYY-MM-DDTHH:MM", no time zone).
 Call list_trips to find a trip and list_stops to see its plan; add_stop, edit_stop and delete_stop change it. Changes show at once for everyone on the trip.
-Stops that follow each other can share a folder, a name that groups them (the stops in a park, say). It isn't a place and has no time of its own. add_folder makes one; a stop goes in or out with its folder field.
 A stop's links are buttons under it in the app, one tap from the plan. Whenever you find or are given a web page for a stop, add it with add_link instead of writing the URL in the note: a booking or reservation, a flight (the airline's booking or its flight status), tickets, the place's own site, a guide to it. Label each in a few words ("UA 123", "Hotel booking", "Tickets"). A flight's links go on the airport you fly from, where you'll need them; with no stop there, on the one you land at.`;
 
 const ID = /^[A-Za-z0-9_-]{6,40}$/;
@@ -32,11 +31,7 @@ const stopId = (v: unknown) => {
   if (typeof v !== 'string' || !ID.test(v)) throw new ToolError('stop_id isn’t a stop id. Call list_stops for one.');
   return v;
 };
-const folderId = (v: unknown) => {
-  if (typeof v !== 'string' || !ID.test(v)) throw new ToolError('folder_id isn’t a folder id. Call list_stops for one.');
-  return v;
-};
-// Like the app's ids for the stops and folders it adds (uid in web/app.js)
+// Like the app's ids for the stops it adds (uid in web/app.js)
 const newId = () => [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join('');
 // The fields a tool was given that a stop has, each checked on its own, so an error names the one that's wrong
 function fieldsOf(args: Record<string, unknown>) {
@@ -91,7 +86,7 @@ const MAX_LINKS = 10, MAX_LABEL = 60;
 // What a tool error says to the assistant, which can then fix its call
 class ToolError extends Error {}
 const ERROR_TEXT: Record<string, string> = {
-  [ERR.notFound]: 'No such trip, stop or folder. Call list_trips or list_stops for ids.',
+  [ERR.notFound]: 'No such trip or stop. Call list_trips or list_stops for ids.',
   [ERR.notMember]: 'You’re not on this trip.',
   [ERR.gone]: 'This trip was deleted.',
   [ERR.invalid]: 'A field isn’t valid. Check the formats in the tool’s input schema.',
@@ -100,7 +95,7 @@ const ERROR_TEXT: Record<string, string> = {
 // A stop as the assistant sees it: the fields it can edit, plus who changed it last
 const stopOut = (s: Stop, names: Map<string, string>) => ({
   id: s.id, name: s.name, address: s.address, lat: s.lat, lng: s.lng, time: s.time, checkout: s.checkout,
-  kind: s.kind, nights: s.nights, travel: s.travel ?? 'drive', back: s.back ?? {}, note: s.note, links: s.links ?? [], folder: s.folder, updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
+  kind: s.kind, nights: s.nights, travel: s.travel ?? 'drive', back: s.back ?? {}, note: s.note, links: s.links ?? [], updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
 });
 const memberNames = (members: { id: string; name: string }[]) => new Map(members.map(m => [m.id, m.name]));
 
@@ -132,7 +127,6 @@ const EDITABLE = {
     type: 'array', maxItems: 10, items: LINK,
     description: 'Pages about the stop, each a button under it in the app. Replaces the whole list, so send every link to keep, or [] for none. To add one, use add_link',
   },
-  folder: { type: ['string', 'null'], description: 'The id of the folder it’s in (from list_stops or add_folder), or null for none. A folder holds stops that follow each other by time: put a stop only in the folder of the stop just before or just after it' },
 };
 
 const TOOLS: Tool[] = [
@@ -154,7 +148,7 @@ const TOOLS: Tool[] = [
   {
     name: 'list_stops',
     title: 'List stops',
-    description: 'A trip’s plan: its stops in time order, and the folders they’re in. Give day to see just that day’s stops.',
+    description: 'A trip’s plan: its stops in time order. Give day to see just that day’s stops.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -170,8 +164,7 @@ const TOOLS: Tool[] = [
       const snap = await room(env, trip_id).snapshot(user.id);
       const names = memberNames(snap.members);
       const stops = snap.stops.filter(s => !day || s.time.startsWith(day as string)).map(s => stopOut(s, names));
-      const used = new Set(stops.map(s => s.folder));
-      return { trip: snap.trip, stops, folders: snap.folders.filter(f => used.has(f.id)) };
+      return { trip: snap.trip, stops };
     },
   },
   {
@@ -233,42 +226,6 @@ const TOOLS: Tool[] = [
     async run(env, user, { trip_id, stop_id, url, label }) {
       const stop = await room(env, trip_id).addLink(user.id, stopId(stop_id), linkOf({ url, label }, 'url'));
       return { stop: stopOut(stop, new Map([[user.id, user.name]])) };
-    },
-  },
-  {
-    name: 'add_folder',
-    title: 'Add a folder',
-    description: 'Make a folder: a name that groups stops that follow each other, such as the viewpoints in a park. It starts empty; put stops in it with edit_stop (folder) or add_stop. Returns the folder with its new id.',
-    inputSchema: {
-      type: 'object',
-      properties: { trip_id: { type: 'string', description: 'From list_trips' }, name: { type: 'string', maxLength: 100 } },
-      required: ['trip_id', 'name'],
-      additionalProperties: false,
-    },
-    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-    async run(env, user, { trip_id, name }) {
-      return { folder: await room(env, trip_id).putFolder(user.id, newId(), { name }) };
-    },
-  },
-  {
-    name: 'rename_folder',
-    title: 'Rename a folder',
-    description: 'Give a folder a new name. Returns the folder.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        trip_id: { type: 'string', description: 'From list_trips' },
-        folder_id: { type: 'string', description: 'From list_stops' },
-        name: { type: 'string', maxLength: 100 },
-      },
-      required: ['trip_id', 'folder_id', 'name'],
-      additionalProperties: false,
-    },
-    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-    async run(env, user, { trip_id, folder_id, name }) {
-      const r = room(env, trip_id), id = folderId(folder_id);
-      if (!(await r.snapshot(user.id)).folders.some(f => f.id === id)) throw new Error(ERR.notFound);
-      return { folder: await r.putFolder(user.id, id, { name }) };
     },
   },
   {

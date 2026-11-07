@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v10.6.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v11.0.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -644,48 +644,6 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li><b>Day headings</b> sit in the timeline, between the days' stops, ending in <i>View day</i> (<code>.wt-tl-day__open</code>) in words rather than a <code>forward</code> icon, so it isn't one more arrow under the day bar's: tapping one opens that day. They're a label, not a name: small grey capitals (<code>--wt-type-overline</code>), starting at the list's left edge, where the markers start, so a date never reads as a stop. They're not on the rail, so each day's rail runs from its first stop to its last.</li>
         <li><b>Stops only.</b> Drives and notes stay on the day's own page; a hotel keeps its nights, and check-out morning its <i>Check out</i>. Selecting, <code>is-now</code> and <code>is-past</code> work as on a day. A past day's heading dims with its stops (<code>is-past</code>).</li>
       </ul>
-
-      <h3>Folders</h3>
-      <p class="intro">Stops that follow each other can share a folder: a name that groups them, like the viewpoints in a park. A folder isn't a place. Closed, it's one row: its stops' marker with a second disc piled behind it, its name, what's in it, and when it starts. Open, its stops and the drives between them hang from its name, like files under a folder. Swipe a stop right to put it in the folder above it, or in a new one; left to take it out.</p>
-      <div class="demo">
-        <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
-          <div class="wt-tl">
-            <div class="wt-tl-stop wt-tl-stop--folder" role="button" tabindex="0" aria-expanded="false" style="--wt-kind-color: var(--wt-kind-nature)">
-              <span class="wt-tl-rail"><i class="wt-marker wt-marker--stack wt-tl-marker" role="img" aria-label="Folder"><i data-icon="tree"></i></i></span>
-              <span class="wt-tl-name">White Sands National Park</span><span class="wt-tl-notes"><span class="wt-tl-note wt-tl-note--quiet">3 stops: Visitor Center, Dune Life Nature Trail, Backcountry Camping Trail</span></span>
-              <span class="wt-tl-time">11:00<span class="wt-tl-meridiem">AM</span></span>
-            </div>
-            <div class="wt-tl-drive">
-              <span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span>
-              <span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>35 min</b> drive</span></span>
-            </div>
-            <div class="wt-tl-stop wt-tl-stop--folder is-selected" role="button" tabindex="0" aria-expanded="true" style="--wt-kind-color: var(--wt-kind-place)">
-              <span class="wt-tl-rail"><i class="wt-marker wt-marker--stack wt-tl-marker" role="img" aria-label="Folder"><i data-icon="pin"></i></i></span>
-              <span class="wt-tl-name">Alamogordo</span>
-              <span class="wt-tl-time"></span>
-            </div>
-            <div class="wt-tl-stop wt-tl-stop--in is-first" role="button" tabindex="0" style="--wt-kind-color: var(--wt-kind-hotel)">
-              <span class="wt-tl-rail"></span><span class="wt-tl-thread"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span>
-              <span class="wt-tl-name">Hampton Inn Alamogordo</span><span class="wt-tl-notes"><span class="wt-tl-note">1 night</span></span>
-              <span class="wt-tl-time">6:00<span class="wt-tl-meridiem">PM</span></span>
-            </div>
-            <div class="wt-tl-drive wt-tl-drive--in">
-              <span class="wt-tl-rail"></span><span class="wt-tl-thread"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span>
-              <span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>6 min</b> drive</span></span>
-            </div>
-            <div class="wt-tl-stop wt-tl-stop--in is-last" role="button" tabindex="0" style="--wt-kind-color: var(--wt-kind-restaurant)">
-              <span class="wt-tl-rail"></span><span class="wt-tl-thread"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span>
-              <span class="wt-tl-name">Rizo's</span><span class="wt-tl-notes"><span class="wt-tl-note">Dinner</span></span>
-              <span class="wt-tl-time">7:30<span class="wt-tl-meridiem">PM</span></span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <ul class="rules">
-        <li><b>The folder's row</b> is a stop row with <code>--folder</code>: a <code>wt-marker--stack</code> in its stops' type color (<code>place</code> when they differ), its name, and closed, a <code>wt-tl-note--quiet</code> line saying what's in it and the time it starts. Open, it has no note or time: its stops show them. Tapping it opens it, and again closes it.</li>
-        <li><b>Its stops and drives</b> follow it straight inside <code>.wt-tl</code>, with <code>--in</code>: an empty <code>.wt-tl-rail</code>, so the day's rail runs on, and a <code>.wt-tl-thread</code> holding the marker or car, one step in, its left edge in line with the folder's name. Same size and type as any row. The indent and the thread say they're in a folder. It's one line: the day's rail bends into the thread at the first stop (<code>is-first</code>) and back out after the last (<code>is-last</code>).</li>
-        <li><b>Swiping</b> a row sideways moves it (<code>is-swiping</code>) over a <code>.wt-tl-swipe</code> showing what letting go will do: <code>indent</code> into a folder, <code>stack-add</code> for a new one (<code>is-new</code>), <code>outdent</code> out of one. It darkens once it's armed (<code>is-armed</code>), and the folder it's going into is <code>is-swipe-target</code>.</li>
-      </ul>
     </section>
 
     <section id="sheet">
@@ -914,7 +872,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             </svg>
             <div class="pin-layer wt-pins">
               <div class="wt-pin" role="img" aria-label="1. Holiday Inn Express Alamogordo, Hotel" style="left:15%; top:70%; --wt-kind-color: var(--wt-kind-hotel)"><b class="wt-pin__num">1</b></div>
-              <div class="wt-pin wt-pin--folder" role="img" aria-label="2. White Sands National Park, a folder of 3 stops" style="left:50%; top:50%; --wt-kind-color: var(--wt-kind-nature)"><b class="wt-pin__num">2</b></div>
+              <div class="wt-pin" role="img" aria-label="2. White Sands National Park, Nature" style="left:50%; top:50%; --wt-kind-color: var(--wt-kind-nature)"><b class="wt-pin__num">2</b></div>
               <div class="wt-pin wt-pin--cluster" role="img" aria-label="3–4. 2 stops here: Hampton Inn Alamogordo, Rockin' BZ Burgers" style="left:86.7%; top:30%; --wt-kind-color: var(--wt-kind-hotel); --wt-pin-behind-1: var(--wt-kind-restaurant)"><b class="wt-pin__num">3</b></div>
             </div>
           </div>
@@ -942,14 +900,11 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
           <tr><td>Selected</td><td><code>--selected</code></td><td><code>--wt-route-active</code></td><td>A pin, a route, or its row in the list was tapped. A selected route enlarges the pins at both its ends. The other pins in <code>.wt-pins</code> fade, keeping their colors.</td></tr>
           <tr><td>Others</td><td><code>--muted</code></td><td><code>--wt-route-muted</code></td><td>Another route is selected. A stop that's being moved in the stop sheet mutes its two routes too, until it's saved.</td></tr>
           <tr><td>Past</td><td><code>--muted</code></td><td><code>--wt-route-done</code></td><td>On today, the stop or drive is over. The day before's last stop, where a day with no hotel starts, is muted too.</td></tr>
-          <tr><td>Folder</td><td><code>--folder</code></td><td>Its own drives don't show</td><td>A closed folder: one pin with the folder's number, at its first stop, with a disc piled behind it as on its marker.</td></tr>
-          <tr><td>Folder open</td><td><code>--open</code>, a dot for a number</td><td>Its own drives <code>--wt-route</code>, the rest <code>--wt-route-muted</code></td><td>An open folder's stops. <code>.is-folder-open</code> on <code>.wt-pins</code> fades the pins outside it.</td></tr>
         </tbody>
       </table></div>
       <ul class="rules">
         <li>Draw past routes first and the selected route last, so it sits on top.</li>
         <li>Stops at the same place, like a hotel in the morning and at night, share one pin.</li>
-        <li>A folder takes one number for all its stops. Opening it fits the map to its stops.</li>
         <li>Showing a route moves the map to fit it, with room around its ends for their pins; from a tap on the route itself, only when an end is out of view.</li>
         <li>Nothing on the map is text: a stop's name, its time and a drive's time are in the list.</li>
       </ul>
@@ -1150,7 +1105,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v10.6.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v11.0.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 

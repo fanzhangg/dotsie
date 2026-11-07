@@ -16,10 +16,8 @@ const ROUTE_KEY = 'waythread:routes:v1';
 const $app = document.getElementById('app');
 const $sheets = document.getElementById('sheets');
 // sel: the selected stop · selRow: which of its rows was tapped (a hotel can start and end the day) · leg: the drive whose route is shown · snap: the phone's list, 'half' or 'full' ·
-// draft: the stop open in the stop sheet, as edited so far, which the map shows in its place ·
-// folder: the folder selected (its row tapped, or a drive inside it shown) · open: the folders open in the list, which
-// stay open until their row is tapped again
-const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, snap: 'half', draft: null, folder: null, open: new Set(), flash: new Set() };
+// draft: the stop open in the stop sheet, as edited so far, which the map shows in its place
+const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, snap: 'half', draft: null, flash: new Set() };
 
 // Who's signed in, the home list, and the open trip ({ id, name, members, stops } or { id, error })
 let me = null, config = { google: false, apple: false, password: false }, trips = null, cur = null;
@@ -49,7 +47,7 @@ document.addEventListener('error', e => {
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 // ---------- Icons (design system) ----------
-const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'chevron-up-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin', 'download', 'saved', 'cloud-off', 'alert', 'indent', 'outdent', 'stack-add', 'link', 'external']
+const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'chevron-up-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin', 'download', 'saved', 'cloud-off', 'alert', 'link', 'external']
   .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
@@ -156,7 +154,7 @@ function loadDB() {
 }
 const userOf = (d, id) => ({ ...USERS[id], name: d.names?.[id] || USERS[id]?.name || 'Someone' });
 // A trip as the server sends it
-const snapshotOf = (d, t) => ({ trip: { id: t.id, name: t.name }, members: t.members.filter(u => USERS[u]).map(u => userOf(d, u)), stops: t.spots, folders: t.folders || [] });
+const snapshotOf = (d, t) => ({ trip: { id: t.id, name: t.name }, members: t.members.filter(u => USERS[u]).map(u => userOf(d, u)), stops: t.spots });
 const shareURL = token => `${location.origin}${location.pathname}#/join/${token}`;
 const newToken = () => uid() + uid();
 function inviteToken(tripId) {
@@ -286,13 +284,6 @@ async function api(path, { method = 'GET', body, signal } = {}) {
     if (p[3] === 'rotate') t.invite = newToken();
     else t.invite ||= newToken();
     return out({ url: shareURL(t.invite) });
-  }
-  // Create or rename a folder; a stop goes in or out by its own folder field
-  if (p[2] === 'folders' && p[3] && method === 'PUT') {
-    const folder = { id: p[3], name: body.name };
-    t.folders = [...(t.folders || []).filter(f => f.id !== folder.id), folder];
-    broadcast(t.id, { type: 'folder.upserted', folder });
-    return out(folder);
   }
   if (p[2] === 'stops' && p[3]) {
     const i = t.spots.findIndex(s => s.id === p[3]);
@@ -435,7 +426,7 @@ function protoNoteHTML(trip) {
     ${others.map(u => `<a href="${base}?as=${u.id}#/join/${token}" target="_blank">as ${u.name}</a>`).join(' or ')} in another tab.
     ${first ? `Trip days highlight what's happening now: <a href="${base}?today=${dayOf(first)}&now=14:10#/trip/${trip.id}">preview day 1 at 2:10 PM</a>.` : ''}</div>`;
 }
-const fromSnapshot = s => ({ id: s.trip.id, name: s.trip.name, members: s.members, stops: s.stops, folders: s.folders || [] });
+const fromSnapshot = s => ({ id: s.trip.id, name: s.trip.name, members: s.members, stops: s.stops });
 
 // Writes show at once and save in the background. If one fails, reload the trip so the screen
 // matches what's saved.
@@ -548,49 +539,6 @@ function dayLegs(trip, day) {
 const planOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayPlan(trip, d)) : dayPlan(trip, day));
 const legsOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayLegs(trip, d)) : dayLegs(trip, day));
 const itemsOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayItems(trip, d)) : dayItems(trip, day));
-
-// ---------- Folders: stops that follow each other, grouped under a name ----------
-// A folder isn't a place: it has a name and its stops, and no place or time of its own. A stop is in one by its `folder`,
-// a folder's id. The stops in a folder follow each other by time, so a folder is a run of stops with the same folder,
-// and the app keeps it that way: a stop joins only the folder right above it (or right below, from the stop sheet), only
-// a folder's first or last stop can leave it, and a stop whose time moves out of its folder leaves it.
-// Closed, it's one row and one pin; open, its stops and the drives between them hang from its name, and its own drives
-// show on the map. It's open while it, or one of its stops, is selected.
-const folderName = (trip, id) => trip.folders?.find(f => f.id === id)?.name || 'Folder';
-// Its stops' type when they share one, else a place's
-function folderKind(stops) {
-  const kinds = new Set(stops.map(kindOf));
-  return kinds.size === 1 ? [...kinds][0] : 'place';
-}
-// The folder in focus: the one selected, or the selected stop's
-function folderInFocus(trip) {
-  if (state.folder) return state.folder;
-  return selectedStop(trip)?.folder || null;
-}
-// The folders open in the list and on the map. The one in focus opens, and it stays open once the focus moves on:
-// only tapping its row closes it, as in a file tree.
-function openFolders(trip) {
-  const f = folderInFocus(trip);
-  if (f) state.open.add(f);
-  return state.open;
-}
-// The plan's folders: each run of stops (the stop rows, not the hotel at either end) in the same folder
-function planRuns(plan) {
-  const runs = [];
-  let run = null;
-  for (const e of plan) {
-    const f = e.role === 'stop' ? e.place.folder : null;
-    if (f && run?.fid === f) run.entries.push(e);
-    else { run = f ? { fid: f, entries: [e] } : null; if (run) runs.push(run); }
-  }
-  return runs;
-}
-// A new folder's first name: the town its first stop is in (from its address, "street, town, ST"), else that stop's name
-function suggestFolderName(s) {
-  const parts = (s.address || '').split(',').map(x => x.trim()).filter(Boolean);
-  const town = parts.length >= 2 ? parts.at(-2) : '';
-  return town && !/\d/.test(town) ? town : s.name;
-}
 
 // ---------- Stop types: an icon and a color each (--wt-kind-<key>), shared by the list marker and the map pin ----------
 // The colors skip blue (routes) and red (a drive that doesn't fit). Keep the keys in sync with KINDS in src/trip.ts.
@@ -822,7 +770,7 @@ function keepOfflinePlan() {
   planTimer = setTimeout(() => {
     const trip = cur?.stops ? cur : null, t = trip && savedTrip(trip.id);
     if (!t || trip.offline) return;
-    const snap = { trip: { id: trip.id, name: trip.name }, members: trip.members, stops: trip.stops, folders: trip.folders };
+    const snap = { trip: { id: trip.id, name: trip.name }, members: trip.members, stops: trip.stops };
     if (JSON.stringify(snap) !== JSON.stringify(t.snap)) { t.snap = snap; t.savedAt = Date.now(); storeOffline(); }
   }, 1000);
 }
@@ -1122,12 +1070,6 @@ function onEvent(m) {
       cur.stops = cur.stops.filter(s => s.id !== m.id);
       if (!mine) note(`${who} removed ${m.name}`);
       break;
-    case 'folder.upserted': {
-      // a new folder comes with its stops' own changes, which say what happened; a rename shows in place
-      const i = cur.folders.findIndex(f => f.id === m.folder.id);
-      if (i < 0) cur.folders.push(m.folder); else cur.folders[i] = m.folder;
-      break;
-    }
     case 'member.joined':
       if (!memberOf(m.member.id)) cur.members.push(m.member);
       if (!mine) note(`${m.member.name} joined`);
@@ -1176,7 +1118,6 @@ const TRIP_ERRORS = {
 };
 
 function render() {
-  if (swipe?.lock) { swipe.missed = true; return; }
   const r = parseHash();
   document.title = 'Waythread';
   if (!me) { closeTrip(); teardownTrip(); $app.dataset.page = 'signin'; renderSignIn(r); return; }
@@ -1852,8 +1793,7 @@ function teardownTrip() {
   dropBackgroundRoutes();
   const left = $app.dataset.trip;
   delete $app.dataset.trip;
-  state.sel = state.selRow = state.leg = state.hoverLeg = state.day = state.draft = state.folder = null;
-  state.open = new Set();
+  state.sel = state.selRow = state.leg = state.hoverLeg = state.day = state.draft = null;
   state.snap = 'half';
   camFree = false;
   // the stop sheet leaves the header in reach, so Home can be tapped while it's open
@@ -1963,9 +1903,9 @@ function mountTrip(trip) {
   // While a stop is open, the map is there to look at, so taps leave everything as it is.
   map.on('click', () => onMapTap(() => {
     if (sightOpen) return closeSheet();
-    if (state.draft || (!state.sel && !state.leg && !state.folder)) return;
+    if (state.draft || (!state.sel && !state.leg)) return;
     if (state.leg) fitKey = '';
-    state.sel = state.selRow = state.leg = state.folder = null;
+    state.sel = state.selRow = state.leg = null;
     render();
   }));
   map.on('moveend', () => { dayShown = dayFramed(); updateFitBtn(); drawSights(); });
@@ -2038,7 +1978,7 @@ function updateFitBtn() {
   if (btn.title !== label[0]) { btn.title = label[0]; btn.setAttribute('aria-label', label[1]); }
 }
 function showWholeDay() {
-  state.leg = state.folder = null;
+  state.leg = null;
   fitKey = '';
   render();
 }
@@ -2061,8 +2001,8 @@ function driveItem(day, leg) {
   return {
     // when you set off (until the route is in, no earlier than you arrive); the drive back to the hotel has no time, so it comes last
     start: leg.leave || leg.arrive || (toEntry.role === 'night' ? `${day}T23:58` : fromEntry.place.time),
-    html: ({ past, now, inFolder }) => `<div class="${cls.join(' ')}${inFolder ? ` wt-tl-drive--in${inFolder}` : ''}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="button" aria-pressed="${state.leg === leg.key}" aria-label="${time ? `${time} ${T.noun}` : T.noun} to ${esc(to.name)}. Show the route on the map">
-      ${inFolder ? `<span class="wt-tl-rail"></span><span class="wt-tl-thread"><i class="wt-tl-car">${travelIcon(mode)}</i></span>` : `<span class="wt-tl-rail"><i class="wt-tl-car">${travelIcon(mode)}</i></span>`}
+    html: ({ past, now }) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="button" aria-pressed="${state.leg === leg.key}" aria-label="${time ? `${time} ${T.noun}` : T.noun} to ${esc(to.name)}. Show the route on the map">
+      <span class="wt-tl-rail"><i class="wt-tl-car">${travelIcon(mode)}</i></span>
       <span class="wt-tl-drive__body">
         <span class="wt-tl-drive__what">${time ? `<b>${time}</b> ${T.noun}` : `<b>${T.noun}</b>`}</span>
         ${late > 0 ? `<span class="wt-tl-drive__late">Arrives ${fmtDur(late * 60)} late</span>` : ''}
@@ -2105,14 +2045,11 @@ const linksHTML = links => `<span class="wt-tl-links">${links.map(l => `<a class
 // A row from another day than the one on screen can say which day in place of the time.
 // Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Open in Maps and Edit stop. Tapping it again keeps it selected.
 // It's a div acting as a button, like a drive, since a link in its note can't sit inside a <button>.
-// In an open folder (`inFolder`, with ' is-first' or ' is-last' where the folder's thread starts and ends), it hangs
-// from the folder's name, and its name leaves out the folder's when it starts with it (Visitor Center, in White Sands).
-function stopRow(s, { key, past, now, sel, inFolder, folder }, note, time, timeDay, links = []) {
+function stopRow(s, { key, past, now, sel }, note, time, timeDay, links = []) {
   const notes = note.filter(Boolean), marker = markerHTML(s, 'wt-tl-marker'), linked = links.length > 0;
-  const name = folder && s.name.startsWith(`${folder} `) ? s.name.slice(folder.length + 1) : s.name;
-  return `<div class="wt-tl-stop${inFolder ? ` wt-tl-stop--in${inFolder}` : ''}${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${esc(s.id)}" data-row="${esc(key)}"${key === s.id ? ' data-stop' : ''} tabindex="0" role="button" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
-      ${inFolder ? `<span class="wt-tl-rail"></span><span class="wt-tl-thread">${marker}</span>` : `<span class="wt-tl-rail">${marker}</span>`}
-      <span class="wt-tl-name">${esc(name)}</span>${notes.length || linked ? `<span class="wt-tl-notes">${linked ? LINKS_HINT : ''}${notes.map(n => `<span class="wt-tl-note">${noteHTML(n)}</span>`).join('')}</span>` : ''}${linked ? linksHTML(links) : ''}
+  return `<div class="wt-tl-stop${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${esc(s.id)}" data-row="${esc(key)}"${key === s.id ? ' data-stop' : ''} tabindex="0" role="button" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
+      <span class="wt-tl-rail">${marker}</span>
+      <span class="wt-tl-name">${esc(s.name)}</span>${notes.length || linked ? `<span class="wt-tl-notes">${linked ? LINKS_HINT : ''}${notes.map(n => `<span class="wt-tl-note">${noteHTML(n)}</span>`).join('')}</span>` : ''}${linked ? linksHTML(links) : ''}
       <span class="wt-tl-time">${time ? timeHTML(time) : ''}${timeDay ? `<span class="wt-tl-time__day">${esc(timeDay)}</span>` : ''}</span>
     </div>`;
 }
@@ -2147,10 +2084,6 @@ function addBarHTML(trip) {
   const s = selectedStop(trip), off = offlineNow() ? ' aria-disabled="true"' : '';
   const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
   const plus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add"${off} aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
-  // A folder isn't a place, so there's nothing to open in Maps: Add stop, and a round Rename folder
-  if (!s && !leg && state.folder && trip.stops.some(x => x.folder === state.folder)) {
-    return `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="add" data-action="add"${off}>${ICON.plus}Add stop</button><button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="rename-folder" data-folder="${esc(state.folder)}"${off} aria-label="Rename folder" title="Rename folder">${ICON.edit}</button>`;
-  }
   if (leg) {
     const travel = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="travel" data-leg="${esc(leg.key)}"${off} aria-label="${TRAVEL[leg.mode].label}. Change how you get there" title="Change how you get there">${travelIcon(leg.mode, 20)}</button>`;
     return `${leg.mode === 'flight'
@@ -2255,46 +2188,6 @@ function overviewItems(trip) {
   }
   return items;
 }
-// The list's folders: each run of stop rows in the same folder, with the drives between them, becomes one item.
-// The drive into a folder and the one out of it stay on the day's rail.
-function folderItems(items) {
-  const out = [];
-  let run = null;
-  items.forEach((it, i) => {
-    if (it.leg) {
-      const next = items[i + 1];
-      if (run && next?.entry?.role === 'stop' && next.entry.place.folder === run.fid) run.items.push(it);
-      else { run = null; out.push(it); }
-      return;
-    }
-    const f = it.entry?.role === 'stop' ? it.entry.place.folder : null;
-    if (f && run?.fid === f) { run.items.push(it); return; }
-    run = f ? { fid: f, items: [it] } : null;
-    out.push(run || it);
-  });
-  return out;
-}
-// A folder's row: its stops' marker with a second disc piled behind it, its name, and closed, what's in it and when it
-// starts. Tapping it opens it (and selects it), and again closes it, as a folder in a file tree does. Nothing else closes it.
-// Open, its stops and drives follow it, hanging from its name.
-function folderHTML(trip, run, row) {
-  const stops = run.items.filter(it => it.entry).map(it => it.entry.place), name = folderName(trip, run.fid);
-  const open = openFolders(trip).has(run.fid), past = run.items.every(it => it.past), now = !open && run.items.some(it => it.now);
-  const sel = state.folder === run.fid && !state.sel && !state.leg, count = `${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}`;
-  const short = s => (s.name.startsWith(`${name} `) ? s.name.slice(name.length + 1) : s.name);
-  let html = `<div class="wt-tl-stop wt-tl-stop--folder${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="folder" data-folder="${esc(run.fid)}" tabindex="0" role="button" aria-expanded="${open}" aria-label="${esc(name)}, a folder of ${count}" style="--wt-kind-color: var(--wt-kind-${folderKind(stops)})">
-      <span class="wt-tl-rail"><i class="wt-marker wt-marker--stack wt-tl-marker" role="img" aria-label="Folder">${kindIcon({ kind: folderKind(stops) })}</i></span>
-      <span class="wt-tl-name">${esc(name)}</span>${open ? '' : `<span class="wt-tl-notes"><span class="wt-tl-note wt-tl-note--quiet">${count}: ${stops.map(s => esc(short(s))).join(', ')}</span></span>`}
-      <span class="wt-tl-time">${open ? '' : timeHTML(stops[0].time)}</span>
-    </div>`;
-  if (!open) return html;
-  const last = run.items.length - 1;
-  run.items.forEach((it, i) => {
-    html += it.html({ ...row(it), inFolder: `${i === 0 ? ' is-first' : ''}${i === last ? ' is-last' : ''}` || ' ', folder: name });
-  });
-  return html;
-}
-
 // Its action is said in words, "View day", not with a ›: the day bar's ‹ › just above it step through the days.
 const dayHeadHTML = (d, past) => `<button class="wt-tl-day${past ? ' is-past' : ''}" data-action="pick-day" data-day="${d}" aria-label="${dayName(d)}. Open this day">
     <span class="wt-tl-day__name">${dayName(d)}</span><span class="wt-tl-day__open" aria-hidden="true">View day</span></button>`;
@@ -2306,7 +2199,7 @@ function listHTML(trip, day) {
   const rows = items.filter(it => it.entry?.place.id === state.sel);
   const sel = (rows.find(it => it.entry.key === state.selRow) || rows[0])?.entry.key;
   const row = it => ({ key: it.entry?.key, past: it.past, now: it.now, sel: !!it.entry && it.entry.key === sel });
-  return folderItems(items).map(it => (it.fid ? folderHTML(trip, it, row) : it.html(row(it)))).join('');
+  return items.map(it => it.html(row(it))).join('');
 }
 // The list fades out at an edge with more of the day past it, so it's clear there are stops to scroll to.
 function updateFades() {
@@ -2317,9 +2210,9 @@ function updateFades() {
 }
 function renderList(trip) {
   const body = $app.querySelector('.wt-sheet__body'), day = currentDay(trip);
-  // the row with the keyboard's focus keeps it (a stop's row, a folder's, a drive's), wherever it is now
+  // the row with the keyboard's focus keeps it (a stop's row or a drive's), wherever it is now
   const had = body.contains(document.activeElement) && document.activeElement;
-  const key = had && ['row', 'folder', 'leg'].map(k => had.dataset[k] && `[data-${k}="${CSS.escape(had.dataset[k])}"]`).find(Boolean);
+  const key = had && ['row', 'leg'].map(k => had.dataset[k] && `[data-${k}="${CSS.escape(had.dataset[k])}"]`).find(Boolean);
   body.innerHTML = listHTML(trip, day);
   if (key) (body.querySelector(key) || (had.dataset.id && body.querySelector(`[data-id="${CSS.escape(had.dataset.id)}"]`)))?.focus({ preventScroll: true });
   const same = body.dataset.day === day;
@@ -2363,7 +2256,7 @@ function setDay(d) {
   const trip = cur?.stops ? cur : null;
   if (!trip || !pagesOf(trip).includes(d) || d === state.day) return;
   state.day = d;
-  state.sel = state.selRow = state.leg = state.hoverLeg = state.folder = null;
+  state.sel = state.selRow = state.leg = state.hoverLeg = null;
   render();
 }
 function stepDay(n) {
@@ -2576,10 +2469,7 @@ function centerFocus({ force = false, animate = true } = {}) {
   const s = wide ? null : snaps();
   const listH = wide ? body.clientHeight : s[snap] - s.chrome;
   const top = row.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop;
-  // an open folder, selected, is its row and the stops under it (other folders can be open too)
-  let end = row;
-  if (row.matches('.wt-tl-stop--folder')) while (end.nextElementSibling?.matches('.wt-tl-stop--in, .wt-tl-drive--in')) end = end.nextElementSibling;
-  const h = end.getBoundingClientRect().bottom - row.getBoundingClientRect().top;
+  const h = row.getBoundingClientRect().height;
   const want = h > listH - 2 * FADE ? top - FADE : top + h / 2 - listH / 2;
   const to = Math.round(Math.max(0, Math.min(want, listContentHeight(body) - listH)));
   if (!animate) {
@@ -2664,8 +2554,6 @@ document.addEventListener('touchstart', e => {
 }, { passive: true });
 document.addEventListener('touchmove', e => {
   if (!drag.active || !drag.list) return;
-  // a row being swiped sideways: not the sheet's, and not a scroll
-  if (swipe?.lock) { drag.mode = 'swipe'; if (e.cancelable) e.preventDefault(); return; }
   const y = e.touches[0].clientY, dy = drag.y0 - y;
   if (!drag.mode) {
     // Nothing is claimed until the finger has clearly gone one way. On an iPhone, holding back a touch's first move
@@ -2773,19 +2661,11 @@ function drawMap(trip) {
   if (!day) { routeLayer.setRoutes([]); return drawDraft(); }
   const plan = planOn(trip, day);
   const start = day === ALL ? null : plan.find(e => e.role === 'from')?.place;
-  // A closed folder is one pin, at its first stop, and its own drives don't show. An open one adds its stops (pins
-  // without numbers: the folder has the number) and its drives to the day's route, like any others: the rest of the
-  // day doesn't step back and the map doesn't move.
-  const runs = planRuns(plan), open = openFolders(trip);
-  const runOf = new Map(runs.flatMap(r => r.entries.map(e => [e.key, r])));
-  const inside = l => { const r = runOf.get(l.toEntry.key); return !!r && r === runOf.get(l.fromEntry.key); };
-  const hidden = new Set(runs.filter(r => !open.has(r.fid)).flatMap(r => r.entries.map(e => e.key)));
-  const legs = legsOn(trip, day).filter(l => !inside(l) || open.has(runOf.get(l.toEntry.key).fid));
+  const legs = legsOn(trip, day);
   const active = legs.find(l => l.key === (state.leg || state.hoverLeg));
   // The stop being edited is drawn where the draft puts it; if it has moved, its drives are out of date until it's saved.
   const draft = state.draft, editing = s => draft?.id && s.id === draft.id;
   const moved = draft?.id && draft.lat != null && plan.some(e => editing(e.place) && !samePlace(e.place, draft));
-  const places = plan.filter(e => !hidden.has(e.key)).map(e => e.place).filter(s => !editing(s));
   // what the list dims, the map dims: past drives go grey, and a place is past once all its rows are
   const items = itemsOn(trip, day);
   const pastLeg = new Set(items.filter(it => it.leg && it.past).map(it => it.leg));
@@ -2810,25 +2690,20 @@ function drawMap(trip) {
   if (active) drawn.push({ key: `on:${active.key}`, top: true, ...style(active, true) });
   routeLayer.setRoutes(drawn);
   // The map has only the routes and the pins: names, times and drive times are in the list, so the map doesn't repeat them.
-  // A route on show enlarges the pins at its ends, a folder's too.
+  // A route on show enlarges the pins at its ends.
   const ends = active ? [active.from, active.to] : [];
   // Every row of the list has a number, in the order the list reads: the hotel you wake up in, the day's stops, the
-  // hotel you go back to; on All days, the trip's stops. A closed folder is one row and takes one number; open, each of
-  // its stops takes one (its name takes none: it isn't a place). So the numbers change when the list does, and never as
-  // you zoom: where pins crowd, they merge and keep their numbers (see fitPins).
+  // hotel you go back to; on All days, the trip's stops. So the numbers change when the list does, and never as you
+  // zoom: where pins crowd, they merge and keep their numbers (see fitPins).
   const rows = (day === ALL ? overviewItems(trip) : items).filter(it => it.entry).map(it => it.entry);
-  const num = new Map(), folderNums = new Map();
+  const num = new Map();
   let n = 0;
-  for (const e of rows) {
-    const r = runOf.get(e.key);
-    if (r && !open.has(r.fid)) { if (!folderNums.has(r)) folderNums.set(r, ++n); continue; }
-    if (!num.has(e.key)) num.set(e.key, ++n);
-  }
+  for (const e of rows) if (!num.has(e.key)) num.set(e.key, ++n);
   draftNums = draft?.id && num.has(draft.id) ? [num.get(draft.id)] : [];
   // places at the same spot (fly in and out of one airport, a hotel morning and night) share one pin, with the first one's number
   const groups = new Map();
   for (const e of plan) {
-    if (hidden.has(e.key) || editing(e.place)) continue;
+    if (editing(e.place)) continue;
     const k = `${e.place.lat.toFixed(4)},${e.place.lng.toFixed(4)}`;
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(e);
@@ -2849,16 +2724,6 @@ function drawMap(trip) {
       nums, sel: !!focus, muted: quiet && !focus, stops: all,
       tap: () => { if (state.draft) return; if (g.length) selectStop(g[0]); else { setDay(dayOf(start)); selectStop(start); } },
     });
-  }
-  for (const r of runs) {
-    if (open.has(r.fid)) continue;
-    const stops = r.entries.map(e => e.place), s = stops[0];
-    // a drive into or out of the folder enlarges its pin, as it does a stop's
-    const focus = stops.some(x => ends.includes(x)), quiet = !focus && (!!active || stops.every(isPast));
-    addPin(L.marker([s.lat, s.lng], {
-      icon: L.divIcon({ className: '', iconSize: [0, 0], html: folderPinHTML(trip, r.fid, stops, folderNums.get(r), focus ? 'wt-pin--selected' : quiet ? 'wt-pin--muted' : '') }),
-      zIndexOffset: focus ? 1000 : quiet ? -1000 : 0, title: folderName(trip, r.fid),
-    }), { nums: [folderNums.get(r)], sel: focus, muted: quiet, stops, group: true, tap: () => { if (!state.draft) selectFolder(r.fid); } });
   }
   drawDraft();
   frameMap(trip);
@@ -2897,8 +2762,6 @@ const pinHTML = (s, nums, cls = '') => {
   return `<div class="wt-pin ${cls}" role="img" aria-label="${n ? `${n}. ` : ''}${esc(s.name)}, ${KINDS[kindOf(s)].label}" style="--wt-kind-color: ${kindColor(s)}">`
     + `${n ? `<b class="wt-pin__num">${n}</b>` : '<i class="wt-pin__dot"></i>'}</div>`;
 };
-// A folder's pin: its number, in its stops' type color, with a rim of that color, as a pin for several stops
-const folderPinHTML = (trip, fid, stops, n, cls = '') => `<div class="wt-pin wt-pin--folder ${cls}" role="img" aria-label="${n}. ${esc(folderName(trip, fid))}, a folder of ${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}" style="--wt-kind-color: var(--wt-kind-${folderKind(stops)})"><b class="wt-pin__num">${n}</b></div>`;
 // Numbers as one label, for a merged pin's aria-label: runs as ranges, "2–4, 7". Past three runs the rest is "…"; it
 // never joins numbers that aren't in a row into one range, which would claim stops that aren't there.
 function numLabel(nums) {
@@ -2920,24 +2783,24 @@ let draftNums = []; // the number of the stop being edited, so its pin keeps it
 // - The list's order decides: each pin joins the first pin before it that it would touch, and merged pins that touch
 //   merge again, until none do.
 // - A selected pin, and both ends of a route on show, never merge: they stand on their own, on top.
-let pins = []; // for each pin on the map: { ll, nums, sel, muted, stops, group, marker, el, own, r, members, hidden }
+let pins = []; // for each pin on the map: { ll, nums, sel, muted, stops, marker, el, own, r, members, hidden }
 const PIN_GAP = 4; // px of map between two pins
-const PIN_EDGE = 2, PIN_FAN = 4; // a folder's pin's edge, outside its rim; each pin stacked behind a merged pin, further up and right
-function addPin(marker, { nums = [], sel = false, muted = false, stops = [], group = false, tap = null } = {}) {
+const PIN_FAN = 4; // each pin stacked behind a merged pin, further up and right
+function addPin(marker, { nums = [], sel = false, muted = false, stops = [], tap = null } = {}) {
   marker.addTo(layer);
   const el = marker.getElement()?.firstElementChild;
   const p = {
-    ll: marker.getLatLng(), nums, sel, muted, stops, group, marker, el, r: 12, members: null, hidden: false,
+    ll: marker.getLatLng(), nums, sel, muted, stops, marker, el, r: 12, members: null, hidden: false,
     own: el && { aria: el.getAttribute('aria-label'), color: el.style.getPropertyValue('--wt-kind-color') },
   };
   if (tap) marker.on('click', () => onMapTap(() => (p.members ? openMerged(p.members) : tap())));
   pins.push(p);
 }
-// How far a pin reaches from its center: half its width, a folder's rim and edge, and a merged pin's stack, included
+// How far a pin reaches from its center: half its width, and a merged pin's stack, included
 function pinReach(members) {
-  const group = members[0].group && members.length === 1, muted = members.every(m => m.muted); // a folder in a stack has no rim
-  const w = (members[0].sel ? 32 : muted ? 20 : 24) + (group ? 4 : 0);
-  return w / 2 + (group ? PIN_EDGE : 0) + Math.min(members.length - 1, 2) * PIN_FAN;
+  const muted = members.every(m => m.muted);
+  const w = members[0].sel ? 32 : muted ? 20 : 24;
+  return w / 2 + Math.min(members.length - 1, 2) * PIN_FAN;
 }
 function fitPins() {
   if (!map || !pins.length) return;
@@ -3033,9 +2896,6 @@ function previewLeg(l, { fromMap = false } = {}) {
   }
   state.leg = l.key;
   state.sel = state.selRow = null;
-  // a drive inside a folder puts it in focus
-  const f = l.fromEntry.role === 'stop' && l.toEntry.role === 'stop' && l.from.folder === l.to.folder ? l.from.folder : null;
-  state.folder = f;
   setSnap('half', false); // the whole-day list covers the map
   render();
   fitLeg(l, fromMap);
@@ -3062,11 +2922,11 @@ function selectStop(s, row = null) {
     centerFocus({ animate: false });
     return;
   }
-  state.leg = state.folder = null;
+  state.leg = null;
   state.sel = s.id;
   state.selRow = row;
   // The map keeps its zoom: leaving a drive's preview or the whole-day list doesn't re-frame it for the day.
-  // Only the pin is panned into view (Whole day brings the day back), in a folder too.
+  // Only the pin is panned into view (Whole day brings the day back).
   const key = fitKey;
   setSnap('half', false); // the whole-day list covers the map
   fitKey = key;
@@ -3074,43 +2934,6 @@ function selectStop(s, row = null) {
   if (row) panTo(s);
   // in the middle of the list, so the stops before and after it show too
   centerFocus({ force: true });
-}
-// Open a folder (it's selected, and its stops and drives show in the list and on the map), or close it if it's open:
-// tapping a folder again closes it, as in a file tree. Only this closes a folder: selecting something else, tapping
-// empty map or changing the day leaves it open. Closing the folder in focus clears what's selected in it, since its
-// rows go. Opening a folder only adds its stops to the day's route, with nothing faded; the map goes to them if they
-// can't be seen from where it is. Closing it leaves the map where it is.
-function selectFolder(fid) {
-  const trip = cur?.stops ? cur : null;
-  if (!trip) return;
-  if (openFolders(trip).has(fid)) {
-    if (folderInFocus(trip) === fid) state.sel = state.selRow = state.leg = state.folder = null;
-    state.open.delete(fid);
-    render();
-    return;
-  }
-  state.leg = state.sel = state.selRow = null;
-  state.folder = fid;
-  const key = fitKey; // the whole-day list coming down to half doesn't re-frame the day either
-  setSnap('half', false);
-  fitKey = key;
-  render();
-  showFolder(trip, fid);
-  centerFocus({ force: true });
-}
-// Bring an open folder's stops into view when they can't be seen from where the map is: some are off the map you can
-// see, or they're so close together that their pins pile up. Then the camera stays there, as if you'd moved it, so a
-// new sheet height doesn't take it back to the day; Whole day does.
-function showFolder(trip, fid) {
-  if (!map) return;
-  const pts = planOn(trip, currentDay(trip)).filter(e => e.role === 'stop' && e.place.folder === fid).map(e => L.latLng(e.place.lat, e.place.lng));
-  if (!pts.length) return;
-  const z = map.getZoom(), px = pts.map(p => map.project(p, z));
-  const apart = px.every((a, i) => px.every((b, j) => j <= i || a.distanceTo(b) >= 24 + PIN_GAP));
-  if (apart && pts.every(p => inView(p))) return;
-  const v = frameBounds(L.latLngBounds(pts), L.point(40, coveredTop() + 32), L.point(40, coveredBottom() + 32), 16);
-  moveCamera(v.center, v.zoom);
-  camFree = true;
 }
 // Pan a stop's pin into the middle of the map you can see, keeping the zoom, if it's out of view.
 function panTo(s) {
@@ -3381,249 +3204,10 @@ function deleteStop(trip, stop) {
   save(api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'DELETE' }));
   // Undo puts the same stop back under its old id
   toast(`Deleted ${stop.name}`, 'Undo', () => {
-    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {}, folder = null, links = [], wikidata = null } = stop, travel = travelOf(stop);
+    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {}, links = [], wikidata = null } = stop, travel = travelOf(stop);
     openTripOf(trip.id)?.stops.push({ ...stop, by: me.id });
     render();
-    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, links, wikidata } }));
-  });
-}
-
-// ---------- Folders: putting stops in and taking them out ----------
-// A new folder, named; it holds nothing until a stop goes in.
-function newFolder(trip, name) {
-  const f = { id: uid(), name };
-  trip.folders.push(f);
-  save(api(`/trips/${trip.id}/folders/${f.id}`, { method: 'PUT', body: { name } }));
-  return f.id;
-}
-// Moves stops in or out of folders, as [stop id, folder id or null] pairs. Each stop saves only its folder.
-// Returns the moves that undo these.
-function setFolders(trip, moves) {
-  const undo = [];
-  for (const [id, f] of moves) {
-    const s = trip.stops.find(x => x.id === id);
-    if (!s || (s.folder || null) === f) continue;
-    undo.push([id, s.folder || null]);
-    Object.assign(s, { folder: f, by: me.id });
-    writeStop(trip.id, id, api(`/trips/${trip.id}/stops/${id}`, { method: 'PATCH', body: { folder: f } }));
-  }
-  return undo;
-}
-// A change to folders from a swipe, said in a toast with Undo. After it, `sel` (a stop) or `folder` is selected, which
-// opens its folder; the map stays where it is. Undo puts back the folders that were open, too.
-function changeFolders(trip, moves, msg, { sel = null, folder = null } = {}) {
-  const was = { sel: state.sel, folder: state.folder, open: new Set(openFolders(trip)) };
-  const undo = setFolders(trip, moves);
-  if (!undo.length) return;
-  const show = to => {
-    Object.assign(state, { sel: to.sel, selRow: null, folder: to.folder, leg: null });
-    if (to.open) state.open = new Set(to.open);
-    render();
-    centerFocus({ force: true });
-  };
-  show({ sel, folder });
-  toast(msg, 'Undo', () => {
-    const t = openTripOf(trip.id);
-    if (!t) return;
-    setFolders(t, undo);
-    show(was);
-  });
-}
-// The stops of the folder `fid` on the page on screen
-const folderStops = (trip, fid) => planRuns(planOn(trip, currentDay(trip))).find(r => r.fid === fid)?.entries.map(e => e.place) || [];
-
-// ---------- Swiping a row: into a folder, or out of one ----------
-// Right puts a stop into the folder right above it, or else into a new folder of its own (never the one below). Left
-// takes a folder's first or last stop out of it. A folder swiped right goes into the folder right above it, the two
-// becoming one; swiped left, its stops go back into the day. The row follows the finger over what the swipe will do;
-// past ARM it's armed, and letting go does it. A swipe that can't do anything resists, and says why.
-// With a keyboard, Alt + → and Alt + ← on a focused row do the same.
-const SWIPE_ARM = 72;
-let swipe = null; // { row, x, y, pid, lock, dir, info, dx, bg }
-// The row above, skipping drives (and the swipe's own background): a stop, a folder or its stop, or a day's name or the
-// hotel you wake up at
-function rowAbove(row) {
-  let el = row.previousElementSibling;
-  while (el?.matches('.wt-tl-drive, .wt-tl-swipe')) el = el.previousElementSibling;
-  return el;
-}
-const folderOfRow = (trip, el) => (el?.matches('.wt-tl-stop--folder') ? el.dataset.folder
-  : el?.matches('.wt-tl-stop--in') ? trip.stops.find(s => s.id === el.dataset.id)?.folder : null);
-const folderRow = fid => `.wt-sheet__body .wt-tl-stop--folder[data-folder="${CSS.escape(fid)}"]`;
-// What a swipe (or Alt + arrow) on a row does that way: { act, … } or { why }
-function swipeInfo(trip, row, dir) {
-  const above = folderOfRow(trip, rowAbove(row));
-  if (row.matches('.wt-tl-stop--folder')) {
-    const fid = row.dataset.folder;
-    if (dir < 0) return { act: 'ungroup', fid };
-    return above && above !== fid ? { act: 'merge', fid, into: above, target: folderRow(above) } : { why: 'There’s no folder right above to put this one in' };
-  }
-  const s = trip.stops.find(x => x.id === row.dataset.id);
-  if (!s) return null;
-  if (row.matches('.wt-tl-stop--in')) {
-    if (dir > 0) return { why: 'This stop is already in a folder' };
-    return row.matches('.is-first, .is-last') ? { act: 'out', s } : { why: 'Only the first or last stop can leave a folder' };
-  }
-  if (dir < 0) return { why: 'Swipe right to put this stop in a folder' };
-  return above ? { act: 'join', s, fid: above, target: folderRow(above) } : { act: 'make', s };
-}
-function doSwipe(trip, info) {
-  const { s } = info, name = info.fid && folderName(trip, info.fid);
-  if (info.act === 'join') changeFolders(trip, [[s.id, info.fid]], `${s.name} is in ${name}`, { sel: s.id });
-  else if (info.act === 'make') {
-    const fid = newFolder(trip, suggestFolderName(s));
-    changeFolders(trip, [[s.id, fid]], `New folder: ${folderName(trip, fid)}`, { folder: fid });
-  } else if (info.act === 'out') {
-    const fid = s.folder, last = folderStops(trip, fid).length === 1;
-    changeFolders(trip, [[s.id, null]], last ? `${s.name} is out, and ${folderName(trip, fid)} is empty` : `${s.name} is out of ${folderName(trip, fid)}`, { sel: s.id });
-  } else if (info.act === 'merge') {
-    const into = folderName(trip, info.into);
-    changeFolders(trip, folderStops(trip, info.fid).map(x => [x.id, info.into]), into === name ? `Merged the two ${name} folders` : `Merged ${name} into ${into}`, { folder: info.into });
-  } else if (info.act === 'ungroup') {
-    changeFolders(trip, folderStops(trip, info.fid).map(x => [x.id, null]), `Took the stops out of ${name}`);
-  }
-}
-const swipeRow = el => el?.closest?.('.wt-sheet__body .wt-tl-stop[data-stop], .wt-sheet__body .wt-tl-stop--folder');
-document.addEventListener('pointerdown', e => {
-  const row = swipeRow(e.target);
-  swipe = row && e.button <= 0 && e.isPrimary && cur?.stops && !state.draft ? { row, x: e.clientX, y: e.clientY, pid: e.pointerId, lock: false, dx: 0 } : null;
-});
-document.addEventListener('pointermove', e => {
-  if (!swipe || e.pointerId !== swipe.pid) return;
-  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
-  if (!swipe.lock) {
-    // the sheet's own drag took it, or it's a scroll
-    if (drag.moved || Math.abs(dy) > 10) { swipe = null; return; }
-    if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
-    startSwipe();
-  }
-  moveSwipe(dx);
-});
-document.addEventListener('pointerup', e => endSwipe(e, true));
-document.addEventListener('pointercancel', e => endSwipe(e, false));
-function startSwipe() {
-  // the list may have been drawn again since the finger went down (a save coming back): the same row, as it is now
-  if (!swipe.row.isConnected) {
-    const { id, folder } = swipe.row.dataset;
-    swipe.row = $app.querySelector(id ? `.wt-sheet__body .wt-tl-stop[data-id="${CSS.escape(id)}"][data-stop]` : folderRow(folder)) || swipe.row;
-  }
-  const { row } = swipe;
-  swipe.lock = true;
-  try { row.setPointerCapture(swipe.pid); } catch {}
-  getSelection()?.removeAllRanges();
-  // What the swipe will do shows behind the row, where it slides away from
-  const bg = swipe.bg = Object.assign(document.createElement('div'), { className: 'wt-tl-swipe' });
-  bg.setAttribute('aria-hidden', 'true');
-  bg.innerHTML = `<span class="wt-tl-swipe__in">${ICON.indent}${ICON.stackAdd}</span><span class="wt-tl-swipe__out">${ICON.outdent}</span>`;
-  Object.assign(bg.style, { top: `${row.offsetTop}px`, left: `${row.offsetLeft}px`, width: `${row.offsetWidth}px`, height: `${row.offsetHeight}px` });
-  row.before(bg);
-  row.classList.add('is-swiping');
-  document.documentElement.classList.add('is-swiping-row');
-}
-function moveSwipe(dx) {
-  const dir = Math.sign(dx) || 1, a = Math.abs(dx);
-  if (swipe.dir !== dir) { swipe.dir = dir; swipe.info = swipeInfo(cur, swipe.row, dir); }
-  const act = swipe.info?.act;
-  // past the arm point it slows; with nothing to do this way, it resists from the start
-  const x = dir * (act ? (a < 120 ? a : 120 + (a - 120) * 0.3) : Math.min(a * 0.15, 22));
-  swipe.dx = dx;
-  swipe.row.style.transform = `translateX(${x}px)`;
-  const armed = !!act && Math.abs(x) >= SWIPE_ARM;
-  if (armed && !swipe.bg.classList.contains('is-armed')) navigator.vibrate?.(8);
-  swipe.bg.className = `wt-tl-swipe${act ? (dir > 0 ? ' is-in' : ' is-out') : ''}${act === 'make' ? ' is-new' : ''}${armed ? ' is-armed' : ''}`;
-  for (const el of document.querySelectorAll('.wt-sheet__body .is-swipe-target')) el.classList.remove('is-swipe-target');
-  if (swipe.info?.target && Math.abs(x) > 16) document.querySelector(swipe.info.target)?.classList.add('is-swipe-target');
-}
-function endSwipe(e, up) {
-  if (!swipe || e.pointerId !== swipe.pid) return;
-  const s = swipe;
-  swipe = null;
-  if (!s.lock) return;
-  document.documentElement.classList.remove('is-swiping-row');
-  for (const el of document.querySelectorAll('.wt-sheet__body .is-swipe-target')) el.classList.remove('is-swipe-target');
-  drag.suppressClick = true; // the click that ends a swipe isn't a tap
-  setTimeout(() => { drag.suppressClick = false; }, 50);
-  const done = () => { s.bg.remove(); s.row.classList.remove('is-swiping', 'is-settling'); s.row.style.transform = ''; if (s.missed) render(); };
-  if (up && s.bg.classList.contains('is-armed') && cur?.stops) {
-    if (!needsConnection()) { s.missed = true; return done(); }
-    s.bg.remove();
-    doSwipe(cur, s.info);
-    if (s.missed) render();
-    return;
-  }
-  if (up && s.info?.why && Math.abs(s.dx) > 48) showToast({ title: s.info.why });
-  // back where it was, then gone
-  s.row.classList.add('is-settling');
-  s.row.style.transform = '';
-  setTimeout(done, parseFloat(token('--wt-duration-fast')) || 0);
-}
-// Alt + → and Alt + ← on a focused row: the keyboard's swipe
-document.addEventListener('keydown', e => {
-  if (!e.altKey || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') || !cur?.stops) return;
-  const row = swipeRow(e.target);
-  if (!row) return;
-  e.preventDefault();
-  const info = swipeInfo(cur, row, e.key === 'ArrowRight' ? 1 : -1);
-  if (!info?.act) { if (info?.why) showToast({ title: info.why }); return; }
-  if (!needsConnection()) return;
-  const id = row.dataset.id, fid = row.dataset.folder;
-  doSwipe(cur, info);
-  // focus stays on the row, wherever it went (a folder that's gone leaves it on the list)
-  ($app.querySelector(id ? `.wt-tl-stop[data-id="${CSS.escape(id)}"]` : folderRow(info.into || fid)) || $app.querySelector('.wt-sheet__body'))?.focus({ preventScroll: true });
-});
-
-// The folders a stop can be in, where it is: none, its own, the folder right above or below it on its day, or a new one.
-// A stop in the middle of its folder can only stay. For the stop sheet's Folder page.
-function folderChoices(trip, stop) {
-  const day = dayStops(trip, dayOf(stop)), i = day.findIndex(s => s.id === stop.id);
-  const prev = day[i - 1], next = day[i + 1], f = stop.folder || null;
-  const first = !f || prev?.folder !== f, last = !f || next?.folder !== f, canLeave = first || last;
-  const why = 'Only the first or last stop can leave a folder';
-  const kindOfFolder = id => folderKind(trip.stops.filter(s => s.folder === id));
-  const marker = id => `<i class="wt-marker wt-marker--stack" style="--wt-kind-color: var(--wt-kind-${kindOfFolder(id)})">${kindIcon({ kind: kindOfFolder(id) })}</i>`;
-  const out = [{ value: 'none', label: 'None', marker: '<i class="wt-marker wt-marker--none"></i>', disabled: !canLeave, detail: canLeave ? '' : why }];
-  if (prev?.folder && prev.folder !== f && first) out.push({ value: prev.folder, label: folderName(trip, prev.folder), marker: marker(prev.folder), detail: 'The folder above' });
-  if (f) {
-    const n = trip.stops.filter(s => s.folder === f).length;
-    out.push({ value: f, label: folderName(trip, f), marker: marker(f), detail: `${n} ${n === 1 ? 'stop' : 'stops'}` });
-  }
-  if (next?.folder && next.folder !== f && last) out.push({ value: next.folder, label: folderName(trip, next.folder), marker: marker(next.folder), detail: 'The folder below' });
-  out.push({ value: 'new', label: 'New folder', marker: `<i class="wt-marker wt-marker--stack" style="--wt-kind-color: var(--wt-kind-place)">${ICON.plus}</i>`, disabled: !canLeave, detail: canLeave ? `Named ${suggestFolderName(stop)}` : why });
-  return out;
-}
-// The folder a stop saved at `time` ends up in, so folders keep their stops together: one it's moved out of (no
-// stop next to it is in it any more, and it has others) it leaves; one it's moved into the middle of (the stops before
-// and after it are both in it) it joins. `id` is the stop's (none for a new one).
-function folderAt(trip, id, time, folder) {
-  const day = dayStops(trip, time.slice(0, 10)).filter(s => s.id !== id);
-  const at = day.findIndex(s => s.time.localeCompare(time) > 0 || (s.time === time && id && s.id.localeCompare(id) > 0));
-  const prev = day[(at < 0 ? day.length : at) - 1], next = at < 0 ? null : day[at];
-  if (folder) {
-    const others = trip.stops.some(s => s.id !== id && s.folder === folder);
-    return !others || prev?.folder === folder || next?.folder === folder ? folder : null;
-  }
-  return prev?.folder && prev.folder === next?.folder ? prev.folder : null;
-}
-
-// Rename a folder: its name, in a small sheet
-function openRenameFolder(trip, fid) {
-  openSheet(`${modalHead('Rename folder')}
-    <form><input class="wt-input" name="name" autocomplete="off" required maxlength="100" aria-label="Folder name">
-    <div class="wt-modal__actions"><button class="wt-btn wt-btn--primary">Save</button></div></form>`, el => {
-    const f = el.querySelector('form'), input = f.elements.name;
-    input.value = folderName(trip, fid);
-    input.focus();
-    input.select();
-    f.onsubmit = e => {
-      e.preventDefault();
-      const name = input.value.trim(), t = openTripOf(trip.id);
-      closeSheet();
-      if (!t || !name || name === folderName(t, fid)) return;
-      const folder = t.folders.find(x => x.id === fid);
-      if (folder) folder.name = name; else t.folders.push({ id: fid, name });
-      render();
-      save(api(`/trips/${t.id}/folders/${fid}`, { method: 'PUT', body: { name } }));
-    };
+    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back, links, wikidata } }));
   });
 }
 
@@ -3853,13 +3437,11 @@ async function assistantField(box) {
   try { show(await api('/assistants')); } catch { box.innerHTML = `${head}<p class="wt-section__hint">Couldn’t load this. Check your connection.</p>`; }
 }
 
-// Where you are when you tap Add stop or its +: the stop selected; with a folder selected, its first stop (so the new
-// stop goes in the folder); with a drive shown, the stop it leaves from (so the new one is on that drive). Null for
-// none, or a drive from last night's hotel.
+// Where you are when you tap Add stop or its +: the stop selected; with a drive shown, the stop it leaves from (so the
+// new one is on that drive). Null for none, or a drive from last night's hotel.
 function anchorStop(trip) {
   const s = selectedStop(trip);
   if (s) return s;
-  if (state.folder) return stopsOf(trip).find(x => x.folder === state.folder) || null;
   const leg = state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
   return leg?.fromEntry.role === 'stop' ? leg.from : null;
 }
@@ -4040,8 +3622,6 @@ function openStopSheet(trip, stop, place = null) {
         <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
-      ${stop ? `<div class="wt-field"><span class="wt-field__label" id="folder-label">Folder</span>
-        <button type="button" class="wt-picker" data-folder-open aria-describedby="folder-label"></button></div>` : ''}
       <label class="wt-field"><span class="wt-field__label" data-when>Arrive</span><input class="wt-input" name="time" type="datetime-local" required></label>
       <label class="wt-field wt-stay" hidden><span class="wt-field__label">Check-out</span><input class="wt-input" name="checkout" type="datetime-local"></label>
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="2000" placeholder="Confirmation #, tickets, tips…"></textarea></label>
@@ -4051,7 +3631,6 @@ function openStopSheet(trip, stop, place = null) {
       <div class="wt-modal__actions wt-modal__actions--sticky">${stop ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${stop ? 'Save' : 'Add'}</button></div>
     </form></div>
     ${choicePageHTML('stop-kinds', 'Type', KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>'))}
-    ${stop ? choicePageHTML('stop-folders', 'Folder', folderChoices(trip, stop).map(o => optionHTML(o.value, o.label, o)).join(''), 'A folder holds stops that follow each other, so only the folders next to this stop are here.') : ''}
     <div class="stop-place" hidden>
       <div class="wt-search-bar">
         <label class="wt-input wt-input-group wt-search">${ICON.search}<input id="stop-place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="place-results" aria-label="Search a place" placeholder="Search a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="200"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden>${ICON.close}</button></label>
@@ -4188,20 +3767,6 @@ function openStopSheet(trip, stop, place = null) {
     });
     showKind();
     showNights();
-
-    // ----- Folder (editing a stop): a picker like Type, of the folders this stop can be in where it is: none, its own,
-    // the folder right above or below it, or a new one. A stop in the middle of a folder can only stay in it. -----
-    let folder = stop?.folder || null;
-    const folderPicker = el.querySelector('[data-folder-open]');
-    const folderMarker = f => (f === 'new' ? `<i class="wt-marker wt-marker--stack" style="--wt-kind-color: var(--wt-kind-place)">${ICON.plus}</i>`
-      : f ? `<i class="wt-marker wt-marker--stack" style="--wt-kind-color: var(--wt-kind-${folderKind(trip.stops.filter(s => s.folder === f))})">${kindIcon({ kind: folderKind(trip.stops.filter(s => s.folder === f)) })}</i>`
-        : '<i class="wt-marker wt-marker--none"></i>');
-    const showFolder = () => {
-      folderPicker.innerHTML = `${folderMarker(folder)}<span class="wt-picker__value">${esc(folder === 'new' ? `New folder: ${suggestFolderName(draft)}` : folder ? folderName(trip, folder) : 'None')}</span>${ICON.forward}`;
-      folders.mark(folder || 'none');
-    };
-    const folders = folderPicker && choicePage(el, { main, page: el.querySelector('.stop-folders'), picker: folderPicker, onPick: v => { folder = v === 'none' ? null : v; showFolder(); } });
-    if (folderPicker) showFolder();
 
     // ----- Place: the row shows the place's name and address. Tapping it opens the search page, as in Google or
     // Apple Maps: the field starts with the place's name, suggestions fill the page (each with the marker of the
@@ -4389,11 +3954,6 @@ function openStopSheet(trip, stop, place = null) {
         kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? outTime : null,
         ...(draft.wikidata !== undefined && { wikidata: draft.wikidata }),
       };
-      const kept = folderAt(trip, stop?.id, data.time, folder === 'new' ? newFolder(trip, suggestFolderName(draft)) : folder);
-      data.folder = kept;
-      // its time moved it into or out of a folder: say so
-      const before = folder === 'new' ? kept : folder;
-      if (kept !== before) toast(kept ? `${data.name} is in ${folderName(trip, kept)}, between its stops` : `${data.name} is out of ${folderName(trip, before)}: its time is outside it now`);
       if (state.day !== ALL) state.day = dayOf(data); // follow the stop to its day; the overview has every day
       saved = true;
       state.draft = null; // so the list and map show the saved stop, not the draft
@@ -4553,8 +4113,6 @@ document.addEventListener('click', e => {
     case 'new-trip': openNewTrip(); break;
     case 'add': if (needsConnection()) openStopSheet(trip); break;
     case 'select': if (stop && !e.target.closest('a')) selectStop(stop, el.dataset.row); break; // a link in its note opens on its own
-    case 'folder': selectFolder(el.dataset.folder); break;
-    case 'rename-folder': if (needsConnection()) openRenameFolder(trip, el.dataset.folder); break;
     case 'edit': if (stop && needsConnection()) openStopSheet(trip, stop); break;
     case 'settings': openSettings(trip); break;
     case 'offline-status': if (statusSay) toast(statusSay); break;
@@ -4584,9 +4142,9 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     // with no sheet open, Esc clears the selection, like tapping empty map
-    if (!$sheets.innerHTML && $app.dataset.trip && (state.sel || state.leg || state.folder)) {
+    if (!$sheets.innerHTML && $app.dataset.trip && (state.sel || state.leg)) {
       if (state.leg) fitKey = '';
-      state.sel = state.selRow = state.leg = state.folder = null;
+      state.sel = state.selRow = state.leg = null;
       render();
     }
     closeSheet();

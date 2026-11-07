@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 10.6.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 11.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -220,7 +220,6 @@ Offline: `download` (saving, and Save for offline), `saved` (saved on this devic
 Stop types: `plane` `bed` `utensils` `cup` `star` `museum` `tree` `camera` `bag` `fuel` (with `pin` for a plain place).
 
 How you get there: `car` `walk` `bike` `train` `plane` (Drive, Walk, Bike, Transit, Flight).
-Folders: `indent` (into a folder), `outdent` (out of one) and `stack-add` (a new folder: two discs piled up, as a folder's marker is, and a plus). They show behind a row being swiped.
 
 ```js
 WaythreadIcons.svg('car');           // the size the product uses
@@ -400,8 +399,6 @@ Every type has its own color, so no two look alike. The colors follow maps apps 
 - `--sm` (20px) is for the day list. The default is 30px.
 - `.wt-option__meta`, after `__text`, puts a short value on the right of an option, such as a way's time (`17 min`).
 - `--travel` is a way of getting somewhere (Drive, Walk, Bike, Transit, Flight) in the list of them: flat `--wt-kind-drive` grey with no shading, like a drive's car on the rail, so a way never looks like a stop type. `<i class="wt-marker wt-marker--travel">${icon('walk')}</i>`
-- `--stack` is a [folder](#folders-wt-tl-stop--folder)'s marker: its stops' type, with a second disc of the same color piled straight up behind it. The disc's rings are the color of what's behind the marker, `--wt-stack-ground` (set for you in the timeline, a picker and a checked option).
-- `--none` is an empty dashed ring where a folder's marker would be, for "None" in the Folder picker, so the names still line up.
 - The `aria-label` names the type, so color is never the only signal.
 
 ### Timeline `.wt-tl`
@@ -454,7 +451,6 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
 - **Day heading** (`.wt-tl-day`): the overview, **All days**, puts every day in one timeline, each day's stops under its name. See [All days](#all-days-wt-tl-day).
-- **Folder** (`.wt-tl-stop--folder`), and its stops and drives (`--in`): see [Folders](#folders-wt-tl-stop--folder).
 - **States:**
 
   | State | On | Means |
@@ -490,40 +486,6 @@ The overview: every day of the trip on one page, before the first day. Each day'
 - **It isn't on the rail.** Each day's rail runs from its first stop's marker to its last; a day with one stop has no rail.
 - **Stops and the drives between them,** as on a day: marker, name, time, and `1 hr 36 min drive`. Notes are left to the day's own page, and so are the hotel you wake up at and go back to, with the drives to and from it (the map still draws every drive). A day's rows start and end with a place, never a drive, so its rail runs from marker to marker. A hotel keeps its nights on its check-in day, and check-out morning is a row with `Check out`. A day with no stops of its own, in the middle of a stay, shows the hotel you wake up at.
 - `is-selected`, `is-now` and `is-past` work as on a day. A past day's heading gets `is-past` and turns `--wt-text-past` with its stops.
-
-### Folders `.wt-tl-stop--folder`
-
-Stops that follow each other can share a folder: a name that groups them, like the viewpoints in a park. A folder isn't a place: it has no place or time of its own, only its stops. Closed, it's one row; open, its stops and the drives between them hang from its name, like files under a folder in a file tree.
-
-```html
-<!-- closed -->
-<div class="wt-tl-stop wt-tl-stop--folder" role="button" tabindex="0" aria-expanded="false" aria-label="White Sands National Park, a folder of 3 stops" style="--wt-kind-color: var(--wt-kind-nature)">
-  <span class="wt-tl-rail"><i class="wt-marker wt-marker--stack wt-tl-marker" role="img" aria-label="Folder">${icon('tree')}</i></span>
-  <span class="wt-tl-name">White Sands National Park</span>
-  <span class="wt-tl-notes"><span class="wt-tl-note wt-tl-note--quiet">3 stops: Visitor Center, Dune Life Nature Trail, …</span></span>
-  <span class="wt-tl-time">11:00<span class="wt-tl-meridiem">AM</span></span>
-</div>
-
-<!-- open: no note or time on the folder; its rows follow it, straight inside .wt-tl -->
-<div class="wt-tl-stop wt-tl-stop--folder is-selected" … aria-expanded="true">…<span class="wt-tl-time"></span></div>
-<div class="wt-tl-stop wt-tl-stop--in is-first" …>
-  <span class="wt-tl-rail"></span><span class="wt-tl-thread"><i class="wt-marker wt-tl-marker" …>…</i></span>
-  <span class="wt-tl-name">Visitor Center</span><span class="wt-tl-time">11:00<span class="wt-tl-meridiem">AM</span></span>
-</div>
-<div class="wt-tl-drive wt-tl-drive--in">
-  <span class="wt-tl-rail"></span><span class="wt-tl-thread"><i class="wt-tl-car">${icon('car', 14)}</i></span>
-  <span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>8 min</b> drive</span></span>
-</div>
-<div class="wt-tl-stop wt-tl-stop--in is-last" …>…</div>
-```
-
-- **The folder's row** is a stop row with `--folder`. Its marker is a `wt-marker--stack` in its stops' type color, or `place` when they differ: the pile says it holds more than one thing, without an icon of its own. Closed, `wt-tl-note--quiet` says what's in it, in `--wt-text-tertiary`, and the time is its first stop's. Open, both go: its stops show them.
-- **Its stops and drives** follow it straight inside `.wt-tl`, so the rows still touch. Each has an empty `.wt-tl-rail`, so the day's rail runs on beside them, and a `.wt-tl-thread` one step in that holds its marker or car: the marker's left edge lines up with the folder's name. They're the same size and type as any row. The indent and the thread say they're in a folder. Mark the first stop `is-first` and the last `is-last`.
-- **One line, bent:** the day's rail doesn't run on beside the thread. Down from the folder's marker, it bends right into the first stop's marker, runs down the thread, and after the last stop bends back left onto the rail. A folder that ends the day ends the line at its last stop. The empty `.wt-tl-rail` draws the bends, so there's nothing to add.
-- The drive into a folder and the one out of it stay on the day's rail.
-- **One highlight, as ever:** a folder tapped open is `is-selected`; one of its stops selected takes the highlight instead. Set `aria-expanded` on the folder's row.
-- **Swiping** a row sideways (`.wt-tl-stop` lets a finger pan up and down, so a sideways move is the script's): the row follows the finger, with `is-swiping` (raised, with `--wt-shadow-float`), over a `.wt-tl-swipe` the script places behind it, the row's size, at its place. It holds `__in` (the `indent` icon, or `stack-add` with `is-new`) and `__out` (`outdent`); `is-in` or `is-out` shows one. Once letting go will do it, it's `is-armed`: `--wt-surface-current` and primary ink. The folder it'll go into is `is-swipe-target` (`--wt-surface-sunken`). Letting go short of armed slides it back with `is-settling`. Put `is-swiping-row` on the root while a row is swiped, so the drag doesn't select text.
-- **On the map,** a closed folder is one [pin](#map-pin-wt-pin) (`--folder`, with a rim of its color), and its own drives don't show.
 
 ### Day bar `.wt-day-bar` and day list `.wt-day-list`
 
@@ -611,7 +573,7 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 - **Type** keeps the stop sheet short this way, so the map stays in view above it.
 - In the app, `optionHTML`, `choicePageHTML` and `choicePage` in `app/web/app.js` build and wire any picker, as a page on a phone and a menu on a computer; use them for a new one.
 - Type starts as a guess from the place's name and category, until someone picks one.
-- **An option that can't be picked here** is a `disabled` button: its label and marker fade, and its detail line says why, in full (the stop sheet's Folder: *Only the first or last stop can leave a folder*).
+- **An option that can't be picked here** is a `disabled` button: its label and marker fade, and its detail line says why, in full.
 - **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
 - **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Check-in and check-out". ↑ ↓ move between types.
 - **One time for a stop: Arrive**, when you get there. There's no leave time: the drive after a stop sets off just in time for the next one.
@@ -843,19 +805,17 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 
 - **A round dot, centered on its place,** like a stop on a transit map: place the element at the place and its center lands there. 24px, ring included (`--wt-pin-size`). It covers its place and little else, so the routes running into it stay visible.
 - **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), shaded like a marker, in a 2px `--wt-pin-fill` ring that keeps it apart from the route under it.
-- **It holds one thing: its number,** in `--wt-marker-ink`. **Every pin has one: its row's in the list,** in the order the list reads, so the hotel you wake up in is 1. On All days, the trip's stops. A closed folder is one row and takes one number; open, each of its stops takes one. Numbers change only when the list does (a folder opened or closed), never as the map zooms. Only a stop that isn't saved yet, with no row, has `.wt-pin__dot` instead.
+- **It holds one thing: its number,** in `--wt-marker-ink`. **Every pin has one: its row's in the list,** in the order the list reads, so the hotel you wake up in is 1. On All days, the trip's stops. Numbers change only when the list does, never as the map zooms. Only a stop that isn't saved yet, with no row, has `.wt-pin__dot` instead.
 - **Rows at one place share one pin, with the first one's number** (the hotel you wake up in and go back to is 1: the route comes back to it).
-- **Where pins crowd, they merge** into one `--cluster` pin, at the first one's place, as a folder's pin is at its first stop. It's the first one's pin, round and with its own number, with the next ones' pins stacked behind it, up and to the right, each in its own color and `--wt-pin-fill` ring, like a fanned deck: one behind for two stops, two behind (`--deep`) for more. Set their colors in `--wt-pin-behind-1` and `-2` (`--wt-kind-past` for one that's over). Behind, they're flat and faded, half their color over `--wt-pin-fill` (`--wt-pin-behind-soft`, 50%), so the pin in front leads. The stack says there are several, and of what kinds; one shadow goes around the whole. The numbers it holds are the ones missing from the map, and its `aria-label` gives them all ("1–3", or "2, 6" for numbers not in a row). A folder in front is a plain pin in it, without its rim.
+- **Where pins crowd, they merge** into one `--cluster` pin, at the first one's place. It's the first one's pin, round and with its own number, with the next ones' pins stacked behind it, up and to the right, each in its own color and `--wt-pin-fill` ring, like a fanned deck: one behind for two stops, two behind (`--deep`) for more. Set their colors in `--wt-pin-behind-1` and `-2` (`--wt-kind-past` for one that's over). Behind, they're flat and faded, half their color over `--wt-pin-fill` (`--wt-pin-behind-soft`, 50%), so the pin in front leads. The stack says there are several, and of what kinds; one shadow goes around the whole. The numbers it holds are the ones missing from the map, and its `aria-label` gives them all ("1–3", or "2, 6" for numbers not in a row).
   - Pins merge when they would come within 4px of each other, each into the first pin before it in the list's order that it would touch, and merged pins that touch merge again. Zoom in and it comes apart; tap it and the map zooms in to its stops. A selected pin, and both ends of a route on show, never merge.
   - Round, like every pin: a pill with all its numbers ("3–4") was tried, and it was the one pin on the map that wasn't round. The first pin alone, with a rim or a "+1" on its corner, didn't say clearly what was under it; the stack does.
   - Don't hide numbers instead: shrinking crowded pins to dots without numbers (all at once, then each by its own room) left stray numbers among dots that said nothing.
   - Never show a count: on this map a number means a row, so a "3" would read as the third.
-- **A folder's pin** (`--folder`) is one badge, 28px: its rim is a 3px ring of its own color, lighter in light mode and darker in dark, with the 2px `--wt-pin-fill` edge outside it, so the pin reads as one piece.
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal; a merged pin's gives all its numbers and names its stops.
-- Variants: `--selected` (32px, 36px for several stops, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (20px and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). A merged pin is muted only when all its stops are. The pins still in color are the ones that matter now.
+- Variants: `--selected` (32px, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (20px and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). A merged pin is muted only when all its stops are. The pins still in color are the ones that matter now.
 - **A tap target of 36px**, centered on the pin (`::after`).
 - **Put the pins in a `.wt-pins` element** (with Leaflet, the marker pane). While one of them is `--selected`, the rest step back: still solid, flat, in a lighter version of their color (`--wt-pin-faded-mix` of it over `--wt-pin-fill`; deeper in dark mode), with the number in their own color, so the selected pin stands out among pins of every type. Not see-through, so the route and the map don't show through them (they used to fade to 55% opacity, which muddied them). They keep their colors rather than turn grey, since grey means over; a pin that's over stays as it is.
-- **A folder** is one pin while it's closed: `--folder`, with the folder's number (it takes one for all its stops), at its first stop, where you go in, in its stops' type color (`place` when they differ). Open, its stops are pins with their own numbers, among the day's other pins: nothing else fades. Several folders can be open at once.
 - The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves half a selected pin clear at the edges.
 - `--compact`, `--dot` and `.wt-pin__dot` on a saved stop are unused since 9.8.0; they stay until the next major version.
 
@@ -986,6 +946,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
 
+### Changed in 11.0.0
+
+Folders are gone. Where pins crowd on the map, they already merge (`--cluster`), so grouping stops by hand only added a second way of saying "several stops here", in the list and on the map.
+
+- Removed: `.wt-tl-stop--folder`, `.wt-tl-stop--in`, `.wt-tl-drive--in`, `.wt-tl-thread`, `.wt-marker--stack`, `.wt-marker--none`, `.wt-tl-note--quiet`, `.wt-pin--folder`, and `--wt-stack-tint` and `--wt-stack-ground`.
+- Removed: swiping a row, `.wt-tl-swipe` (and `__in`, `__out`, `is-in`, `is-out`, `is-new`, `is-armed`), `is-swiping`, `is-settling`, `is-swipe-target` and `is-swiping-row`. Stop rows no longer set `touch-action`.
+- Removed: `.wt-pin--open` and `is-folder-open` on `.wt-pins`, unused since 9.5.1.
+- Removed icons: `indent`, `outdent` and `stack-add` (icons v2.0.0).
+- Tokens are unchanged.
+
 ### Added in 10.6.0
 
 Place search's suggestions were only sights; for somewhere to eat, it now points to the maps app.
@@ -1094,7 +1064,7 @@ One pair of crowded pins turned every pin on the map into a dot, so a day zoomed
 
 Folders: stops that follow each other, grouped under a name.
 
-- New: `.wt-tl-stop--folder`, a folder's row, and `.wt-tl-stop--in`, `.wt-tl-drive--in` and `.wt-tl-thread` for its stops and drives (see [Folders](#folders-wt-tl-stop--folder)).
+- New: `.wt-tl-stop--folder`, a folder's row, and `.wt-tl-stop--in`, `.wt-tl-drive--in` and `.wt-tl-thread` for its stops and drives.
 - New: `.wt-marker--stack` (a folder's marker), `.wt-marker--none`, `.wt-tl-note--quiet`.
 - New: `.wt-pin--folder`, `.wt-pin--open` and `.is-folder-open` on `.wt-pins`.
 - New: swiping a row, `.wt-tl-swipe` with `__in`, `__out`, `is-in`, `is-out`, `is-new`, `is-armed`; `is-swiping`, `is-settling` and `is-swipe-target` on rows; `is-swiping-row` on the root. `.wt-tl` is now `position: relative`, and `.wt-tl-stop` has `touch-action: pan-y`.
