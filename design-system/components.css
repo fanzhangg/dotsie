@@ -1,4 +1,4 @@
-/* Waythread design system — components v10.2.0
+/* Waythread design system — components v10.3.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -912,7 +912,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   display: grid; place-items: center; transform: translate(-50%, -50%);
   border: 2px solid var(--wt-pin-fill); border-radius: var(--wt-radius-round);
   background-color: var(--wt-marker-fill); background-image: var(--wt-marker-shade); box-shadow: var(--wt-shadow-pin);
-  transition: width var(--wt-duration-base), height var(--wt-duration-base), opacity var(--wt-duration-base), box-shadow var(--wt-duration-base);
+  transition: width var(--wt-duration-base), height var(--wt-duration-base), opacity var(--wt-duration-base), box-shadow var(--wt-duration-base), background-color var(--wt-duration-base);
 }
 /* A tap target larger than a small pin, centered on it */
 .wt-pin::after {
@@ -926,11 +926,20 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-pin--muted.wt-pin--compact { --wt-pin-size: 16px; }
 .wt-pin--muted.wt-pin--dot { --wt-pin-size: 10px; border-width: 1.5px; }
 .wt-pin--selected { --wt-pin-size: 32px; box-shadow: var(--wt-shadow-pin-selected); }
-/* Faded, not grey: grey means over */
-.wt-pins:has(.wt-pin--selected) .wt-pin:not(.wt-pin--selected) { opacity: .55; }
+/* The others step back, still solid and in their colors (grey means over): flat, in a lighter version of their color
+   (--wt-pin-faded-mix of it over the ring's), with the number in their own color. Not see-through, so the route and
+   the map don't show through them. A pin that's over stays as it is. */
+.wt-pins:has(.wt-pin--selected) .wt-pin:not(.wt-pin--selected, .wt-pin--muted) {
+  --wt-marker-fill: color-mix(in oklab, var(--wt-kind-color, var(--wt-kind-place)) var(--wt-pin-faded-mix), var(--wt-pin-fill));
+  --wt-stack-tint: color-mix(in oklab, var(--wt-kind-color, var(--wt-kind-place)) 25%, var(--wt-pin-fill));
+  background-image: none;
+}
+.wt-pins:has(.wt-pin--selected) .wt-pin:not(.wt-pin--selected, .wt-pin--muted) > .wt-pin__num {
+  color: oklch(from var(--wt-kind-color, var(--wt-kind-place)) calc(l + var(--wt-pin-faded-ink-lift)) c h);
+}
 .wt-pin__num {
   color: var(--wt-marker-ink); font: 700 12px/1 var(--wt-font-sans); font-variant-numeric: tabular-nums; letter-spacing: -.02em;
-  transition: opacity var(--wt-duration-base);
+  transition: opacity var(--wt-duration-base), color var(--wt-duration-base);
 }
 .wt-pin--muted .wt-pin__num { font-size: 11px; }
 .wt-pin--selected .wt-pin__num { font-size: 15px; }
@@ -1036,7 +1045,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* Selected: its card is open. The marker grows to 28px about its center, solid, with no name beside it. */
 .wt-sight.is-selected .wt-sight__marker { width: 28px; height: 28px; margin-left: -6px; box-shadow: var(--wt-shadow-pin-selected); }
 .wt-sight.is-selected .wt-sight__marker .wt-icon { width: 16px; height: 16px; }
-/* While a pin is selected, the other pins fade to 55%: the sights fade further, so none outshines the plan. For the
+/* While a pin is selected, the other pins step back to a lighter solid color: the sights fade to 40%, so none outshines the plan. For the
    sights inside the element that holds the .wt-pins element (with Leaflet, the map pane, which holds every pane). */
 :has(> .wt-pins .wt-pin--selected) .wt-sight:not(.is-selected) { opacity: .4; }
 

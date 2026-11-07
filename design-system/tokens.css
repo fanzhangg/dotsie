@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.12.0
+/* Waythread design system — tokens v1.13.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -159,6 +159,11 @@
   --wt-marker-lift: .06;
   --wt-marker-sink: .07;
   --wt-marker-boost: 1.15;
+  /* A pin stepping back while another is selected: still solid, in a lighter (in dark mode, deeper) version of its
+     color, this much of it over --wt-pin-fill, with its number in its own color, darker (lighter in dark mode) by this
+     much OKLCH lightness so it stays at 3:1. Solid, so the route and the map don't show through it. */
+  --wt-pin-faded-mix: 45%;
+  --wt-pin-faded-ink-lift: -.2;
   --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .24), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .16)); /* unused since 6.2.0 */
 
   /* Overlays and shadows */
@@ -243,6 +248,7 @@
     --wt-marker-ink: var(--wt-color-gray-950);
     --wt-marker-lift: .05;
     --wt-marker-sink: .04;
+    --wt-pin-faded-ink-lift: .08;
     --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .1));
     --wt-overlay: rgba(0, 0, 0, .55);
     --wt-shadow-color: rgba(0, 0, 0, .5);
@@ -312,6 +318,7 @@
   --wt-marker-ink: var(--wt-color-gray-950);
   --wt-marker-lift: .05;
   --wt-marker-sink: .04;
+  --wt-pin-faded-ink-lift: .08;
   --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .1));
   --wt-overlay: rgba(0, 0, 0, .55);
   --wt-shadow-color: rgba(0, 0, 0, .5);
