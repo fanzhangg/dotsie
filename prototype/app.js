@@ -3118,6 +3118,26 @@ function addSight(s) {
   openStopSheet(trip, null, { name: s.name, address: s.address, lat: s.lat, lng: s.lng, kind: s.kind, ...(s.wikidata && { wikidata: s.wikidata }) });
 }
 
+// The sight at a place, with its Wikidata item, for a stop that has none (found by search, or added by an assistant):
+// the same name nearby (2 km or so: a park's sight is its middle), or one name inside the other right at the place
+// (100 m or so: "Museum of Art" for "New Mexico Museum of Art"). From the sights of the place's tile, loaded if they
+// aren't yet; null for none, or offline before they were loaded.
+const plainName = n => (n || '').normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+function sightAt(p) {
+  if (!window.L) return Promise.resolve(null); // no map script (offline before it was ever loaded): no sights either
+  const t = L.CRS.EPSG3857.latLngToPoint(L.latLng(p.lat, p.lng), SIGHT_TILE_ZOOM).divideBy(256).floor(), k = `${t.x}/${t.y}`;
+  if (!offlineNow()) loadSightTile(k);
+  const now = sightTiles.get(k);
+  return Promise.resolve(now instanceof Promise ? now : null).then(() => {
+    const list = sightTiles.get(k), name = plainName(p.name);
+    if (!Array.isArray(list) || name.length < 3) return null;
+    const near = (s, d) => Math.abs(s.lat - p.lat) < d && Math.abs(s.lng - p.lng) < d * 1.25;
+    const named = list.filter(s => s.wikidata && plainName(s.name).length >= 3);
+    return named.find(s => plainName(s.name) === name && near(s, 0.02))
+      || named.find(s => near(s, 0.001) && (plainName(s.name).includes(name) || name.includes(plainName(s.name)))) || null;
+  });
+}
+
 // ---------- A sight's card: what it is, before you add it ----------
 // Tapping a sight opens its card, as a maps app does: its name and type, then, when OpenStreetMap knows its Wikidata
 // item, a photo and the first lines of its English Wikipedia article (from /api/about), with who took the photo and
@@ -3820,6 +3840,22 @@ function openStopSheet(trip, stop, place = null) {
     const f = el.querySelector('form'), F = f.elements;
     const about = f.querySelector('.wt-about--loading');
     if (about) showAbout(about, draft.wikidata, true);
+    // A place with no Wikidata item may be a sight on the map that has one (see sightAt): the draft takes it, so Save
+    // keeps it with the stop, and an open stop shows what Wikipedia says. Opening the sheet alone changes nothing.
+    let looking = 0;
+    const stillAt = (at, n) => n === looking && el.isConnected && draft.lat === at.lat && draft.lng === at.lng;
+    function findItem() {
+      if (draft.wikidata || draft.lat == null) return;
+      const at = { name: draft.name, lat: draft.lat, lng: draft.lng }, n = ++looking;
+      sightAt(at).then(s => {
+        if (!s || !stillAt(at, n) || draft.wikidata) return;
+        draft.wikidata = s.wikidata;
+        if (stop) loadAbout(s.wikidata).then(a => {
+          if (a && stillAt(at, n) && draft.wikidata === s.wikidata && !f.querySelector('.wt-about')) f.insertAdjacentHTML('afterbegin', aboutHTML(a, true));
+        });
+      });
+    }
+    findItem();
     const main = el.querySelector('.stop-main'), kindsPage = el.querySelector('.stop-kinds'), picker = el.querySelector('[data-kind-open]');
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!stop;
@@ -4050,6 +4086,7 @@ function openStopSheet(trip, stop, place = null) {
       Object.assign(draft, { lat: p.lat, lng: p.lng, address: p.address, name: p.name });
       // Another place isn't the sight it was
       if (draft.wikidata && (p.lat !== stop?.lat || p.lng !== stop?.lng)) { draft.wikidata = null; el.querySelector('.wt-about')?.remove(); }
+      findItem();
       showPlace();
       status.textContent = `${p.name} picked`;
       if (!chosen) setKind(p.kind);
