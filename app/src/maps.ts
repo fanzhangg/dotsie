@@ -86,15 +86,21 @@ export const SIGHT_ZOOM = 12;
 type Kept<T> = { at: number; value: T };
 const KEEP = 60 * 60 * 24 * 365, FRESH = 1000 * 60 * 60 * 24 * 30;
 const stale = (k: { at: number }, fresh = FRESH) => Date.now() - k.at > fresh;
-const keep = <T>(env: Env, key: string, value: T) => env.ROUTES.put(key, JSON.stringify({ at: Date.now(), value } satisfies Kept<T>), { expirationTtl: KEEP });
+const keep = <T>(env: Env, key: string, value: T, at = Date.now()) => env.ROUTES.put(key, JSON.stringify({ at, value } satisfies Kept<T>), { expirationTtl: KEEP });
 const SIGHTS_PER_TILE = 80; // the best ranked: more than ever fit on a screen showing this tile
 // The main public server, then another public one when it's busy or too slow
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 // After both fail on a tile, it isn't asked again for this long; an hour when there's an older copy to show meanwhile
 const SIGHT_RETRY = 60 * 2, SIGHT_RETRY_STALE = 60 * 60;
 // A tile Overpass hasn't answered yet: the request waits this long for it, then answers "still loading" and the lookup
-// carries on after the response (waitUntil), up to the time Cloudflare gives it: about 30 s, shared by both servers.
+// carries on after the response (waitUntil), up to the time Cloudflare gives it: about 30 s for all of it.
 const SIGHT_WAIT = 8000, SIGHT_DEADLINE = 28000;
+// A tile is asked as quarters (2×2), two at a time, each given 12 s by Overpass: a whole city-centre tile (Santa Fe's
+// plaza, central Paris) took Overpass past its time limit, and a failed 25 s try left no time to ask again. Overpass's
+// public servers let one address run only a couple of queries at once. A quarter one server fails is asked of the other.
+const SIGHT_SPLIT = 2, SIGHT_PARALLEL = 2, SIGHT_PART_TIMEOUT = 12;
+// A tile with a quarter missing is kept, but looked up again after an hour rather than a month
+const SIGHT_PARTIAL_FRESH = 1000 * 60 * 60;
 const OSM_UA = { 'User-Agent': 'Waythread (road trip planner)' }; // Overpass and Nominatim ask for one
 
 // Each line is a kind of sight. Minor kinds need a Wikidata item or a Wikipedia article to count: OpenStreetMap maps
@@ -159,9 +165,9 @@ export async function findSights(env: Env, ctx: { waitUntil(p: Promise<unknown>)
     // Being looked up elsewhere: one Overpass call per tile, since a second one only makes both slower
     if (await env.ROUTES.get(loading)) return hit ? hit.value : 'pending';
     await env.ROUTES.put(loading, '1', { expirationTtl: 60 });
-    p = overpassSights(tileBounds(x, y)).then(async list => {
-      await keep(env, key, list);
-      return list;
+    p = overpassSights(tileBounds(x, y)).then(async ({ sights, whole }) => {
+      await keep(env, key, sights, whole ? Date.now() : Date.now() - FRESH + SIGHT_PARTIAL_FRESH);
+      return sights;
     }, async e => {
       await env.ROUTES.put(failed, '1', { expirationTtl: hit ? SIGHT_RETRY_STALE : SIGHT_RETRY });
       throw e;
@@ -175,37 +181,49 @@ export async function findSights(env: Env, ctx: { waitUntil(p: Promise<unknown>)
 }
 
 type OsmElement = { type: 'node' | 'way' | 'relation'; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
-// Overpass's first server, and the other one as well if the first fails or is still busy after SIGHT_HEDGE: whichever
-// answers first, within SIGHT_DEADLINE for both
-const SIGHT_HEDGE = 15000;
-async function overpassSights([s, w, n, e]: number[]) {
-  const q = `[out:json][timeout:25][bbox:${s},${w},${n},${e}];(${SIGHT_QUERY.join(';')};);out center tags qt;`;
-  const done = new AbortController(), signal = AbortSignal.any([done.signal, AbortSignal.timeout(SIGHT_DEADLINE)]);
-  const ask = async (url: string) => {
-    const res = await fetch(url, { method: 'POST', headers: { ...OSM_UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}`, signal });
-    if (!res.ok) throw new Error(`Overpass ${new URL(url).host} ${res.status}`);
-    const j = await res.json<{ elements: OsmElement[]; remark?: string }>();
-    // A query that ran out of time or memory still answers 200, with what it found so far and a remark: not worth keeping
-    if (j.remark && /error/i.test(j.remark)) throw new Error(`Overpass ${new URL(url).host}: ${j.remark}`);
-    return sightsFrom(j.elements);
-  };
-  let next = 0, failed = 0, hedge = 0;
-  try {
-    return await new Promise<Sight[]>((resolve, reject) => {
-      const start = () => {
-        if (next === OVERPASS.length) return;
-        ask(OVERPASS[next++]).then(resolve, err => {
-          console.error(err);
-          if (++failed === OVERPASS.length) reject(err); else start();
-        });
-      };
-      start();
-      hedge = setTimeout(start, SIGHT_HEDGE);
-    });
-  } finally {
-    clearTimeout(hedge);
-    done.abort(); // the other server's answer, if it's still coming, isn't needed
+// The tile's sights, from its quarters (see SIGHT_SPLIT); whole is false when a quarter couldn't be had. Throws when
+// none could. Each quarter is asked of the first server, then of the other if that fails, all within SIGHT_DEADLINE.
+async function overpassSights([s, w, n, e]: number[]): Promise<{ sights: Sight[]; whole: boolean }> {
+  const until = Date.now() + SIGHT_DEADLINE, parts: number[][] = [];
+  for (let i = 0; i < SIGHT_SPLIT; i++) for (let j = 0; j < SIGHT_SPLIT; j++) {
+    const lat = (k: number) => s + ((n - s) * k) / SIGHT_SPLIT, lng = (k: number) => w + ((e - w) * k) / SIGHT_SPLIT;
+    parts.push([lat(i), lng(j), lat(i + 1), lng(j + 1)]);
   }
+  const got: (OsmElement[] | null)[] = [];
+  let next = 0, last: unknown;
+  const worker = async () => {
+    while (next < parts.length) {
+      const i = next++;
+      got[i] = await overpassPart(parts[i], until).catch(err => { console.error(err); last = err; return null; });
+    }
+  };
+  await Promise.all(Array.from({ length: SIGHT_PARALLEL }, worker));
+  const answered = got.filter((g): g is OsmElement[] => !!g);
+  if (!answered.length) throw last ?? new Error('Overpass answered no part of this tile');
+  // A place across two quarters (a park, a long trail) comes back in both: once is enough
+  const seen = new Set<string>(), elements: OsmElement[] = [];
+  for (const el of answered.flat()) if (!seen.has(el.type + el.id)) { seen.add(el.type + el.id); elements.push(el); }
+  return { sights: sightsFrom(elements), whole: answered.length === parts.length };
+}
+async function overpassPart([s, w, n, e]: number[], until: number): Promise<OsmElement[]> {
+  const q = `[out:json][timeout:${SIGHT_PART_TIMEOUT}][bbox:${s},${w},${n},${e}];(${SIGHT_QUERY.join(';')};);out center tags qt;`;
+  let last: unknown = new Error('Overpass: no time left for this part');
+  for (const url of OVERPASS) {
+    const left = until - Date.now();
+    if (left < 2000) break;
+    try {
+      const res = await fetch(url, {
+        method: 'POST', headers: { ...OSM_UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}`,
+        signal: AbortSignal.timeout(Math.min(left, (SIGHT_PART_TIMEOUT + 3) * 1000)),
+      });
+      if (!res.ok) throw new Error(`Overpass ${new URL(url).host} ${res.status}`);
+      const j = await res.json<{ elements: OsmElement[]; remark?: string }>();
+      // A query that ran out of time or memory still answers 200, with what it found so far and a remark: not worth keeping
+      if (j.remark && /error/i.test(j.remark)) throw new Error(`Overpass ${new URL(url).host}: ${j.remark}`);
+      return j.elements;
+    } catch (err) { last = err; }
+  }
+  throw last;
 }
 export function sightsFrom(elements: OsmElement[]): Sight[] {
   const out: Sight[] = [];
