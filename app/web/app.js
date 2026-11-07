@@ -1756,8 +1756,8 @@ function mountTrip(trip) {
     } else pictures();
     schedulePreload();
   });
-  // Sights sit on the map under the routes (the overlay pane, 400) and the pins; the map's names over the routes
-  map.createPane('sights').style.zIndex = 350;
+  // The map's names over the routes (the overlay pane, 400); sights over both, so no name hides them, and under the pins
+  map.createPane('sights').style.zIndex = 500;
   Object.assign(map.createPane('labels').style, { zIndex: 450, pointerEvents: 'none' });
   sightLayer = L.layerGroup().addTo(map);
   routeLayer = new RouteLayer().addTo(map);
@@ -2936,24 +2936,18 @@ function focusStop(s) {
 }
 
 // ---------- Sights: what's worth seeing nearby, once the map is zoomed in ----------
-// As a maps app shows its places: zoomed in to a town or closer, the map names the best known attractions, museums,
-// viewpoints and nature in view, each a small marker in its type's color. They sit under the routes and the trip's pins,
-// and give way to them. Tapping one opens its card (see openSight). Places already on the trip aren't repeated.
+// As a maps app shows its places: zoomed in to a town or closer, the map marks the best known attractions, museums,
+// viewpoints and nature in view, each a small marker in its type's color and icon, with no name: the map's own names
+// stay readable, and a tap says the rest. They sit over the routes and the map's names, under the trip's pins, and give
+// way to the pins. Tapping one opens its card (see openSight). Places already on the trip aren't repeated.
 // None while a stop is open, nor offline. They come from /api/sights a tile at a time (zoom 12), kept for the visit.
 const SIGHTS_FROM_ZOOM = 13;
 const SIGHT_TILE_ZOOM = 12;
 const SIGHTS_MAX = 20; // in view at once, at most, so they never crowd out the plan
-const SIGHT_GAP = 4; // px between two sights' markers and names, and around the trip's pins
+const SIGHT_GAP = 4; // px between two sights' markers, and around the trip's pins
 const sightTiles = new Map(); // "x/y" → its sights; a promise while it loads; { retry } after it failed, until then
 let sightLayer = null, sightsShown = new Map(); // id → its marker
 let sightsPausedUntil = 0; // after the server says too many, until then
-let measureCtx = null;
-// How wide a sight's name is drawn, for fitting names around each other (see .wt-sight__name)
-function nameWidth(name) {
-  measureCtx ??= document.createElement('canvas').getContext('2d');
-  measureCtx.font = `500 12px ${token('--wt-font-sans') || 'sans-serif'}`;
-  return Math.min(measureCtx.measureText(name).width, 160);
-}
 function loadSightTile(k) {
   const t = sightTiles.get(k);
   if (t && !(t.retry && Date.now() > t.retry)) return;
@@ -2984,7 +2978,7 @@ function drawSights() {
       }
     }
     // The best known first, each where it fits: in the part of the map you can see, clear of the trip's pins and of the
-    // sights already placed. Its box is its marker and its name to the right, as in a maps app.
+    // sights already placed. Its box is its marker.
     const size = map.getSize(), top = coveredTop(), bottom = size.y - coveredBottom();
     const taken = pins.filter(p => !p.hidden).map(p => { const c = map.latLngToContainerPoint(p.ll), r = p.r + SIGHT_GAP; return [c.x - r, c.y - r, c.x + r, c.y + r]; });
     const onTrip = s => trip.stops.some(t => (Math.abs(t.lat - s.lat) < 0.001 && Math.abs(t.lng - s.lng) < 0.0013)
@@ -2993,7 +2987,7 @@ function drawSights() {
     for (const s of [...found.values()].sort((a, c) => c.rank - a.rank || a.id.localeCompare(c.id))) {
       const p = map.latLngToContainerPoint([s.lat, s.lng]);
       if (p.x < 0 || p.x > size.x || p.y < top || p.y > bottom || onTrip(s)) continue;
-      const box = [p.x - 10 - SIGHT_GAP / 2, p.y - 10 - SIGHT_GAP / 2, p.x + 14 + nameWidth(s.name) + SIGHT_GAP / 2, p.y + 10 + SIGHT_GAP / 2];
+      const box = [p.x - 10 - SIGHT_GAP / 2, p.y - 10 - SIGHT_GAP / 2, p.x + 10 + SIGHT_GAP / 2, p.y + 10 + SIGHT_GAP / 2];
       if (taken.some(t => overlaps(t, box))) continue;
       taken.push(box);
       show.set(s.id, s);

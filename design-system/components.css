@@ -983,8 +983,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 
 /* ---------- Sight: a place worth seeing, on the map ---------- */
 /* What a maps app shows of its places, zoomed in: a small marker in the type's color with its icon, centered on the
-   place, and the place's name to its right, in secondary ink with a halo in the pin ring's color so it reads over any
-   map. Quieter than a stop's pin (smaller, flat, no number) because the plan comes first. Set --wt-kind-color. */
+   place. Its name, to its right in secondary ink with a halo in the pin ring's color so it reads over any map, shows
+   only while it's selected or (with a mouse) hovered: the map's own names stay readable, and tapping it says the rest.
+   Quieter than a stop's pin (smaller, flat, no number) because the plan comes first. Set --wt-kind-color. */
 .wt-sight {
   position: absolute; display: flex; align-items: center; gap: 4px; transform: translate(-10px, -50%);
   cursor: pointer; animation: wt-sight-in var(--wt-duration-base) var(--wt-ease-out);
@@ -996,16 +997,18 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-sight__marker .wt-icon { width: 12px; height: 12px; }
 .wt-sight__name {
-  max-width: 160px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  display: none; max-width: 160px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   font: 500 12px/16px var(--wt-font-sans); color: var(--wt-text-secondary);
   text-shadow: 0 0 2px var(--wt-pin-fill), 0 0 2px var(--wt-pin-fill), 0 0 3px var(--wt-pin-fill);
 }
-/* A tap target taller than the marker, over the marker and the name */
-.wt-sight::after { content: ''; position: absolute; inset: -8px -4px; }
+/* A tap target bigger than the marker (36px square), and over the name while it shows */
+.wt-sight::after { content: ''; position: absolute; inset: -8px; }
+.wt-sight.is-selected .wt-sight__name { display: block; }
+@media (hover: hover) { .wt-sight:hover .wt-sight__name { display: block; } }
 @keyframes wt-sight-in { from { opacity: 0; } }
-/* Selected: its card is open. The marker grows about its center (the margins keep the name where it was) and the
-   name goes to primary ink. */
-.wt-sight.is-selected .wt-sight__marker { width: 28px; height: 28px; margin: 0 -4px; box-shadow: var(--wt-shadow-pin-selected); }
+/* Selected: its card is open. The marker grows about its center (the margins keep the name where it would be) and
+   its name shows, in primary ink. */
+.wt-sight.is-selected .wt-sight__marker { width: 28px; height: 28px; margin-left: -4px; box-shadow: var(--wt-shadow-pin-selected); }
 .wt-sight.is-selected .wt-sight__marker .wt-icon { width: 16px; height: 16px; }
 .wt-sight.is-selected .wt-sight__name { color: var(--wt-text-primary); }
 
