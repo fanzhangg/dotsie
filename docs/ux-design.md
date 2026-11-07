@@ -66,7 +66,7 @@ With a stop selected, the bottom button becomes `[████ ▢ Open in Maps 
 
 **Moving the sheet is dragging,** as in Google Maps, from anywhere on it: the grab handle, the day bar, or the list.
 - Dragging the list up grows the sheet; once it's the whole day, the list scrolls. Below the whole day it never scrolls by hand.
-- With the whole day showing, pulling the list down from its top shrinks the sheet.
+- With the whole day showing, pulling the list down from its top shrinks the sheet. A swipe up from its top always scrolls the list: the sheet takes a touch only once the finger has clearly gone down, and the list doesn't bounce at its top. (A pull down used to be claimed at the first pixel. On an iPhone that stopped the scroll for the whole touch, and a finger setting off up the list often moves a pixel down first, so the first swipe up from the top often did nothing.)
 - A flick goes on to the other height; a slower drag settles at the nearer one.
 - **Taps:** tapping the grab handle switches between half and the whole day. Choosing a stop or a drive on the whole day brings the sheet down to half. No other tap resizes the sheet, so a missed day-bar button can't hide the list.
 - **Zooming the map** doesn't move the sheet.

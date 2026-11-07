@@ -2559,11 +2559,13 @@ document.addEventListener('touchmove', e => {
   if (swipe?.lock) { drag.mode = 'swipe'; if (e.cancelable) e.preventDefault(); return; }
   const y = e.touches[0].clientY, dy = drag.y0 - y;
   if (!drag.mode) {
-    const pullDown = state.snap === 'full' && dy < 0 && drag.list.scrollTop <= 0;
-    // claim a pull down from the top at once, before the browser starts its own scroll (and, on iPhone, its bounce)
-    if (pullDown && e.cancelable) e.preventDefault();
+    // Nothing is claimed until the finger has clearly gone one way. On an iPhone, holding back a touch's first move
+    // stops the list scrolling for the whole touch, and a finger setting off up the list often first moves a pixel
+    // down: a pull down from the top used to be claimed at once, so the first swipe up the whole day from its top
+    // did nothing, and it took a second. A pull down the browser has started scrolling doesn't bounce the list
+    // instead of moving the sheet: at its top, the whole day has no overscroll (styles.css).
     if (Math.abs(dy) < 6) return;
-    drag.mode = state.snap !== 'full' || pullDown ? 'sheet' : 'scroll';
+    drag.mode = state.snap !== 'full' || (dy < 0 && drag.list.scrollTop <= 1) ? 'sheet' : 'scroll';
   }
   if (drag.mode !== 'sheet') return;
   if (e.cancelable) e.preventDefault();

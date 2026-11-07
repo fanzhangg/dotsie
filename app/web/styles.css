@@ -94,6 +94,9 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
 .trip .wt-sheet__body::after { content: ''; display: block; height: var(--sheet-room, 0px); }
 /* The app keeps the list's scroll (listTop in app.js): no scroll anchoring moving it when its rows change. */
 .trip .wt-sheet__body { overflow-anchor: none; }
+/* At the top of the whole day, a pull down shrinks the sheet (the list's touchmove in app.js), so the list doesn't bounce
+   there: the app leaves the start of a touch to the browser, so a swipe up from the top always scrolls. */
+.trip .wt-sheet.is-full .wt-sheet__body:not(.is-more-above) { overscroll-behavior-y: none; }
 /* Whole day sits at the map's bottom right: just above the list on a phone, riding up and down with it (the app sets
    its --bottom-h with each frame of the sheet), and tucked under the sheet when it's dragged over. Disabled, not hidden, while the map shows the whole day; not there while a stop is open. */
 .trip-fit {
