@@ -1,4 +1,4 @@
-/* Waythread design system — components v10.5.0
+/* Waythread design system — components v10.6.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -563,6 +563,11 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-option__meta { flex: none; font: var(--wt-type-body); color: var(--wt-text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* The part of a result's name that matches what was typed */
 .wt-option__match { background: none; color: inherit; font-weight: 600; }
+/* Under suggestions, a link to more in another app (Places to eat nearby, in the maps app), in link blue */
+.wt-results__more { display: inline-flex; align-items: center; gap: 4px; height: var(--wt-size-touch); margin-top: var(--wt-space-1); font: var(--wt-type-label); font-size: 15px; color: var(--wt-text-link); text-decoration: none; }
+.wt-results__more[hidden] { display: none; }
+.wt-results__more .wt-icon { width: 14px; height: 14px; }
+@media (hover: hover) { .wt-results__more:hover { text-decoration: underline; } }
 /* A word at the start of the detail that sets a result apart (On the way): in the name's ink, not a color */
 .wt-option__tag { font-weight: 500; color: var(--wt-text-primary); }
 .wt-option[aria-selected="true"], .wt-option[aria-checked="true"] { background: var(--wt-surface-current); }
