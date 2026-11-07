@@ -3779,7 +3779,8 @@ const nearParam = p => (p ? `&near=${(+p.lat).toFixed(4)},${(+p.lng).toFixed(4)}
 
 // Where a stop at `time` goes in the plan: between the place you'd come from and the one you'd go on to (that day's
 // stops, last night's hotel and tonight's; else the trip's stops before and after), leaving out `skip`, the stop being
-// moved. `line` is the way between them as [lat, lng] points, thinned: its route once it's been looked up (`routed`), a
+// moved. With a hotel tonight, the day ends there: a stop in the evening goes from it and back, not on to tomorrow's
+// first stop (that's after a night's sleep, not on the way). `line` is the way between them as [lat, lng] points, thinned: its route once it's been looked up (`routed`), a
 // straight line until then. With only one of them, or no route between them (a flight), it's that one place, and `to`
 // is null. Null for a trip with no stops.
 function wayAround(trip, time, skip) {
@@ -3790,6 +3791,8 @@ function wayAround(trip, time, skip) {
     if (e.place.id === skip) continue;
     if (at(e) <= time) from = e; else to ||= e;
   }
+  const night = stayOnNight(trip, day);
+  if (!to && night && night.s.id !== skip) to = { place: night.s, role: 'night', day };
   const others = stopsOf(trip).filter(s => s.id !== skip), entry = s => s && { place: s, role: 'stop' };
   from ||= entry(others.filter(s => s.time <= time).at(-1));
   to ||= entry(others.find(s => s.time > time));
