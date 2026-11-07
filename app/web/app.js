@@ -1773,6 +1773,7 @@ function mountTrip(trip) {
   // Tapping empty map clears the selection; a route's preview goes back to the whole day.
   // While a stop is open, the map is there to look at, so taps leave everything as it is.
   map.on('click', () => onMapTap(() => {
+    if (sightOpen) return closeSheet();
     if (state.draft || (!state.sel && !state.leg && !state.folder)) return;
     if (state.leg) fitKey = '';
     state.sel = state.selRow = state.leg = state.folder = null;
@@ -2520,7 +2521,7 @@ addEventListener('resize', () => {
 // doesn't show, so the camera is placed for half, where the list goes back to. Nothing covers the map on a wide screen.
 function coveredBottom() {
   if (isWide()) return 0;
-  const panel = state.draft && $sheets.querySelector('.wt-modal');
+  const panel = (state.draft || sightOpen) && $sheets.querySelector('.wt-modal');
   return panel ? panel.offsetHeight : snaps().half;
 }
 // The header card covers the map's top on a phone; on a wide screen it sits in the side panel.
@@ -2937,7 +2938,7 @@ function focusStop(s) {
 // ---------- Sights: what's worth seeing nearby, once the map is zoomed in ----------
 // As a maps app shows its places: zoomed in to a town or closer, the map names the best known attractions, museums,
 // viewpoints and nature in view, each a small marker in its type's color. They sit under the routes and the trip's pins,
-// and give way to them. Tapping one opens Add stop with that place filled in. Places already on the trip aren't repeated.
+// and give way to them. Tapping one opens its card (see openSight). Places already on the trip aren't repeated.
 // None while a stop is open, nor offline. They come from /api/sights a tile at a time (zoom 12), kept for the visit.
 const SIGHTS_FROM_ZOOM = 13;
 const SIGHT_TILE_ZOOM = 12;
@@ -3006,19 +3007,79 @@ function drawSights() {
     const m = L.marker([s.lat, s.lng], {
       pane: 'sights',
       icon: L.divIcon({ className: '', iconSize: [0, 0], html: sightHTML(s) }),
-    }).on('click', () => onMapTap(() => addSight(s))).addTo(sightLayer);
+    }).on('click', () => onMapTap(() => openSight(s))).addTo(sightLayer);
     // A button to the keyboard too: Leaflet makes a marker focusable, but only a click opens it
-    m.getElement()?.setAttribute('aria-label', `${s.name}, ${KINDS[s.kind].label}. Add as a stop`);
-    m.getElement()?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addSight(s); } });
+    m.getElement()?.setAttribute('aria-label', `${s.name}, ${KINDS[s.kind].label}. Show more`);
+    m.getElement()?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSight(s); } });
     sightsShown.set(id, m);
   }
 }
-const sightHTML = s => `<div class="wt-sight" style="--wt-kind-color: ${kindColor(s)}"><i class="wt-sight__marker">${kindIcon(s, 12)}</i><span class="wt-sight__name">${esc(s.name)}</span></div>`;
+const sightHTML = s => `<div class="wt-sight${s.id === sightOpen?.id ? ' is-selected' : ''}" style="--wt-kind-color: ${kindColor(s)}"><i class="wt-sight__marker">${kindIcon(s, 12)}</i><span class="wt-sight__name">${esc(s.name)}</span></div>`;
 // Add stop, with the sight as its place and type
 function addSight(s) {
   const trip = cur?.stops ? cur : null;
   if (!trip || state.draft || !needsConnection()) return;
-  openStopSheet(trip, null, { name: s.name, address: s.address, lat: s.lat, lng: s.lng, kind: s.kind });
+  openStopSheet(trip, null, { name: s.name, address: s.address, lat: s.lat, lng: s.lng, kind: s.kind, ...(s.wikidata && { wikidata: s.wikidata }) });
+}
+
+// ---------- A sight's card: what it is, before you add it ----------
+// Tapping a sight opens its card, as a maps app does: its name and type, then, when OpenStreetMap knows its Wikidata
+// item, a photo and the first lines of its English Wikipedia article (from /api/about), with who took the photo and
+// a link to the article. Add to trip opens Add stop with the place filled in. It's a panel, like the stop sheet, so the
+// map stays in view with the sight marked; tapping empty map closes it. A stop added from a sight keeps its Wikidata
+// item, and its own sheet shows the same lines (see aboutHTML).
+let sightOpen = null; // the sight whose card is open
+const abouts = new Map(); // Wikidata item → what /api/about said (null for nothing), or a promise while it loads
+function loadAbout(qid) {
+  if (abouts.has(qid)) return Promise.resolve(abouts.get(qid));
+  if (offlineNow()) return Promise.resolve(null);
+  const p = api(`/about?id=${encodeURIComponent(qid)}`).then(a => { abouts.set(qid, a); return a; }, () => { abouts.delete(qid); return null; });
+  abouts.set(qid, p);
+  return p;
+}
+// A photo, the article's first lines and where they're from; `compact` puts a small photo beside them (a stop's sheet).
+// Before it has loaded, grey blocks hold its place.
+function aboutHTML(a, compact) {
+  const cls = `wt-about${compact ? ' wt-about--compact' : ''}`;
+  if (a === undefined) return `<div class="${cls} wt-about--loading" aria-hidden="true"><span class="wt-about__photo"></span><span class="wt-about__body"><span class="wt-about__line"></span><span class="wt-about__line"></span><span class="wt-about__line"></span></span></div>`;
+  const img = a.image, credit = img && `Photo: ${img.credit ? `${img.credit} · ` : ''}${img.license}`;
+  return `<div class="${cls}">${img ? `<img class="wt-about__photo" src="${esc(img.src)}" alt="" width="${+img.width || ''}" height="${+img.height || ''}" loading="lazy">` : ''}
+    <div class="wt-about__body"><p class="wt-about__text">${esc(a.text)}</p>
+    <div class="wt-about__src">${img ? `<a class="wt-about__credit" href="${esc(img.page)}" target="_blank" rel="noopener" title="${esc(credit)}">${esc(credit)}</a>` : ''}<a class="wt-about__more" href="${esc(a.url)}" target="_blank" rel="noopener">Wikipedia${ICON.external}</a></div></div></div>`;
+}
+// What a sheet starts with for a Wikidata item: what's known already, grey blocks while it loads, or nothing (none, or
+// offline before it ever loaded). showAbout then fills the blocks in.
+function aboutSlot(qid, compact) {
+  const known = qid ? abouts.get(qid) : null;
+  if (known === null || (known === undefined && (!qid || offlineNow()))) return '';
+  return aboutHTML(known instanceof Promise ? undefined : known, compact);
+}
+// Fills a placeholder from aboutHTML once the lines arrive; with nothing to say, it goes
+function showAbout(box, qid, compact) {
+  const done = a => { if (!box.isConnected) return; if (a) box.outerHTML = aboutHTML(a, compact); else box.remove(); };
+  const now = abouts.get(qid);
+  if (now !== undefined && !(now instanceof Promise)) done(now); else loadAbout(qid).then(done);
+}
+function markSight(s) {
+  if (sightOpen) sightsShown.get(sightOpen.id)?.getElement()?.querySelector('.wt-sight')?.classList.remove('is-selected');
+  sightOpen = s;
+  $app.querySelector('.trip')?.classList.toggle('has-card', !!s);
+  if (s) sightsShown.get(s.id)?.getElement()?.querySelector('.wt-sight')?.classList.add('is-selected');
+}
+function openSight(s) {
+  const trip = cur?.stops ? cur : null;
+  if (!trip || state.draft) return;
+  openSheet(`${modalHead(esc(s.name))}
+    <p class="wt-modal__text sight-type"><i class="wt-sight__marker" style="--wt-kind-color: ${kindColor(s)}">${kindIcon(s, 12)}</i>${KINDS[s.kind].label}</p>
+    ${aboutSlot(s.wikidata, false)}
+    <button class="wt-btn wt-btn--primary wt-btn--block sight-add" data-add>${ICON.plus}Add to trip</button>`, el => {
+    el.querySelector('[data-add]').onclick = () => addSight(s);
+    const about = el.querySelector('.wt-about--loading');
+    if (about) showAbout(about, s.wikidata, false);
+  }, { panel: true, onClose: () => { markSight(null); drawSights(); } });
+  markSight(s);
+  // The sight in the part of the map the card leaves, if it's under it
+  requestAnimationFrame(() => { if (sightOpen === s && map && !inView([s.lat, s.lng])) focusStop(s); });
 }
 
 // ---------- Edits ----------
@@ -3050,10 +3111,10 @@ function deleteStop(trip, stop) {
   save(api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'DELETE' }));
   // Undo puts the same stop back under its old id
   toast(`Deleted ${stop.name}`, 'Undo', () => {
-    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {}, folder = null, links = [] } = stop, travel = travelOf(stop);
+    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {}, folder = null, links = [], wikidata = null } = stop, travel = travelOf(stop);
     openTripOf(trip.id)?.stops.push({ ...stop, by: me.id });
     render();
-    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, links } }));
+    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, links, wikidata } }));
   });
 }
 
@@ -3659,6 +3720,7 @@ function openStopSheet(trip, stop, place = null) {
   const option = k => optionHTML(k, KINDS[k].label, { marker: markerHTML({ kind: k }, ''), detail: KIND_HINTS[k] });
   openSheet(`<div class="stop-main">${modalHead(stop ? 'Edit stop' : 'Add stop', true)}
     <form>
+      ${stop ? aboutSlot(draft.wikidata, true) : ''}
       <div class="wt-field"><span class="wt-field__label" id="place-label">Place</span>
         <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
@@ -3684,6 +3746,8 @@ function openStopSheet(trip, stop, place = null) {
       <span class="wt-visually-hidden" role="status" data-place-status></span>
     </div>`, el => {
     const f = el.querySelector('form'), F = f.elements;
+    const about = f.querySelector('.wt-about--loading');
+    if (about) showAbout(about, draft.wikidata, true);
     const main = el.querySelector('.stop-main'), kindsPage = el.querySelector('.stop-kinds'), picker = el.querySelector('[data-kind-open]');
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!stop;
@@ -3912,6 +3976,8 @@ function openStopSheet(trip, stop, place = null) {
     }
     function pick(p) {
       Object.assign(draft, { lat: p.lat, lng: p.lng, address: p.address, name: p.name });
+      // Another place isn't the sight it was
+      if (draft.wikidata && (p.lat !== stop?.lat || p.lng !== stop?.lng)) { draft.wikidata = null; el.querySelector('.wt-about')?.remove(); }
       showPlace();
       status.textContent = `${p.name} picked`;
       if (!chosen) setKind(p.kind);
@@ -3956,6 +4022,7 @@ function openStopSheet(trip, stop, place = null) {
       const data = {
         name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(), links,
         kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? outTime : null,
+        ...(draft.wikidata !== undefined && { wikidata: draft.wikidata }),
       };
       const kept = folderAt(trip, stop?.id, data.time, folder === 'new' ? newFolder(trip, suggestFolderName(draft)) : folder);
       data.folder = kept;
