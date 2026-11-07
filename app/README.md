@@ -70,7 +70,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET /api/me` | `{ id, name, image, isGuest }` |
 | `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights, travel, back }`, for the card's route sketch (at most 300) |
 | `POST /api/trips` `{ name }` | Create; returns the trip snapshot |
-| `GET /api/trips/:id` | `{ trip, members, stops, folders }`; `trip.owner` is the id of whoever made it |
+| `GET /api/trips/:id` | `{ trip, members, stops }`; `trip.owner` is the id of whoever made it |
 | `PATCH /api/trips/:id` `{ name }` | Rename |
 | `DELETE /api/trips/:id` · `POST /api/trips/:id/restore` | Soft delete and undo. Owner only (403 `not_owner`) |
 | `POST /api/trips/:id/leave` | Leave the trip; your stops stay. Everyone but the owner (the owner gets 400 `invalid`) |
@@ -79,8 +79,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `PUT /api/trips/:id/stops/:stopId` | Create a stop, or restore one (Undo). The client picks the id |
 | `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ kind: 'hotel', nights: 2, checkout: '11:00' }`. `links` is the whole list, `[{ url, label }]`: up to 10 http(s) pages, `label` up to 60 characters (`''` shows the page's site) |
 | `DELETE /api/trips/:id/stops/:stopId` | |
-| `PUT /api/trips/:id/folders/:folderId` `{ name }` | Create a folder, or rename one; returns `{ id, name }`. The client picks the id. A stop goes in or out with its own `folder` field |
-| `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `folder.upserted`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
+| `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
 | `GET /api/sights?tile=12/x/y` | What's worth seeing in one map tile at zoom 12: `[{ id, name, address, lat, lng, kind, rank }]`, at most 80, best ranked first. `kind` is `attraction`, `museum`, `viewpoint` or `nature`; `rank` is higher for better known places. 202 `{ pending: true }` while a tile no one has looked at yet is looked up (ask again in a few seconds); 503 `unavailable` when Overpass is down or busy |
 | `GET /api/route?from=lat,lng&to=lat,lng&mode=` | `{ duration, distance, coords }`. `mode` is `drive` (the default), `walk` or `bike` |
@@ -90,7 +89,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET`·`POST /api/oauth/authorize` | The Allow page an assistant sends you to (a page, not JSON) |
 | `/api/oauth/token`, `/api/oauth/register`, `/.well-known/oauth-*` | OAuth's token, client registration and discovery endpoints, answered by the library |
 
-A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, folder, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is a hotel's check-out time, `HH:MM`, on the day its nights end, or `null` (the app shows 11:00 AM). Other stops have `null`; a time some older clients saved there as a leave time is ignored. `travel` is how you get to the stop from the place before it (for a hotel, on its check-in day): `drive` (the default), `walk`, `bike`, `transit` or `flight`. `back` is a hotel's way back to it each night, by the day: `{ "2026-03-14": "walk" }`; nights not in it are drives, and a `drive` sent in it is dropped. Other stops have `{}`. A PATCH replaces the whole of it. Drives, walks and rides follow a route (`/api/route` with that `mode`); transit and flights have none, and the app draws them straight, with no time. `folder` is the id of the folder the stop is in, or `null`. A folder is `{ id, name }`: a name for stops that follow each other by time (the app keeps a folder's stops together; the server doesn't check). It isn't checked against the trip's folders either, since a stop can arrive a moment before its new folder's name. A folder whose stops have all left it stays in `folders`, so Undo can put them back; the app shows only folders that hold stops. Stops still carry `done`, which older clients set; the app no longer shows it.
+A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is a hotel's check-out time, `HH:MM`, on the day its nights end, or `null` (the app shows 11:00 AM). Other stops have `null`; a time some older clients saved there as a leave time is ignored. `travel` is how you get to the stop from the place before it (for a hotel, on its check-in day): `drive` (the default), `walk`, `bike`, `transit` or `flight`. `back` is a hotel's way back to it each night, by the day: `{ "2026-03-14": "walk" }`; nights not in it are drives, and a `drive` sent in it is dropped. Other stops have `{}`. A PATCH replaces the whole of it. Drives, walks and rides follow a route (`/api/route` with that `mode`); transit and flights have none, and the app draws them straight, with no time. Stops still carry `done`, which older clients set; the app no longer shows it.
 
 Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member` or `not_owner`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
 
@@ -113,17 +112,15 @@ Claude reaches the server from Anthropic's cloud, so a connector needs the deplo
 | Tool | Arguments | Returns |
 | --- | --- | --- |
 | `list_trips` | none | `{ trips: [{ id, name, start, end }] }`, newest edit first |
-| `list_stops` | `trip_id`, optional `day` (`YYYY-MM-DD`) | `{ trip, stops, folders }`, in time order, with the folders those stops are in |
-| `add_stop` | `trip_id`, `name`, `lat`, `lng`, `time`, and any of `address`, `checkout`, `kind`, `nights`, `note`, `links`, `folder` | `{ stop }`, as saved, with its new id |
-| `edit_stop` | `trip_id`, `stop_id`, and any of `name`, `address`, `lat`, `lng`, `time`, `checkout`, `kind`, `nights`, `note`, `links`, `folder` | `{ stop }`, as saved. `links` replaces the whole list |
+| `list_stops` | `trip_id`, optional `day` (`YYYY-MM-DD`) | `{ trip, stops }`, in time order |
+| `add_stop` | `trip_id`, `name`, `lat`, `lng`, `time`, and any of `address`, `checkout`, `kind`, `nights`, `note`, `links` | `{ stop }`, as saved, with its new id |
+| `edit_stop` | `trip_id`, `stop_id`, and any of `name`, `address`, `lat`, `lng`, `time`, `checkout`, `kind`, `nights`, `note`, `links` | `{ stop }`, as saved. `links` replaces the whole list |
 | `add_link` | `trip_id`, `stop_id`, `url`, optional `label` | `{ stop }`, as saved. Adds the page to the stop's links, keeping the others; a page it has already only gets the new label |
 | `delete_stop` | `trip_id`, `stop_id` | `{ deleted }`: the stop as it was, so `add_stop` can put it back |
-| `add_folder` | `trip_id`, `name` | `{ folder }`, with its new id. Empty until a stop's `folder` is set to it |
-| `rename_folder` | `trip_id`, `folder_id`, `name` | `{ folder }` |
 
 `links` takes what models send when they guess, or when their copy of the tools is older than links: a JSON string, bare addresses, one link on its own, `title` for `label`, an address without `https://`. A tool error names the field that's wrong and what it should be. Bump `SERVER.version` in `src/mcp.ts` whenever a tool or its arguments change, so clients have a reason to fetch the tools again.
 
-A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Changes go through `TripRoom`'s `putStop`, `patchStop`, `addLink`, `deleteStop` and `putFolder`, like the app's: the same checks, and everyone with the trip open sees them live.
+A stop here is the API's stop without `done`, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Changes go through `TripRoom`'s `putStop`, `patchStop`, `addLink` and `deleteStop`, like the app's: the same checks, and everyone with the trip open sees them live.
 
 How it's built:
 
