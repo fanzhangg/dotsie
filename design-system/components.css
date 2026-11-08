@@ -1,4 +1,4 @@
-/* Waythread design system — components v12.2.0
+/* Waythread design system — components v12.3.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -865,6 +865,19 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 /* Under way: which day it is reads first, in primary ink, like the row happening now */
 .wt-trip-card.is-now .wt-trip-card__when { color: var(--wt-text-primary); }
 .wt-trip-card__people { padding: 0; }
+/* Under way, what the trip is at now and what's next, under a hairline at the foot of the card, each like a row of
+   the timeline: a small marker in its type's color, the place, and on the right when it is, "Now" for the first. The
+   row happening now is in primary ink, as in the timeline; what's next stays secondary. */
+.wt-trip-card__now {
+  display: grid; gap: var(--wt-space-1); margin: 0 var(--wt-space-3) 0 var(--wt-space-4);
+  padding: var(--wt-space-3) 0; border-top: 1px solid var(--wt-border-subtle);
+}
+.wt-trip-card__step { display: flex; align-items: center; gap: var(--wt-space-2); min-width: 0; font: var(--wt-type-caption); font-size: 14px; color: var(--wt-text-secondary); }
+.wt-trip-card__step .wt-marker { flex: none; }
+.wt-trip-card__step-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-trip-card__step.is-now :is(.wt-trip-card__step-name, .wt-trip-card__step-time) { color: var(--wt-text-primary); }
+.wt-trip-card__step.is-now .wt-trip-card__step-time { font-weight: 600; }
+.wt-trip-card__step-time { flex: none; margin-left: auto; padding-left: var(--wt-space-2); font-variant-numeric: tabular-nums; }
 
 /* ---------- Map pin ---------- */
 /* A round dot centered on its place, like a stop on a transit map: the stop's type color, shaded like a marker, in a
