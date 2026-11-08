@@ -1,4 +1,4 @@
-/* Waythread design system — components v12.1.0
+/* Waythread design system — components v12.2.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -927,17 +927,17 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-pin--cluster.wt-pin--muted { filter: none; }
 
 /* ---------- Sight: a place worth seeing, on the map ---------- */
-/* What a maps app shows of its places, zoomed in: a small marker with the type's icon, centered on the place. It's part
-   of the map, not of the plan, so it's drawn like the map's own places: a 16px disc tinted with the type's color, the
-   icon in that color, a hairline of it around the edge, and no shadow. A stop's pin is a solid color with a white
-   number standing off the map, so the plan reads first and the sights sit back. Pointed at, focused or selected, it
-   becomes a solid marker in the type's color, like the card's.
+/* What a maps app shows of its places, zoomed in: a marker with the type's icon, centered on the place. It's part of
+   the map, not of the plan, so it's the plan's pin turned inside out: a 22px disc in the pin ring's color, the icon in
+   the type's color, a ring of it around the edge, and the pin's light shadow, so it reads over any map. A stop's pin is
+   a solid color with a white number, so the plan still reads first. Pointed at, focused or selected, it becomes a
+   solid marker in the type's color, like the card's.
    Its name, to its right in secondary ink with a halo in the pin ring's color so it reads over any map, shows only
    while a mouse is on it: the map's own names stay readable, and tapping it says the rest. Selected, its card says
    its name, so the map doesn't repeat it. Set --wt-kind-color.
    On its own (in a sight's card), .wt-sight__marker is the solid 20px marker. */
 .wt-sight {
-  position: absolute; display: flex; align-items: center; gap: 4px; transform: translate(-8px, -50%);
+  position: absolute; display: flex; align-items: center; gap: 4px; transform: translate(-11px, -50%);
   cursor: pointer; animation: wt-sight-in var(--wt-duration-base) var(--wt-ease-out);
   transition: opacity var(--wt-duration-base);
 }
@@ -948,42 +948,43 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 }
 .wt-sight__marker .wt-icon { width: 12px; height: 12px; }
 .wt-sight .wt-sight__marker {
-  width: 16px; height: 16px; border: 0;
-  background: color-mix(in oklab, var(--wt-kind-color, var(--wt-kind-place)) 20%, var(--wt-pin-fill));
+  width: 22px; height: 22px; border: 0;
+  background: var(--wt-pin-fill);
   color: var(--wt-kind-color, var(--wt-kind-place));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--wt-kind-color, var(--wt-kind-place)) 55%, var(--wt-pin-fill));
+  box-shadow: inset 0 0 0 1.5px var(--wt-kind-color, var(--wt-kind-place)), var(--wt-shadow-pin);
   transition: width var(--wt-duration-fast), height var(--wt-duration-fast), margin var(--wt-duration-fast);
 }
-.wt-sight .wt-sight__marker .wt-icon { width: 10px; height: 10px; }
-/* Focused (it, or the element holding it, as Leaflet's marker), or selected: the solid marker, 20px about the same center */
+.wt-sight .wt-sight__marker .wt-icon { width: 14px; height: 14px; }
+/* Focused (it, or the element holding it, as Leaflet's marker), or selected: the solid marker, 24px about the same center */
 .wt-sight:is(:focus-visible, .is-selected) .wt-sight__marker, :focus-visible > .wt-sight .wt-sight__marker {
-  width: 20px; height: 20px; margin-left: -2px; border: 1.5px solid var(--wt-pin-fill);
+  width: 24px; height: 24px; margin-left: -1px; border: 1.5px solid var(--wt-pin-fill);
   background: var(--wt-kind-color, var(--wt-kind-place)); color: var(--wt-marker-ink); box-shadow: var(--wt-shadow-pin);
 }
-.wt-sight:focus-visible .wt-sight__marker .wt-icon, :focus-visible > .wt-sight .wt-sight__marker .wt-icon { width: 12px; height: 12px; }
+.wt-sight:focus-visible .wt-sight__marker .wt-icon, :focus-visible > .wt-sight .wt-sight__marker .wt-icon { width: 14px; height: 14px; }
 /* Pointed at with a mouse: the same, with its name */
 @media (hover: hover) {
   .wt-sight:hover .wt-sight__marker {
-    width: 20px; height: 20px; margin-left: -2px; border: 1.5px solid var(--wt-pin-fill);
+    width: 24px; height: 24px; margin-left: -1px; border: 1.5px solid var(--wt-pin-fill);
     background: var(--wt-kind-color, var(--wt-kind-place)); color: var(--wt-marker-ink); box-shadow: var(--wt-shadow-pin);
   }
-  .wt-sight:hover .wt-sight__marker .wt-icon { width: 12px; height: 12px; }
+  .wt-sight:hover .wt-sight__marker .wt-icon { width: 14px; height: 14px; }
 }
 .wt-sight__name {
   display: none; max-width: 160px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   font: 500 12px/16px var(--wt-font-sans); color: var(--wt-text-secondary);
   text-shadow: 0 0 2px var(--wt-pin-fill), 0 0 2px var(--wt-pin-fill), 0 0 3px var(--wt-pin-fill);
 }
-/* A tap target bigger than the marker (36px square), and over the name while it shows */
+/* A tap target bigger than the marker (42px square), and over the name while it shows */
 .wt-sight::after { content: ''; position: absolute; inset: -10px; }
 @media (hover: hover) { .wt-sight:not(.is-selected):hover .wt-sight__name { display: block; } }
 @keyframes wt-sight-in { from { opacity: 0; } }
-/* Selected: its card is open. The marker grows to 28px about its center, solid, with no name beside it. */
-.wt-sight.is-selected .wt-sight__marker { width: 28px; height: 28px; margin-left: -6px; box-shadow: var(--wt-shadow-pin-selected); }
-.wt-sight.is-selected .wt-sight__marker .wt-icon { width: 16px; height: 16px; }
-/* While a pin is selected, the other pins step back to a lighter solid color: the sights fade to 40%, so none outshines the plan. For the
-   sights inside the element that holds the .wt-pins element (with Leaflet, the map pane, which holds every pane). */
-:has(> .wt-pins .wt-pin--selected) .wt-sight:not(.is-selected) { opacity: .4; }
+/* Selected: its card is open. The marker grows to 32px about its center, solid, with no name beside it. */
+.wt-sight.is-selected .wt-sight__marker { width: 32px; height: 32px; margin-left: -5px; box-shadow: var(--wt-shadow-pin-selected); }
+.wt-sight.is-selected .wt-sight__marker .wt-icon { width: 18px; height: 18px; }
+/* While a pin is selected, the other pins step back to a lighter solid color: the sights step back to 70%, so none
+   outshines the plan, and they still read, since a selected stop is where you look around. For the sights inside the
+   element that holds the .wt-pins element (with Leaflet, the map pane, which holds every pane). */
+:has(> .wt-pins .wt-pin--selected) .wt-sight:not(.is-selected) { opacity: .7; }
 
 /* ---------- About a place: a photo, a few lines, and where they're from ---------- */
 /* As in a sight's card: the photo across the top, then the lines (at most four), then the photo's credit and a link
