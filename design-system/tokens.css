@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v1.13.0
+/* Waythread design system — tokens v2.0.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -95,7 +95,6 @@
   --wt-border-default: var(--wt-color-gray-150);    /* input borders */
   --wt-border-strong: var(--wt-color-gray-300);     /* grab handle (decorative) */
   --wt-border-rail: var(--wt-color-gray-250);       /* the day's timeline rail: still there on a grey row */
-  --wt-border-control: var(--wt-color-gray-450);    /* unchecked check ring: 3:1 on cards */
   --wt-border-focus: var(--wt-color-gray-950);      /* focused input, selected card */
 
   /* Actions */
@@ -103,8 +102,6 @@
   --wt-action-primary-text: var(--wt-color-gray-0);
   --wt-action-secondary: var(--wt-color-gray-0);
   --wt-action-secondary-text: var(--wt-color-gray-950);
-  --wt-action-done: var(--wt-color-gray-950);       /* filled check */
-  --wt-action-done-text: var(--wt-color-gray-0);
 
   /* Routes and pins (map) */
   --wt-route: var(--wt-color-blue-500);
@@ -113,9 +110,6 @@
   --wt-route-done: var(--wt-color-gray-350);       /* past routes: the same grey as what's over in the list */
   --wt-route-casing: var(--wt-color-gray-0);        /* outline under route lines */
   --wt-pin-fill: var(--wt-color-gray-0);
-  --wt-pin-ring: var(--wt-route);
-  --wt-pin-ring-muted: var(--wt-color-blue-200);
-  --wt-pin-ring-done: var(--wt-color-gray-400);
 
   /* Status, loudest first: red needs fixing; black is now; grey is over. */
   --wt-danger: var(--wt-color-red-600);
@@ -142,12 +136,6 @@
   --wt-kind-nature: #0e844c;
   --wt-kind-museum: #df3c8c;
   --wt-kind-shopping: #a98410;
-  /* Unused since 6.6.0, when each type got its own color: the old group colors, now the color of their first type. */
-  --wt-kind-travel: var(--wt-kind-airport);
-  --wt-kind-stay: var(--wt-kind-hotel);
-  --wt-kind-food: var(--wt-kind-restaurant);
-  --wt-kind-sight: var(--wt-kind-attraction);
-  --wt-kind-shop: var(--wt-kind-shopping);
   --wt-kind-drive: var(--wt-color-gray-450);        /* the car on a drive: quieter than any stop */
   --wt-kind-drive-current: var(--wt-color-gray-700); /* the car on the selected drive: a step darker */
   --wt-kind-past: var(--wt-color-gray-350);         /* markers, cars and pins of what's over: the color drains out */
@@ -164,7 +152,6 @@
      much OKLCH lightness so it stays at 3:1. Solid, so the route and the map don't show through it. */
   --wt-pin-faded-mix: 45%;
   --wt-pin-faded-ink-lift: -.2;
-  --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .24), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .16)); /* unused since 6.2.0 */
 
   /* Overlays and shadows */
   --wt-overlay: rgba(0, 0, 0, .32);
@@ -209,22 +196,17 @@
     --wt-border-default: var(--wt-color-gray-800);
     --wt-border-strong: var(--wt-color-gray-600);
     --wt-border-rail: var(--wt-color-gray-700);
-    --wt-border-control: var(--wt-color-gray-500);
     --wt-border-focus: var(--wt-color-gray-100);
     --wt-action-primary: var(--wt-color-gray-100);
     --wt-action-primary-text: var(--wt-color-gray-950);
     --wt-action-secondary: var(--wt-color-gray-900);
     --wt-action-secondary-text: var(--wt-color-gray-100);
-    --wt-action-done: var(--wt-color-gray-100);
-    --wt-action-done-text: var(--wt-color-gray-950);
     --wt-route: var(--wt-color-blue-400);
     --wt-route-active: #aecbfa;
     --wt-route-muted: var(--wt-color-blue-800);
     --wt-route-done: var(--wt-color-gray-600);
     --wt-route-casing: var(--wt-color-gray-950);
     --wt-pin-fill: var(--wt-color-gray-950);
-    --wt-pin-ring-muted: var(--wt-color-blue-800);
-    --wt-pin-ring-done: var(--wt-color-gray-600);
     --wt-danger: var(--wt-color-red-300);
   --wt-action-danger: var(--wt-color-red-300);
   --wt-action-danger-text: var(--wt-color-gray-950);
@@ -249,7 +231,6 @@
     --wt-marker-lift: .05;
     --wt-marker-sink: .04;
     --wt-pin-faded-ink-lift: .08;
-    --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .1));
     --wt-overlay: rgba(0, 0, 0, .55);
     --wt-shadow-color: rgba(0, 0, 0, .5);
     color-scheme: dark;
@@ -279,22 +260,17 @@
   --wt-border-default: var(--wt-color-gray-800);
   --wt-border-strong: var(--wt-color-gray-600);
   --wt-border-rail: var(--wt-color-gray-700);
-  --wt-border-control: var(--wt-color-gray-500);
   --wt-border-focus: var(--wt-color-gray-100);
   --wt-action-primary: var(--wt-color-gray-100);
   --wt-action-primary-text: var(--wt-color-gray-950);
   --wt-action-secondary: var(--wt-color-gray-900);
   --wt-action-secondary-text: var(--wt-color-gray-100);
-  --wt-action-done: var(--wt-color-gray-100);
-  --wt-action-done-text: var(--wt-color-gray-950);
   --wt-route: var(--wt-color-blue-400);
   --wt-route-active: #aecbfa;
   --wt-route-muted: var(--wt-color-blue-800);
   --wt-route-done: var(--wt-color-gray-600);
   --wt-route-casing: var(--wt-color-gray-950);
   --wt-pin-fill: var(--wt-color-gray-950);
-  --wt-pin-ring-muted: var(--wt-color-blue-800);
-  --wt-pin-ring-done: var(--wt-color-gray-600);
   --wt-danger: var(--wt-color-red-300);
   --wt-action-danger: var(--wt-color-red-300);
   --wt-action-danger-text: var(--wt-color-gray-950);
@@ -319,7 +295,6 @@
   --wt-marker-lift: .05;
   --wt-marker-sink: .04;
   --wt-pin-faded-ink-lift: .08;
-  --wt-marker-gloss: linear-gradient(to bottom, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .1));
   --wt-overlay: rgba(0, 0, 0, .55);
   --wt-shadow-color: rgba(0, 0, 0, .5);
   color-scheme: dark;
@@ -366,13 +341,12 @@
   --wt-radius-md: 12px;     /* cards, inputs, block buttons */
   --wt-radius-lg: 18px;     /* sheets */
   --wt-radius-pill: 999px;  /* buttons, drive chips, toasts */
-  --wt-radius-round: 50%;   /* avatars, checks, icon buttons */
+  --wt-radius-round: 50%;   /* avatars, markers, icon buttons */
 
   /* Sizes */
   --wt-size-touch: 44px;    /* minimum height of anything tapped often */
   --wt-size-icon-btn: 40px;
   --wt-size-avatar: 26px;
-  --wt-size-check: 26px;
   --wt-size-icon: 22px;
   --wt-size-column: 480px;  /* app column width on large screens */
   --wt-size-panel: clamp(360px, 30vw, 440px);  /* the plan's side panel, from 768px wide */

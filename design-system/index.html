@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v11.0.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v12.0.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -201,7 +201,7 @@
       <li><a href="#buttons">Buttons</a></li>
       <li><a href="#people">People</a></li>
       <li><a href="#settings">Settings sections</a></li>
-      <li><a href="#forms">Forms, type and nights</a></li>
+      <li><a href="#forms">Forms, type and check-out</a></li>
       <li><a href="#timeline">Timeline and marker</a></li>
       <li><a href="#sheet">Bottom sheet and day bar</a></li>
       <li><a href="#modal">Modal sheet and day list</a></li>
@@ -316,7 +316,6 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
           <button class="wt-btn wt-btn--danger" type="button">Delete trip</button>
           <button class="wt-btn wt-btn--secondary wt-btn--icon" type="button" aria-label="Add stop"><i data-icon="plus"></i></button>
           <button class="wt-icon-btn" type="button" aria-label="Close"><i data-icon="close"></i></button>
-          <button class="wt-icon-btn wt-icon-btn--sm wt-icon-btn--muted" type="button" aria-label="Edit trip"><i data-icon="edit"></i></button>
         </div>
       </div>
       <ul class="rules">
@@ -341,8 +340,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         </div>
       </div>
       <div class="demo"><div class="demo__live" id="identity-row"></div></div>
-      <ul class="rules"><li>With only one person on the trip, show the <code>person-add</code> icon instead of a lone avatar.</li>
-        <li>A Google photo covers the initial when there is one. Keep the initial and color underneath: they show while it loads, and if it fails.</li></ul>
+      <ul class="rules"><li>A Google photo covers the initial when there is one. Keep the initial and color underneath: they show while it loads, and if it fails.</li></ul>
     </section>
 
     <section id="settings">
@@ -440,7 +438,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li>↑ ↓ move the grey row, Return picks it, Esc is Cancel.</li>
       </ul>
 
-      <h3>Type picker, nights and check-out</h3>
+      <h3>Type picker and check-out</h3>
       <p class="intro">All live in the stop sheet. <b>Every choice from a list is a picker like Type</b> (Account's Maps app is another, with no markers), however few the options. <b>Type</b> is one row that shows the stop's type; tapping it slides the sheet to the list of types, and picking one comes back. It starts as a guess from the place, until someone picks one. Every stop has <b>Arrive</b>. For a hotel it becomes <b>Check-in</b> (3:00 PM for a new hotel), followed by <b>Check-out</b>, a day and time, 11:00 AM unless set. Tap to try them.</p>
       <div class="demo">
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet id="demo-type">
@@ -448,12 +446,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <div class="wt-field"><span class="wt-field__label" id="demo-kind-label">Type</span>
               <button class="wt-picker" type="button" id="demo-picker" aria-describedby="demo-kind-label" style="--wt-kind-color: var(--wt-kind-hotel)"><i class="wt-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i><span class="wt-picker__value">Hotel</span><i data-icon="forward" data-size="18"></i></button></div>
             <label class="wt-field"><span class="wt-field__label">Check-in</span><input class="wt-input" id="demo-checkin" type="datetime-local" value="2026-11-20T15:00"></label>
-            <div class="wt-field-row">
-              <div class="wt-field wt-nights" id="demo-nights"><span class="wt-field__label">Nights</span>
-                <div class="wt-nights__row"><button class="wt-icon-btn wt-nights__step" type="button" data-nights="-1" aria-label="One night fewer">−</button><output class="wt-nights__n" aria-live="polite">2</output><button class="wt-icon-btn wt-nights__step" type="button" data-nights="1" aria-label="One more night">+</button></div>
-              </div>
-              <div class="wt-field"><span class="wt-field__label" id="demo-checkout-label">Check-out</span><label class="wt-input wt-input-group"><span class="wt-input-group__prefix" id="demo-checkout-day">Sun, Nov 22</span><input type="time" value="11:00" aria-labelledby="demo-checkout-label"></label></div>
-            </div>
+            <label class="wt-field" id="demo-checkout"><span class="wt-field__label">Check-out</span><input class="wt-input" type="datetime-local" value="2026-11-22T11:00"></label>
           </div>
           <div class="demo-type-page" hidden>
             <div class="wt-modal__head wt-modal__head--sub"><button class="wt-icon-btn" type="button" id="demo-kind-back" aria-label="Back"><i data-icon="back"></i></button><h2 class="wt-modal__title">Type</h2></div>
@@ -491,22 +484,14 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
   &lt;!-- one per type --&gt;
 &lt;/ul&gt;
 
-&lt;div class="wt-field-row"&gt;   &lt;!-- hidden unless it's a hotel --&gt;
-  &lt;div class="wt-field wt-nights"&gt;&lt;span class="wt-field__label"&gt;Nights&lt;/span&gt;
-    &lt;div class="wt-nights__row"&gt;
-      &lt;button class="wt-icon-btn wt-nights__step" aria-label="One night fewer"&gt;−&lt;/button&gt;
-      &lt;output class="wt-nights__n" aria-live="polite"&gt;2&lt;/output&gt;
-      &lt;button class="wt-icon-btn wt-nights__step" aria-label="One more night"&gt;+&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
-  &lt;div class="wt-field"&gt;&lt;span class="wt-field__label" id="checkout-label"&gt;Check-out&lt;/span&gt;
-    &lt;label class="wt-input wt-input-group"&gt;
-      &lt;span class="wt-input-group__prefix"&gt;Sun, Nov 22&lt;/span&gt;
-      &lt;input type="time" value="11:00" aria-labelledby="checkout-label"&gt;&lt;/label&gt;&lt;/div&gt;
-&lt;/div&gt;</code></pre></details>
+&lt;!-- a hotel only: hidden for any other type --&gt;
+&lt;label class="wt-field"&gt;&lt;span class="wt-field__label"&gt;Check-out&lt;/span&gt;
+  &lt;input class="wt-input" type="datetime-local" value="2026-11-22T11:00"&gt;&lt;/label&gt;</code></pre></details>
       </div>
       <ul class="rules">
         <li><b>Type</b> takes one row, not a grid of every type, so the stop sheet stays short enough to leave the map in view. The options are a radio group: <code>role="radio"</code> and <code>aria-checked</code> on each; the checked one is grey with a check.</li>
         <li>On the types page, focus the checked option; coming back, focus the picker.</li>
-        <li><b>Nights</b> is at least 1. Hide the row (<code>hidden</code>) for anything that isn't a hotel. Check-out's day comes from the nights, so only its time is an input; the day shows in the field before it (<code>.wt-input-group</code>).</li>
+        <li><b>Check-out</b> shows only for a hotel (<code>hidden</code> otherwise). The nights are the days between check-in and check-out, so there's no Nights field.</li>
       </ul>
       <h3>How you get there</h3>
       <p class="intro">The same options list, for the way to a stop. Each way's marker is flat grey, like a drive's car on the rail (<code>.wt-marker--travel</code>), so the ways never look like stop types.</p>
@@ -525,7 +510,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
 
     <section id="timeline">
       <h2>Timeline and marker</h2>
-      <p class="intro">The heart of the product: one day at a time, down a single rail. A <b>stop</b> row has its marker on the rail, the name and an optional note, and the time on the right. A <b>drive</b> row has a small car on the rail, the drive time as a sentence, and a Directions button that opens the phone's maps app. This is today at 12:05 PM: tap a row to select it.</p>
+      <p class="intro">The heart of the product: one day at a time, down a single rail. A <b>stop</b> row has its marker on the rail, the name and an optional note, and the time on the right. A <b>drive</b> row has a small car on the rail and the drive time as a sentence; tapping it shows the route, and the button below the list offers Directions. This is today at 12:05 PM: tap a row to select it.</p>
       <div class="demo">
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
           <div class="wt-tl">
@@ -537,7 +522,6 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <div class="wt-tl-drive is-past">
               <span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span>
               <span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>25 min</b> drive</span></span>
-              <a class="wt-icon-btn wt-tl-drive__go" href="https://www.google.com/maps/dir/?api=1&amp;destination=32.8826,-105.9588&amp;travelmode=driving" target="_blank" rel="noopener" aria-label="Directions to New Mexico Museum of Space History in your maps app" title="Directions"><i data-icon="directions"></i></a>
             </div>
             <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-museum)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span>
@@ -547,7 +531,6 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <div class="wt-tl-drive is-now">
               <span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span>
               <span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>34 min</b> drive</span></span>
-              <a class="wt-icon-btn wt-tl-drive__go" href="https://www.google.com/maps/dir/?api=1&amp;destination=32.9573,-105.7425&amp;travelmode=driving" target="_blank" rel="noopener" aria-label="Directions to Cloudcroft in your maps app" title="Directions"><i data-icon="directions"></i></a>
             </div>
             <button class="wt-tl-stop is-selected" type="button" style="--wt-kind-color: var(--wt-kind-restaurant)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span>
@@ -560,7 +543,6 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
                 <span class="wt-tl-drive__what"><b>58 min</b> drive</span>
                 <span class="wt-tl-drive__late">Arrives 13 min late</span>
               </span>
-              <a class="wt-icon-btn wt-tl-drive__go" href="https://www.google.com/maps/dir/?api=1&amp;destination=32.7484,-105.9157&amp;travelmode=driving" target="_blank" rel="noopener" aria-label="Directions to Oliver Lee Memorial State Park in your maps app" title="Directions"><i data-icon="directions"></i></a>
             </div>
             <div class="wt-tl-stop" tabindex="0" role="button" aria-pressed="false" style="--wt-kind-color: var(--wt-kind-nature)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Nature"><i data-icon="tree"></i></i></span>
@@ -571,7 +553,6 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
             <div class="wt-tl-drive">
               <span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span>
               <span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>20 min</b> drive</span></span>
-              <a class="wt-icon-btn wt-tl-drive__go" href="https://www.google.com/maps/dir/?api=1&amp;destination=32.8799,-105.9583&amp;travelmode=driving" target="_blank" rel="noopener" aria-label="Directions to Holiday Inn Express Alamogordo in your maps app" title="Directions"><i data-icon="directions"></i></a>
             </div>
             <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-hotel)">
               <span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span>
@@ -585,16 +566,15 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li><b>Rows touch.</b> Put them straight inside <code>.wt-tl</code>, with nothing between, so the rail is one solid line. It starts at the first row's marker and ends at the last. Put the timeline on <code>--wt-surface-raised</code>: the marker and car are cut out of the rail in that color.</li>
         <li><b>Stop</b> (<code>.wt-tl-stop</code>): marker, name, optional note, time. Nothing else. Set <code>--wt-kind-color</code> on the row and the marker. Notes are shown in full, never cut off.</li>
         <li><b>Hotel</b> at the start or end of a day is a stop row with an empty <code>.wt-tl-time</code>. Only check-out morning gets a note: <i>Check out</i>.</li>
-        <li><b>Drive</b> (<code>.wt-tl-drive</code>): <i>1 hr 49 min drive</i>, and the Directions button. The first drive of a day with no hotel the night before says where it starts (<code>__from</code>).</li>
+        <li><b>Drive</b> (<code>.wt-tl-drive</code>): <i>1 hr 49 min drive</i>. Tapping it shows the route, and the button below the list offers Directions.</li>
         <li><b>Selected</b> (<code>is-selected</code> on a stop, <code>is-active</code> on a drive) matches a pin or route tapped on the map. It takes the list's one highlight: a grey background, the same for stops and drives, with no outline and no blue. A selected drive's car turns darker grey.</li>
-        <li><b>Directions</b> (<code>__go</code>) is a pale grey circle with a grey icon, the only part of a drive row that looks like a control; it darkens on hover and press. The row itself has no hover or press look.</li>
         <li><b>Today</b>: the row happening now gets <code>is-now</code> and the blackest ink: a black ring on a stop's marker, a black car on a drive, and its time in primary ink. While nothing is selected it's also the highlighted row. Here Cloudcroft is selected, so the drive in progress keeps its black car on a plain row. Rows before it get <code>is-past</code>: their text turns the past ink and their markers and cars turn grey. Every row on an earlier day is past.</li>
         <li><b>Late</b> (<code>is-late</code>) turns the drive time and its car red and adds <code>__late</code>: <i>Arrives 13 min late</i>. Red outranks everything, so a late drive happening now is still red. Once it's over it turns grey like the rest.</li>
         <li><b>Flash</b> (<code>is-flash</code>) marks a stop a co-editor just changed, once.</li>
       </ul>
       <div class="dont">
-        <div><b>Do</b><div class="wt-tl"><div class="wt-tl-drive is-late"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>58 min</b> drive</span><span class="wt-tl-drive__late">Arrives 13 min late</span></span><span class="wt-icon-btn wt-tl-drive__go"><i data-icon="directions"></i></span></div></div></div>
-        <div class="no"><b>Don't</b><div class="wt-tl"><div class="wt-tl-drive"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>58 min</b> drive · 31 mi<span class="fake-badge">13 min short</span></span></span><span class="wt-icon-btn wt-tl-drive__go"><i data-icon="directions"></i></span></div></div></div>
+        <div><b>Do</b><div class="wt-tl"><div class="wt-tl-drive is-late"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>58 min</b> drive</span><span class="wt-tl-drive__late">Arrives 13 min late</span></span></div></div></div>
+        <div class="no"><b>Don't</b><div class="wt-tl"><div class="wt-tl-drive"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>58 min</b> drive · 31 mi<span class="fake-badge">13 min short</span></span></span></div></div></div>
       </div>
 
       <h3>Marker</h3>
@@ -675,11 +655,11 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               </div>
               <div class="wt-sheet__body wt-tl">
                 <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-hotel)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
-                <div class="wt-tl-drive is-past"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>10 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#sheet" aria-label="Directions to New Mexico Museum of Space History in your maps app"><i data-icon="directions"></i></a></div>
+                <div class="wt-tl-drive is-past"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>10 min</b> drive</span></span></div>
                 <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-museum)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span><span class="wt-tl-name">New Mexico Museum of Space History</span><span class="wt-tl-time">9:30<span class="wt-tl-meridiem">AM</span></span></button>
-                <div class="wt-tl-drive is-now"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>34 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#sheet" aria-label="Directions to Cloudcroft in your maps app"><i data-icon="directions"></i></a></div>
+                <div class="wt-tl-drive is-now"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>34 min</b> drive</span></span></div>
                 <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-restaurant)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span><span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span><span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span></button>
-                <div class="wt-tl-drive"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>35 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#sheet" aria-label="Directions to Holiday Inn Express Alamogordo in your maps app"><i data-icon="directions"></i></a></div>
+                <div class="wt-tl-drive"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>35 min</b> drive</span></span></div>
                 <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-hotel)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
               </div>
               <div class="wt-add-bar"><button class="wt-btn wt-btn--primary wt-btn--block" type="button"><i data-icon="plus"></i>Add stop</button></div>
@@ -910,7 +890,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
 
       <h3>Map buttons and credit</h3>
-      <p class="intro">Home and trip settings live in the trip header (see the sheet, above). <code>.wt-map-bar</code>, which floated them over the map's top corners, is no longer used. <code>.wt-map-btn</code> is the one button over the map now: Whole day, at its bottom right, just above the sheet. The map's credits go at the bottom of trip settings, not on the map.</p>
+      <p class="intro"><code>.wt-map-btn</code> is the one button over the map: Whole day, at its bottom right, just above the sheet. The map's credits go at the bottom of trip settings, not on the map.</p>
       <div class="demo">
         <div class="demo__live demo__live--column">
           <div class="stage" style="height: 120px">
@@ -918,25 +898,16 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
               <path class="road" d="M-10 90 C160 60 360 110 610 70"/>
               <path class="casing" d="M120 100 C260 40 380 80 500 30"/><path class="route" d="M120 100 C260 40 380 80 500 30"/>
             </svg>
-            <nav class="wt-map-bar">
-              <a class="wt-icon-btn wt-map-btn" href="#map" aria-label="All trips"><i data-icon="home"></i></a>
-              <button class="wt-icon-btn wt-map-btn" type="button" aria-label="Trip settings and sharing"><i data-icon="settings"></i></button>
-            </nav>
             <button class="wt-icon-btn wt-map-btn" type="button" aria-label="Show the whole day on the map" title="Whole day" style="position: absolute; right: var(--wt-space-3); bottom: var(--wt-space-3); z-index: calc(var(--wt-z-sheet) - 1)"><i data-icon="fit"></i></button>
           </div>
         </div>
-        <details><summary>Markup</summary><pre><code>&lt;nav class="wt-map-bar"&gt;
-  &lt;a class="wt-icon-btn wt-map-btn" href="#/" aria-label="All trips"&gt;${icon('home')}&lt;/a&gt;
-  &lt;button class="wt-icon-btn wt-map-btn" aria-label="Trip settings and sharing"&gt;${icon('settings')}&lt;/button&gt;
-&lt;/nav&gt;
-
-&lt;button class="wt-icon-btn wt-map-btn" aria-label="Show the whole day on the map" title="Whole day"&gt;${icon('fit')}&lt;/button&gt;</code></pre></details>
+        <details><summary>Markup</summary><pre><code>&lt;button class="wt-icon-btn wt-map-btn" aria-label="Show the whole day on the map" title="Whole day"&gt;${icon('fit')}&lt;/button&gt;</code></pre></details>
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
           <p class="wt-credit">Map © <a href="https://stadiamaps.com/">Stadia Maps</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</p>
         </div>
       </div>
       <ul class="rules">
-        <li>Each is an icon button with an <code>aria-label</code>; Whole day also has a <code>title</code>, since its icon isn't universal.</li>
+        <li>It's an icon button with an <code>aria-label</code> and a <code>title</code>, since its icon isn't universal.</li>
         <li>Whole day is the only button over the map. It stays there, disabled while the map already shows the whole day.</li>
         <li>Keep pins clear of the buttons: pad the top when fitting the map to the day.</li>
       </ul>
@@ -1038,13 +1009,13 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
             </div>
             <div class="wt-sheet__body wt-tl">
               <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-hotel)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
-              <div class="wt-tl-drive is-past"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>10 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#patterns" aria-label="Directions to New Mexico Museum of Space History in your maps app"><i data-icon="directions"></i></a></div>
+              <div class="wt-tl-drive is-past"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>10 min</b> drive</span></span></div>
               <button class="wt-tl-stop is-past" type="button" style="--wt-kind-color: var(--wt-kind-museum)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Museum"><i data-icon="museum"></i></i></span><span class="wt-tl-name">New Mexico Museum of Space History</span><span class="wt-tl-time">9:30<span class="wt-tl-meridiem">AM</span></span></button>
-              <div class="wt-tl-drive is-now"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>34 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#patterns" aria-label="Directions to Cloudcroft in your maps app"><i data-icon="directions"></i></a></div>
+              <div class="wt-tl-drive is-now"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>34 min</b> drive</span></span></div>
               <button class="wt-tl-stop is-flash" type="button" id="flash-stop" style="--wt-kind-color: var(--wt-kind-restaurant)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Restaurant"><i data-icon="utensils"></i></i></span><span class="wt-tl-name">Cloudcroft</span><span class="wt-tl-notes"><span class="wt-tl-note">Lunch</span></span><span class="wt-tl-time">12:30<span class="wt-tl-meridiem">PM</span></span></button>
-              <div class="wt-tl-drive is-late"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>58 min</b> drive</span><span class="wt-tl-drive__late">Arrives 13 min late</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#patterns" aria-label="Directions to Oliver Lee Memorial State Park in your maps app"><i data-icon="directions"></i></a></div>
+              <div class="wt-tl-drive is-late"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>58 min</b> drive</span><span class="wt-tl-drive__late">Arrives 13 min late</span></span></div>
               <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-nature)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Nature"><i data-icon="tree"></i></i></span><span class="wt-tl-name">Oliver Lee Memorial State Park</span><span class="wt-tl-time">1:15<span class="wt-tl-meridiem">PM</span></span></button>
-              <div class="wt-tl-drive"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>20 min</b> drive</span></span><a class="wt-icon-btn wt-tl-drive__go" href="#patterns" aria-label="Directions to Holiday Inn Express Alamogordo in your maps app"><i data-icon="directions"></i></a></div>
+              <div class="wt-tl-drive"><span class="wt-tl-rail"><i class="wt-tl-car"><i data-icon="car" data-size="14"></i></i></span><span class="wt-tl-drive__body"><span class="wt-tl-drive__what"><b>20 min</b> drive</span></span></div>
               <button class="wt-tl-stop" type="button" style="--wt-kind-color: var(--wt-kind-hotel)"><span class="wt-tl-rail"><i class="wt-marker wt-tl-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i></span><span class="wt-tl-name">Holiday Inn Express Alamogordo</span><span class="wt-tl-time"></span></button>
             </div>
             <div class="wt-add-bar"><button class="wt-btn wt-btn--primary wt-btn--block" type="button"><i data-icon="plus"></i>Add stop</button></div>
@@ -1105,7 +1076,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v11.0.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v12.0.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -1264,7 +1235,6 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ['--wt-size-touch', 'Minimum height of anything tapped often.'],
     ['--wt-size-icon-btn', 'Icon buttons.'],
     ['--wt-size-avatar', 'Avatars.'],
-    ['--wt-size-check', 'Unused since 2.0.0.'],
     ['--wt-size-icon', 'Default icon size.'],
     ['--wt-size-column', 'The app column on large screens.'],
     ['--wt-size-panel', 'The plan’s side panel, from 768px wide.'],
@@ -1313,7 +1283,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       const m = sm => `<i class="wt-marker${sm ? ' wt-marker--sm' : ''}" role="img" aria-label="${label}" style="--wt-kind-color: var(--wt-kind-${key})">${WaythreadIcons.svg(icon, 16)}</i>`;
       return `<div class="marker-cell"><div class="marker-cell__pair">${m(false)}${m(true)}</div><code>${icon}</code><span>${label}</span></div>`;
     }).join('')}</div>`;
-    document.getElementById('identity-row').innerHTML = [1, 2, 3, 4, 5, 6].map(n => `<span class="wt-avatar wt-avatar--lg" style="--wt-avatar-color: var(--wt-identity-${n})" title="--wt-identity-${n}">${'ASJMRK'[n - 1]}</span>`).join('');
+    document.getElementById('identity-row').innerHTML = [1, 2, 3, 4, 5, 6].map(n => `<span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-${n})" title="--wt-identity-${n}">${'ASJMRK'[n - 1]}</span>`).join('');
   }
 
   function renderLive() {
@@ -1356,13 +1326,11 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       picker.querySelector('.wt-marker').replaceWith(kind.querySelector('.wt-marker').cloneNode(true));
       picker.style.setProperty('--wt-kind-color', kind.style.getPropertyValue('--wt-kind-color'));
       picker.querySelector('.wt-picker__value').textContent = kind.dataset.demoKind;
-      box.querySelector('.wt-field-row').hidden = kind.dataset.demoKind !== 'Hotel';
-      document.getElementById('demo-checkin').previousElementSibling.textContent = kind.dataset.demoKind === 'Hotel' ? 'Check-in' : 'When';
+      document.getElementById('demo-checkout').hidden = kind.dataset.demoKind !== 'Hotel';
+      document.getElementById('demo-checkin').previousElementSibling.textContent = kind.dataset.demoKind === 'Hotel' ? 'Check-in' : 'Arrive';
       showTypes(false);
       return;
     }
-    const step = e.target.closest('[data-nights]');
-    if (step) { setNights(nights + +step.dataset.nights); return; }
     const day = e.target.closest('.wt-day-list__item');
     if (day) {
       day.closest('.wt-day-list').querySelectorAll('[aria-current]').forEach(d => d.removeAttribute('aria-current'));
@@ -1405,19 +1373,6 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     }
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('modal-root').classList.remove('is-open'); });
-  // Nights: at least 1; check-out is check-in plus the nights.
-  let nights = 2;
-  function setNights(n) {
-    nights = Math.max(1, n);
-    const box = document.getElementById('demo-nights'), inDay = document.getElementById('demo-checkin').value.slice(0, 10);
-    const out = new Date(`${inDay}T12:00`);
-    out.setDate(out.getDate() + nights);
-    box.querySelector('.wt-nights__n').textContent = nights;
-    box.querySelector('[data-nights="-1"]').disabled = nights <= 1;
-    document.getElementById('demo-checkout-day').textContent = isNaN(out) ? '' : out.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  }
-  document.getElementById('demo-checkin').addEventListener('change', () => setNights(nights));
-  setNights(nights);
   let toastTimer;
   function showToast(msg, action, detail, icon, error) {
     const el = document.getElementById('demo-toast');

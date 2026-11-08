@@ -3540,8 +3540,8 @@ const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
 // close. A stop's Type and Account's Maps app both work this way, however few the options. See "Picker" in the
 // design system.
 // `meta` is a short value on the right, before the check (a way's time in How you get there)
-const optionHTML = (value, label, { marker = '', detail = '', meta = null, disabled = false } = {}) =>
-  `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}"${disabled ? ' disabled' : ''}>${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${meta != null ? `<span class="wt-option__meta">${esc(meta)}</span>` : ''}${ICON.check}</button></li>`;
+const optionHTML = (value, label, { marker = '', detail = '', meta = null } = {}) =>
+  `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${meta != null ? `<span class="wt-option__meta">${esc(meta)}</span>` : ''}${ICON.check}</button></li>`;
 // `intro` is one line on what the choice affects, when the label alone doesn't say
 const choicePageHTML = (cls, title, options, intro = '') => `<div class="${cls}" hidden>
       <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-choice-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">${esc(title)}</h2></div>
