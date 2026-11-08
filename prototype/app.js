@@ -1883,8 +1883,10 @@ function mountTrip(trip) {
   list.addEventListener('scroll', onListScroll, { passive: true });
   new ResizeObserver(updateFades).observe(list); // the sheet changing height
   if (!window.L) return;
-  // double-tap zoom is our own (see mapGestures), so it works over routes and pins too
-  map = L.map($app.querySelector('#map'), { zoomControl: false, attributionControl: false, doubleClickZoom: false }).setView([32.6, -106.1], 8);
+  // double-tap zoom is our own (see mapGestures), so it works over routes and pins too.
+  // Quarter zoom levels, so a day (or a drive) fills the map it's framed in: with whole levels only, the next level
+  // in often didn't fit, and the day showed at up to half the size it could have.
+  map = L.map($app.querySelector('#map'), { zoomControl: false, attributionControl: false, doubleClickZoom: false, zoomSnap: 0.25 }).setView([32.6, -106.1], 8);
   map.getPane('markerPane').classList.add('wt-pins'); // so the other pins step back while one is selected
   camPlaced = false;
   camTarget = null;
@@ -2018,7 +2020,8 @@ let dayShown = false; // the camera is where dayView puts it for the day on scre
 function dayFramed() {
   const trip = cur?.stops ? cur : null, day = trip && currentDay(trip), v = map && day && dayView(trip, day);
   if (!v) return true;
-  return Math.abs(map.getZoom() - v.zoom) < 0.01 && map.latLngToContainerPoint(v.center).distanceTo(map.getSize().divideBy(2)) < 3;
+  // A few pixels off still counts: turning the phone frames the day while the header is still sliding into place
+  return Math.abs(map.getZoom() - v.zoom) < 0.01 && map.latLngToContainerPoint(v.center).distanceTo(map.getSize().divideBy(2)) < 8;
 }
 function updateFitBtn() {
   const btn = $app.querySelector('.trip-fit');
@@ -2653,8 +2656,15 @@ addEventListener('resize', () => {
   if (!$app.dataset.trip) return;
   applySnap();
   centerFocus({ animate: false });
-  map?.invalidateSize();
-  fitKey = '';
+  if (map) {
+    map.invalidateSize();
+    // The day, or the drive on show, re-fits the new size. A map you've moved, or brought to a stop, keeps its zoom
+    // and what's in its middle, with the selected stop brought back into view if the new size hid it. (Turning the
+    // phone used to throw the zoom away and show the whole day again.)
+    const s = camFree && state.sel && cur?.stops?.find(x => x.id === state.sel);
+    if (!camFree) fitKey = '';
+    else if (s) zoomToStop(s, 0);
+  }
   scheduleRender();
 });
 
@@ -2793,12 +2803,17 @@ function drawMap(trip) {
   drawSights();
 }
 // Frame the day on screen, or the drive on show, when either has changed since the map was last framed.
+// A stop added to the day, taken off it or moved, by you or a co-editor, re-frames the map only while it shows the whole day:
+// if you've brought it to a stop or a drive, or moved it yourself, it stays where you are. (Any change of the day's
+// stops used to fly the map back out to the whole day, so a co-editor adding a stop took it from under your finger.)
 function frameMap(trip) {
   const day = currentDay(trip);
   if (!day) return;
-  const key = [trip.id, day, planOn(trip, day).length].join('|');
+  const key = [trip.id, day, planOn(trip, day).map(e => `${e.place.lat},${e.place.lng}`).join(' ')].join('|');
   if (key === fitKey || state.draft) return;
+  const sameDay = fitKey.slice(0, fitKey.lastIndexOf('|')) === key.slice(0, key.lastIndexOf('|'));
   fitKey = key;
+  if (sameDay && (camFree || state.leg || !dayShown)) return;
   camFree = false;
   const leg = state.leg && legsOn(trip, day).find(l => l.key === state.leg);
   if (leg) return fitLeg(leg);
@@ -3003,11 +3018,12 @@ const STOP_ZOOM = 15;
 // Bring a stop up close: its pin in the middle of the map you can see, zoomed in to street level, or left closer if
 // the map already is; it never zooms out. Already that close, with the pin in view, the map stays put. Zoomed out to
 // a road trip's day, a selected pin was a dot on a map of the region, with no streets around it and no sights.
-function zoomToStop(s) {
+// `least` 0 keeps the zoom and only brings the pin back into view.
+function zoomToStop(s, least = STOP_ZOOM) {
   if (!map || s.lat == null) return;
   const flying = camTarget && performance.now() < camTarget.until;
-  const z = Math.max(flying ? camTarget.zoom : map.getZoom(), STOP_ZOOM);
-  if (!flying && map.getZoom() > STOP_ZOOM - 0.01 && inView([s.lat, s.lng])) return;
+  const z = Math.max(flying ? camTarget.zoom : map.getZoom(), least);
+  if (!flying && map.getZoom() > least - 0.01 && inView([s.lat, s.lng])) return;
   camFree = true; // the map is placed for the stop: a new sheet height leaves it there rather than re-fitting the day
   const p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
   moveCamera(map.unproject(p, z), z);
@@ -3607,8 +3623,8 @@ const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
 // close. A stop's Type and Account's Maps app both work this way, however few the options. See "Picker" in the
 // design system.
 // `meta` is a short value on the right, before the check (a way's time in How you get there)
-const optionHTML = (value, label, { marker = '', detail = '', meta = null, disabled = false } = {}) =>
-  `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}"${disabled ? ' disabled' : ''}>${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${meta != null ? `<span class="wt-option__meta">${esc(meta)}</span>` : ''}${ICON.check}</button></li>`;
+const optionHTML = (value, label, { marker = '', detail = '', meta = null } = {}) =>
+  `<li><button type="button" class="wt-option" role="radio" data-value="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span>${meta != null ? `<span class="wt-option__meta">${esc(meta)}</span>` : ''}${ICON.check}</button></li>`;
 // `intro` is one line on what the choice affects, when the label alone doesn't say
 const choicePageHTML = (cls, title, options, intro = '') => `<div class="${cls}" hidden>
       <div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-choice-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">${esc(title)}</h2></div>

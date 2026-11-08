@@ -1,4 +1,4 @@
-/* Waythread design system — icons v2.0.0
+/* Waythread design system — icons v3.0.0
  *
  * Line icons on a 24px grid, 2px stroke, round caps and joins, drawn in currentColor.
  * Usage: WaythreadIcons.svg('car')            -> default size and stroke
@@ -15,7 +15,6 @@
     car: 'M5 11l1.6-4.3A2 2 0 018.5 5.3h7a2 2 0 011.9 1.4L19 11M4.5 11h15a.5.5 0 01.5.5V17H4v-5.5a.5.5 0 01.5-.5zM6 17v2M18 17v2M7.5 14h1M15.5 14h1',
     link: 'M10 13.5a4.5 4.5 0 006.8.5l2.9-2.9a4.5 4.5 0 00-6.4-6.4l-1.6 1.6M14 10.5a4.5 4.5 0 00-6.8-.5l-2.9 2.9a4.5 4.5 0 006.4 6.4l1.6-1.6',   // a stop's links
     external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5',
-    'person-add': 'M15 19a6 6 0 00-12 0M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M16 11h6',
     search: 'M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-4-4',
     pin: 'M12 21s-7-6.2-7-11.5a7 7 0 0114 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z',
     home: 'M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-5h4v5',
@@ -49,7 +48,7 @@
   };
   // Default size and stroke per icon, as the product uses them.
   const DEFAULTS = {
-    close: [20], 'person-add': [20], edit: [18], check: [16, 3], car: [14], walk: [14], bike: [14], train: [14], external: [14], link: [14],
+    close: [20], edit: [18], check: [16, 3], car: [14], walk: [14], bike: [14], train: [14], external: [14], link: [14],
   };
   function svg(name, size, stroke) {
     const d = PATHS[name];

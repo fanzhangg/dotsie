@@ -1,4 +1,4 @@
-/* Waythread design system — components v11.2.0
+/* Waythread design system — components v12.1.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -16,10 +16,10 @@
 /* Bold in running text is semibold, never 700: emphasis without the glare. Components set their own weights. */
 .wt-base :where(b, strong) { font-weight: 600; }
 .wt-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-:where(.wt-btn, .wt-icon-btn, .wt-results__item, .wt-avatar-stack, .wt-toast__action, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel, .wt-link-add) {
+:where(.wt-btn, .wt-icon-btn, .wt-avatar-stack, .wt-toast__action, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel, .wt-link-add) {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
 }
-:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-tl-day, .wt-day-list__item, .wt-trip-card, .wt-results__item, .wt-avatar-stack, .wt-view-toggle, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
+:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-tl-day, .wt-day-list__item, .wt-trip-card, .wt-avatar-stack, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
   outline: 2px solid var(--wt-border-focus);
   outline-offset: 2px;
   border-radius: var(--wt-radius-md);
@@ -59,8 +59,6 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 }
 .wt-icon-btn:active { background: var(--wt-surface-hover); }
 .wt-icon-btn:focus-visible { border-radius: var(--wt-radius-round); }
-.wt-icon-btn--sm { width: 36px; height: 36px; }
-.wt-icon-btn--muted { color: var(--wt-text-secondary); }
 
 /* ---------- Avatar ---------- */
 .wt-avatar {
@@ -72,7 +70,6 @@ a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration:
 }
 /* A photo covers the initial; the initial stays underneath as the fallback. */
 .wt-avatar__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.wt-avatar--lg { width: 32px; height: 32px; font-size: 13px; }
 /* "+2": the rest of a stack that's out of room */
 .wt-avatar--more { --wt-avatar-color: var(--wt-surface-hover); color: var(--wt-text-secondary); }
 .wt-avatar-stack { display: flex; align-items: center; padding: 6px var(--wt-space-1); flex: none; }
@@ -124,7 +121,6 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
    tapping anywhere in it opens the input. */
 .wt-input-group { display: flex; align-items: center; gap: var(--wt-space-2); min-height: 50px; padding-top: 0; padding-bottom: 0; cursor: text; }
 .wt-input-group:focus-within { border-color: var(--wt-border-focus); background: var(--wt-surface-raised); }
-.wt-input-group__prefix { flex: none; color: var(--wt-text-secondary); white-space: nowrap; }
 .wt-input-group > input {
   flex: 1; min-width: 0; width: 100%; min-height: 48px; padding: 0; margin: 0;
   font: inherit; color: inherit; background: none; border: 0; outline: none; -webkit-appearance: none; appearance: none;
@@ -168,12 +164,6 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-results__msg b { display: block; font: var(--wt-type-body); font-weight: 500; color: var(--wt-text-primary); }
 /* Before anything's typed, a page can suggest places under a heading that says why (On the way to Las Vegas) */
 .wt-results__head { padding: var(--wt-space-3) 0 var(--wt-space-1); font: var(--wt-type-caption-strong); color: var(--wt-text-secondary); }
-/* Before 4.6.0 results were a list under the field, with their own row. The prototype still uses it. */
-ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
-.wt-results__item { display: block; width: 100%; padding: 10px var(--wt-space-1); border-bottom: 1px solid var(--wt-border-default); }
-.wt-results__item:hover { background: var(--wt-surface-sunken); }
-.wt-results__name { display: block; font: var(--wt-type-name); font-size: 15px; }
-.wt-results__detail { display: block; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-copy-row { display: flex; gap: var(--wt-space-2); }
 .wt-copy-row .wt-input { font-size: 14px; color: var(--wt-text-secondary); min-width: 0; }
 
@@ -296,7 +286,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-time__day { display: block; font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
 
 /* Drive: a small grey car marker on the rail and "1 hr 49 min drive". Tapping it shows the route, and the add bar
-   offers Directions. (The app no longer puts a Directions icon in the row; .wt-tl-drive__go below is the prototype's.)
+   offers Directions.
    No top or bottom padding: it would leave a gap in the rail. Compact, about two-thirds of a stop, so a half sheet
    fits the selected stop with the stops before and after it: the stops are what you read, the drives join them. */
 .wt-tl-drive {
@@ -319,16 +309,6 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-tl-drive__what b { font-weight: 500; color: var(--wt-text-secondary); }
 .wt-tl-drive__late { font: var(--wt-type-caption-strong); color: var(--wt-text-danger); }
 .wt-tl-drive.is-late .wt-tl-drive__what b { color: var(--wt-text-danger); }
-/* Directions: a small grey icon in the time column, with a 32px tap area (the row's height) and no fill until hovered
-   or pressed, so it never competes with the stops. On the drive that matters (below) it turns dark. */
-.wt-tl-drive__go {
-  width: 40px; height: 32px; color: var(--wt-text-secondary); background: none;
-  transition: background var(--wt-duration-fast), color var(--wt-duration-fast), transform var(--wt-duration-fast);
-}
-.wt-tl-drive__go .wt-icon { width: 18px; height: 18px; }
-.wt-tl-drive__go:active { background: var(--wt-surface-hover); color: var(--wt-text-primary); transform: scale(.92); }
-.wt-tl-drive__go:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
-@media (hover: hover) { .wt-tl-drive__go:hover { background: var(--wt-surface-sunken); color: var(--wt-text-primary); } }
 
 /* The list ranks what it shows by ink and color, loudest first: what needs fixing (red), where you are now (the
    blackest ink), what kind of place a stop is (its type color), then the rest by ink, and what's over (grey). No blue:
@@ -344,7 +324,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 /* Selected: its time or drive time turns primary, and a drive's car a darker grey. */
 .wt-tl .wt-tl-stop.is-selected .wt-tl-time { color: var(--wt-text-primary); }
 .wt-tl .wt-tl-drive.is-active { --wt-kind-drive: var(--wt-kind-drive-current); }
-.wt-tl .wt-tl-drive.is-active :is(.wt-tl-drive__what b, .wt-tl-drive__go) { color: var(--wt-text-primary); }
+.wt-tl .wt-tl-drive.is-active .wt-tl-drive__what b { color: var(--wt-text-primary); }
 
 /* Now: on today, the row you're in takes the blackest ink (--wt-now), whether or not something else is selected, so you
    can always find where the day is: a black ring around the stop's marker, or a black car on the drive, and its time or
@@ -585,36 +565,6 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-option[aria-selected="true"], .wt-option[aria-checked="true"] { background: var(--wt-surface-current); }
 .wt-option > .wt-icon:last-child { width: 18px; height: 18px; visibility: hidden; }
 .wt-option[aria-checked="true"] > .wt-icon:last-child { visibility: visible; }
-/* An option that can't be picked here: faded, with why as its detail line, in full */
-.wt-option:disabled { cursor: default; background: none; }
-.wt-option:disabled :is(.wt-option__label, .wt-marker) { opacity: .45; }
-.wt-option:disabled .wt-option__detail { white-space: normal; }
-
-/* ---------- Type grid (unused since 3.0.1: the picker above replaced it) and nights stepper ---------- */
-.wt-kinds { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--wt-space-1); }
-.wt-kinds__item {
-  font: var(--wt-type-caption); font-size: 12px; color: var(--wt-text-secondary); background: none; border: 0; margin: 0; cursor: pointer;
-  display: grid; justify-items: center; gap: 4px; padding: 6px 2px; border-radius: var(--wt-radius-md);
-}
-.wt-kinds__item:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: -2px; }
-.wt-kinds__icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--wt-radius-round); background: var(--wt-surface-sunken); }
-.wt-kinds__item[aria-checked="true"] { color: var(--wt-text-primary); font-weight: 500; }
-.wt-kinds__item[aria-checked="true"] .wt-kinds__icon { background: var(--wt-kind-color); color: var(--wt-marker-ink); }
-
-.wt-nights[hidden] { display: none; }
-.wt-nights__row { display: flex; align-items: center; gap: var(--wt-space-2); }
-.wt-nights__step { width: var(--wt-size-touch); height: var(--wt-size-touch); box-shadow: inset 0 0 0 1px var(--wt-border-default); font: var(--wt-type-title); color: var(--wt-text-primary); }
-.wt-nights__step:disabled { opacity: .35; }
-.wt-nights__n { min-width: 24px; text-align: center; font: var(--wt-type-name); font-variant-numeric: tabular-nums; }
-.wt-nights__out { margin-left: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-/* A hotel's Nights and Check-out side by side, labels level; on a very narrow screen Check-out wraps below.
-   Unused since Check-out became a day and time (datetime-local) in the stop sheet: .wt-nights, .wt-field-row and
-   .wt-input-group can go in the next major version. */
-.wt-field-row { display: flex; flex-wrap: wrap; column-gap: var(--wt-space-4); align-items: flex-start; }
-.wt-field-row > .wt-field { flex: none; min-width: 0; }
-.wt-field-row > .wt-field:last-child { flex: 1 1 180px; }
-.wt-field-row[hidden] { display: none; }
-.wt-nights__row { min-height: 50px; }
 
 /* ---------- Trip header: home · trip name · settings ---------- */
 /* A full row at the top of the trip screen, so the trip's name is always in view. On a phone it's a card floating
@@ -648,15 +598,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-trip-head .wt-trip-head__status { width: 36px; color: var(--wt-text-tertiary); }
 .wt-trip-head .wt-trip-head__status .wt-icon { width: 18px; height: 18px; }
 .wt-trip-head .wt-trip-head__status.is-offline { color: var(--wt-text-secondary); }
-/* Map / List (unused since 4.1.0: the sheet's three heights are reached by dragging it, as in a maps app) */
-.wt-view-toggle {
-  display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px 0 11px;
-  border-radius: var(--wt-radius-pill); background: var(--wt-surface-sunken); font: var(--wt-type-label);
-  transition: background var(--wt-duration-fast);
-}
-.wt-view-toggle:active { background: var(--wt-surface-hover); }
-.wt-view-toggle .wt-icon { width: 18px; height: 18px; }
-@media (hover: hover) { .wt-view-toggle:hover, .wt-trip-head .wt-icon-btn:hover { background: var(--wt-surface-hover); } }
+@media (hover: hover) { .wt-trip-head .wt-icon-btn:hover { background: var(--wt-surface-hover); } }
 
 /* ---------- Bottom sheet (the list over the map) ---------- */
 /* Two heights on a phone: half, the default, and full (.is-full: docked under the trip header). It never hides.
@@ -721,12 +663,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 .wt-add-bar.is-morphing > .wt-btn { position: absolute; overflow: hidden; }
 .wt-add-bar > .is-ghost { pointer-events: none; }
 
-/* ---------- Map buttons: round icon buttons floating over the map. Whole day is one; .wt-map-bar (home and settings) is unused since 3.0.1 ---------- */
-.wt-map-bar {
-  position: absolute; z-index: var(--wt-z-sheet); left: var(--wt-space-3); right: var(--wt-space-3);
-  top: calc(var(--wt-space-3) + env(safe-area-inset-top, 0px));
-  display: flex; justify-content: space-between; pointer-events: none;
-}
+/* ---------- Map buttons: round icon buttons floating over the map, such as Whole day ---------- */
 .wt-map-btn { pointer-events: auto; width: var(--wt-size-touch); height: var(--wt-size-touch); background: var(--wt-surface-raised); color: var(--wt-text-primary); box-shadow: var(--wt-shadow-float); }
 .wt-map-btn:active:not(:disabled) { background: var(--wt-surface-hover); }
 .wt-map-btn[hidden] { display: none; }
@@ -745,7 +682,6 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
     padding: env(safe-area-inset-top, 0px) var(--wt-space-4) 0 var(--wt-space-3); border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
     background: var(--wt-surface-raised);
   }
-  .wt-view-toggle { display: none; }
   .wt-sheet {
     top: calc(var(--wt-size-trip-head) + env(safe-area-inset-top, 0px)); right: auto; width: var(--wt-size-panel);
     border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
@@ -753,7 +689,6 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   .wt-sheet__top { touch-action: auto; min-height: 0; padding-top: var(--wt-space-1); }
   .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: auto; overflow: auto; }
   .wt-sheet__grab { display: none; }
-  .wt-map-bar { display: none; }
 }
 @media (hover: hover) {
   .wt-day-bar__title:hover { background: var(--wt-surface-hover); }
@@ -953,12 +888,7 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   content: ''; position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; border-radius: var(--wt-radius-round);
   transform: translate(-50%, -50%);
 }
-/* Unused since 9.8.0 (crowded pins merge instead), kept until the next major version */
-.wt-pin--compact { --wt-pin-size: 18px; }
-.wt-pin--dot { --wt-pin-size: 14px; }
 .wt-pin--muted { --wt-pin-size: 20px; opacity: .85; box-shadow: none; background: var(--wt-kind-past); }   /* flat grey, as in the list */
-.wt-pin--muted.wt-pin--compact { --wt-pin-size: 16px; }
-.wt-pin--muted.wt-pin--dot { --wt-pin-size: 10px; border-width: 1.5px; }
 .wt-pin--selected { --wt-pin-size: 32px; box-shadow: var(--wt-shadow-pin-selected); }
 /* The others step back, still solid and in their colors (grey means over): flat, in a lighter version of their color
    (--wt-pin-faded-mix of it over the ring's), with the number in their own color. Not see-through, so the route and
@@ -976,14 +906,10 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
 }
 .wt-pin--muted .wt-pin__num { font-size: 11px; }
 .wt-pin--selected .wt-pin__num { font-size: 15px; }
-.wt-pin--compact .wt-pin__num { font-size: 10.5px; letter-spacing: -.04em; }
-.wt-pin--muted.wt-pin--compact .wt-pin__num { font-size: 9.5px; }
-.wt-pin--compact .wt-pin__dot { width: 6px; height: 6px; }
 /* A stop not saved yet, which has no row and so no number */
 .wt-pin__dot { width: 8px; height: 8px; border-radius: var(--wt-radius-round); background: var(--wt-marker-ink); transition: opacity var(--wt-duration-base); }
 .wt-pin--muted .wt-pin__dot { width: 6px; height: 6px; }
 .wt-pin--selected .wt-pin__dot { width: 10px; height: 10px; }
-.wt-pin--dot:not(.wt-pin--selected) > * { opacity: 0; }
 /* Pins merged where they crowd (--cluster): round, like every pin. The first one's pin is in front, as it is, with its
    number; the next ones' pins are stacked behind it, up and to the right, each in its own color in its own
    --wt-pin-fill ring, like a fanned deck: one behind when two merge, two when more (--deep). Set their colors in
