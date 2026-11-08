@@ -1269,7 +1269,7 @@ function tripDates(t) {
 }
 // While a trip is under way, what it's at now and what's next, as the trip screen has today: the row happening now
 // (where you woke up, a stop, or tonight's hotel) and the one after it, or once the day is done, the next day's first
-// stop. Next says when it is ("2:00 PM", "Tomorrow, 9:30 AM"); tonight's hotel has no time.
+// stop. Next says when it is ("2:00 PM", "Tomorrow, 9:30 AM"), or "Tonight" for tonight's hotel, which has no time.
 function tripNow(t, today) {
   const trip = { stops: (t.stops || []).filter(s => s.time) };
   const rows = dayPlan(trip, today).map(e => ({
@@ -1281,14 +1281,15 @@ function tripNow(t, today) {
   const now = rows[i], next = rows[i + 1] || (later && { s: later, time: later.time });
   if (!now && !next) return null;
   const at = time => { const d = time.slice(0, 10); return `${d === today ? '' : d === addDays(today, 1) ? 'Tomorrow, ' : `${DAYS[toDate(d).getDay()]}, `}${fmtTime(time)}`; };
-  return { now: now?.s, next: next?.s, nextAt: next?.time && at(next.time) };
+  return { now: now?.s, next: next?.s, nextAt: next && (next.time ? at(next.time) : 'Tonight') };
 }
 function tripNowHTML(t, today) {
   const p = tripNow(t, today);
   if (!p) return '';
-  const step = (label, s, when) => `<span class="wt-trip-card__step${label === 'Now' ? ' is-now' : ''}">${markerHTML(s, 'wt-marker--sm')}
-      <span class="wt-trip-card__step-label">${label}</span><span class="wt-trip-card__step-name">${esc(s.name)}</span>${when ? `<span class="wt-trip-card__step-time">${when}</span>` : ''}</span>`;
-  return `<span class="wt-trip-card__now">${p.now ? step('Now', p.now) : ''}${p.next ? step('Next', p.next, p.nextAt) : ''}</span>`;
+  // Like a row of the timeline: marker · place · when, with "Now" where the time goes
+  const step = (s, when, now) => `<span class="wt-trip-card__step${now ? ' is-now' : ''}">${markerHTML(s, 'wt-marker--sm')}
+      <span class="wt-trip-card__step-name">${esc(s.name)}</span><span class="wt-trip-card__step-time">${when}</span></span>`;
+  return `<span class="wt-trip-card__now">${p.now ? step(p.now, 'Now', true) : ''}${p.next ? step(p.next, p.nextAt) : ''}</span>`;
 }
 // Keep Now and Next current while Home is open: each card under way gets them again, in place, so nothing else moves
 setInterval(() => {
