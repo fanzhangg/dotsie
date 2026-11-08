@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 12.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 12.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -806,14 +806,14 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 </div>
 ```
 
-- **A place worth seeing, on the map**, as a maps app shows its places once you zoom in. It's part of the map, not of the plan, so it's drawn like the map's own places: a 16px disc tinted with the type's color (`--wt-kind-color`, 20% over `--wt-pin-fill`), the type's icon at 10px in that color, a hairline of the color around the edge, and no shadow. Its name is in the markup but hidden: the icon says what kind of place it is, and its card says the rest.
+- **A place worth seeing, on the map**, as a maps app shows its places once you zoom in. It's part of the map, not of the plan, so it's the plan's pin turned inside out: a 22px disc in `--wt-pin-fill`, the type's icon at 14px in the type's color (`--wt-kind-color`), a 1.5px ring of that color around the edge, and the pin's light shadow, so it reads over the light and the dark map. Its name is in the markup but hidden: the icon says what kind of place it is, and its card says the rest.
 - **Placed by its marker's center**, at the place, like a [pin](#map-pin-wt-pin).
-- **Pointed at with a mouse, or focused** (it, or the element holding it), it's the solid marker: 20px in the type's color, the icon at 12px in `--wt-marker-ink`, a `--wt-pin-fill` ring and the pin's shadow, the same about its center. On its own, outside a `.wt-sight` (as in a sight's card), `.wt-sight__marker` is that solid marker.
+- **Pointed at with a mouse, or focused** (it, or the element holding it), it's the solid marker: 24px in the type's color, the icon at 14px in `--wt-marker-ink`, a `--wt-pin-fill` ring and the pin's shadow, the same about its center. On its own, outside a `.wt-sight` (as in a sight's card), `.wt-sight__marker` is that solid marker.
 - **Its name shows while it's hovered with a mouse:** to the marker's right, in 12px ink with a halo in `--wt-pin-fill`, so it reads over the light and the dark map. A long name stops at 160px with an ellipsis. Bring that marker in front of the others while its name shows. Not while it's selected: its card is open, with the name at the top.
-- **The plan comes first.** A stop's pin is a solid color with a white number, standing off the map; a sight is tinted, flat, smaller and never numbered, so the pins and the routes read first. Put sights in a layer over the map's own names, so no name hides them, and under the pins; leave a place for a sight only where its marker clears the pins, the routes and the other sights, so the day's line runs unbroken from stop to stop. (They used to be solid 20px markers with a shadow, as strong as the pins, and sat on the routes, breaking the line.)
-- **While a pin is `--selected`,** the other pins step back to a lighter solid color and the sights fade to 40%, so none outshines the plan. This works for sights inside the element that holds the `.wt-pins` element (with Leaflet, the map pane).
-- **It's a button.** Give it (or the element holding it) `role="button"`, a tab stop and an `aria-label` that says its name and what tapping does ("Alameda Park Zoo, Attraction. Show more"). Its tap target is 36px square, around the marker.
-- **`.is-selected`** while its card is open: the solid marker grows to 28px (its icon to 16px) about the same center, with the selected pin's shadow, and no name beside it (its card says it). Bring it in front of the other sights.
+- **The plan comes first.** A stop's pin is a solid color with a white number, standing off the map; a sight is the pin's ring color with a colored ring and icon, smaller and never numbered, so the pins and the routes read first. Put sights in a layer over the map's own names, so no name hides them, and under the pins; leave a place for a sight only where its marker clears the pins, the routes and the other sights, so the day's line runs unbroken from stop to stop. (They used to be solid 20px markers with a shadow, as strong as the pins, and sat on the routes, breaking the line. Then 16px tinted discs with a 10px icon and no shadow, which were too faint to see on the map.)
+- **While a pin is `--selected`,** the other pins step back to a lighter solid color and the sights to 70%, so none outshines the plan; they still read, since a selected stop is where you look around. This works for sights inside the element that holds the `.wt-pins` element (with Leaflet, the map pane).
+- **It's a button.** Give it (or the element holding it) `role="button"`, a tab stop and an `aria-label` that says its name and what tapping does ("Alameda Park Zoo, Attraction. Show more"). Its tap target is 42px square, around the marker.
+- **`.is-selected`** while its card is open: the solid marker grows to 32px (its icon to 18px) about the same center, with the selected pin's shadow, and no name beside it (its card says it). Bring it in front of the other sights.
 - It fades in on `--wt-duration-base` when it appears.
 
 ### About `.wt-about`
@@ -923,6 +923,14 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 12.1.0
+
+Sights were too faint to see: 16px pale discs with a 10px icon, at 40% while a stop was selected, which is now where the map zooms in to and they show.
+
+- **`.wt-sight`'s marker is now a 22px disc in `--wt-pin-fill`** with its icon at 14px in the type's color, a 1.5px ring of that color and the pin's shadow. Hovered or focused, the solid marker is 24px (icon 14px); selected, 32px (icon 18px). The tap target is 42px. The markup is unchanged.
+- While a `.wt-pin--selected` is in the `.wt-pins` element, the sights step back to 70% (was 40%).
+- Tokens are unchanged.
 
 ### Changed in 12.0.0
 
