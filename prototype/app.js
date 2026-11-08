@@ -1954,12 +1954,12 @@ function mountTrip(trip) {
   map.getContainer().addEventListener('wheel', zooming, { passive: true });
   map.getContainer().addEventListener('touchstart', e => { if (e.touches.length > 1) zooming(); }, { passive: true });
   mapGestures(map, zooming);
-  // Tapping empty map clears the selection; a route's preview goes back to the whole day.
+  // Tapping empty map clears the selection, a route's included, and leaves the camera where it is: you tapped the map
+  // you're looking at, so it doesn't fly off to the whole day (Whole day does that). (It used to.)
   // While a stop is open, the map is there to look at, so taps leave everything as it is.
   map.on('click', () => onMapTap(() => {
     if (sightOpen) return closeSheet();
     if (state.draft || (!state.sel && !state.leg)) return;
-    if (state.leg) fitKey = '';
     state.sel = state.selRow = state.leg = null;
     render();
   }));
