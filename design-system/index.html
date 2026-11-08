@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v11.1.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v11.2.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -504,6 +504,9 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
       <p class="intro">A stop's <b>Arrive</b> (a hotel's <b>Check-in</b> and <b>Check-out</b>) is a day and a time side by side, as in a calendar app. Tapping the day opens its month, and picking a day goes straight on to the time; tapping the time goes there alone. <b>Done</b> sets both. On a phone each is a page of the sheet, with Back; on a computer it drops down under the row.</p>
       <div class="demo">
         <div class="demo__live demo__live--narrow demo__live--raised" style="display: grid; gap: var(--wt-space-6)">
+          <div class="wt-field"><span class="wt-field__label wt-field__label--split"><span id="demo-arrive-label">Arrive</span></span>
+            <div class="wt-when"><button type="button" class="wt-picker wt-picker--text wt-when__date" aria-describedby="demo-arrive-label">Fri, Nov 20</button><button type="button" class="wt-picker wt-picker--text wt-when__time" aria-describedby="demo-arrive-label">3:00 PM</button></div>
+            <button type="button" class="wt-when__zone"><span class="wt-when__zone-name">Local time · Mountain Standard Time</span><i data-icon="forward"></i></button></div>
           <div class="wt-cal">
             <div class="wt-cal__head"><span class="wt-cal__month">November 2026</span>
               <button type="button" class="wt-icon-btn" aria-label="Previous month"><i data-icon="back"></i></button>
@@ -545,6 +548,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
         <li><b>The month:</b> the day set is black, like the one primary button; today has a black ring, like now in the timeline; a dot under a day says it has stops, so the trip's days are easy to find. Days that can't be picked are light grey (<code>disabled</code>): a check-out before check-in, or more than 30 nights on. ← → ↑ ↓ move a day or a week, Page Up and Page Down a month.</li>
         <li><b>The wheels:</b> hour, minute and AM/PM, each a column that scrolls and snaps into the grey band across the middle, the grey of a selected row. Minutes go in fives, plus the stop's own minute when it's between (a 10:42 flight keeps its 42). Tap a value to bring it to the band; ↑ ↓ step it. Each wheel is a <code>spinbutton</code> with its value in <code>aria-valuetext</code>.</li>
         <li><b>The row</b> shows the day as <i>Fri, Nov 20</i> (with the year when it isn't this one) and the time as <i>3:00 PM</i>, with no chevrons: two fields side by side read as a day and a time. The picker that's open has the focus border. On a computer, it shows the draft as it changes.</li>
+        <li><b>The time zone</b> (<code>.wt-when__zone</code>) is a quiet line under Arrive, not a field: Local time and the zone's name, unless someone picked another. It opens every zone, Local time first, searched by city or name. In the timeline, a time shows its zone (<code>.wt-tl-zone</code>, <i>6:30 PM EST</i>) only where the clocks change.</li>
         <li>In the app, <code>whenHTML</code> and <code>whenPicker</code> in <code>app/web/app.js</code> build and wire one.</li>
       </ul>
       <h3>How you get there</h3>
@@ -1144,7 +1148,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v11.1.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v11.2.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 

@@ -12,7 +12,7 @@ One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`Tri
 | [src/mcp.ts](src/mcp.ts) | The MCP server: tools for an AI assistant to list trips and stops, and add, edit and delete stops |
 | [src/oauth.ts](src/oauth.ts) | OAuth sign-in for the MCP server, and its Allow page |
 | [migrations/](migrations) | D1 schema |
-| [web/](web) | The frontend: plain HTML, CSS and JS. `../prototype` is the same frontend with no server |
+| [web/](web) | The frontend: plain HTML, CSS and JS. `../prototype` is the same frontend with no server. [web/tz-lookup.js](web/tz-lookup.js) finds a place's time zone from where it is ([@photostructure/tz-lookup](https://github.com/photostructure/tz-lookup), CC0), so a stop's time is its place's local time; only a zone someone picked by hand is saved (`tz`) |
 | [scripts/build.mjs](scripts/build.mjs) | Copies `web/` and `../design-system/` into `public/`, which Wrangler serves. Runs on `dev` and `deploy` |
 
 The frontend saves edits in the background (they show at once) and keeps a WebSocket open on the current trip, so co-editors' changes appear live. A trip can be saved for offline from trip settings: the frontend keeps the trip's last snapshot in `localStorage`, and the app's files and the trip's Stadia tiles in Cache Storage, and [web/sw.js](web/sw.js) serves them when the network can't (see Offline in [the UX design](../docs/ux-design.md#offline)). The API itself isn't cached by the service worker. `../prototype` must stay the same as `web/` apart from the server: make every UX change to both (see [CLAUDE.md](../CLAUDE.md)).

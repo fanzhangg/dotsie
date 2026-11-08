@@ -19,10 +19,14 @@ export type Member = { id: string; name: string; image: string | null; identity:
 // optional label ('' shows the link's site). [] for none.
 // wikidata is the place's Wikidata item ("Q123") when it was added from a sight on the map, so its sheet can show what
 // Wikipedia says about it; null otherwise.
+// time is the clock time where the stop is. tz is the IANA time zone that clock is in, when someone set one other than the
+// place's own; null means the place's own, which the app looks up from where it is.
+// duration is how long you're at the stop, in minutes, or null for not said; the drive after it leaves when it ends.
+// A hotel's stay is its nights and check-out, so it has none.
 // done is no longer shown; it's kept so older clients' writes still validate.
 export type Stop = {
   id: string; name: string; address: string; lat: number; lng: number;
-  time: string; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; links: Link[]; wikidata: string | null; done: boolean; by: string; updatedAt: number;
+  time: string; tz: string | null; duration: number | null; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; links: Link[]; wikidata: string | null; done: boolean; by: string; updatedAt: number;
 };
 export type Link = { url: string; label: string };
 export type StopFields = Omit<Stop, 'id' | 'by' | 'updatedAt'>;
@@ -53,6 +57,13 @@ export type Travel = typeof TRAVEL[number];
 export type Back = Record<string, Travel>;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_NIGHTS = 30;
+// A stay at one stop, in minutes: up to a day
+const MAX_DURATION = 24 * 60;
+// An IANA time zone this runtime knows ("America/Denver")
+const isZone = (z: unknown): z is string => {
+  if (typeof z !== 'string' || z.length > 64 || !/^[A-Za-z][A-Za-z0-9_+\-/]*$/.test(z)) return false;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: z }); return true; } catch { return false; }
+};
 const MAX_LINKS = 10, MAX_URL = 2000, MAX_LABEL = 60;
 // The home card's route sketch needs only where the stops are and how you get to each (and back to a hotel), and its
 // photos each stop's Wikidata item; a trip longer than this is cut off there.
@@ -82,6 +93,14 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
   if (i.time !== undefined || !partial) {
     if (typeof i.time !== 'string' || !TIME.test(i.time)) throw new Error(ERR.invalid);
     out.time = i.time;
+  }
+  if (i.tz !== undefined) {
+    if (i.tz !== null && !isZone(i.tz)) throw new Error(ERR.invalid);
+    out.tz = i.tz as string | null;
+  }
+  if (i.duration !== undefined) {
+    if (i.duration !== null && !(Number.isInteger(i.duration) && (i.duration as number) > 0 && (i.duration as number) <= MAX_DURATION)) throw new Error(ERR.invalid);
+    out.duration = i.duration as number | null;
   }
   if (i.kind !== undefined) {
     if (i.kind !== '' && !KINDS.includes(i.kind as Kind)) throw new Error(ERR.invalid);
@@ -129,7 +148,7 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
     if (typeof i.done !== 'boolean') throw new Error(ERR.invalid);
     out.done = i.done;
   }
-  if (!partial) out = { address: '', note: '', kind: '', nights: null, checkout: null, travel: 'drive', back: {}, links: [], wikidata: null, done: false, ...out };
+  if (!partial) out = { address: '', note: '', tz: null, duration: null, kind: '', nights: null, checkout: null, travel: 'drive', back: {}, links: [], wikidata: null, done: false, ...out };
   return out;
 }
 
@@ -164,6 +183,9 @@ export class TripRoom extends DurableObject<Env> {
     if (!cols.has('links')) this.sql.exec("alter table stops add column links text not null default '[]'");
     // ...and the Wikidata item of a stop added from a sight
     if (!cols.has('wikidata')) this.sql.exec('alter table stops add column wikidata text');
+    // ...and a time zone other than the place's own, and how long you're there
+    if (!cols.has('tz')) this.sql.exec('alter table stops add column tz text');
+    if (!cols.has('duration')) this.sql.exec('alter table stops add column duration integer');
     // Answer keep-alive pings without waking the object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
@@ -222,8 +244,8 @@ export class TripRoom extends DurableObject<Env> {
     this.check(userId);
     const f = cleanStop(input, false) as StopFields;
     this.sql.exec(
-      `insert or replace into stops (id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, links, wikidata, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stopId, f.name, f.address, f.lat, f.lng, f.time, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), JSON.stringify(f.links), f.wikidata, +f.done, userId, Date.now());
+      `insert or replace into stops (id, name, address, lat, lng, time, tz, duration, note, kind, nights, checkout, travel, back, links, wikidata, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stopId, f.name, f.address, f.lat, f.lng, f.time, f.tz, f.duration, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), JSON.stringify(f.links), f.wikidata, +f.done, userId, Date.now());
     return this.afterStopWrite(stopId);
   }
 

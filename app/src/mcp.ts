@@ -18,7 +18,7 @@ type Tool = {
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 // Bump the version whenever a tool or its arguments change: a client may keep its copy of the tools until it does.
 const SERVER = { name: 'waythread', title: 'Waythread', version: '2.0.0' };
-const INSTRUCTIONS = `Waythread plans road trips. A trip is a list of stops, each with a trip-local time ("YYYY-MM-DDTHH:MM", no time zone).
+const INSTRUCTIONS = `Waythread plans road trips. A trip is a list of stops, each with a time ("YYYY-MM-DDTHH:MM"): the clock time where the stop is, in the place's own time zone, as on a ticket or a booking. A flight that leaves Los Angeles at 10:00 and lands in New York at 18:30 is two stops at those times.
 Call list_trips to find a trip and list_stops to see its plan; add_stop, edit_stop and delete_stop change it. Changes show at once for everyone on the trip.
 A stop's links are buttons under it in the app, one tap from the plan. Whenever you find or are given a web page for a stop, add it with add_link instead of writing the URL in the note: a booking or reservation, a flight (the airline's booking or its flight status), tickets, the place's own site, a guide to it. Label each in a few words ("UA 123", "Hotel booking", "Tickets"). A flight's links go on the airport you fly from, where you'll need them; with no stop there, on the one you land at.`;
 
@@ -94,7 +94,7 @@ const ERROR_TEXT: Record<string, string> = {
 
 // A stop as the assistant sees it: the fields it can edit, plus who changed it last
 const stopOut = (s: Stop, names: Map<string, string>) => ({
-  id: s.id, name: s.name, address: s.address, lat: s.lat, lng: s.lng, time: s.time, checkout: s.checkout,
+  id: s.id, name: s.name, address: s.address, lat: s.lat, lng: s.lng, time: s.time, tz: s.tz ?? null, duration: s.duration ?? null, checkout: s.checkout,
   kind: s.kind, nights: s.nights, travel: s.travel ?? 'drive', back: s.back ?? {}, note: s.note, links: s.links ?? [], updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
 });
 const memberNames = (members: { id: string; name: string }[]) => new Map(members.map(m => [m.id, m.name]));
@@ -113,8 +113,10 @@ const EDITABLE = {
   address: { type: 'string', maxLength: 300 },
   lat: { type: 'number', minimum: -90, maximum: 90 },
   lng: { type: 'number', minimum: -180, maximum: 180 },
-  time: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$', description: 'When you arrive, trip-local: "YYYY-MM-DDTHH:MM". Stops are ordered by time' },
-  checkout: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$', description: 'When you leave, "HH:MM". A hotel: its check-out time on the day its nights end (null shows 11:00). Any other stop: a time later the same day, or null for none' },
+  time: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$', description: 'When you arrive, "YYYY-MM-DDTHH:MM", in the clock time where the stop is (its place’s time zone, or tz). Stops are ordered by when that is' },
+  tz: { type: ['string', 'null'], maxLength: 64, description: 'Only if time isn’t the clock time where the stop is: the IANA time zone it’s in ("America/Denver"). null (the default) is the place’s own' },
+  duration: { type: ['integer', 'null'], minimum: 1, maximum: 1440, description: 'How long you’re at the stop, in minutes, or null for not said. The drive after it leaves when it ends. Not for a hotel: its stay is nights and checkout' },
+  checkout: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$', description: 'When you leave, "HH:MM". A hotel only: its check-out time on the day its nights end (null shows 11:00). For how long you’re at another stop, use duration' },
   kind: { type: 'string', enum: ['', ...KINDS], description: 'The stop’s type, which sets its icon. "" lets the app guess from the name' },
   nights: { type: ['integer', 'null'], minimum: 0, maximum: 30, description: 'A hotel’s nights from check-in (0 checks out the same day, e.g. arriving after midnight), or null to last until the next hotel or the trip’s last day' },
   travel: { type: 'string', enum: [...TRAVEL], description: 'How you get to this stop from the one before it (for a hotel, on its check-in day). New stops are "drive"' },

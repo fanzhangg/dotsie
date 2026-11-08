@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 11.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 11.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -441,6 +441,8 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 
     **On a phone only the selected stop shows them**, like its full notes. Put `.wt-tl-links-hint` (the `link` icon) first in `.wt-tl-notes`: the CSS shows it, in tertiary grey, on any other stop with links, so the half list keeps its height. Leave both out when a stop has no links.
 - **Hotel:** at the start or end of a day, a hotel is a stop row with an empty `.wt-tl-time`. Only check-out morning gets a note ("Check out").
+- **Time zones:** where the clocks change (a stop whose zone isn't the one before it, or a trip's first stop not in this device's zone), the time ends with the zone's short name, `<span class="wt-tl-zone">EST</span>` after the AM/PM, in the same small tertiary type. Anywhere else, leave it out: a time is in the same zone as the one above it.
+- **Duration:** how long you're at a stop (`1 hr 30 min`) is its first note, where a hotel's nights go.
 - **The day before's last stop:** with no hotel the night before, a day opens with that stop. In place of a time, `.wt-tl-time__day` says which day it was: "Yesterday", or the weekday ("Sat").
 - **Drive** (`.wt-tl-drive`): a car on the rail and "1 hr 49 min drive". The same row is any leg: put the way's icon in `.wt-tl-car` in place of the car and finish the sentence with it ("12 min walk", "25 min bike ride"); a leg with no time (transit, a flight) is just its name in the `<b>`: `<b>Flight</b>`. Tapping it shows its route; Directions to the maps app goes in the add bar (see [the add bar](#trip-header-wt-trip-head-bottom-sheet-wt-sheet-and-add-bar-wt-add-bar)), not in the row.
   - **Hierarchy:** the drive's text is 13px in `--wt-text-tertiary`, its duration medium in `--wt-text-secondary`. Stop names are the only strong text in the list, so the day reads as its stops, with drives as the links between them. The drive you're on darkens its duration to primary and its car to black; a late drive turns both red.
@@ -594,6 +596,9 @@ A day and a time, picked in that order, as in Google Calendar: a stop's Arrive, 
   <div class="wt-when">
     <button class="wt-picker wt-picker--text wt-when__date" aria-describedby="arrive-label" aria-haspopup="true" aria-expanded="false">Fri, Nov 20</button>
     <button class="wt-picker wt-picker--text wt-when__time" aria-describedby="arrive-label" aria-haspopup="true" aria-expanded="false">1:00 PM</button></div>
+  <!-- Arrive only: the clock the times are on, opening a picker of every zone -->
+  <button class="wt-when__zone" aria-describedby="zone-label"><span class="wt-visually-hidden" id="zone-label">Time zone</span>
+    <span class="wt-when__zone-name">Local time · Mountain Standard Time</span>${icon('forward')}</button>
   <input type="hidden" name="time" value="2026-11-20T13:00"></div>
 
 <!-- The day: in place of the form on a phone (.wt-when-page), under the row on a computer (.wt-when-page.wt-menu) -->
@@ -627,6 +632,7 @@ A day and a time, picked in that order, as in Google Calendar: a stop's Arrive, 
 - **The page** (`.wt-when-page`) takes the place of the form, like a picker's options: a sub-head with Back, then the month or the wheels. The month's title is the field's label; the time's is the day picked. On a computer it's a menu under the row (`.wt-menu`), with no head, and the row shows the draft as it changes.
 - **The month** (`.wt-cal`): its name with ‹ › after it (disabled at the edge of what can be picked), the weekdays' letters, then its days, Sunday first. The day set is black (`aria-pressed="true"`), like the one primary button; today has a black ring (`aria-current="date"`), like now in the timeline; a day with stops has a dot under its number (`.has-stops`), so a trip's days are easy to find. Days that can't be picked are `disabled`, in light grey. One day is in the tab order (`tabindex="0"`): ← → ↑ ↓ move a day or a week, Page Up and Page Down a month.
 - **The wheels** (`.wt-wheels`, one `.wt-wheel` per column): hour, minute and AM/PM, each a column that scrolls and snaps into the grey band across the middle (`--wt-surface-current`, the grey of a selected row). The value in the band is `.is-on`, in primary ink; the rest are tertiary. Minutes go in fives, plus the value's own minute when it's between, so a 10:42 flight keeps its 42. Tap a value to bring it to the band; each wheel is a `spinbutton` with its value in `aria-valuetext`, stepped by ↑ ↓.
+- **The time zone** (`.wt-when__zone`), under Arrive only, is a quiet caption-sized line, not a field: `Local time · Mountain Standard Time`, or a zone picked by hand with its city (`Pacific Standard Time · Los Angeles`), and a small ›. It opens a picker like Type (a page on a phone, a menu on a computer) with a search field over the options (`.wt-input-group.wt-search.wt-zone-search`): Local time first, then every zone, each its city over its name and offset (`Pacific Standard Time · GMT-8`). With nothing found, a `.wt-results__msg` says so.
 - In the app, `whenHTML` and `whenPicker` in `app/web/app.js` build and wire one.
 
 ### Trip header `.wt-trip-head`, bottom sheet `.wt-sheet` and add bar `.wt-add-bar`
@@ -991,6 +997,15 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 11.2.0
+
+Stops have a time zone, the place's own unless someone picks another, and an optional duration.
+
+- New: `.wt-when__zone` (with `__zone-name`), the line under Arrive that says which clock its times are on and opens the zones; `.wt-zone-search`, the search field over them.
+- New: `.wt-tl-zone`, a stop's zone after its time in the timeline, where the clocks change.
+- Duration is a picker (`.wt-picker--text`, with when it ends as its detail) and a note in the timeline: no new classes.
+- Tokens are unchanged.
 
 ### Added in 11.1.0
 

@@ -202,10 +202,20 @@ Not every leg is a drive: you walk from the hotel to dinner, ride a bike along t
 
 ### Stop times
 
-A stop has one time: **Arrive**, when you get there. It's required, and it orders the day. A hotel, the one stop you stay at overnight, has two: **Check-in** and **Check-out** (see [Hotel stays](#hotel-stays)).
+A stop has one time: **Arrive**, when you get there. It's required, and it orders the day. A hotel, the one stop you stay at overnight, has two: **Check-in** and **Check-out** (see [Hotel stays](#hotel-stays)). Any other stop can also say how long you're there: **Duration**.
 
-- **The drive to a stop sets off just in time to get there.** `Arrives 20 min late` checks the drive against the time between the two stops' arrivals.
+- **The drive to a stop sets off just in time to get there.** `Arrives 20 min late` checks the drive against the time between the two stops: from when the first one ends (its time, plus its duration if it has one) to when you get to the next.
+- **Duration** is optional, and picked from a list, like Type: None, 15 min up to 8 hr. Its row says when that ends (`Until 11:00 AM`). In the list it's the first thing under the stop's name (`1 hr 30 min · Lunch`), where a hotel says its nights, and it shows on All days too, as nights do: how long you're somewhere is part of the plan's shape. A hotel has no Duration: its stay is its nights and check-out. Without one, a stop lasts until you have to leave for the next.
 - **No leave time.** Every stop used to have an optional **Leave** too, shown in the list as `to 4:15 PM` under the time, and the drive after it set off then. It was taken out: a plan is where you'll be and when, and when you leave follows from when you need to be at the next stop, so it added a field to fill in without telling you anything new. A leave time saved before then is ignored, and dropped the next time the stop is saved. (Before Leave, every stop showed a hotel's Check-out field, filled with the hotel's day and never saved: `.wt-field`'s `display: block` beat the `hidden` attribute. That fix stays.)
+
+### Time zones
+
+A stop's times are the clock time where it is, the way a ticket, a booking or an opening time says them. A flight that leaves Los Angeles at 10:00 AM and lands in New York at 6:30 PM is two stops at those times, and it takes 5½ hours, not 8½.
+
+- **Each stop's zone is its place's own,** found from where it is, in the browser (a [lookup](../app/web/tz-lookup.js) of the world's zones by their borders, so it works offline too). Nothing is saved for it, so every stop, an assistant's and those saved before zones, is on local time.
+- **What happens when goes by the moment each time is:** the order of the stops, a drive that won't make it (`Arrives 47 min late` across a border), and what's now and what's past on today.
+- **The list says the zone only where the clocks change:** after the time of a stop whose zone isn't the one before it (`6:30 PM EST`), and on the trip's first stop when it isn't this device's. Elsewhere a time is in the same zone as the one above it, and a trip in one zone, planned there, never shows one.
+- **In the stop sheet,** a quiet line under Arrive says which clock it's on: `Local time · Mountain Standard Time`. Tapping it opens every zone, Local time first, each with its city, its name and its offset at the stop's time (`Los Angeles · Pacific Standard Time · GMT-8`), and a search by city or name. Picking another zone keeps the clock time and moves the moment: for a time someone gave you in another zone, such as a call. Picking the place's own is Local time again. A stop moved to another place keeps a zone picked by hand.
 
 ### Hotel stays
 
@@ -299,12 +309,13 @@ A stop can have links: pages you'll want on the day, such as the flight, the hot
 - **Editing.** Tap Edit stop. The stop sheet opens without dimming or blocking the map: on a phone it takes the list's place at the bottom, at most about 60% of the screen, and the map shows above it; on a computer it covers the side panel. The map moves the stop into the middle of what's still visible.
 - **The map follows the edit.** The stop's pin shows the draft: picking a place from search moves the pin there, and the map goes with it; choosing a type changes the pin's color. A new stop's pin appears once a place is picked. If the stop moves, its two drives fade until it's saved. You can pan and zoom the map while the sheet is open, and taps on the map don't change anything. Closing without saving puts the map back where it was.
 - **About.** A stop at a [sight](#sights-nearby)'s place that Wikipedia has an article on shows, above its fields, the sight's photo, small and square, beside the article's first lines (three at most) and the same credit and **Wikipedia** link as the sight's card. It's read-only, and it goes when another place is picked: it's about the place, not the stop. A stop added from a sight's card keeps its Wikidata item. One found by search, or added by an assistant, has none, so its sheet looks for the sight at its place: the same name within about 2 km, or a name that contains the other's within about 100 m. Found, the lines appear, and Save keeps the item with the stop. Opening the sheet alone changes nothing. A new stop picked from search gets its item the same way, so it shows the next time it's opened. (A museum added by search used to show nothing, though Wikipedia has an article on it.) The list's rows never show it: they stay one line each, and a picture per row would make the day a long scroll.
-- **The stop sheet** has five fields, in this order (six for a hotel):
+- **The stop sheet** has six fields, in this order (a hotel has Check-out in place of Duration):
   1. **Place.** The first line, like in the list: the place's name and address. Tapping it opens a search page, as in a maps app. A stop's name is its place's name. See [Place search](#place-search).
   2. **Type.** One row that opens the [stop types](#stop-types): a page of the sheet on a phone, a menu under the row on a computer.
-  3. **Arrive.** A day and a time, side by side (`Fri, Nov 20` · `1:00 PM`). For a hotel it's **Check-in**, followed by **Check-out**, a day and time. See [Stop times](#stop-times) and [Picking a day and a time](#picking-a-day-and-a-time).
-  4. **Note.** It grows with what's in it, rather than scrolling in a two-line box inside the scrolling sheet.
-  5. **Links.** See [Links](#links).
+  3. **Arrive.** A day and a time, side by side (`Fri, Nov 20` · `1:00 PM`), and under them the clock they're on (see [Time zones](#time-zones)). For a hotel it's **Check-in**, followed by **Check-out**, a day and time. See [Stop times](#stop-times) and [Picking a day and a time](#picking-a-day-and-a-time).
+  4. **Duration,** except for a hotel. See [Stop times](#stop-times).
+  5. **Note.** It grows with what's in it, rather than scrolling in a two-line box inside the scrolling sheet.
+  6. **Links.** See [Links](#links).
 - **Picking a day and a time.** <a id="picking-a-day-and-a-time"></a> It works as in Google Calendar: a day, then a time.
   - **The row** is two fields side by side: the day (`Fri, Nov 20`, with the year when it isn't this one) and the time (`1:00 PM`). It used to be the browser's date-and-time field, which read `11/20/2026, 01:00 PM` and opened a different control on every phone: no weekday, a leading zero, and on iPhone a calendar and a time squeezed into one pop-up.
   - **Tapping the day opens its month,** as a page of the sheet with Back, and **picking a day goes straight on to the time**, since a stop moved to another day usually wants another time too. Back on the time goes back to the month. Tapping the time goes to the time alone.
@@ -456,7 +467,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
 - **Transport modes:** shipped (see [How you get there](#how-you-get-there)). Not yet: transit times, which need a timetable service, and a flight drawn as an arc rather than a straight line.
 - **Phone-friendly gestures:** dragging to reorder is still to come. (Swiping a row sideways put a stop in a folder, until folders were taken out.)
 - **Day view in the app:** shipped. The day bar, timeline, hotel stays, stop types and floating buttons are in `app/web`, with their styles in the design system (v2.0.0). Stops store `kind` and `nights` on the server. Trip settings also holds Make a new link, and the trip name saves when you leave the field.
-- **How long a stop lasts:** an optional Leave time on every stop was shipped, then taken out: it didn't add anything to the plan (see [Stop times](#stop-times)). A stop assumes you leave just in time for the next. Default lengths per type (a meal 1 hour, a museum 2) could fill the gap, without showing durations in the list.
+- **How long a stop lasts:** an optional Leave time on every stop was shipped, then taken out: it didn't add anything to the plan (see [Stop times](#stop-times)). An optional Duration took its place, picked from a list, which checks the drive after it. Default lengths per type (a meal 1 hour, a museum 2) could suggest one.
 - **The map and list:** the header, the half/whole-day sheet, route previews, the stop sheet that leaves the map in view, the Type page and hotel check-out times are in `app/web` and `prototype/`, with their styles in the design system (v3.0.0).
 - **From the UX review, not yet done:** quick time choices in Add stop, showing who's on the trip at a glance and what changed while you were away, and marking estimated drive times with `≈`.
 - **Map credits:** Stadia's and OpenStreetMap's terms ask for attribution on or next to the map. The app now shows them only in trip settings, like the prototype. Check the terms before this deploys; if needed, bring back a small ⓘ button on the map that shows the credits.
