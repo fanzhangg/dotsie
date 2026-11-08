@@ -2892,7 +2892,7 @@ const SIGHTS_FROM_ZOOM = 13;
 const SIGHT_TILE_ZOOM = 12;
 const SIGHTS_MAX = 12; // in view at once, at most, so they never crowd out the plan
 const SIGHT_GAP = 4; // px between two sights' markers, and around the trip's pins
-const SIGHT_R = 8; // px, a sight's marker's radius
+const SIGHT_R = 11; // px, a sight's marker's radius
 const SIGHT_ROUTE_CELL = 6; // px, the grid a route's cells are counted in: a sight keeps a cell or so off the line
 // A Map that keeps only the `max` entries used last: get() and set() make an entry the newest, and set() drops the
 // oldest past `max`. For what the map loads as you move it around, which would otherwise grow for as long as the page is open.
