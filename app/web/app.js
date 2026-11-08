@@ -3536,6 +3536,194 @@ function choicePage(sheet, { main, page, picker, onPick }) {
   return { mark: value => { for (const b of page.querySelectorAll('[data-value]')) b.setAttribute('aria-checked', b.dataset.value === value); } };
 }
 
+// ---------- When: a day, then a time, as in a calendar app ----------
+// A stop's Arrive (and a hotel's Check-out) is one row of two pickers, the day and the time ("Fri, Nov 20" · "1:00 PM"),
+// over a hidden input holding "YYYY-MM-DDTHH:MM". Tapping the day opens the month, and picking a day goes straight on to
+// the time; tapping the time goes there alone. The time is three wheels, hour, minute and AM/PM, and Done sets the day and
+// time together. Back steps back (from the time to the month it came from, from the month to the form), and nothing
+// changes until Done. On a phone each step is a page of the sheet, like a picker's options; on a computer it drops down
+// under the row as a menu, and the row shows the draft as it changes. See "When" in the design system.
+// `marks()` is the days that have stops, dotted in the month; `limits()` the earliest and latest it can be ({ min, max }).
+const fmtDate = t => `${fmtDay(t)}${t.slice(0, 4) === nowStamp().slice(0, 4) ? '' : `, ${t.slice(0, 4)}`}`;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const addMonths = (month, n) => { const d = new Date(+month.slice(0, 4), +month.slice(5, 7) - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+function whenPicker(sheet, { main, field, input, marks = () => new Set(), limits = () => ({}) }) {
+  const dateBtn = field.querySelector('[data-when-date]'), timeBtn = field.querySelector('[data-when-time]');
+  const label = field.querySelector('[data-when-label]'), home = main.parentElement;
+  const page = Object.assign(document.createElement('div'), { className: 'wt-when-page', hidden: true });
+  let draft = '', step = null, month = '', fromDate = false, menu = false, scrollBack = 0;
+  for (const b of [dateBtn, timeBtn]) { b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false'); }
+
+  const paint = () => {
+    const v = step ? draft : input.value;
+    dateBtn.textContent = v ? fmtDate(v) : '';
+    timeBtn.textContent = v ? fmtTime(v) : '';
+  };
+  const outside = e => { if (!page.contains(e.target) && !field.querySelector('.wt-when').contains(e.target)) close(false, false); };
+  function open(which) {
+    draft = input.value;
+    month = draft.slice(0, 7);
+    fromDate = false;
+    menu = wideScreen.matches;
+    if (menu) { field.append(page); document.addEventListener('pointerdown', outside, true); }
+    else { home.append(page); scrollBack = sheet.scrollTop; main.hidden = true; }
+    page.classList.toggle('wt-menu', menu);
+    page.hidden = false;
+    show(which);
+  }
+  function show(which) {
+    step = which;
+    if (which === 'date') month = draft.slice(0, 7);
+    dateBtn.setAttribute('aria-expanded', which === 'date');
+    timeBtn.setAttribute('aria-expanded', which === 'time');
+    page.innerHTML = which === 'date' ? monthHTML() : timeHTML();
+    if (!menu) sheet.scrollTop = 0;
+    if (which === 'time') wheels();
+    (page.querySelector('.wt-cal__day[tabindex="0"]') || page.querySelector('.wt-wheel'))?.focus({ preventScroll: true });
+    if (menu) page.scrollIntoView({ block: 'nearest' });
+    paint();
+  }
+  function close(apply, refocus = true) {
+    if (!step) return;
+    const was = step;
+    step = null;
+    if (menu) document.removeEventListener('pointerdown', outside, true);
+    else main.hidden = false;
+    page.hidden = true;
+    page.innerHTML = '';
+    if (!menu) sheet.scrollTop = scrollBack;
+    dateBtn.setAttribute('aria-expanded', 'false');
+    timeBtn.setAttribute('aria-expanded', 'false');
+    if (apply && draft !== input.value) { input.value = draft; input.dispatchEvent(new Event('input')); }
+    paint();
+    if (refocus) (was === 'date' ? dateBtn : timeBtn).focus();
+  }
+  const back = () => (step === 'time' && fromDate ? show('date') : close(false));
+  const head = title => `<div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-when-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">${esc(title)}</h2></div>`;
+
+  // ----- The month: a grid of its days, Sunday first. The day set is black, today has a ring, a day with stops a dot. -----
+  function monthHTML() {
+    const [y, m] = month.split('-').map(Number), lead = new Date(y, m - 1, 1).getDay(), n = new Date(y, m, 0).getDate();
+    const { min, max } = limits(), lo = min?.slice(0, 10), hi = max?.slice(0, 10);
+    const sel = draft.slice(0, 10), today = nowStamp().slice(0, 10), has = marks();
+    const focusDay = sel.startsWith(month) ? sel : today.startsWith(month) && !(lo && today < lo) && !(hi && today > hi) ? today
+      : lo?.startsWith(month) ? lo : `${month}-01`;
+    let cells = '<span></span>'.repeat(lead);
+    for (let d = 1; d <= n; d++) {
+      const day = `${month}-${pad(d)}`, off = (lo && day < lo) || (hi && day > hi);
+      cells += `<button type="button" class="wt-cal__day${has.has(day) ? ' has-stops' : ''}" data-cal-day="${day}" aria-pressed="${day === sel}"${day === today ? ' aria-current="date"' : ''} tabindex="${day === focusDay ? 0 : -1}" aria-label="${fmtDay(day)}${has.has(day) ? ', has stops' : ''}"${off ? ' disabled' : ''}><span class="wt-cal__n">${d}</span></button>`;
+    }
+    return `${head(label.textContent)}
+      <div class="wt-cal">
+        <div class="wt-cal__head"><span class="wt-cal__month" aria-live="polite">${MONTH_NAMES[m - 1]} ${y}</span>
+          <button type="button" class="wt-icon-btn" data-month="-1" aria-label="Previous month"${lo && lo >= `${month}-01` ? ' disabled' : ''}>${ICON.back}</button>
+          <button type="button" class="wt-icon-btn" data-month="1" aria-label="Next month"${hi && hi.slice(0, 7) <= month ? ' disabled' : ''}>${ICON.forward}</button></div>
+        <div class="wt-cal__grid" role="group" aria-label="${MONTH_NAMES[m - 1]} ${y}">
+          ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w, i) => `<span class="wt-cal__wd" aria-hidden="true">${w}</span>`).join('')}${cells}</div>
+      </div>`;
+  }
+  // ← → ↑ ↓ move a day or a week, Page Up and Page Down a month, moving the month with it
+  function moveTo(day) {
+    const { min, max } = limits();
+    if (min && day < min.slice(0, 10)) day = min.slice(0, 10);
+    if (max && day > max.slice(0, 10)) day = max.slice(0, 10);
+    if (!day.startsWith(month)) { month = day.slice(0, 7); page.innerHTML = monthHTML(); }
+    page.querySelectorAll('.wt-cal__day[tabindex="0"]').forEach(b => { b.tabIndex = -1; });
+    const b = page.querySelector(`[data-cal-day="${day}"]`);
+    if (b) { b.tabIndex = 0; b.focus(); }
+  }
+
+  // ----- The time: hour, minute (every 5, and the stop's own if it's between) and AM/PM, each a wheel that snaps -----
+  let cols = [];
+  function timeHTML() {
+    const h = +draft.slice(11, 13), mi = +draft.slice(14, 16);
+    const mins = [...new Set([...Array(12).keys()].map(i => i * 5).concat(mi))].sort((a, b) => a - b);
+    cols = [
+      { name: 'Hour', values: [...Array(12).keys()], text: v => String(v || 12), at: h % 12 },
+      { name: 'Minute', values: mins, text: pad, at: mi },
+      { name: 'AM or PM', values: [0, 12], text: v => (v ? 'PM' : 'AM'), at: h < 12 ? 0 : 12 },
+    ];
+    const wheel = c => `<div class="wt-wheel" tabindex="0" role="spinbutton" aria-label="${c.name}">${c.values.map((v, i) => `<div class="wt-wheel__item" data-i="${i}">${c.text(v)}</div>`).join('')}</div>`;
+    return `${head(fmtDate(draft))}
+      <div class="wt-wheels" role="group" aria-label="Time">${cols.map(wheel).join('')}</div>
+      <button type="button" class="wt-btn wt-btn--primary wt-btn--block wt-when-page__done" data-when-done>Done</button>`;
+  }
+  function wheels() {
+    page.querySelectorAll('.wt-wheel').forEach((el, k) => {
+      const c = cols[k], items = [...el.children], size = () => items[0].offsetHeight || 44;
+      c.el = el;
+      c.i = Math.max(0, c.values.indexOf(c.at));
+      const mark = () => {
+        items.forEach((it, i) => it.classList.toggle('is-on', i === c.i));
+        el.setAttribute('aria-valuetext', c.text(c.values[c.i]));
+      };
+      const go = (i, smooth = true) => el.scrollTo({ top: Math.max(0, Math.min(items.length - 1, i)) * size(), behavior: smooth && !reduceMotion.matches ? 'smooth' : 'instant' });
+      c.go = go;
+      el.scrollTop = c.i * size();
+      mark();
+      let frame = 0;
+      el.addEventListener('scroll', () => {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          const i = Math.max(0, Math.min(items.length - 1, Math.round(el.scrollTop / size())));
+          if (i === c.i) return;
+          c.i = i;
+          mark();
+          const [hr, mn, ap] = cols.map(x => x.values[x.i]);
+          draft = `${draft.slice(0, 11)}${pad(hr + ap)}:${pad(mn)}`;
+          paint();
+        });
+      });
+      el.addEventListener('click', e => { const it = e.target.closest('[data-i]'); if (it) go(+it.dataset.i); });
+      el.addEventListener('keydown', e => {
+        const step = { ArrowUp: -1, ArrowDown: 1, PageUp: -3, PageDown: 3, Home: -99, End: 99 }[e.key];
+        if (step == null) return;
+        e.preventDefault();
+        go(c.i + step);
+      });
+    });
+  }
+
+  dateBtn.addEventListener('click', () => (step === 'date' ? close(false) : step ? show('date') : open('date')));
+  timeBtn.addEventListener('click', () => (step === 'time' ? close(false) : step ? show('time') : open('time')));
+  page.addEventListener('click', e => {
+    if (e.target.closest('[data-when-back]')) return back();
+    const m = e.target.closest('[data-month]');
+    if (m) { month = addMonths(month, +m.dataset.month); page.innerHTML = monthHTML(); return page.querySelector(`[data-month="${m.dataset.month}"]`).focus(); }
+    const d = e.target.closest('[data-cal-day]');
+    if (d) { draft = d.dataset.calDay + draft.slice(10); fromDate = true; return show('time'); }
+    if (e.target.closest('[data-when-done]')) {
+      // A time before the earliest it can be (a check-out before check-in, on the same day) comes up to it
+      const { min, max } = limits();
+      if (min && draft < min) draft = min;
+      if (max && draft > max) draft = max;
+      close(true);
+    }
+  });
+  page.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.stopPropagation(); return close(false); }
+    const day = e.target.closest?.('[data-cal-day]')?.dataset.calDay;
+    if (!day) return;
+    const by = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
+    if (by) { e.preventDefault(); moveTo(addDays(day, by)); }
+    else if (e.key === 'PageUp' || e.key === 'PageDown') {
+      e.preventDefault();
+      const to = addMonths(day.slice(0, 7), e.key === 'PageUp' ? -1 : 1), last = new Date(+to.slice(0, 4), +to.slice(5, 7), 0).getDate();
+      moveTo(`${to}-${pad(Math.min(+day.slice(8), last))}`);
+    }
+  });
+  page.addEventListener('focusout', e => {
+    if (menu && step && e.relatedTarget && !page.contains(e.relatedTarget) && !field.querySelector('.wt-when').contains(e.relatedTarget)) close(false, false);
+  });
+  return { paint, close: () => close(false, false) };
+}
+
+// A when field: its label, then the day and the time side by side (see whenPicker). `aside` follows the label, on its right.
+const whenHTML = (name, label, cls = '', aside = '') => `<div class="wt-field${cls}"${cls ? ' hidden' : ''}>
+        <span class="wt-field__label wt-field__label--split"><span id="when-${name}" data-when-label>${label}</span>${aside}</span>
+        <div class="wt-when"><button type="button" class="wt-picker wt-picker--text wt-when__date" data-when-date aria-describedby="when-${name}"></button><button type="button" class="wt-picker wt-picker--text wt-when__time" data-when-time aria-describedby="when-${name}"></button></div>
+        <input type="hidden" name="${name}"></div>`;
+
 // The stop sheet is a panel: the map stays in view (above it on a phone, beside it on a wide screen) and shows
 // the stop as you edit it, at the place you picked, with the type you chose.
 // The first line is the place, a row like a calendar's Location: tapping it opens a search page, as in a maps app.
@@ -3562,8 +3750,8 @@ function openStopSheet(trip, stop, place = null) {
         <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
-      <label class="wt-field"><span class="wt-field__label" data-when>Arrive</span><input class="wt-input" name="time" type="datetime-local" required></label>
-      <label class="wt-field wt-stay" hidden><span class="wt-field__label">Check-out</span><input class="wt-input" name="checkout" type="datetime-local"></label>
+      ${whenHTML('time', 'Arrive')}
+      ${whenHTML('checkout', 'Check-out', ' wt-stay', '<span class="wt-field__aside" data-nights></span>')}
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="2000" placeholder="Confirmation #, tickets, tips…"></textarea></label>
       <div class="wt-field"><span class="wt-field__label" id="links-label">Links</span>
         <div class="wt-link-list" role="group" aria-labelledby="links-label"></div>
@@ -3604,6 +3792,14 @@ function openStopSheet(trip, stop, place = null) {
     let timeTouched = !!stop;
     if (stop) { F.time.value = stop.time; F.note.value = stop.note || ''; }
     else F.time.value = defaultTime(trip, after);
+    // The note grows with what's in it, rather than scrolling in a small box inside the scrolling sheet
+    const growNote = () => {
+      if (main.hidden) return;
+      F.note.style.height = '';
+      F.note.style.height = `${F.note.scrollHeight + F.note.offsetHeight - F.note.clientHeight}px`;
+    };
+    F.note.addEventListener('input', growNote);
+    requestAnimationFrame(growNote);
 
     // ----- Links: a row each, its label over its address, and Add link under them. A label left empty shows the
     // page's site, which its placeholder says once there's an address. Rows left empty are dropped on save. -----
@@ -3664,10 +3860,15 @@ function openStopSheet(trip, stop, place = null) {
     }
 
     // ----- A stop has one time, when you get there: Arrive. A hotel is a stay: Arrive becomes Check-in, then
-    // Check-out, a day and time. The nights are the days between them. Left alone, check-out follows the trip (the
-    // next hotel, or the last day). -----
+    // Check-out, a day and time. The nights are the days between them, shown beside Check-out's label. Left alone,
+    // check-out follows the trip (the next hotel, or the last day). Each is a day and a time, picked in that order
+    // (see whenPicker); the month dots the days that have other stops. -----
     let nights = stop?.nights != null && stop.nights >= 0 ? stop.nights : null, outTime = stop && kindOf(stop) === 'hotel' ? checkoutOf(stop) : HOTEL_CHECK_OUT;
     const stay = el.querySelector('.wt-stay'), inDay = () => F.time.value.slice(0, 10);
+    const marks = () => new Set(stopsOf(cur?.id === trip.id && cur.stops ? cur : trip).filter(s => s.id !== stop?.id).map(dayOf));
+    const whenIn = whenPicker(el, { main, field: F.time.closest('.wt-field'), input: F.time, marks });
+    // Check-out is after check-in, the same day at the earliest, and at most 30 nights later.
+    const whenOut = whenPicker(el, { main, field: stay, input: F.checkout, marks, limits: () => ({ min: F.time.value, max: `${addDays(inDay(), 30)}T23:59` }) });
     let shownIn = inDay();
     function autoNights() {
       const day = inDay(), later = stopsOf(trip).filter(s => s.id !== stop?.id && dayOf(s) > day);
@@ -3677,13 +3878,15 @@ function openStopSheet(trip, stop, place = null) {
     function showNights() {
       const hotel = draft.kind === 'hotel', day = inDay();
       stay.hidden = !hotel;
-      F.checkout.disabled = !hotel; // so a hidden field can't block saving
-      el.querySelector('[data-when]').textContent = hotel ? 'Check-in' : 'Arrive';
-      if (!day) return;
-      // Check-out is after check-in, the same day at the earliest, and at most 30 nights later.
-      F.checkout.min = F.time.value;
-      F.checkout.max = `${addDays(day, 30)}T23:59`;
-      F.checkout.value = `${addDays(day, nights ?? autoNights())}T${outTime}`;
+      F.checkout.disabled = !hotel; // so a hidden field isn't saved
+      el.querySelector('#when-time').textContent = hotel ? 'Check-in' : 'Arrive';
+      if (day) {
+        F.checkout.value = `${addDays(day, nights ?? autoNights())}T${outTime}`;
+        const n = daysBetween(day, F.checkout.value.slice(0, 10));
+        el.querySelector('[data-nights]').textContent = n ? `${n} ${n === 1 ? 'night' : 'nights'}` : 'Same day';
+      }
+      whenIn.paint();
+      whenOut.paint();
     }
     F.checkout.addEventListener('input', () => {
       const v = F.checkout.value, day = inDay();
@@ -3692,8 +3895,8 @@ function openStopSheet(trip, stop, place = null) {
       const n = daysBetween(day, v.slice(0, 10));
       // Changing only the time keeps nights following the trip.
       if (nights != null || n !== autoNights()) nights = Math.min(30, Math.max(0, n));
+      showNights();
     });
-    F.checkout.addEventListener('blur', showNights); // an empty or out-of-range day snaps back when you leave it
     F.time.addEventListener('input', () => {
       timeTouched = true;
       // Moving check-in keeps the check-out day, unless that would put it before check-in (or too many nights after): then the nights move with it.

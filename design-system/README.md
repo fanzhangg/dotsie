@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 11.0.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 11.1.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -556,9 +556,11 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
     <span class="wt-option__text"><span class="wt-option__label">Apple Maps</span></span>${icon('check', 18)}</button></li>
 </ul>
 
-<label class="wt-field">   <!-- hidden unless it's a hotel -->
-  <span class="wt-field__label">Check-out</span>
-  <input class="wt-input" type="datetime-local" value="2026-11-22T11:00" min="2026-11-21T00:00" max="2026-12-20T23:59"></label>
+<div class="wt-field">   <!-- hidden unless it's a hotel; see When, below -->
+  <span class="wt-field__label wt-field__label--split"><span id="out-label">Check-out</span><span class="wt-field__aside">2 nights</span></span>
+  <div class="wt-when">
+    <button class="wt-picker wt-picker--text wt-when__date" aria-describedby="out-label">Sun, Nov 22</button>
+    <button class="wt-picker wt-picker--text wt-when__time" aria-describedby="out-label">11:00 AM</button></div></div>
 ```
 
 - **The row** (`.wt-picker`) has the field's label above it, like any field, and shows the current choice with a `forward` chevron. If the options have markers (the types), the row shows the current one's; if not, use `.wt-picker--text`.
@@ -577,11 +579,55 @@ The day bar sits at the top of the sheet and steps through the trip one day at a
 - **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
 - **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Check-in and check-out". ↑ ↓ move between types.
 - **One time for a stop: Arrive**, when you get there. There's no leave time: the drive after a stop sets off just in time for the next one.
-- **Check-out** shows only for a hotel, under Check-in, and is a day and time like it. Arrive becomes Check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. Check-out is after check-in, as early as the same day (0 nights, for a stay that starts after midnight), and at most 30 nights later (`min` is the check-in, `max` 30 days on); a day after that, or an empty field, goes back to the last good one when you leave the field. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 0–30 nights.
-- **Date and time fields** (`.wt-input` on `date`, `time` and `datetime-local`) are drawn like any other field on iPhone, so they read from the left and stay inside the sheet, rather than Safari's centred control, which is wider than the sheet.
+- **Check-out** shows only for a hotel, under Check-in, and is a day and time like it ([When](#when-wt-when-month-wt-cal-and-wheels-wt-wheels)). Arrive becomes Check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. The count shows on the right of Check-out's label (`.wt-field__label--split` with a `.wt-field__aside`: `2 nights`, or `Same day`). Check-out is after check-in, as early as the same day (0 nights, for a stay that starts after midnight), and at most 30 nights later: its month offers only those days, and a time before check-in on the same day comes up to it. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 0–30 nights.
+- **Date and time fields** (`.wt-input` on `date`, `time` and `datetime-local`) are drawn like any other field on iPhone, so they read from the left and stay inside the sheet, rather than Safari's centred control, which is wider than the sheet. The stop sheet no longer uses them (see When).
 - **`.wt-input-group`** is a `.wt-input` box with a fixed `__prefix` and a bare `<input>` after it. Make the box a `<label>` so a tap anywhere opens the input, and label the input with `aria-labelledby`.
 - `.wt-nights` (the stepper), `.wt-field-row` and `.wt-input-group` are no longer used: Check-out became a day and time, which replaced the stepper and the day shown before the time. They can go in the next major version.
 - `.wt-kinds`, a grid of every type, is no longer used: the app and the prototype both use the picker. It can go in the next major version.
+
+### When `.wt-when`, month `.wt-cal` and wheels `.wt-wheels`
+
+A day and a time, picked in that order, as in Google Calendar: a stop's Arrive, and a hotel's Check-in and Check-out.
+
+```html
+<div class="wt-field"><span class="wt-field__label wt-field__label--split"><span id="arrive-label">Arrive</span></span>
+  <div class="wt-when">
+    <button class="wt-picker wt-picker--text wt-when__date" aria-describedby="arrive-label" aria-haspopup="true" aria-expanded="false">Fri, Nov 20</button>
+    <button class="wt-picker wt-picker--text wt-when__time" aria-describedby="arrive-label" aria-haspopup="true" aria-expanded="false">1:00 PM</button></div>
+  <input type="hidden" name="time" value="2026-11-20T13:00"></div>
+
+<!-- The day: in place of the form on a phone (.wt-when-page), under the row on a computer (.wt-when-page.wt-menu) -->
+<div class="wt-when-page">
+  <div class="wt-modal__head wt-modal__head--sub">
+    <button class="wt-icon-btn" aria-label="Back">${icon('back')}</button><h2 class="wt-modal__title">Arrive</h2></div>
+  <div class="wt-cal">
+    <div class="wt-cal__head"><span class="wt-cal__month">November 2026</span>
+      <button class="wt-icon-btn" aria-label="Previous month">${icon('back')}</button>
+      <button class="wt-icon-btn" aria-label="Next month">${icon('forward')}</button></div>
+    <div class="wt-cal__grid" role="group" aria-label="November 2026">
+      <span class="wt-cal__wd" aria-hidden="true">S</span> …    <!-- the weekdays, Sunday first -->
+      <span></span> …                                        <!-- a blank for each day before the 1st -->
+      <button class="wt-cal__day has-stops" aria-pressed="true" tabindex="0" aria-label="Fri, Nov 20, has stops">
+        <span class="wt-cal__n">20</span></button> …
+    </div></div></div>
+
+<!-- The time: the head's title is the day picked -->
+<div class="wt-when-page">
+  <div class="wt-modal__head wt-modal__head--sub">…<h2 class="wt-modal__title">Fri, Nov 20</h2></div>
+  <div class="wt-wheels" role="group" aria-label="Time">
+    <div class="wt-wheel" tabindex="0" role="spinbutton" aria-label="Hour" aria-valuetext="1">
+      <div class="wt-wheel__item">12</div><div class="wt-wheel__item is-on">1</div> …</div>
+    <!-- Minute: 00, 05 … 55; AM or PM -->
+  </div>
+  <button class="wt-btn wt-btn--primary wt-btn--block wt-when-page__done">Done</button></div>
+```
+
+- **The row** (`.wt-when`) is two pickers side by side, `.wt-picker--text` with no chevron: the day (`__date`) takes the room, the time (`__time`) follows it. The day reads `Fri, Nov 20`, with the year when it isn't this one; the time `1:00 PM`. The value lives in a hidden input. The picker that's open (`aria-expanded="true"`) has the focus border.
+- **A day, then a time.** Tapping the day opens the month; picking a day goes straight on to the time, since a new day usually wants a new time too. Tapping the time goes there alone. Back on the time goes back to the month it came from, and from the month to the form. **Nothing changes until Done**, which sets both; Back from the month, or Esc, leaves the field as it was.
+- **The page** (`.wt-when-page`) takes the place of the form, like a picker's options: a sub-head with Back, then the month or the wheels. The month's title is the field's label; the time's is the day picked. On a computer it's a menu under the row (`.wt-menu`), with no head, and the row shows the draft as it changes.
+- **The month** (`.wt-cal`): its name with ‹ › after it (disabled at the edge of what can be picked), the weekdays' letters, then its days, Sunday first. The day set is black (`aria-pressed="true"`), like the one primary button; today has a black ring (`aria-current="date"`), like now in the timeline; a day with stops has a dot under its number (`.has-stops`), so a trip's days are easy to find. Days that can't be picked are `disabled`, in light grey. One day is in the tab order (`tabindex="0"`): ← → ↑ ↓ move a day or a week, Page Up and Page Down a month.
+- **The wheels** (`.wt-wheels`, one `.wt-wheel` per column): hour, minute and AM/PM, each a column that scrolls and snaps into the grey band across the middle (`--wt-surface-current`, the grey of a selected row). The value in the band is `.is-on`, in primary ink; the rest are tertiary. Minutes go in fives, plus the value's own minute when it's between, so a 10:42 flight keeps its 42. Tap a value to bring it to the band; each wheel is a `spinbutton` with its value in `aria-valuetext`, stepped by ↑ ↓.
+- In the app, `whenHTML` and `whenPicker` in `app/web/app.js` build and wire one.
 
 ### Trip header `.wt-trip-head`, bottom sheet `.wt-sheet` and add bar `.wt-add-bar`
 
@@ -945,6 +991,15 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 11.1.0
+
+A day and a time are picked as in a calendar app, a day and then a time, rather than in the browser's date-and-time field.
+
+- New: `.wt-when` (with `__date` and `__time`), `.wt-when-page` (and `__done`), the month `.wt-cal` (`__head`, `__month`, `__grid`, `__wd`, `__day`, `__n`, `.has-stops`) and the wheels `.wt-wheels`, `.wt-wheel` and `.wt-wheel__item` (`.is-on`).
+- New: `.wt-field__label--split` and `.wt-field__aside`, for something on the right of a field's label (a hotel's nights beside Check-out).
+- Fixed: `.wt-modal__head--sticky` sticks at the sheet's very top, over its top padding, so fields no longer show above the title as they scroll.
+- Tokens are unchanged.
 
 ### Changed in 11.0.0
 

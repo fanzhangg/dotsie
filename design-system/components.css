@@ -1,4 +1,4 @@
-/* Waythread design system — components v11.0.0
+/* Waythread design system — components v11.1.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -466,6 +466,81 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
   .wt-picker[aria-haspopup] > .wt-icon:last-child { transform: rotate(90deg); }
 }
 
+/* ---------- When: a day and a time, picked in that order, as in a calendar app ---------- */
+/* The row: two pickers side by side, the day taking the room and the time after it, with no chevrons
+   ("Fri, Nov 20" · "1:00 PM"). Tapping the day opens the month (.wt-cal); picking a day goes on to the time (.wt-wheels),
+   which Done sets. On a phone each is a page of the sheet (.wt-when-page), on a computer a menu under the row. */
+.wt-when { display: flex; gap: var(--wt-space-2); }
+.wt-when > .wt-picker { width: auto; font-variant-numeric: tabular-nums; }
+.wt-when__date { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-when__time { flex: none; }
+.wt-when > .wt-picker[aria-expanded="true"] { border-color: var(--wt-border-focus); background: var(--wt-surface-raised); }
+/* A label with something on its right: a hotel's nights beside Check-out */
+.wt-field__label--split { display: flex; justify-content: space-between; gap: var(--wt-space-3); }
+.wt-field__aside { color: var(--wt-text-secondary); }
+.wt-when-page[hidden] { display: none; }
+.wt-when-page__done { margin-top: var(--wt-space-4); }
+/* As a page, it takes the bottom padding the stop sheet's sticky actions would, home indicator and all */
+.wt-when-page:not(.wt-menu) { padding-bottom: calc(var(--wt-space-4) + env(safe-area-inset-bottom, 0px)); }
+.wt-menu.wt-when-page { max-height: none; overflow: visible; padding: var(--wt-space-2); }
+.wt-menu .wt-when-page__done { margin-top: var(--wt-space-2); min-height: 40px; }
+
+/* Month: its name with ‹ › after it, the weekdays' letters, then its days. The day set is black, like the main
+   button; today has a ring, like now in the timeline; a day with stops has a dot under its number. Days that can't be
+   picked (a check-out more than 30 nights on) are light grey. */
+.wt-cal__head { display: flex; align-items: center; gap: var(--wt-space-1); padding: 0 0 var(--wt-space-1) var(--wt-space-2); }
+.wt-cal__month { flex: 1; font: var(--wt-type-name); }
+.wt-cal__head .wt-icon-btn:disabled { opacity: .35; cursor: default; }
+.wt-cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.wt-cal__wd { height: 28px; display: grid; place-items: center; font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+.wt-cal__day {
+  --wt-cal-size: 40px;
+  position: relative; display: grid; place-items: start center; height: calc(var(--wt-cal-size) + 8px); margin: 0; padding: 2px 0 0;
+  font: var(--wt-type-body); font-variant-numeric: tabular-nums; color: var(--wt-text-primary);
+  background: none; border: 0; cursor: pointer;
+}
+.wt-cal__n {
+  display: grid; place-items: center; width: var(--wt-cal-size); height: var(--wt-cal-size); border-radius: var(--wt-radius-round);
+  transition: background var(--wt-duration-fast);
+}
+.wt-cal__day:active .wt-cal__n { background: var(--wt-surface-hover); }
+@media (hover: hover) { .wt-cal__day:hover:not(:disabled) .wt-cal__n { background: var(--wt-surface-sunken); } }
+.wt-cal__day.has-stops::after {
+  content: ''; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px;
+  border-radius: var(--wt-radius-round); background: var(--wt-text-tertiary);
+}
+.wt-cal__day[aria-current="date"] .wt-cal__n { box-shadow: inset 0 0 0 1.5px var(--wt-now); }
+.wt-cal__day[aria-pressed="true"] .wt-cal__n { background: var(--wt-surface-inverse); color: var(--wt-text-inverse); font-weight: 600; }
+.wt-cal__day:disabled { color: var(--wt-text-past); cursor: default; }
+.wt-cal__day:focus-visible { outline: none; }
+.wt-cal__day:focus-visible .wt-cal__n { outline: 2px solid var(--wt-border-focus); outline-offset: 1px; }
+.wt-menu .wt-cal__day { --wt-cal-size: 34px; }
+
+/* Wheels: hour, minute and AM/PM, each a column that scrolls and snaps, the one set in the grey band across the
+   middle (the grey of a selected row). Tap a value to bring it to the band; ↑ ↓ step it. */
+.wt-wheels {
+  --wt-wheel-item: 44px;
+  position: relative; display: flex; justify-content: center; gap: var(--wt-space-2); height: calc(5 * var(--wt-wheel-item));
+}
+.wt-wheels::before {
+  content: ''; position: absolute; left: 0; right: 0; top: calc(2 * var(--wt-wheel-item)); height: var(--wt-wheel-item);
+  border-radius: var(--wt-radius-md); background: var(--wt-surface-current); pointer-events: none;
+}
+.wt-wheel {
+  position: relative; width: 72px; height: 100%; overflow-y: auto; overscroll-behavior: contain;
+  padding: calc(2 * var(--wt-wheel-item)) 0; scroll-snap-type: y mandatory; scrollbar-width: none; border-radius: var(--wt-radius-md);
+}
+.wt-wheel::-webkit-scrollbar { display: none; }
+.wt-wheel:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: -2px; }
+.wt-wheel__item {
+  height: var(--wt-wheel-item); display: grid; place-items: center; scroll-snap-align: center;
+  font: var(--wt-type-input); font-size: 20px; font-variant-numeric: tabular-nums; color: var(--wt-text-tertiary);
+  cursor: pointer; user-select: none; -webkit-user-select: none; transition: color var(--wt-duration-fast);
+}
+.wt-wheel__item.is-on { color: var(--wt-text-primary); font-weight: 500; }
+.wt-menu .wt-wheels { --wt-wheel-item: 36px; }
+.wt-menu .wt-wheel__item { font-size: 17px; }
+
 /* ---------- Option: one row for every choice in a list, a place to go as much as a type to be ---------- */
 /* marker · label over detail · check. Search results and the type list are both made of it, so a place and its
    type read the same everywhere: a result's marker is the type it will get. The grey row is "this one", as in
@@ -736,8 +811,9 @@ ul.wt-results { list-style: none; margin: var(--wt-space-1) 0 0; padding: 0; }
    them, so Close and Save are always in reach. Put --sticky on the head and the actions; the actions take over
    the sheet's bottom padding. */
 .wt-modal:has(.wt-modal__actions--sticky) { padding-bottom: 0; }
+/* It sticks at the sheet's very top, over its top padding, so nothing scrolls by above it */
 .wt-modal__head--sticky {
-  position: sticky; top: 0; z-index: 1;
+  position: sticky; top: calc(-1 * var(--wt-modal-pad-top)); z-index: 1;
   margin-top: calc(-1 * var(--wt-modal-pad-top)); padding-top: var(--wt-modal-pad-top);
   background: var(--wt-surface-raised);
 }
