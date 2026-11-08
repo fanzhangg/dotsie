@@ -67,6 +67,56 @@ function nowStamp() {
   const real = toInput(new Date());
   return `${TODAY || real.slice(0, 10)}T${NOW_HM || real.slice(11)}`;
 }
+// ---------- Time zones: a stop's time is the clock time where it is ----------
+// Its zone is its place's own, looked up from where it is (tzlookup, tz-lookup.js), unless someone set another (`tz`).
+// Times show as they're written, the way a ticket or a booking says them; what's in order, a drive that won't make it,
+// and what's happening now go by the moment each one is, so a flight from Los Angeles at 10:00 that lands in New York
+// at 18:30 takes 5½ hours, not 8½. With no lookup (the file didn't load), every place is in this device's zone.
+const DEVICE_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+const zoneOk = new Map(), placeZones = new Map(), zoneFmts = new Map(), instants = new Map();
+function knownZone(z) {
+  if (!zoneOk.has(z)) { try { new Intl.DateTimeFormat('en-US', { timeZone: z }); zoneOk.set(z, true); } catch { zoneOk.set(z, false); } }
+  return zoneOk.get(z);
+}
+function placeZone(lat, lng) {
+  if (lat == null || lng == null || typeof tzlookup !== 'function') return DEVICE_ZONE;
+  const k = `${(+lat).toFixed(3)},${(+lng).toFixed(3)}`;
+  if (!placeZones.has(k)) { let z = DEVICE_ZONE; try { z = tzlookup(+lat, +lng); } catch {} placeZones.set(k, knownZone(z) ? z : DEVICE_ZONE); }
+  return placeZones.get(k);
+}
+const zoneOf = s => (s.tz && knownZone(s.tz) ? s.tz : placeZone(s.lat, s.lng));
+// How far `zone` is ahead of UTC at the moment `ms`, in ms
+function zoneAhead(zone, ms) {
+  let f = zoneFmts.get(zone);
+  if (!f) zoneFmts.set(zone, f = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }));
+  const p = Object.fromEntries(f.formatToParts(ms).map(x => [x.type, +x.value]));
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute) - Math.floor(ms / 60000) * 60000;
+}
+// The moment a clock time in `zone` is, in ms. (A time skipped when the clocks go forward counts as the hour after.)
+function instantOf(t, zone) {
+  const k = `${t}|${zone}`;
+  if (!instants.has(k)) {
+    const [d, hm = '00:00'] = t.split('T'), [y, m, dd] = d.split('-').map(Number), [h, mi] = hm.split(':').map(Number);
+    const wall = Date.UTC(y, m - 1, dd, h, mi);
+    let ms = wall - zoneAhead(zone, wall);
+    ms = wall - zoneAhead(zone, ms);
+    if (instants.size > 5000) instants.clear();
+    instants.set(k, ms);
+  }
+  return instants.get(k);
+}
+const momentOf = s => instantOf(s.time, zoneOf(s));
+// "Now", as a moment. Pretending (?today=, &now=) puts each clock at that time, as nowStamp does.
+const nowIn = zone => (TODAY || NOW_HM ? instantOf(nowStamp(), zone) : Date.now());
+// A zone's short name at a moment ("MST", "GMT+9"), and its long one ("Mountain Standard Time")
+function zoneName(zone, ms, style = 'short') {
+  const k = `${zone}|${style}`;
+  if (!zoneFmts.has(k)) zoneFmts.set(k, new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: style }));
+  return zoneFmts.get(k).formatToParts(ms).find(x => x.type === 'timeZoneName')?.value || zone;
+}
+// The city in a zone's name ("America/Argentina/Buenos_Aires" → "Buenos Aires")
+const zoneCity = z => z.split('/').at(-1).replace(/_/g, ' ');
+
 function fmtRange(start, end) {
   if (!start) return '';
   const a = toDate(start), b = toDate(end);
@@ -129,7 +179,8 @@ function upsertLocal(stop) {
   if (i < 0) cur.stops.push(stop); else cur.stops[i] = stop;
 }
 
-const stopsOf = trip => [...trip.stops].sort((a, b) => a.time.localeCompare(b.time) || a.id.localeCompare(b.id));
+// In the order they happen (see Time zones)
+const stopsOf = trip => [...trip.stops].sort((a, b) => momentOf(a) - momentOf(b) || a.time.localeCompare(b.time) || a.id.localeCompare(b.id));
 
 // ---------- Days: the trip screen shows one day at a time ----------
 const dayOf = s => s.time.slice(0, 10);
@@ -251,6 +302,8 @@ function guessKind(name = '', cat = '') {
   return 'place';
 }
 // Untyped stops are guessed from the name; a bare town with "Lunch" in its note is a meal.
+// How long you're at a stop, in minutes, when someone said; a hotel's stay is its nights instead
+const stayOf = s => (kindOf(s) !== 'hotel' && s.duration > 0 ? s.duration : null);
 const kindOf = s => (KINDS[s.kind] ? s.kind : guessKind(s.name) !== 'place' ? guessKind(s.name) : /\b(breakfast|brunch|lunch|dinner)\b/i.test(s.note || '') ? 'restaurant' : 'place');
 const kindColor = s => `var(--wt-kind-${kindOf(s)})`;
 const kindIcon = (s, size = 16) => WaythreadIcons.svg(KINDS[kindOf(s)].icon, size);
@@ -1895,10 +1948,16 @@ function showWholeDay() {
 }
 
 const timeHTML = t => fmtTime(t).replace(/ (AM|PM)$/, '<span class="wt-tl-meridiem">$1</span>');
+// A stop's zone ("EST") shows after its time where the clocks change: when it isn't the zone of the stop before it, or,
+// for the trip's first stop, of this device. Elsewhere a time is in the same zone as the one above it.
+function zoneShown(trip, s) {
+  const all = stopsOf(trip), i = all.indexOf(s), ms = momentOf(s), name = zoneName(zoneOf(s), ms);
+  const before = i > 0 ? zoneName(zoneOf(all[i - 1]), ms) : zoneName(DEVICE_ZONE, ms);
+  return name === before ? '' : name;
+}
 const markerHTML = (s, cls) => `<i class="wt-marker ${cls}" role="img" aria-label="${KINDS[kindOf(s)].label}" style="--wt-kind-color: ${kindColor(s)}">${kindIcon(s)}</i>`;
 
 // ---------- Timeline: rail · stop · time. Each stop's marker is its pin on the map: same icon, same color. ----------
-const gapMin = (a, b) => (toDate(b) - toDate(a)) / 60000;
 // A drive reads as a sentence ("1 hr 49 min drive"), with a small car on the rail, and says when it won't make it.
 // Another way of getting there says so instead: "12 min walk", with someone walking on the rail; transit and flights
 // have no time, so they're just "Transit" and "Flight".
@@ -1912,6 +1971,7 @@ function driveItem(day, leg) {
   return {
     // when you set off (until the route is in, no earlier than you arrive); the drive back to the hotel has no time, so it comes last
     start: leg.leave || leg.arrive || (toEntry.role === 'night' ? `${day}T23:58` : fromEntry.place.time),
+    tz: zoneOf(leg.leave || leg.arrive ? to : fromEntry.place),
     html: ({ past, now }) => `<div class="${cls.join(' ')}${rowState(past, now)}" data-leg="${esc(leg.key)}" data-action="leg" tabindex="0" role="button" aria-pressed="${state.leg === leg.key}" aria-label="${time ? `${time} ${T.noun}` : T.noun} to ${esc(to.name)}. Show the route on the map">
       <span class="wt-tl-rail"><i class="wt-tl-car">${travelIcon(mode)}</i></span>
       <span class="wt-tl-drive__body">
@@ -1956,25 +2016,27 @@ const linksHTML = links => `<span class="wt-tl-links">${links.map(l => `<a class
 // A row from another day than the one on screen can say which day in place of the time.
 // Tapping it selects it: the row and its pin are highlighted, and Add stop becomes Open in Maps and Edit stop. Tapping it again keeps it selected.
 // It's a div acting as a button, like a drive, since a link in its note can't sit inside a <button>.
-function stopRow(s, { key, past, now, sel }, note, time, timeDay, links = []) {
+function stopRow(s, { key, past, now, sel }, note, time, timeDay, links = [], zone = '') {
   const notes = note.filter(Boolean), marker = markerHTML(s, 'wt-tl-marker'), linked = links.length > 0;
   return `<div class="wt-tl-stop${sel ? ' is-selected' : ''}${rowState(past, now)}" data-action="select" data-id="${esc(s.id)}" data-row="${esc(key)}"${key === s.id ? ' data-stop' : ''} tabindex="0" role="button" aria-pressed="${!!sel}" style="--wt-kind-color: ${kindColor(s)}">
       <span class="wt-tl-rail">${marker}</span>
       <span class="wt-tl-name">${esc(s.name)}</span>${notes.length || linked ? `<span class="wt-tl-notes">${linked ? LINKS_HINT : ''}${notes.map(n => `<span class="wt-tl-note">${noteHTML(n)}</span>`).join('')}</span>` : ''}${linked ? linksHTML(links) : ''}
-      <span class="wt-tl-time">${time ? timeHTML(time) : ''}${timeDay ? `<span class="wt-tl-time__day">${esc(timeDay)}</span>` : ''}</span>
+      <span class="wt-tl-time">${time ? timeHTML(time) : ''}${zone ? `<span class="wt-tl-zone">${esc(zone)}</span>` : ''}${timeDay ? `<span class="wt-tl-time__day">${esc(timeDay)}</span>` : ''}</span>
     </div>`;
 }
 // `note` false leaves out the stop's own note and links (the overview), keeping a hotel's nights.
 function stopItem(trip, s, { note = true } = {}) {
   const stay = kindOf(s) === 'hotel' && staysOf(trip).find(st => st.s === s);
   const nights = stay && stay.nights > 0 && `${stay.nights} ${stay.nights === 1 ? 'night' : 'nights'}`;
-  return { start: s.time, html: row => stopRow(s, row, [nights, note && s.note], s.time, null, note ? s.links : []) };
+  const long = stayOf(s) && fmtDur(stayOf(s) * 60);
+  return { start: s.time, tz: zoneOf(s), html: row => stopRow(s, row, [nights || long, note && s.note], s.time, null, note ? s.links : [], zoneShown(trip, s)) };
 }
 // The hotel at either end of a day: where you wake up, and where you go back to at night. It has no time,
 // except on check-out morning, the one with something to do: `Check out`, at the check-out time. Tapping it selects the hotel.
 function hotelItem(day, entry) {
   return {
     start: entry.role === 'night' ? `${day}T23:59` : entry.at || `${day}T00:00`,
+    tz: zoneOf(entry.place),
     html: row => stopRow(entry.place, row, [entry.role === 'checkout' && 'Check out'], entry.role === 'checkout' ? `${day}T${checkoutOf(entry.place)}` : null),
   };
 }
@@ -1982,7 +2044,7 @@ function hotelItem(day, entry) {
 // (or the weekday, when there's a day with no stops in between).
 function fromItem(day, entry) {
   const d = dayOf(entry.place), when = d === addDays(day, -1) ? 'Yesterday' : DAYS[toDate(d).getDay()];
-  return { start: `${day}T00:00`, html: row => stopRow(entry.place, row, [], null, when) };
+  return { start: `${day}T00:00`, tz: zoneOf(entry.place), html: row => stopRow(entry.place, row, [], null, when) };
 }
 // The selected stop, if it's still in the trip (a co-editor may have deleted it).
 const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.sel)) || null;
@@ -2064,7 +2126,7 @@ function morphRow(row, before) {
 // The map dims the same drives and stops.
 // `note` false leaves out the stops' own notes, as on the overview.
 function dayItems(trip, day, { note = true } = {}) {
-  const now = nowStamp(), today = now.slice(0, 10);
+  const today = nowStamp().slice(0, 10);
   const legs = new Map(dayLegs(trip, day).map(l => [l.key, l]));
   const items = [];
   const plan = dayPlan(trip, day);
@@ -2076,7 +2138,7 @@ function dayItems(trip, day, { note = true } = {}) {
     else if (e.role === 'from') { if (!samePlace(e.place, plan[i + 1].place)) items.push({ entry: e, ...fromItem(day, e) }); }
     else items.push({ entry: e, ...hotelItem(day, e) });
   });
-  const cur = day === today ? items.findLastIndex(it => it.start <= now) : -1;
+  const cur = day === today ? items.findLastIndex(it => instantOf(it.start, it.tz) <= nowIn(it.tz)) : -1;
   items.forEach((it, i) => { it.past = day < today || i < cur; it.now = i === cur; });
   return items;
 }
@@ -2086,14 +2148,14 @@ function dayItems(trip, day, { note = true } = {}) {
 // in the middle of a stay, shows the hotel you wake up at. Tapping a day's name opens the day; tapping a stop
 // selects it, and tapping a drive shows its route, as on a day. Past and now are worked out as on a day, among the rows shown.
 function overviewItems(trip) {
-  const now = nowStamp(), today = now.slice(0, 10), items = [];
+  const today = nowStamp().slice(0, 10), items = [];
   for (const d of daysOf(trip)) {
     const all = dayItems(trip, d, { note: false }), legs = new Map(dayLegs(trip, d).map(l => [l.key, l]));
     let rows = all.filter(it => it.entry && (it.entry.role === 'stop' || it.entry.role === 'checkout'));
     if (!rows.length) rows = all.filter(it => it.entry?.role === 'wake');
     const shown = new Set(rows.map(it => it.entry.key));
     const its = all.filter(it => (it.leg ? shown.has(legs.get(it.leg).fromEntry.key) && shown.has(it.leg) : shown.has(it.entry.key)));
-    const at = d === today ? its.findLastIndex(it => it.start <= now) : -1;
+    const at = d === today ? its.findLastIndex(it => instantOf(it.start, it.tz) <= nowIn(it.tz)) : -1;
     its.forEach((it, i) => { it.past = d < today || i < at; it.now = i === at; });
     items.push({ html: () => dayHeadHTML(d, d < today) }, ...its);
   }
@@ -2799,7 +2861,8 @@ function drawDraft() {
 }
 const legCoords = l => (l.r ? l.r.coords : [[l.from.lat, l.from.lng], [l.to.lat, l.to.lng]]);
 // Minutes a drive runs past the next stop's time, between two of the day's stops
-const lateMin = l => (l.r && l.fromEntry.role === 'stop' && l.toEntry.role === 'stop' ? Math.round(l.r.duration / 60 - gapMin(l.from.time, l.to.time)) : 0);
+// How late a drive gets you there: it sets off when the stop before it ends (its time, plus how long you're there)
+const lateMin = l => (l.r && l.fromEntry.role === 'stop' && l.toEntry.role === 'stop' ? Math.round(l.r.duration / 60 - (momentOf(l.to) - momentOf(l.from)) / 60000 + (stayOf(l.from) || 0)) : 0);
 // Fit a route into the part of the map you can see, with room around its ends for their pins.
 // From a tap on the map, only when an end is out of view, so the map doesn't jump under your finger.
 function fitLeg(l, onlyIfHidden = false) {
@@ -3122,7 +3185,7 @@ function addStop(trip, data) {
 // Only the fields this person changed (against the stop as they opened it) are sent, so a
 // co-editor's edit to another field of the same stop survives.
 function editStop(trip, stop, fields) {
-  const changed = Object.fromEntries(Object.entries(fields).filter(([k, v]) => (k === 'links' ? JSON.stringify(stop.links || []) !== JSON.stringify(v) : stop[k] !== v)));
+  const changed = Object.fromEntries(Object.entries(fields).filter(([k, v]) => (k === 'links' ? JSON.stringify(stop.links || []) !== JSON.stringify(v) : (stop[k] ?? null) !== (v ?? null))));
   if (!Object.keys(changed).length) return;
   const target = openTripOf(trip.id)?.stops.find(s => s.id === stop.id);
   if (target) Object.assign(target, changed, { by: me.id });
@@ -3136,10 +3199,10 @@ function deleteStop(trip, stop) {
   save(api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'DELETE' }));
   // Undo puts the same stop back under its old id
   toast(`Deleted ${stop.name}`, 'Undo', () => {
-    const { name, address, lat, lng, time, note, kind, nights, checkout = null, back = {}, links = [], wikidata = null } = stop, travel = travelOf(stop);
+    const { name, address, lat, lng, time, tz = null, duration = null, note, kind, nights, checkout = null, back = {}, links = [], wikidata = null } = stop, travel = travelOf(stop);
     openTripOf(trip.id)?.stops.push({ ...stop, by: me.id });
     render();
-    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, note, kind, nights, checkout, travel, back, links, wikidata } }));
+    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, tz, duration, note, kind, nights, checkout, travel, back, links, wikidata } }));
   });
 }
 
@@ -3479,6 +3542,10 @@ const ON_THE_WAY_KM = 5;
 
 // A hotel you add starts at a 3 PM check-in, and checks out at 11 AM unless you set another time.
 const HOTEL_CHECK_IN = '15:00', HOTEL_CHECK_OUT = '11:00';
+// A stop's Duration is one of these, in minutes (or one saved by an assistant), or none
+const DURATIONS = [15, 30, 45, 60, 90, 120, 150, 180, 240, 300, 360, 480];
+// Every time zone, for a stop whose times are on a clock other than its place's
+const ALL_ZONES = Intl.supportedValuesOf?.('timeZone') || [];
 const checkoutOf = s => s.checkout || HOTEL_CHECK_OUT;
 
 // ---------- Choices: every pick from a list is a picker row that opens its options ----------
@@ -3552,6 +3619,194 @@ function choicePage(sheet, { main, page, picker, onPick }) {
   return { mark: value => { for (const b of page.querySelectorAll('[data-value]')) b.setAttribute('aria-checked', b.dataset.value === value); } };
 }
 
+// ---------- When: a day, then a time, as in a calendar app ----------
+// A stop's Arrive (and a hotel's Check-out) is one row of two pickers, the day and the time ("Fri, Nov 20" · "1:00 PM"),
+// over a hidden input holding "YYYY-MM-DDTHH:MM". Tapping the day opens the month, and picking a day goes straight on to
+// the time; tapping the time goes there alone. The time is three wheels, hour, minute and AM/PM, and Done sets the day and
+// time together. Back steps back (from the time to the month it came from, from the month to the form), and nothing
+// changes until Done. On a phone each step is a page of the sheet, like a picker's options; on a computer it drops down
+// under the row as a menu, and the row shows the draft as it changes. See "When" in the design system.
+// `marks()` is the days that have stops, dotted in the month; `limits()` the earliest and latest it can be ({ min, max }).
+const fmtDate = t => `${fmtDay(t)}${t.slice(0, 4) === nowStamp().slice(0, 4) ? '' : `, ${t.slice(0, 4)}`}`;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const addMonths = (month, n) => { const d = new Date(+month.slice(0, 4), +month.slice(5, 7) - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+function whenPicker(sheet, { main, field, input, marks = () => new Set(), limits = () => ({}) }) {
+  const dateBtn = field.querySelector('[data-when-date]'), timeBtn = field.querySelector('[data-when-time]');
+  const label = field.querySelector('[data-when-label]'), home = main.parentElement;
+  const page = Object.assign(document.createElement('div'), { className: 'wt-when-page', hidden: true });
+  let draft = '', step = null, month = '', fromDate = false, menu = false, scrollBack = 0;
+  for (const b of [dateBtn, timeBtn]) { b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false'); }
+
+  const paint = () => {
+    const v = step ? draft : input.value;
+    dateBtn.textContent = v ? fmtDate(v) : '';
+    timeBtn.textContent = v ? fmtTime(v) : '';
+  };
+  const outside = e => { if (!page.contains(e.target) && !field.querySelector('.wt-when').contains(e.target)) close(false, false); };
+  function open(which) {
+    draft = input.value;
+    month = draft.slice(0, 7);
+    fromDate = false;
+    menu = wideScreen.matches;
+    if (menu) { field.append(page); document.addEventListener('pointerdown', outside, true); }
+    else { home.append(page); scrollBack = sheet.scrollTop; main.hidden = true; }
+    page.classList.toggle('wt-menu', menu);
+    page.hidden = false;
+    show(which);
+  }
+  function show(which) {
+    step = which;
+    if (which === 'date') month = draft.slice(0, 7);
+    dateBtn.setAttribute('aria-expanded', which === 'date');
+    timeBtn.setAttribute('aria-expanded', which === 'time');
+    page.innerHTML = which === 'date' ? monthHTML() : timeHTML();
+    if (!menu) sheet.scrollTop = 0;
+    if (which === 'time') wheels();
+    (page.querySelector('.wt-cal__day[tabindex="0"]') || page.querySelector('.wt-wheel'))?.focus({ preventScroll: true });
+    if (menu) page.scrollIntoView({ block: 'nearest' });
+    paint();
+  }
+  function close(apply, refocus = true) {
+    if (!step) return;
+    const was = step;
+    step = null;
+    if (menu) document.removeEventListener('pointerdown', outside, true);
+    else main.hidden = false;
+    page.hidden = true;
+    page.innerHTML = '';
+    if (!menu) sheet.scrollTop = scrollBack;
+    dateBtn.setAttribute('aria-expanded', 'false');
+    timeBtn.setAttribute('aria-expanded', 'false');
+    if (apply && draft !== input.value) { input.value = draft; input.dispatchEvent(new Event('input')); }
+    paint();
+    if (refocus) (was === 'date' ? dateBtn : timeBtn).focus();
+  }
+  const back = () => (step === 'time' && fromDate ? show('date') : close(false));
+  const head = title => `<div class="wt-modal__head wt-modal__head--sub wt-modal__head--sticky"><button type="button" class="wt-icon-btn" data-when-back aria-label="Back">${ICON.back}</button><h2 class="wt-modal__title">${esc(title)}</h2></div>`;
+
+  // ----- The month: a grid of its days, Sunday first. The day set is black, today has a ring, a day with stops a dot. -----
+  function monthHTML() {
+    const [y, m] = month.split('-').map(Number), lead = new Date(y, m - 1, 1).getDay(), n = new Date(y, m, 0).getDate();
+    const { min, max } = limits(), lo = min?.slice(0, 10), hi = max?.slice(0, 10);
+    const sel = draft.slice(0, 10), today = nowStamp().slice(0, 10), has = marks();
+    const focusDay = sel.startsWith(month) ? sel : today.startsWith(month) && !(lo && today < lo) && !(hi && today > hi) ? today
+      : lo?.startsWith(month) ? lo : `${month}-01`;
+    let cells = '<span></span>'.repeat(lead);
+    for (let d = 1; d <= n; d++) {
+      const day = `${month}-${pad(d)}`, off = (lo && day < lo) || (hi && day > hi);
+      cells += `<button type="button" class="wt-cal__day${has.has(day) ? ' has-stops' : ''}" data-cal-day="${day}" aria-pressed="${day === sel}"${day === today ? ' aria-current="date"' : ''} tabindex="${day === focusDay ? 0 : -1}" aria-label="${fmtDay(day)}${has.has(day) ? ', has stops' : ''}"${off ? ' disabled' : ''}><span class="wt-cal__n">${d}</span></button>`;
+    }
+    return `${head(label.textContent)}
+      <div class="wt-cal">
+        <div class="wt-cal__head"><span class="wt-cal__month" aria-live="polite">${MONTH_NAMES[m - 1]} ${y}</span>
+          <button type="button" class="wt-icon-btn" data-month="-1" aria-label="Previous month"${lo && lo >= `${month}-01` ? ' disabled' : ''}>${ICON.back}</button>
+          <button type="button" class="wt-icon-btn" data-month="1" aria-label="Next month"${hi && hi.slice(0, 7) <= month ? ' disabled' : ''}>${ICON.forward}</button></div>
+        <div class="wt-cal__grid" role="group" aria-label="${MONTH_NAMES[m - 1]} ${y}">
+          ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w, i) => `<span class="wt-cal__wd" aria-hidden="true">${w}</span>`).join('')}${cells}</div>
+      </div>`;
+  }
+  // ← → ↑ ↓ move a day or a week, Page Up and Page Down a month, moving the month with it
+  function moveTo(day) {
+    const { min, max } = limits();
+    if (min && day < min.slice(0, 10)) day = min.slice(0, 10);
+    if (max && day > max.slice(0, 10)) day = max.slice(0, 10);
+    if (!day.startsWith(month)) { month = day.slice(0, 7); page.innerHTML = monthHTML(); }
+    page.querySelectorAll('.wt-cal__day[tabindex="0"]').forEach(b => { b.tabIndex = -1; });
+    const b = page.querySelector(`[data-cal-day="${day}"]`);
+    if (b) { b.tabIndex = 0; b.focus(); }
+  }
+
+  // ----- The time: hour, minute (every 5, and the stop's own if it's between) and AM/PM, each a wheel that snaps -----
+  let cols = [];
+  function timeHTML() {
+    const h = +draft.slice(11, 13), mi = +draft.slice(14, 16);
+    const mins = [...new Set([...Array(12).keys()].map(i => i * 5).concat(mi))].sort((a, b) => a - b);
+    cols = [
+      { name: 'Hour', values: [...Array(12).keys()], text: v => String(v || 12), at: h % 12 },
+      { name: 'Minute', values: mins, text: pad, at: mi },
+      { name: 'AM or PM', values: [0, 12], text: v => (v ? 'PM' : 'AM'), at: h < 12 ? 0 : 12 },
+    ];
+    const wheel = c => `<div class="wt-wheel" tabindex="0" role="spinbutton" aria-label="${c.name}">${c.values.map((v, i) => `<div class="wt-wheel__item" data-i="${i}">${c.text(v)}</div>`).join('')}</div>`;
+    return `${head(fmtDate(draft))}
+      <div class="wt-wheels" role="group" aria-label="Time">${cols.map(wheel).join('')}</div>
+      <button type="button" class="wt-btn wt-btn--primary wt-btn--block wt-when-page__done" data-when-done>Done</button>`;
+  }
+  function wheels() {
+    page.querySelectorAll('.wt-wheel').forEach((el, k) => {
+      const c = cols[k], items = [...el.children], size = () => items[0].offsetHeight || 44;
+      c.el = el;
+      c.i = Math.max(0, c.values.indexOf(c.at));
+      const mark = () => {
+        items.forEach((it, i) => it.classList.toggle('is-on', i === c.i));
+        el.setAttribute('aria-valuetext', c.text(c.values[c.i]));
+      };
+      const go = (i, smooth = true) => el.scrollTo({ top: Math.max(0, Math.min(items.length - 1, i)) * size(), behavior: smooth && !reduceMotion.matches ? 'smooth' : 'instant' });
+      c.go = go;
+      el.scrollTop = c.i * size();
+      mark();
+      let frame = 0;
+      el.addEventListener('scroll', () => {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          const i = Math.max(0, Math.min(items.length - 1, Math.round(el.scrollTop / size())));
+          if (i === c.i) return;
+          c.i = i;
+          mark();
+          const [hr, mn, ap] = cols.map(x => x.values[x.i]);
+          draft = `${draft.slice(0, 11)}${pad(hr + ap)}:${pad(mn)}`;
+          paint();
+        });
+      });
+      el.addEventListener('click', e => { const it = e.target.closest('[data-i]'); if (it) go(+it.dataset.i); });
+      el.addEventListener('keydown', e => {
+        const step = { ArrowUp: -1, ArrowDown: 1, PageUp: -3, PageDown: 3, Home: -99, End: 99 }[e.key];
+        if (step == null) return;
+        e.preventDefault();
+        go(c.i + step);
+      });
+    });
+  }
+
+  dateBtn.addEventListener('click', () => (step === 'date' ? close(false) : step ? show('date') : open('date')));
+  timeBtn.addEventListener('click', () => (step === 'time' ? close(false) : step ? show('time') : open('time')));
+  page.addEventListener('click', e => {
+    if (e.target.closest('[data-when-back]')) return back();
+    const m = e.target.closest('[data-month]');
+    if (m) { month = addMonths(month, +m.dataset.month); page.innerHTML = monthHTML(); return page.querySelector(`[data-month="${m.dataset.month}"]`).focus(); }
+    const d = e.target.closest('[data-cal-day]');
+    if (d) { draft = d.dataset.calDay + draft.slice(10); fromDate = true; return show('time'); }
+    if (e.target.closest('[data-when-done]')) {
+      // A time before the earliest it can be (a check-out before check-in, on the same day) comes up to it
+      const { min, max } = limits();
+      if (min && draft < min) draft = min;
+      if (max && draft > max) draft = max;
+      close(true);
+    }
+  });
+  page.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.stopPropagation(); return close(false); }
+    const day = e.target.closest?.('[data-cal-day]')?.dataset.calDay;
+    if (!day) return;
+    const by = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
+    if (by) { e.preventDefault(); moveTo(addDays(day, by)); }
+    else if (e.key === 'PageUp' || e.key === 'PageDown') {
+      e.preventDefault();
+      const to = addMonths(day.slice(0, 7), e.key === 'PageUp' ? -1 : 1), last = new Date(+to.slice(0, 4), +to.slice(5, 7), 0).getDate();
+      moveTo(`${to}-${pad(Math.min(+day.slice(8), last))}`);
+    }
+  });
+  page.addEventListener('focusout', e => {
+    if (menu && step && e.relatedTarget && !page.contains(e.relatedTarget) && !field.querySelector('.wt-when').contains(e.relatedTarget)) close(false, false);
+  });
+  return { paint, close: () => close(false, false) };
+}
+
+// A when field: its label, then the day and the time side by side (see whenPicker). `aside` follows the label, on its right.
+const whenHTML = (name, label, cls = '', aside = '', after = '') => `<div class="wt-field${cls}"${cls ? ' hidden' : ''}>
+        <span class="wt-field__label wt-field__label--split"><span id="when-${name}" data-when-label>${label}</span>${aside}</span>
+        <div class="wt-when"><button type="button" class="wt-picker wt-picker--text wt-when__date" data-when-date aria-describedby="when-${name}"></button><button type="button" class="wt-picker wt-picker--text wt-when__time" data-when-time aria-describedby="when-${name}"></button></div>
+        ${after}<input type="hidden" name="${name}"></div>`;
+
 // The stop sheet is a panel: the map stays in view (above it on a phone, beside it on a wide screen) and shows
 // the stop as you edit it, at the place you picked, with the type you chose.
 // The first line is the place, a row like a calendar's Location: tapping it opens a search page, as in a maps app.
@@ -3571,6 +3826,8 @@ function openStopSheet(trip, stop, place = null) {
   $app.querySelector('.trip')?.classList.add('is-editing');
   render();
   const option = k => optionHTML(k, KINDS[k].label, { marker: markerHTML({ kind: k }, ''), detail: KIND_HINTS[k] });
+  const durOption = m => optionHTML(m ? String(m) : '', m ? fmtDur(m * 60) : 'None');
+  const zoneOption = (z, detail) => optionHTML(z, z ? zoneCity(z) : 'Local time', { detail });
   openSheet(`<div class="stop-main">${modalHead(stop ? 'Edit stop' : 'Add stop', true)}
     <form>
       ${stop ? aboutSlot(draft.wikidata, true) : ''}
@@ -3578,8 +3835,10 @@ function openStopSheet(trip, stop, place = null) {
         <button type="button" class="wt-picker wt-picker--text" data-place-open aria-describedby="place-label"></button></div>
       <div class="wt-field"><span class="wt-field__label" id="kind-label">Type</span>
         <button type="button" class="wt-picker" data-kind-open aria-describedby="kind-label"></button></div>
-      <label class="wt-field"><span class="wt-field__label" data-when>Arrive</span><input class="wt-input" name="time" type="datetime-local" required></label>
-      <label class="wt-field wt-stay" hidden><span class="wt-field__label">Check-out</span><input class="wt-input" name="checkout" type="datetime-local"></label>
+      ${whenHTML('time', 'Arrive', '', '', `<button type="button" class="wt-when__zone" data-zone-open aria-describedby="zone-label"><span class="wt-visually-hidden" id="zone-label">Time zone</span><span class="wt-when__zone-name"></span>${ICON.forward}</button>`)}
+      ${whenHTML('checkout', 'Check-out', ' wt-stay', '<span class="wt-field__aside" data-nights></span>')}
+      <div class="wt-field wt-dur"><span class="wt-field__label" id="dur-label">Duration</span>
+        <button type="button" class="wt-picker wt-picker--text" data-dur-open aria-describedby="dur-label"></button></div>
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="2000" placeholder="Confirmation #, tickets, tips…"></textarea></label>
       <div class="wt-field"><span class="wt-field__label" id="links-label">Links</span>
         <div class="wt-link-list" role="group" aria-labelledby="links-label"></div>
@@ -3587,6 +3846,8 @@ function openStopSheet(trip, stop, place = null) {
       <div class="wt-modal__actions wt-modal__actions--sticky">${stop ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${stop ? 'Save' : 'Add'}</button></div>
     </form></div>
     ${choicePageHTML('stop-kinds', 'Type', KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>'))}
+    ${choicePageHTML('stop-durs', 'Duration', '', 'How long you’ll be here. The drive after it leaves when it ends.')}
+    ${choicePageHTML('stop-zones', 'Time zone', '', 'The clock the times are on. Usually the one where the place is, as on a ticket or a booking.')}
     <div class="stop-place" hidden>
       <div class="wt-search-bar">
         <label class="wt-input wt-input-group wt-search">${ICON.search}<input id="stop-place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="place-results" aria-label="Search a place" placeholder="Search a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="200"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden>${ICON.close}</button></label>
@@ -3620,6 +3881,14 @@ function openStopSheet(trip, stop, place = null) {
     let timeTouched = !!stop;
     if (stop) { F.time.value = stop.time; F.note.value = stop.note || ''; }
     else F.time.value = defaultTime(trip, after);
+    // The note grows with what's in it, rather than scrolling in a small box inside the scrolling sheet
+    const growNote = () => {
+      if (main.hidden) return;
+      F.note.style.height = '';
+      F.note.style.height = `${F.note.scrollHeight + F.note.offsetHeight - F.note.clientHeight}px`;
+    };
+    F.note.addEventListener('input', growNote);
+    requestAnimationFrame(growNote);
 
     // ----- Links: a row each, its label over its address, and Add link under them. A label left empty shows the
     // page's site, which its placeholder says once there's an address. Rows left empty are dropped on save. -----
@@ -3680,10 +3949,15 @@ function openStopSheet(trip, stop, place = null) {
     }
 
     // ----- A stop has one time, when you get there: Arrive. A hotel is a stay: Arrive becomes Check-in, then
-    // Check-out, a day and time. The nights are the days between them. Left alone, check-out follows the trip (the
-    // next hotel, or the last day). -----
+    // Check-out, a day and time. The nights are the days between them, shown beside Check-out's label. Left alone,
+    // check-out follows the trip (the next hotel, or the last day). Each is a day and a time, picked in that order
+    // (see whenPicker); the month dots the days that have other stops. -----
     let nights = stop?.nights != null && stop.nights >= 0 ? stop.nights : null, outTime = stop && kindOf(stop) === 'hotel' ? checkoutOf(stop) : HOTEL_CHECK_OUT;
     const stay = el.querySelector('.wt-stay'), inDay = () => F.time.value.slice(0, 10);
+    const marks = () => new Set(stopsOf(cur?.id === trip.id && cur.stops ? cur : trip).filter(s => s.id !== stop?.id).map(dayOf));
+    const whenIn = whenPicker(el, { main, field: F.time.closest('.wt-field'), input: F.time, marks });
+    // Check-out is after check-in, the same day at the earliest, and at most 30 nights later.
+    const whenOut = whenPicker(el, { main, field: stay, input: F.checkout, marks, limits: () => ({ min: F.time.value, max: `${addDays(inDay(), 30)}T23:59` }) });
     let shownIn = inDay();
     function autoNights() {
       const day = inDay(), later = stopsOf(trip).filter(s => s.id !== stop?.id && dayOf(s) > day);
@@ -3693,13 +3967,17 @@ function openStopSheet(trip, stop, place = null) {
     function showNights() {
       const hotel = draft.kind === 'hotel', day = inDay();
       stay.hidden = !hotel;
-      F.checkout.disabled = !hotel; // so a hidden field can't block saving
-      el.querySelector('[data-when]').textContent = hotel ? 'Check-in' : 'Arrive';
-      if (!day) return;
-      // Check-out is after check-in, the same day at the earliest, and at most 30 nights later.
-      F.checkout.min = F.time.value;
-      F.checkout.max = `${addDays(day, 30)}T23:59`;
-      F.checkout.value = `${addDays(day, nights ?? autoNights())}T${outTime}`;
+      F.checkout.disabled = !hotel; // so a hidden field isn't saved
+      el.querySelector('#when-time').textContent = hotel ? 'Check-in' : 'Arrive';
+      if (day) {
+        F.checkout.value = `${addDays(day, nights ?? autoNights())}T${outTime}`;
+        const n = daysBetween(day, F.checkout.value.slice(0, 10));
+        el.querySelector('[data-nights]').textContent = n ? `${n} ${n === 1 ? 'night' : 'nights'}` : 'Same day';
+      }
+      whenIn.paint();
+      whenOut.paint();
+      showDur();
+      showZone();
     }
     F.checkout.addEventListener('input', () => {
       const v = F.checkout.value, day = inDay();
@@ -3708,8 +3986,8 @@ function openStopSheet(trip, stop, place = null) {
       const n = daysBetween(day, v.slice(0, 10));
       // Changing only the time keeps nights following the trip.
       if (nights != null || n !== autoNights()) nights = Math.min(30, Math.max(0, n));
+      showNights();
     });
-    F.checkout.addEventListener('blur', showNights); // an empty or out-of-range day snaps back when you leave it
     F.time.addEventListener('input', () => {
       timeTouched = true;
       // Moving check-in keeps the check-out day, unless that would put it before check-in (or too many nights after): then the nights move with it.
@@ -3721,6 +3999,46 @@ function openStopSheet(trip, stop, place = null) {
       if (day) shownIn = day;
       showNights();
     });
+
+    // ----- Duration: how long you're here, picked from a list, or None. The drive after the stop leaves when it ends.
+    // A hotel has its nights and check-out instead. -----
+    const durPicker = el.querySelector('[data-dur-open]'), durField = durPicker.parentElement, durPage = el.querySelector('.stop-durs');
+    let dur = stop ? stayOf(stop) : null;
+    durPage.querySelector('.wt-options').innerHTML = durOption(null) + '<li class="wt-options__sep" role="presentation"></li>'
+      + [...new Set([...DURATIONS, ...(dur ? [dur] : [])])].sort((a, b) => a - b).map(durOption).join('');
+    const durs = choicePage(el, { main, page: durPage, picker: durPicker, onPick: v => { dur = v ? +v : null; showDur(); } });
+    function showDur() {
+      durField.hidden = draft.kind === 'hotel';
+      const end = dur && F.time.value ? toDate(F.time.value) : null;
+      if (end) end.setMinutes(end.getMinutes() + dur);
+      const until = end && `Until ${fmtClock(end)}${toInput(end).slice(0, 10) !== inDay() ? `, ${DAYS[end.getDay()]}` : ''}`;
+      durPicker.innerHTML = `<span class="wt-picker__value"><span class="wt-picker__name">${dur ? fmtDur(dur * 60) : 'None'}</span>${until ? `<span class="wt-picker__detail">${until}</span>` : ''}</span>${ICON.forward}`;
+      durs.mark(dur ? String(dur) : '');
+    }
+
+    // ----- Time zone: the clock the times are on, under them. It's the place's own (Local time) unless someone picks
+    // another, from every zone, searched by city or name. Picking the place's own zone is Local time again. -----
+    const zonePicker = el.querySelector('[data-zone-open]'), zonePage = el.querySelector('.stop-zones'), zoneList = zonePage.querySelector('.wt-options');
+    zoneList.insertAdjacentHTML('beforebegin', `<label class="wt-input wt-input-group wt-search wt-zone-search">${ICON.search}<input type="text" aria-label="Search time zones" placeholder="Search a city or time zone" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="60"></label>`);
+    const zoneSearch = zonePage.querySelector('.wt-zone-search input');
+    const zoneHere = () => placeZone(draft.lat, draft.lng), zoneAt = () => instantOf(F.time.value || nowStamp(), draft.tz || zoneHere());
+    function listZones() {
+      const q = zoneSearch.value.trim().toLowerCase().replace(/\s+/g, ' '), ms = zoneAt(), here = zoneHere();
+      const long = z => zoneName(z, ms, 'long');
+      const hit = z => z.toLowerCase().replace(/_/g, ' ').includes(q) || long(z).toLowerCase().includes(q);
+      const found = ALL_ZONES.filter(z => !q || hit(z));
+      zoneList.innerHTML = (q ? '' : `${zoneOption('', `${long(here)} · ${zoneCity(here)}`)}<li class="wt-options__sep" role="presentation"></li>`)
+        + found.map(z => zoneOption(z, `${long(z)} · ${zoneName(z, ms, 'shortOffset')}`)).join('')
+        + (found.length ? '' : `<li class="wt-results__msg"><b>No time zones match “${esc(zoneSearch.value.trim())}”</b>Try a big city nearby.</li>`);
+      zones.mark(draft.tz || '');
+    }
+    zonePicker.addEventListener('click', () => { zoneSearch.value = ''; listZones(); }); // before choicePage's, which opens it
+    const zones = choicePage(el, { main, page: zonePage, picker: zonePicker, onPick: z => { draft.tz = z && z !== zoneHere() ? z : null; showZone(); } });
+    zoneSearch.addEventListener('input', listZones);
+    function showZone() {
+      const z = draft.tz || zoneHere(), name = zoneName(z, zoneAt(), 'long');
+      zonePicker.querySelector('.wt-when__zone-name').textContent = draft.tz ? `${name} · ${zoneCity(z)}` : `Local time · ${name}`;
+    }
     showKind();
     showNights();
 
@@ -3866,6 +4184,8 @@ function openStopSheet(trip, stop, place = null) {
       findItem();
       showPlace();
       status.textContent = `${p.name} picked`;
+      if (draft.tz === zoneHere()) draft.tz = null; // its own zone is Local time
+      showZone();
       if (!chosen) setKind(p.kind);
       showPlacePage(false); // first, so the map centers the place above the sheet's real height
       if (cur?.stops) drawMap(cur);
@@ -3906,7 +4226,7 @@ function openStopSheet(trip, stop, place = null) {
       if (!links) return;
       const hotel = draft.kind === 'hotel';
       const data = {
-        name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, note: F.note.value.trim(), links,
+        name: draft.name, address: draft.address, lat: draft.lat, lng: draft.lng, time: F.time.value, tz: draft.tz || null, duration: hotel ? null : dur, note: F.note.value.trim(), links,
         kind: draft.kind, nights: hotel ? nights : null, checkout: hotel ? outTime : null,
         ...(draft.wikidata !== undefined && { wikidata: draft.wikidata }),
       };

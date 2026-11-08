@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v12.1.0</span></div>
+  <div class="demo-brand"><b>Waythread</b><span>Design system · v12.2.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -202,6 +202,7 @@
       <li><a href="#people">People</a></li>
       <li><a href="#settings">Settings sections</a></li>
       <li><a href="#forms">Forms, type and check-out</a></li>
+      <li><a href="#when">When: a day, then a time</a></li>
       <li><a href="#timeline">Timeline and marker</a></li>
       <li><a href="#sheet">Bottom sheet and day bar</a></li>
       <li><a href="#modal">Modal sheet and day list</a></li>
@@ -445,8 +446,10 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
           <div class="demo-type-main">
             <div class="wt-field"><span class="wt-field__label" id="demo-kind-label">Type</span>
               <button class="wt-picker" type="button" id="demo-picker" aria-describedby="demo-kind-label" style="--wt-kind-color: var(--wt-kind-hotel)"><i class="wt-marker" role="img" aria-label="Hotel"><i data-icon="bed"></i></i><span class="wt-picker__value">Hotel</span><i data-icon="forward" data-size="18"></i></button></div>
-            <label class="wt-field"><span class="wt-field__label">Check-in</span><input class="wt-input" id="demo-checkin" type="datetime-local" value="2026-11-20T15:00"></label>
-            <label class="wt-field" id="demo-checkout"><span class="wt-field__label">Check-out</span><input class="wt-input" type="datetime-local" value="2026-11-22T11:00"></label>
+            <div class="wt-field"><span class="wt-field__label wt-field__label--split"><span id="demo-checkin-label">Check-in</span></span>
+              <div class="wt-when"><button type="button" class="wt-picker wt-picker--text wt-when__date" aria-describedby="demo-checkin-label">Fri, Nov 20</button><button type="button" class="wt-picker wt-picker--text wt-when__time" aria-describedby="demo-checkin-label">3:00 PM</button></div></div>
+            <div class="wt-field" id="demo-checkout"><span class="wt-field__label wt-field__label--split"><span id="demo-checkout-label">Check-out</span><span class="wt-field__aside">2 nights</span></span>
+              <div class="wt-when"><button type="button" class="wt-picker wt-picker--text wt-when__date" aria-describedby="demo-checkout-label">Sun, Nov 22</button><button type="button" class="wt-picker wt-picker--text wt-when__time" aria-describedby="demo-checkout-label">11:00 AM</button></div></div>
           </div>
           <div class="demo-type-page" hidden>
             <div class="wt-modal__head wt-modal__head--sub"><button class="wt-icon-btn" type="button" id="demo-kind-back" aria-label="Back"><i data-icon="back"></i></button><h2 class="wt-modal__title">Type</h2></div>
@@ -484,14 +487,67 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
   &lt;!-- one per type --&gt;
 &lt;/ul&gt;
 
-&lt;!-- a hotel only: hidden for any other type --&gt;
-&lt;label class="wt-field"&gt;&lt;span class="wt-field__label"&gt;Check-out&lt;/span&gt;
-  &lt;input class="wt-input" type="datetime-local" value="2026-11-22T11:00"&gt;&lt;/label&gt;</code></pre></details>
+&lt;div class="wt-field"&gt;   &lt;!-- Check-in, then Check-out (hidden unless it's a hotel) with its nights on the right --&gt;
+  &lt;span class="wt-field__label wt-field__label--split"&gt;&lt;span id="out-label"&gt;Check-out&lt;/span&gt;&lt;span class="wt-field__aside"&gt;2 nights&lt;/span&gt;&lt;/span&gt;
+  &lt;div class="wt-when"&gt;
+    &lt;button class="wt-picker wt-picker--text wt-when__date" aria-describedby="out-label"&gt;Sun, Nov 22&lt;/button&gt;
+    &lt;button class="wt-picker wt-picker--text wt-when__time" aria-describedby="out-label"&gt;11:00 AM&lt;/button&gt;&lt;/div&gt;</code></pre></details>
       </div>
       <ul class="rules">
         <li><b>Type</b> takes one row, not a grid of every type, so the stop sheet stays short enough to leave the map in view. The options are a radio group: <code>role="radio"</code> and <code>aria-checked</code> on each; the checked one is grey with a check.</li>
         <li>On the types page, focus the checked option; coming back, focus the picker.</li>
-        <li><b>Check-out</b> shows only for a hotel (<code>hidden</code> otherwise). The nights are the days between check-in and check-out, so there's no Nights field.</li>
+        <li><b>Check-out</b> is hidden (<code>hidden</code>) for anything that isn't a hotel. The nights are the days between check-in and check-out, shown on the right of its label (<code>.wt-field__aside</code>): pick the day you leave rather than count nights. Both are a day and a time (<a href="#when">When</a>).</li>
+      </ul>
+      <h3 id="when">When: a day, then a time</h3>
+      <p class="intro">A stop's <b>Arrive</b> (a hotel's <b>Check-in</b> and <b>Check-out</b>) is a day and a time side by side, as in a calendar app. Tapping the day opens its month, and picking a day goes straight on to the time; tapping the time goes there alone. <b>Done</b> sets both. On a phone each is a page of the sheet, with Back; on a computer it drops down under the row.</p>
+      <div class="demo">
+        <div class="demo__live demo__live--narrow demo__live--raised" style="display: grid; gap: var(--wt-space-6)">
+          <div class="wt-field"><span class="wt-field__label wt-field__label--split"><span id="demo-arrive-label">Arrive</span></span>
+            <div class="wt-when"><button type="button" class="wt-picker wt-picker--text wt-when__date" aria-describedby="demo-arrive-label">Fri, Nov 20</button><button type="button" class="wt-picker wt-picker--text wt-when__time" aria-describedby="demo-arrive-label">3:00 PM</button></div>
+            <button type="button" class="wt-when__zone"><span class="wt-when__zone-name">Local time · Mountain Standard Time</span><i data-icon="forward"></i></button></div>
+          <div class="wt-cal">
+            <div class="wt-cal__head"><span class="wt-cal__month">November 2026</span>
+              <button type="button" class="wt-icon-btn" aria-label="Previous month"><i data-icon="back"></i></button>
+              <button type="button" class="wt-icon-btn" aria-label="Next month"><i data-icon="forward"></i></button></div>
+            <div class="wt-cal__grid" role="group" aria-label="November 2026"><span class="wt-cal__wd" aria-hidden="true">S</span><span class="wt-cal__wd" aria-hidden="true">M</span><span class="wt-cal__wd" aria-hidden="true">T</span><span class="wt-cal__wd" aria-hidden="true">W</span><span class="wt-cal__wd" aria-hidden="true">T</span><span class="wt-cal__wd" aria-hidden="true">F</span><span class="wt-cal__wd" aria-hidden="true">S</span><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">1</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">2</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">3</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">4</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">5</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">6</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">7</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">8</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">9</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">10</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">11</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">12</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">13</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">14</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">15</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">16</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">17</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">18</span></button><button type="button" class="wt-cal__day" aria-pressed="false" aria-current="date"><span class="wt-cal__n">19</span></button><button type="button" class="wt-cal__day has-stops" aria-pressed="true"><span class="wt-cal__n">20</span></button><button type="button" class="wt-cal__day has-stops" aria-pressed="false"><span class="wt-cal__n">21</span></button><button type="button" class="wt-cal__day has-stops" aria-pressed="false"><span class="wt-cal__n">22</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">23</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">24</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">25</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">26</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">27</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">28</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">29</span></button><button type="button" class="wt-cal__day" aria-pressed="false"><span class="wt-cal__n">30</span></button></div>
+          </div>
+          <div>
+            <div class="wt-wheels" role="group" aria-label="Time"><div class="wt-wheel" tabindex="0" role="spinbutton" aria-label="Hour" data-demo-at="3"><div class="wt-wheel__item">12</div><div class="wt-wheel__item">1</div><div class="wt-wheel__item">2</div><div class="wt-wheel__item is-on">3</div><div class="wt-wheel__item">4</div><div class="wt-wheel__item">5</div><div class="wt-wheel__item">6</div><div class="wt-wheel__item">7</div><div class="wt-wheel__item">8</div><div class="wt-wheel__item">9</div><div class="wt-wheel__item">10</div><div class="wt-wheel__item">11</div></div><div class="wt-wheel" tabindex="0" role="spinbutton" aria-label="Minute" data-demo-at="0"><div class="wt-wheel__item is-on">00</div><div class="wt-wheel__item">05</div><div class="wt-wheel__item">10</div><div class="wt-wheel__item">15</div><div class="wt-wheel__item">20</div><div class="wt-wheel__item">25</div><div class="wt-wheel__item">30</div><div class="wt-wheel__item">35</div><div class="wt-wheel__item">40</div><div class="wt-wheel__item">45</div><div class="wt-wheel__item">50</div><div class="wt-wheel__item">55</div></div><div class="wt-wheel" tabindex="0" role="spinbutton" aria-label="AM or PM" data-demo-at="1"><div class="wt-wheel__item">AM</div><div class="wt-wheel__item is-on">PM</div></div></div>
+            <button type="button" class="wt-btn wt-btn--primary wt-btn--block wt-when-page__done">Done</button>
+          </div>
+        </div>
+        <details><summary>Markup</summary><pre><code>&lt;div class="wt-field"&gt;&lt;span class="wt-field__label wt-field__label--split"&gt;&lt;span id="arrive-label"&gt;Arrive&lt;/span&gt;&lt;/span&gt;
+  &lt;div class="wt-when"&gt;
+    &lt;button class="wt-picker wt-picker--text wt-when__date" aria-describedby="arrive-label" aria-haspopup="true" aria-expanded="false"&gt;Fri, Nov 20&lt;/button&gt;
+    &lt;button class="wt-picker wt-picker--text wt-when__time" aria-describedby="arrive-label" aria-haspopup="true" aria-expanded="false"&gt;3:00 PM&lt;/button&gt;&lt;/div&gt;
+  &lt;input type="hidden" name="time" value="2026-11-20T15:00"&gt;&lt;/div&gt;
+
+&lt;!-- the day: a page of the sheet (.wt-when-page) on a phone, .wt-when-page.wt-menu under the row on a computer --&gt;
+&lt;div class="wt-modal__head wt-modal__head--sub"&gt;&lt;button class="wt-icon-btn" aria-label="Back"&gt;${icon('back')}&lt;/button&gt;&lt;h2 class="wt-modal__title"&gt;Arrive&lt;/h2&gt;&lt;/div&gt;
+&lt;div class="wt-cal"&gt;
+  &lt;div class="wt-cal__head"&gt;&lt;span class="wt-cal__month"&gt;November 2026&lt;/span&gt;
+    &lt;button class="wt-icon-btn" aria-label="Previous month"&gt;${icon('back')}&lt;/button&gt;
+    &lt;button class="wt-icon-btn" aria-label="Next month"&gt;${icon('forward')}&lt;/button&gt;&lt;/div&gt;
+  &lt;div class="wt-cal__grid" role="group" aria-label="November 2026"&gt;
+    &lt;span class="wt-cal__wd" aria-hidden="true"&gt;S&lt;/span&gt; …        &lt;!-- the weekdays, Sunday first --&gt;
+    &lt;span&gt;&lt;/span&gt; …                                            &lt;!-- a blank for each day before the 1st --&gt;
+    &lt;button class="wt-cal__day has-stops" aria-pressed="true" tabindex="0" aria-label="Fri, Nov 20, has stops"&gt;
+      &lt;span class="wt-cal__n"&gt;20&lt;/span&gt;&lt;/button&gt; …&lt;/div&gt;&lt;/div&gt;
+
+&lt;!-- the time: its head says the day picked --&gt;
+&lt;div class="wt-wheels" role="group" aria-label="Time"&gt;
+  &lt;div class="wt-wheel" tabindex="0" role="spinbutton" aria-label="Hour" aria-valuetext="3"&gt;
+    &lt;div class="wt-wheel__item"&gt;12&lt;/div&gt; … &lt;div class="wt-wheel__item is-on"&gt;3&lt;/div&gt; …&lt;/div&gt;
+  &lt;!-- Minute (00, 05 … 55), AM or PM --&gt;&lt;/div&gt;
+&lt;button class="wt-btn wt-btn--primary wt-btn--block wt-when-page__done"&gt;Done&lt;/button&gt;</code></pre></details>
+      </div>
+      <ul class="rules">
+        <li><b>A day, then a time.</b> Picking a day goes on to the time rather than back to the form, since a new day usually wants a new time too. Back on the time goes back to the month it came from. Nothing changes until <b>Done</b>; Back from the month, or Esc, leaves the field as it was.</li>
+        <li><b>The month:</b> the day set is black, like the one primary button; today has a black ring, like now in the timeline; a dot under a day says it has stops, so the trip's days are easy to find. Days that can't be picked are light grey (<code>disabled</code>): a check-out before check-in, or more than 30 nights on. ← → ↑ ↓ move a day or a week, Page Up and Page Down a month.</li>
+        <li><b>The wheels:</b> hour, minute and AM/PM, each a column that scrolls and snaps into the grey band across the middle, the grey of a selected row. Minutes go in fives, plus the stop's own minute when it's between (a 10:42 flight keeps its 42). Tap a value to bring it to the band; ↑ ↓ step it. Each wheel is a <code>spinbutton</code> with its value in <code>aria-valuetext</code>.</li>
+        <li><b>The row</b> shows the day as <i>Fri, Nov 20</i> (with the year when it isn't this one) and the time as <i>3:00 PM</i>, with no chevrons: two fields side by side read as a day and a time. The picker that's open has the focus border. On a computer, it shows the draft as it changes.</li>
+        <li><b>The time zone</b> (<code>.wt-when__zone</code>) is a quiet line under Arrive, not a field: Local time and the zone's name, unless someone picked another. It opens every zone, Local time first, searched by city or name. In the timeline, a time shows its zone (<code>.wt-tl-zone</code>, <i>6:30 PM EST</i>) only where the clocks change.</li>
+        <li>In the app, <code>whenHTML</code> and <code>whenPicker</code> in <code>app/web/app.js</code> build and wire one.</li>
       </ul>
       <h3>How you get there</h3>
       <p class="intro">The same options list, for the way to a stop. Each way's marker is flat grey, like a drive's car on the rail (<code>.wt-marker--travel</code>), so the ways never look like stop types.</p>
@@ -1076,7 +1132,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v12.1.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Waythread design system v12.2.0 · tokens.css · components.css · icons.js</footer>
   </main>
 </div>
 
@@ -1327,7 +1383,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       picker.style.setProperty('--wt-kind-color', kind.style.getPropertyValue('--wt-kind-color'));
       picker.querySelector('.wt-picker__value').textContent = kind.dataset.demoKind;
       document.getElementById('demo-checkout').hidden = kind.dataset.demoKind !== 'Hotel';
-      document.getElementById('demo-checkin').previousElementSibling.textContent = kind.dataset.demoKind === 'Hotel' ? 'Check-in' : 'Arrive';
+      document.getElementById('demo-checkin-label').textContent = kind.dataset.demoKind === 'Hotel' ? 'Check-in' : 'Arrive';
       showTypes(false);
       return;
     }
@@ -1373,6 +1429,8 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     }
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('modal-root').classList.remove('is-open'); });
+  // When: each wheel starts with its value in the band
+  document.querySelectorAll('[data-demo-at]').forEach(w => { w.scrollTop = w.dataset.demoAt * w.firstElementChild.offsetHeight; });
   let toastTimer;
   function showToast(msg, action, detail, icon, error) {
     const el = document.getElementById('demo-toast');
