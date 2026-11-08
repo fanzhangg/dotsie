@@ -1,6 +1,6 @@
 # Waythread Design System
 
-Version 12.2.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 12.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
 
 | File | What it holds |
 | --- | --- |
@@ -795,9 +795,16 @@ A question before an action that can't be undone, or that other people will noti
     </svg>
   </span>
   <span class="wt-trip-card__body">
-    <span class="wt-trip-card__text"><span class="wt-trip-card__name">White Sands, NM</span><span class="wt-trip-card__dates">Nov 20 – 22 · <span class="wt-trip-card__when">In 2 weeks</span></span></span>
+    <span class="wt-trip-card__text"><span class="wt-trip-card__name">White Sands, NM</span><span class="wt-trip-card__dates">Nov 20 – 22, 2026 · <span class="wt-trip-card__when">In 2 weeks</span></span></span>
     <span class="wt-avatar-stack wt-trip-card__people" aria-hidden="true">${avatars}</span>
     <span class="wt-visually-hidden">, with Alex, Sam</span>
+  </span>
+  <!-- under way: what it's at now and what's next -->
+  <span class="wt-trip-card__now">
+    <span class="wt-trip-card__step is-now"><i class="wt-marker wt-marker--sm" role="img" aria-label="Museum" style="--wt-kind-color: var(--wt-kind-museum)">${icon}</i>
+      <span class="wt-trip-card__step-label">Now</span><span class="wt-trip-card__step-name">New Mexico Museum of Space History</span></span>
+    <span class="wt-trip-card__step"><i class="wt-marker wt-marker--sm" …>${icon}</i>
+      <span class="wt-trip-card__step-label">Next</span><span class="wt-trip-card__step-name">Cloudcroft</span><span class="wt-trip-card__step-time">12:30 PM</span></span>
   </span>
 </a>
 <!-- photos of its places, in place of __map -->
@@ -817,8 +824,9 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
   - `__casing` then `__route`: the drives, in `--wt-route` over `--wt-route-casing`, like routes on the map. Add `.is-estimate` to both for drives not looked up yet: dotted, as on the map.
   - `__ring` then one `__stop` per place, like the map's pins: a dot is a path of no length (`M x y h0`), drawn by its round cap. `__ring` holds every dot, in `--wt-pin-fill` with `--wt-shadow-pin`; each `__stop` sets `--wt-kind-color`.
 - `__photos`, in place of `__map` when the trip's places have photos: one to three `__photo`s side by side in the same 5:2 box, each cut to fill its share (`object-fit: cover`), with a 2px gap of the card between them. A photo tells you where a trip goes faster than its route does, so use them when you have them, and the sketch when you don't. Say who took each one and its license in its `title`, as `.wt-about` does.
-- `__body`: the name (`--wt-type-name`, as a stop's; one line, cut off with an ellipsis), the dates and `__when` (how soon), and the people as a `.wt-avatar-stack` on the right. The stack's ring follows the card's surface, hovered too. Hide the stack from screen readers and say the names in a `.wt-visually-hidden` span, so the link reads "White Sands, NM, Nov 20 – 22, with Alex, Sam".
+- `__body`: the name (`--wt-type-name`, as a stop's; one line, cut off with an ellipsis), the dates and `__when` (how soon), and the people as a `.wt-avatar-stack` on the right. The stack's ring follows the card's surface, hovered too. Hide the stack from screen readers and say the names in a `.wt-visually-hidden` span, so the link reads "White Sands, NM, Nov 20 – 22, 2026, with Alex, Sam".
 - `.is-now`: the trip is under way. `__when` ("Day 2 of 3") is in primary ink, like the row happening now.
+- `__now`, at the foot of a card that `.is-now`, under a hairline: what the trip is at now and what's next. One `__step` each, with the stop's `.wt-marker--sm`, `__step-label` (Now or Next), `__step-name` (one line, cut off with an ellipsis) and, for Next, `__step-time` on the right. `.is-now` on the Now step puts its label and name in primary ink; Next stays secondary. Leave out a step there's nothing for.
 - `.is-past`: the trip is over. Its route turns `--wt-route-done`; give its dots `--wt-kind-past`, as past pins have. Its photos lose most of their color.
 
 ### Map pin `.wt-pin`
@@ -975,6 +983,13 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 12.3.0
+
+Home groups trips under Current, Upcoming and Past, and a trip under way says what it's at now and what's next.
+
+- New: `.wt-trip-card__now`, with `__step` (`.is-now`), `__step-label`, `__step-name` and `__step-time`. See [Trip card](#trip-card-wt-trip-card).
+- Tokens are unchanged.
 
 ### Added in 12.2.0
 

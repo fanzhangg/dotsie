@@ -1131,13 +1131,16 @@ function authFlow(root, { joining = false, connecting = false, guest = false } =
 }
 
 // ---------- Home ----------
-// One card per trip: photos of where it goes, or a sketch of its route, then its name and dates, and who's on it. Trips that are over go under Past,
-// below the rest; each group keeps the server's order, last edited first.
+// One card per trip: photos of where it goes, or a sketch of its route, then its name and dates, and who's on it. The
+// trips go under Current (under way today), Upcoming and Past, in that order.
 function homeHTML() {
   const today = nowStamp().slice(0, 10), list = trips || [];
   const over = t => !!t.end && t.end.slice(0, 10) < today;
-  // What's next first: under way, then soonest; trips with no dates yet last. What's over: the latest first.
-  const ahead = list.filter(t => !over(t)).sort((a, b) => (a.start ? 0 : 1) - (b.start ? 0 : 1) || (a.start || '').localeCompare(b.start || ''));
+  const on = t => !!t.start && t.start.slice(0, 10) <= today && !over(t);
+  // Under way and coming up: soonest first, and trips with no dates yet last. What's over: the latest first.
+  const soonest = (a, b) => (a.start ? 0 : 1) - (b.start ? 0 : 1) || (a.start || '').localeCompare(b.start || '');
+  const current = list.filter(on).sort(soonest);
+  const ahead = list.filter(t => !on(t) && !over(t)).sort(soonest);
   const past = list.filter(over).sort((a, b) => b.end.localeCompare(a.end));
   const group = (title, ts, done) => `<section class="home-group"><h2 class="home-group__title">${title}</h2>
     <div class="home-grid">${ts.map(t => tripCardHTML(t, done, today)).join('')}</div></section>`;
@@ -1149,6 +1152,7 @@ function homeHTML() {
       </div></header>
     <main class="home">
       ${trips && !list.length ? '<p class="wt-empty">No trips yet. Start one with New trip, or open the link a friend sent you.</p>' : ''}
+      ${current.length ? group('Current', current, false) : ''}
       ${ahead.length ? group('Upcoming', ahead, false) : ''}
       ${past.length ? group('Past', past, true) : ''}
       ${me.isGuest && trips?.length && canSignIn() ? '<button class="wt-btn wt-btn--secondary wt-btn--block home-guest" data-action="account">Sign in to keep your trips</button>' : ''}
@@ -1165,21 +1169,56 @@ function tripWhen(t, today) {
   const d = daysBetween(today, start);
   return { text: d === 1 ? 'Tomorrow' : d < 14 ? `In ${d} days` : d < 60 ? `In ${Math.round(d / 7)} weeks` : `In ${Math.round(d / 30.4)} months` };
 }
+// A trip's dates, always with the year: "Nov 5 – 8, 2026"; one over New Year says both
+function tripDates(t) {
+  if (!t.start) return 'No dates yet';
+  const end = t.end || t.start, y1 = t.start.slice(0, 4), y2 = end.slice(0, 4);
+  return y1 !== y2 ? `${fmtRange(t.start, t.start)}, ${y1} – ${fmtRange(end, end)}, ${y2}` : `${fmtRange(t.start, end)}, ${y1}`;
+}
+// While a trip is under way, what it's at now and what's next, as the trip screen has today: the row happening now
+// (where you woke up, a stop, or tonight's hotel) and the one after it, or once the day is done, the next day's first
+// stop. Next says when it is ("2:00 PM", "Tomorrow, 9:30 AM"); tonight's hotel has no time.
+function tripNow(t, today) {
+  const trip = { stops: (t.stops || []).filter(s => s.time) };
+  const rows = dayPlan(trip, today).map(e => ({
+    s: e.place, start: e.role === 'stop' ? e.place.time : e.role === 'night' ? `${today}T23:59` : e.at || `${today}T00:00`,
+    time: e.role === 'stop' ? e.place.time : e.at,
+  }));
+  const i = rows.findLastIndex(r => instantOf(r.start, zoneOf(r.s)) <= nowIn(zoneOf(r.s)));
+  const later = stopsOf(trip).find(s => dayOf(s) > today);
+  const now = rows[i], next = rows[i + 1] || (later && { s: later, time: later.time });
+  if (!now && !next) return null;
+  const at = time => { const d = time.slice(0, 10); return `${d === today ? '' : d === addDays(today, 1) ? 'Tomorrow, ' : `${DAYS[toDate(d).getDay()]}, `}${fmtTime(time)}`; };
+  return { now: now?.s, next: next?.s, nextAt: next?.time && at(next.time) };
+}
+function tripNowHTML(t, today) {
+  const p = tripNow(t, today);
+  if (!p) return '';
+  const step = (label, s, when) => `<span class="wt-trip-card__step${label === 'Now' ? ' is-now' : ''}">${markerHTML(s, 'wt-marker--sm')}
+      <span class="wt-trip-card__step-label">${label}</span><span class="wt-trip-card__step-name">${esc(s.name)}</span>${when ? `<span class="wt-trip-card__step-time">${when}</span>` : ''}</span>`;
+  return `<span class="wt-trip-card__now">${p.now ? step('Now', p.now) : ''}${p.next ? step('Next', p.next, p.nextAt) : ''}</span>`;
+}
+// Keep Now and Next current while Home is open: each card under way gets them again, in place, so nothing else moves
+setInterval(() => {
+  if ($app.dataset.page !== 'home') return;
+  const today = nowStamp().slice(0, 10);
+  for (const el of $app.querySelectorAll('.wt-trip-card__now')) {
+    const t = trips?.find(t => t.id === el.closest('[data-trip]').dataset.trip), html = t && tripNowHTML(t, today);
+    if (html) el.outerHTML = html; else el.remove();
+  }
+}, 60000);
 function tripCardHTML(t, past, today) {
   const people = t.members || [], shown = people.slice(0, people.length > HOME_AVATARS ? HOME_AVATARS - 1 : HOME_AVATARS);
   const more = people.length - shown.length, when = tripWhen(t, today);
-  // Another year's trip says which; one over New Year says both
-  const end = t.end || t.start, y1 = t.start?.slice(0, 4), y2 = end?.slice(0, 4);
-  const dates = !t.start ? 'No dates yet' : y1 !== y2 ? `${fmtRange(t.start, t.start)}, ${y1} – ${fmtRange(end, end)}, ${y2}`
-    : `${fmtRange(t.start, end)}${y1 !== today.slice(0, 4) ? `, ${y1}` : ''}`;
   return `<a class="wt-trip-card${past ? ' is-past' : ''}${when?.now ? ' is-now' : ''}" href="#/trip/${esc(t.id)}" data-trip="${esc(t.id)}">
     ${tripPictureHTML(t, past)}
     <span class="wt-trip-card__body">
       <span class="wt-trip-card__text"><span class="wt-trip-card__name">${esc(t.name)}</span>
-        <span class="wt-trip-card__dates">${dates}${when ? ` · <span class="wt-trip-card__when">${when.text}</span>` : ''}</span></span>
+        <span class="wt-trip-card__dates">${tripDates(t)}${when ? ` · <span class="wt-trip-card__when">${when.text}</span>` : ''}</span></span>
       ${people.length ? `<span class="wt-avatar-stack wt-trip-card__people" aria-hidden="true">${shown.map(avatarHTML).join('')}${more ? `<span class="wt-avatar wt-avatar--more">+${more}</span>` : ''}</span>
       <span class="wt-visually-hidden">, with ${esc(people.map(m => m.name).join(', '))}</span>` : ''}
-    </span></a>`;
+    </span>
+    ${when?.now ? tripNowHTML(t, today) : ''}</a>`;
 }
 // The top of a trip's card: photos of its places when they have them, so you can tell at a glance where it goes, else
 // the sketch of its route. The photos are those of its first places, in the plan's order, whose English Wikipedia
