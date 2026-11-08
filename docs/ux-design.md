@@ -375,9 +375,9 @@ Zoomed in to a town or closer (zoom 13), the map shows what's worth seeing aroun
   - **Both ends' pins grow,** as a selected stop's does. The drive's time is in its row in the list, not on the map.
   - **The map fits the route**, with room around its ends for their pins, and the list scrolls to the drive. From the list, the map always moves; from a tap on the route itself, only when one of its ends is out of view, so the map doesn't jump under your finger. A full list goes to half, so the map and the Directions button both show.
   - **The bottom button becomes Directions**, for that drive, with the way you're getting there and a round + beside it (a flight's is Open in Maps, for where it lands).
-- **Tapping the same drive again** keeps it on show, and in the half list nothing moves: the map re-fits the route only if you've moved one of its ends out of view. Tapping empty map, Whole day, changing the day or Esc goes back to the whole day.
+- **Tapping the same drive again** keeps it on show, and in the half list nothing moves: the map re-fits the route only if you've moved one of its ends out of view. Whole day, changing the day or Esc goes back to the whole day. Tapping empty map takes the route off but leaves the map where it is. (It used to fly back out to the whole day.)
 - **Hovering a drive** on a computer previews its route, without moving the map.
-- **Tapping empty map** clears the selection.
+- **Tapping empty map** clears the selection, without moving the map.
 - **A tap waits out a double-tap.** A tap on a pin, a route or empty map acts after a moment (300 ms), once it's clear no second tap is coming, as in a maps app. Selecting a pin or showing a route can move the map, and a double-tap's second tap would then zoom somewhere you didn't tap.
 
 ### Zooming and Whole day
