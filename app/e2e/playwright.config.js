@@ -12,7 +12,7 @@ export default defineConfig({
   reporter: CI ? [['list'], ['github']] : 'list',
   use: { viewport: { width: 390, height: 844 }, timezoneId: 'America/Denver', locale: 'en-US', trace: 'on-first-retry' },
   projects: [
-    { name: 'prototype', testMatch: 'prototype.spec.js', use: { baseURL: 'http://localhost:5199/prototype/' } },
+    { name: 'prototype', testMatch: /(prototype|map)\.spec\.js/, use: { baseURL: 'http://localhost:5199/prototype/' } },
     { name: 'app', testMatch: 'app.spec.js', use: { baseURL: 'http://localhost:8787/' } },
   ],
   webServer: [
