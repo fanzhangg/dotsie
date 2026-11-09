@@ -327,18 +327,24 @@ class Store:
     # ---------- Links: records that share an identifier ----------
 
     def links(self):
-        """A record from another source and a Wikidata item that carry the same identifier, ignoring case: Wikidata
-        writes park codes in capitals (P4083 "MORA"), the NPS API in lower case ("mora"). Starts from the other
-        sources' few thousand identifiers rather than joining every identifier with every other."""
+        """A record from another source and a Wikidata item that carry the same identifier, ignoring case (Wikidata
+        writes park codes in capitals, P4083 "MORA", the NPS API in lower case, "mora") and a trailing slash, or the
+        same website. Each join starts from the other sources' few thousand identifiers (CROSS JOIN keeps SQLite to
+        that order) and looks them up by the folded value's index (INDEXED BY: left to itself, SQLite picks the
+        primary key's, by source): driven from Wikidata's half a million identifiers
+        instead, the same two joins took 24 minutes for Washington."""
+        self.db.execute("CREATE INDEX IF NOT EXISTS ids_by_folded ON ids (scheme, lower(rtrim(value, '/')))")
         self.db.execute("DELETE FROM links")
         self.db.execute("""INSERT OR IGNORE INTO links
-                           SELECT a.source, a.id, b.source, b.id, a.scheme FROM ids a JOIN ids b
-                             ON b.source = 'wikidata' AND b.scheme = a.scheme AND lower(b.value) = lower(a.value)
+                           SELECT a.source, a.id, b.source, b.id, a.scheme FROM ids a CROSS JOIN ids b INDEXED BY ids_by_folded
+                             ON b.scheme = a.scheme AND lower(rtrim(b.value, '/')) = lower(rtrim(a.value, '/'))
+                            AND b.source = 'wikidata'
                            WHERE a.source != 'wikidata' AND a.scheme NOT IN ('parkCode', 'url')""")
         self.db.execute("""INSERT OR IGNORE INTO links
-                           SELECT a.source, a.id, b.source, b.id, 'website' FROM ids a JOIN ids b
-                             ON a.source = 'wikidata' AND a.scheme = 'P856' AND b.scheme = 'url' AND b.source != 'wikidata'
-                            AND rtrim(lower(a.value), '/') = rtrim(lower(b.value), '/')""")
+                           SELECT a.source, a.id, b.source, b.id, 'website' FROM ids b CROSS JOIN ids a INDEXED BY ids_by_folded
+                             ON a.scheme = 'P856' AND lower(rtrim(a.value, '/')) = lower(rtrim(b.value, '/'))
+                            AND a.source = 'wikidata'
+                           WHERE b.scheme = 'url' AND b.source != 'wikidata'""")
         self.name_links()
         self.db.commit()
         log("links:", self.db.execute("SELECT via, source_b, COUNT(*) FROM links GROUP BY 1, 2").fetchall())
