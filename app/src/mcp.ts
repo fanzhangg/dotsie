@@ -1,5 +1,6 @@
 import type { McpProps } from './oauth';
-import { ERR, KINDS, TRAVEL, cleanStop, type Stop, type TripRoom } from './trip';
+import { ERR, KINDS, TRAVEL, cleanStop, type Stop } from './stop';
+import type { TripRoom } from './trip';
 
 /* An MCP server, so an AI assistant can read a trip's stops and add, change or remove them for you. It speaks MCP's
    Streamable HTTP transport without sessions: every POST to /api/mcp is one JSON-RPC message, answered with
@@ -31,7 +32,7 @@ const stopId = (v: unknown) => {
   if (typeof v !== 'string' || !ID.test(v)) throw new ToolError('stop_id isn’t a stop id. Call list_stops for one.');
   return v;
 };
-// Like the app's ids for the stops it adds (uid in web/app.js)
+// Like the app's ids for the stops it adds (uid in web/core.js)
 const newId = () => [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join('');
 // The fields a tool was given that a stop has, each checked on its own, so an error names the one that's wrong
 function fieldsOf(args: Record<string, unknown>) {

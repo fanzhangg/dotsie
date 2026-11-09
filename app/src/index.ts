@@ -2,9 +2,11 @@ import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
-import { findAbout, findPlaceAbout, findRoute, findSights, QID, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
+import { QID } from '../web/fields.js';
+import { findAbout, findPlaceAbout, findRoute, findSights, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
-import { ERR, type Preview } from './trip';
+import { ERR } from './stop';
+import type { Preview } from './trip';
 
 export { TripRoom } from './trip';
 export { SightsLookup } from './sights';
@@ -127,10 +129,10 @@ app.get('/trips', async c => {
 app.post('/trips', async c => {
   const { name } = await body(c.req.raw);
   const id = randomId(12);
-  return c.json(await room(c.env, id).create(id, tripName(name), c.get('user'), await newInvite()), 201);
+  return c.json(await room(c.env, id).create(id, tripName(name), c.get('user'), newInvite()), 201);
 });
 
-app.get('/trips/:id', async c => c.json(await room(c.env, c.req.param('id')).snapshot(c.get('user').id)));
+app.get('/trips/:id', async c => c.json(await room(c.env, c.req.param('id')).open(c.get('user').id)));
 app.patch('/trips/:id', async c => {
   const { name } = await body(c.req.raw);
   await room(c.env, c.req.param('id')).rename(c.get('user').id, tripName(name));
@@ -157,9 +159,9 @@ const shareURL = (c: Context<AppEnv>, token: string) =>
 app.get('/trips/:id/invite', async c =>
   c.json({ url: shareURL(c, await room(c.env, c.req.param('id')).invite(c.get('user').id)) }));
 app.post('/trips/:id/invite/rotate', async c => {
-  const invite = await newInvite();
+  const invite = newInvite();
   await room(c.env, c.req.param('id')).rotateInvite(c.get('user').id, invite);
-  return c.json({ url: shareURL(c, invite.token) });
+  return c.json({ url: shareURL(c, invite) });
 });
 app.post('/join/:token', async c => {
   const row = await c.env.DB.prepare('select id from trips where invite_hash = ?')
@@ -283,10 +285,10 @@ function randomId(len: number) {
   const abc = 'abcdefghijkmnopqrstuvwxyz23456789';
   return Array.from(crypto.getRandomValues(new Uint8Array(len)), b => abc[b % abc.length]).join('');
 }
-async function newInvite() {
-  const token = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))))
+// A share link's token. D1 keeps only its hash (see project in trip.ts), to look up which trip a link opens.
+function newInvite() {
+  return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return { token, hash: await sha256(token) };
 }
 async function sha256(s: string) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));

@@ -15,6 +15,25 @@
   <link rel="stylesheet" href="design-system/tokens.css">
   <link rel="stylesheet" href="design-system/components.css">
   <link rel="stylesheet" href="styles.css">
+  <!-- The app's modules, fetched at once rather than one import at a time; saving a trip for offline saves these too -->
+  <link rel="modulepreload" href="core.js">
+  <link rel="modulepreload" href="fields.js">
+  <link rel="modulepreload" href="time.js">
+  <link rel="modulepreload" href="plan.js">
+  <link rel="modulepreload" href="backend.js">
+  <link rel="modulepreload" href="signin.js">
+  <link rel="modulepreload" href="trips.js">
+  <link rel="modulepreload" href="routes.js">
+  <link rel="modulepreload" href="offline.js">
+  <link rel="modulepreload" href="home.js">
+  <link rel="modulepreload" href="map.js">
+  <link rel="modulepreload" href="timeline.js">
+  <link rel="modulepreload" href="sheet.js">
+  <link rel="modulepreload" href="sights.js">
+  <link rel="modulepreload" href="edits.js">
+  <link rel="modulepreload" href="sheets.js">
+  <link rel="modulepreload" href="stopsheet.js">
+  <link rel="modulepreload" href="notices.js">
 </head>
 <body class="wt-base">
   <div id="app"></div>
@@ -22,6 +41,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="design-system/icons.js"></script>
   <script src="tz-lookup.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

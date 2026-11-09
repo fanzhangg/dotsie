@@ -1,35 +1,16 @@
 import { DurableObject } from 'cloudflare:workers';
-import { QID } from './maps';
+import { MAX_LINKS } from '../web/fields.js';
+import { copyStatements } from './copy';
+import { cleanStop, ERR, type Back, type Link, type Stop, type StopFields, type Travel } from './stop';
 
 /* One TripRoom per trip (addressed by idFromName(tripId)). It owns the trip's stops and members in
    its own SQLite, applies writes one at a time, and pushes every change to the trip's open WebSockets.
-   D1 gets a mirror of what spans trips: membership and the home-screen summary.
+   D1 gets a copy of what spans trips: membership, the home-screen summary and the share link's hash, written only by
+   project() (see "The D1 copy").
    Every method takes the acting user's id from the Worker's session, never from the client. */
 
 // identity is 1–6, the design system's --wt-identity-N avatar colors
 export type Member = { id: string; name: string; image: string | null; identity: number };
-// kind is the stop's type ('' until someone picks one; the app guesses from the name). nights is for a
-// hotel: how many nights from its check-in (0 checks out the same day), or null to last until the next hotel or the trip's last day.
-// checkout is a hotel's check-out time ("HH:MM"; the day comes from nights), or null for the app's default.
-// Other stops are null; some older clients saved a leave time there, which the app ignores.
-// travel is how you get to this stop from the place before it (for a hotel, on its check-in day). Drive unless someone
-// picks another. back is a hotel's way back to it each night, by the day ("YYYY-MM-DD"): each night's is its own leg.
-// Nights not in it are drives, so it only holds the others; {} for every other stop.
-// links are pages about the stop (a booking, a flight, a post about the place), in the order they show, each with an
-// optional label ('' shows the link's site). [] for none.
-// wikidata is the place's Wikidata item ("Q123") when it was added from a sight on the map, so its sheet can show what
-// Wikipedia says about it; null otherwise.
-// time is the clock time where the stop is. tz is the IANA time zone that clock is in, when someone set one other than the
-// place's own; null means the place's own, which the app looks up from where it is.
-// duration is how long you're at the stop, in minutes, or null for not said; the drive after it leaves when it ends.
-// A hotel's stay is its nights and check-out, so it has none.
-// done is no longer shown; it's kept so older clients' writes still validate.
-export type Stop = {
-  id: string; name: string; address: string; lat: number; lng: number;
-  time: string; tz: string | null; duration: number | null; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; links: Link[]; wikidata: string | null; done: boolean; by: string; updatedAt: number;
-};
-export type Link = { url: string; label: string };
-export type StopFields = Omit<Stop, 'id' | 'by' | 'updatedAt'>;
 export type TripEvent =
   | { type: 'stop.upserted'; stop: Stop }
   | { type: 'stop.removed'; id: string; name: string }
@@ -39,118 +20,11 @@ export type TripEvent =
   | { type: 'trip.updated'; name: string }
   | { type: 'trip.deleted' };
 
-// Errors cross the RPC boundary as plain messages; the Worker maps these to HTTP statuses.
-export const ERR = { notFound: 'not_found', notMember: 'not_member', notOwner: 'not_owner', gone: 'gone', invalid: 'invalid' } as const;
-
 const IDENTITIES = 6;
-const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
-// Ids the client picks for its stops
-export const ID = /^[A-Za-z0-9_-]{6,40}$/;
-// Stop types; the app gives each an icon and color. Keep in sync with KINDS in web/app.js.
-export const KINDS = ['place', 'airport', 'hotel', 'restaurant', 'cafe', 'attraction', 'museum', 'viewpoint', 'nature', 'shopping', 'gas'] as const;
-type Kind = typeof KINDS[number];
-// How you get to a stop. Drive, walk and bike follow a route; transit and flights are drawn straight, with no time.
-// Keep in sync with TRAVEL in web/app.js.
-export const TRAVEL = ['drive', 'walk', 'bike', 'transit', 'flight'] as const;
-export type Travel = typeof TRAVEL[number];
-export type Back = Record<string, Travel>;
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_NIGHTS = 30;
-// A stay at one stop, in minutes: up to a day
-const MAX_DURATION = 24 * 60;
-// An IANA time zone this runtime knows ("America/Denver")
-const isZone = (z: unknown): z is string => {
-  if (typeof z !== 'string' || z.length > 64 || !/^[A-Za-z][A-Za-z0-9_+\-/]*$/.test(z)) return false;
-  try { new Intl.DateTimeFormat('en-US', { timeZone: z }); return true; } catch { return false; }
-};
-const MAX_LINKS = 10, MAX_URL = 2000, MAX_LABEL = 60;
 // The home card's route sketch needs only where the stops are and how you get to each (and back to a hotel), and its
 // photos each stop's Wikidata item; a trip longer than this is cut off there.
 const PREVIEW_STOPS = 300;
 export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights' | 'travel' | 'back' | 'wikidata'>[] };
-
-// Checks a full stop (create) or a partial one (patch); unknown keys are dropped.
-export function cleanStop(input: unknown, partial: boolean): Partial<StopFields> {
-  if (!input || typeof input !== 'object') throw new Error(ERR.invalid);
-  const i = input as Record<string, unknown>;
-  let out: Partial<StopFields> = {};
-  const str = (k: 'name' | 'address' | 'note', max: number, required: boolean) => {
-    if (i[k] === undefined && (partial || !required)) return;
-    if (typeof i[k] !== 'string' || i[k].length > max || (required && !i[k].trim())) throw new Error(ERR.invalid);
-    out[k] = i[k].trim();
-  };
-  const num = (k: 'lat' | 'lng', lim: number) => {
-    if (i[k] === undefined && partial) return;
-    if (typeof i[k] !== 'number' || !Number.isFinite(i[k]) || Math.abs(i[k]) > lim) throw new Error(ERR.invalid);
-    out[k] = i[k];
-  };
-  str('name', 200, true);
-  str('address', 300, false);
-  str('note', 2000, false);
-  num('lat', 90);
-  num('lng', 180);
-  if (i.time !== undefined || !partial) {
-    if (typeof i.time !== 'string' || !TIME.test(i.time)) throw new Error(ERR.invalid);
-    out.time = i.time;
-  }
-  if (i.tz !== undefined) {
-    if (i.tz !== null && !isZone(i.tz)) throw new Error(ERR.invalid);
-    out.tz = i.tz as string | null;
-  }
-  if (i.duration !== undefined) {
-    if (i.duration !== null && !(Number.isInteger(i.duration) && (i.duration as number) > 0 && (i.duration as number) <= MAX_DURATION)) throw new Error(ERR.invalid);
-    out.duration = i.duration as number | null;
-  }
-  if (i.kind !== undefined) {
-    if (i.kind !== '' && !KINDS.includes(i.kind as Kind)) throw new Error(ERR.invalid);
-    out.kind = i.kind as Kind | '';
-  }
-  if (i.nights !== undefined) {
-    if (i.nights !== null && !(Number.isInteger(i.nights) && (i.nights as number) >= 0 && (i.nights as number) <= MAX_NIGHTS)) throw new Error(ERR.invalid);
-    out.nights = i.nights as number | null;
-  }
-  if (i.checkout !== undefined) {
-    if (i.checkout !== null && !(typeof i.checkout === 'string' && CLOCK.test(i.checkout))) throw new Error(ERR.invalid);
-    out.checkout = i.checkout as string | null;
-  }
-  if (i.travel !== undefined) {
-    if (!TRAVEL.includes(i.travel as Travel)) throw new Error(ERR.invalid);
-    out.travel = i.travel as Travel;
-  }
-  if (i.back !== undefined) {
-    // A stay is at most 30 nights, and the check-in day can have its own way back
-    const b = i.back;
-    if (!b || typeof b !== 'object' || Array.isArray(b) || Object.keys(b).length > MAX_NIGHTS + 1) throw new Error(ERR.invalid);
-    const entries = Object.entries(b as Record<string, unknown>);
-    if (entries.some(([d, t]) => !DAY.test(d) || !TRAVEL.includes(t as Travel))) throw new Error(ERR.invalid);
-    out.back = Object.fromEntries(entries.filter(([, t]) => t !== 'drive')) as Back;
-  }
-  if (i.links !== undefined) {
-    // Only web pages: a link opens in a new tab, and anything else (javascript:, data:) has no business there
-    const l = i.links;
-    if (!Array.isArray(l) || l.length > MAX_LINKS) throw new Error(ERR.invalid);
-    out.links = l.map(x => {
-      if (!x || typeof x !== 'object') throw new Error(ERR.invalid);
-      const { url, label = '' } = x as Record<string, unknown>;
-      if (typeof url !== 'string' || url.length > MAX_URL || typeof label !== 'string' || label.length > MAX_LABEL) throw new Error(ERR.invalid);
-      let u: URL;
-      try { u = new URL(url.trim()); } catch { throw new Error(ERR.invalid); }
-      if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error(ERR.invalid);
-      return { url: u.href, label: label.trim() };
-    });
-  }
-  if (i.wikidata !== undefined) {
-    if (i.wikidata !== null && !(typeof i.wikidata === 'string' && QID.test(i.wikidata))) throw new Error(ERR.invalid);
-    out.wikidata = i.wikidata as string | null;
-  }
-  if (i.done !== undefined) {
-    if (typeof i.done !== 'boolean') throw new Error(ERR.invalid);
-    out.done = i.done;
-  }
-  if (!partial) out = { address: '', note: '', tz: null, duration: null, kind: '', nights: null, checkout: null, travel: 'drive', back: {}, links: [], wikidata: null, done: false, ...out };
-  return out;
-}
 
 // folder is a column from when stops could be grouped in folders: older trips still have it, and it's left out
 type StopRow = Omit<Stop, 'done' | 'updatedAt' | 'back' | 'links'> & { done: number; updated_at: number; back: string; links: string; folder?: string | null };
@@ -186,6 +60,11 @@ export class TripRoom extends DurableObject<Env> {
     // ...and a time zone other than the place's own, and how long you're there
     if (!cols.has('tz')) this.sql.exec('alter table stops add column tz text');
     if (!cols.has('duration')) this.sql.exec('alter table stops add column duration integer');
+    // ...and the D1 copy's revision, and when the trip was last edited (for Home's order; null for trips last edited
+    // before it was kept here, whose D1 row has it)
+    const tripCols = new Set(this.sql.exec<{ name: string }>('pragma table_info(trip)').toArray().map(c => c.name));
+    if (!tripCols.has('rev')) this.sql.exec('alter table trip add column rev integer not null default 0');
+    if (!tripCols.has('edited_at')) this.sql.exec('alter table trip add column edited_at integer');
     // Answer keep-alive pings without waking the object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
@@ -193,17 +72,23 @@ export class TripRoom extends DurableObject<Env> {
   // ---------- Trip ----------
   // The share-link token is kept here, behind the membership check, so members can show the link
   // again; D1 only has its hash, for looking up which trip a link opens.
-  async create(id: string, name: string, user: Omit<Member, 'identity'>, invite: { token: string; hash: string }) {
+  async create(id: string, name: string, user: Omit<Member, 'identity'>, invite: string) {
     if (this.trip()) throw new Error(ERR.invalid);
-    const now = Date.now();
-    this.sql.exec('insert into trip (id, name, created_by, invite) values (?, ?, ?, ?)', id, name, user.id, invite.token);
-    await this.env.DB.batch([
-      this.env.DB.prepare('insert into trips (id, name, invite_hash, updated_at) values (?, ?, ?, ?)').bind(id, name, invite.hash, now),
-      this.env.DB.prepare('insert into trip_members (trip_id, user_id, joined_at) values (?, ?, ?)').bind(id, user.id, now),
-    ]);
+    this.sql.exec('insert into trip (id, name, created_by, invite, edited_at) values (?, ?, ?, ?, ?)', id, name, user.id, invite, Date.now());
     this.addMember(user);
-    await this.syncPreview();
+    await this.publish();
     return this.snapshot(user.id);
+  }
+
+  // Opening the trip. Home lists it from D1's copy, but this object decides: when it says you're not on the trip, or
+  // it's deleted, and Home still lists it for you, that copy is out of date (its D1 write failed), so it's written again
+  // and the card goes.
+  async open(userId: string) {
+    try { return this.snapshot(userId); } catch (e) {
+      const m = (e as Error).message;
+      if ((m === ERR.notMember || m === ERR.gone) && await this.listedFor(userId)) await this.publish();
+      throw e;
+    }
   }
 
   snapshot(userId: string) {
@@ -217,25 +102,24 @@ export class TripRoom extends DurableObject<Env> {
 
   async rename(userId: string, name: string) {
     this.check(userId);
-    this.sql.exec('update trip set name = ?', name);
-    await this.syncSummary();
+    this.sql.exec('update trip set name = ?, edited_at = ?', name, Date.now());
+    await this.publish();
     this.broadcast({ type: 'trip.updated', name }, userId);
   }
 
   // Soft delete: the trip leaves everyone's home screen but can be restored. Only its owner (who made it) can.
   async remove(userId: string) {
-    const trip = this.checkOwner(userId);
-    const now = Date.now();
-    this.sql.exec('update trip set deleted_at = ?', now);
-    await this.env.DB.prepare('update trips set deleted_at = ? where id = ?').bind(now, trip.id).run();
+    this.checkOwner(userId);
+    this.sql.exec('update trip set deleted_at = ?', Date.now());
+    await this.publish();
     this.broadcast({ type: 'trip.deleted' }, userId);
     for (const ws of this.ctx.getWebSockets()) ws.close(4410, 'Trip deleted');
   }
 
   async restore(userId: string) {
-    const trip = this.checkOwner(userId, true);
-    this.sql.exec('update trip set deleted_at = null');
-    await this.env.DB.prepare('update trips set deleted_at = null, updated_at = ? where id = ?').bind(Date.now(), trip.id).run();
+    this.checkOwner(userId, true);
+    this.sql.exec('update trip set deleted_at = null, edited_at = ?', Date.now());
+    await this.publish();
   }
 
   // ---------- Stops ----------
@@ -285,7 +169,8 @@ export class TripRoom extends DurableObject<Env> {
     const row = this.sql.exec<StopRow>('select * from stops where id = ?', stopId).toArray()[0];
     if (!row) return null;
     this.sql.exec('delete from stops where id = ?', stopId);
-    await this.syncSummary();
+    this.sql.exec('update trip set edited_at = ?', Date.now());
+    await this.publish();
     this.broadcast({ type: 'stop.removed', id: stopId, name: row.name }, userId);
     return toStop(row);
   }
@@ -296,10 +181,10 @@ export class TripRoom extends DurableObject<Env> {
   }
 
   // A new link, for when the old one went somewhere it shouldn't have
-  async rotateInvite(userId: string, invite: { token: string; hash: string }) {
-    const trip = this.check(userId);
-    await this.env.DB.prepare('update trips set invite_hash = ? where id = ?').bind(invite.hash, trip.id).run();
-    this.sql.exec('update trip set invite = ?', invite.token);
+  async rotateInvite(userId: string, invite: string) {
+    this.check(userId);
+    this.sql.exec('update trip set invite = ?', invite);
+    await this.publish();
   }
 
   // The Worker has already checked the share-link token against D1.
@@ -307,22 +192,25 @@ export class TripRoom extends DurableObject<Env> {
     const trip = this.trip();
     if (!trip) throw new Error(ERR.notFound);
     if (trip.deleted_at) throw new Error(ERR.gone);
-    if (this.isMember(user.id)) return this.snapshot(user.id);
-    await this.env.DB.prepare('insert or ignore into trip_members (trip_id, user_id, joined_at) values (?, ?, ?)')
-      .bind(trip.id, user.id, Date.now()).run();
-    const member = this.addMember(user);
-    await this.syncPreview();
-    this.broadcast({ type: 'member.joined', member }, user.id);
+    // Published whether or not you were on it already, so joining again puts right a D1 copy that missed you
+    const member = this.isMember(user.id) ? null : this.addMember(user);
+    await this.publish();
+    if (member) this.broadcast({ type: 'member.joined', member }, user.id);
     return this.snapshot(user.id);
   }
 
   // Anyone but the owner can leave; the owner deletes the trip instead. Stops they added stay.
+  // Leaving again is fine, and puts right a D1 copy that still has you.
   async leave(userId: string) {
+    if (this.trip() && !this.isMember(userId)) {
+      if (await this.listedFor(userId)) await this.publish();
+      return;
+    }
     const trip = this.check(userId);
     if (trip.created_by === userId) throw new Error(ERR.invalid);
     const { name } = this.sql.exec<{ name: string }>('select name from members where id = ?', userId).one();
     this.sql.exec('delete from members where id = ?', userId);
-    await this.env.DB.prepare('delete from trip_members where trip_id = ? and user_id = ?').bind(trip.id, userId).run();
+    await this.publish();
     this.broadcast({ type: 'member.left', id: userId, name }, userId);
     for (const ws of this.ctx.getWebSockets(userId)) ws.close(4403, 'Left the trip');
   }
@@ -335,11 +223,7 @@ export class TripRoom extends DurableObject<Env> {
     else this.sql.exec('update members set id = ?, name = ?, image = ? where id = ?', to.id, to.name, to.image, fromId);
     this.sql.exec('update stops set by = ? where by = ?', to.id, fromId);
     if (trip.created_by === fromId) this.sql.exec('update trip set created_by = ?', to.id);
-    await this.env.DB.batch([
-      this.env.DB.prepare('insert or ignore into trip_members (trip_id, user_id, joined_at) values (?, ?, ?)').bind(trip.id, to.id, Date.now()),
-      this.env.DB.prepare('delete from trip_members where trip_id = ? and user_id = ?').bind(trip.id, fromId),
-    ]);
-    await this.syncPreview();
+    await this.publish();
   }
 
   // Keep names and photos current when someone updates their profile, live for anyone looking.
@@ -347,14 +231,14 @@ export class TripRoom extends DurableObject<Env> {
     if (!this.isMember(user.id)) return;
     this.sql.exec('update members set name = ?, image = ? where id = ?', user.name, user.image, user.id);
     const member = this.sql.exec<Member>('select id, name, image, identity from members where id = ?', user.id).one();
-    await this.syncPreview();
+    await this.publish();
     this.broadcast({ type: 'member.updated', member }, user.id);
   }
 
   // The home card's people and stops, for a trip whose D1 row doesn't have them yet (written before they were kept).
   async summary(): Promise<Preview | null> {
     if (!this.trip()) return null;
-    await this.syncPreview();
+    await this.publish();
     return this.preview();
   }
 
@@ -403,23 +287,45 @@ export class TripRoom extends DurableObject<Env> {
   }
   private async afterStopWrite(stopId: string) {
     const stop = toStop(this.sql.exec<StopRow>('select * from stops where id = ?', stopId).one());
-    await this.syncSummary();
+    this.sql.exec('update trip set edited_at = ?', Date.now());
+    await this.publish();
     this.broadcast({ type: 'stop.upserted', stop }, stop.by);
     return stop;
   }
-  // Mirror the home-card fields to D1 (name, date range, people and stops, last edit for sorting). The trip ends at
-  // its last stop, or later if a hotel's nights run past it.
-  private async syncSummary() {
-    const trip = this.trip()!;
+  // ---------- The D1 copy ----------
+  // D1 has what spans trips: who's on which trip (Home's list, an assistant's), each trip's home card, and the share
+  // link's hash. It's a copy of this object, written only here, whole, in one batch: every change ends by publishing it,
+  // so a write that failed is put right by the next one. rev numbers the copies, so one that lands late is ignored.
+  // The trip ends at its last stop, or later if a hotel's nights run past it.
+  private async project() {
+    const trip = this.trip();
+    if (!trip) return;
+    // Everything is read in the same step as the revision, before anything is awaited, so a copy is one moment's
+    this.sql.exec('update trip set rev = rev + 1');
+    const { rev, edited_at } = this.sql.exec<{ rev: number; edited_at: number | null }>('select rev, edited_at from trip').one();
     const r = this.sql.exec<{ first: string | null; last: string | null }>(
       `select min(time) as first, max(max(time), coalesce((select max(date(time, '+' || nights || ' days')) from stops where nights is not null), '')) as last from stops`).one();
-    await this.env.DB.prepare('update trips set name = ?, first_stop = ?, last_stop = ?, preview = ?, updated_at = ? where id = ?')
-      .bind(trip.name, r.first, r.last, JSON.stringify(this.preview()), Date.now(), trip.id).run();
+    const members = this.sql.exec<{ id: string; joined: number }>('select id, joined_at as joined from members').toArray();
+    const copy = { id: trip.id, name: trip.name, first: r.first, last: r.last, preview: JSON.stringify(this.preview()), deletedAt: trip.deleted_at, editedAt: edited_at, rev, members };
+    const D = this.env.DB, statements = copyStatements({ ...copy, inviteHash: await sha256(trip.invite) });
+    await D.batch(statements.map(([sql, values]) => D.prepare(sql).bind(...values)));
   }
-  // Someone joined or renamed themselves: the card's people change, but the trip doesn't move up everyone's list.
-  private async syncPreview() {
-    await this.env.DB.prepare('update trips set preview = ? where id = ?').bind(JSON.stringify(this.preview()), this.trip()!.id).run();
+  // Whether Home lists this trip for someone: only then is a copy that disagrees with this object worth writing again
+  // (asking costs a read, not a write, however often someone opens a trip they're not on)
+  private async listedFor(userId: string) {
+    return !!(await this.env.DB.prepare('select 1 from trip_members m join trips t on t.id = m.trip_id where m.trip_id = ? and m.user_id = ? and t.deleted_at is null')
+      .bind(this.trip()!.id, userId).first());
   }
+  // A change is saved here once it's made, so D1 being out of reach doesn't fail it: the copy is tried again shortly
+  // (the alarm), and by the next change, and by open.
+  private async publish() {
+    try { await this.project(); } catch (e) {
+      console.error(`D1 copy of trip ${this.trip()?.id}:`, e);
+      await this.ctx.storage.setAlarm(Date.now() + 10_000);
+    }
+  }
+  // Cloudflare retries an alarm that throws, waiting longer each time
+  async alarm() { await this.project(); }
   private preview(): Preview {
     return {
       members: this.sql.exec<Member>('select id, name, image, identity from members order by joined_at').toArray(),
@@ -433,4 +339,9 @@ export class TripRoom extends DurableObject<Env> {
       try { ws.send(msg); } catch {}
     }
   }
+}
+
+async function sha256(s: string) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
