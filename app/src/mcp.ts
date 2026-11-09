@@ -255,6 +255,10 @@ const TOOLS: Tool[] = [
   },
 ];
 
+// What the server offers, as tools/list and initialize say it, for the developer page (/developer): the page shows
+// the tools from here, so it can't drift from what an assistant is given.
+export const mcpSpec = () => ({ server: SERVER, versions: VERSIONS, instructions: INSTRUCTIONS, tools: TOOLS.map(({ run, ...t }) => t) });
+
 // ---------- JSON-RPC ----------
 type Message = { jsonrpc?: unknown; id?: string | number | null; method?: unknown; params?: Record<string, unknown> };
 const result = (id: Message['id'], r: unknown) => ({ jsonrpc: '2.0', id, result: r });

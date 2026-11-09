@@ -13,6 +13,16 @@ export type McpProps = { userId: string };
 export const AUTHORIZE_PATH = '/api/oauth/authorize';
 // One scope covers everything the tools do: see your trips and change their stops
 const SCOPE = 'trips';
+// An hour per access token; the grant lasts while it's used, and ends after 90 days without, like a session
+const ACCESS_TTL = 3600, REFRESH_TTL = 60 * 60 * 24 * 365, REFRESH_IDLE_TTL = 60 * 60 * 24 * 90;
+// How an MCP client signs in, for the developer page (/developer), from the same values the provider runs on
+export const oauthSpec = (env: Env) => ({
+  resource: mcpURL(env), issuer: env.BETTER_AUTH_URL, scopes: [SCOPE],
+  authorize: `${env.BETTER_AUTH_URL}${AUTHORIZE_PATH}`, token: `${env.BETTER_AUTH_URL}/api/oauth/token`,
+  register: `${env.BETTER_AUTH_URL}/api/oauth/register`,
+  discovery: [`${env.BETTER_AUTH_URL}/.well-known/oauth-protected-resource/api/mcp`, `${env.BETTER_AUTH_URL}/.well-known/oauth-authorization-server`],
+  pkce: ['S256'], accessTokenSeconds: ACCESS_TTL, refreshIdleSeconds: REFRESH_IDLE_TTL,
+});
 
 // The issuer and resource are this app's public origin, which comes from env, so the provider is made on
 // first use (env is the same for every request in an isolate).
@@ -33,10 +43,9 @@ export const oauthProvider = (env: Env, app: ExportedHandler<Env>) => (provider 
     resource_name: 'Dotsie',
     bearer_methods_supported: ['header'],
   },
-  // An hour per access token; the grant lasts while it's used, and ends after 90 days without, like a session
-  accessTokenTTL: 3600,
-  refreshTokenTTL: 60 * 60 * 24 * 365,
-  refreshTokenIdleTTL: 60 * 60 * 24 * 90,
+  accessTokenTTL: ACCESS_TTL,
+  refreshTokenTTL: REFRESH_TTL,
+  refreshTokenIdleTTL: REFRESH_IDLE_TTL,
 }));
 export const mcpURL = (env: Env) => `${env.BETTER_AUTH_URL}/api/mcp`;
 export const oauthApi = (env: Env) => (env as Env & { OAUTH_PROVIDER: OAuthHelpers }).OAUTH_PROVIDER;

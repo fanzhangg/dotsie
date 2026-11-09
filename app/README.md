@@ -18,7 +18,8 @@ One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`Tri
 | [e2e/](e2e) | End-to-end tests in Chromium (Playwright): the shared frontend through the prototype's seeded trips, the map (pins clear of the list, taps on pins, routes and empty map, the camera, double-tap zoom, sights) and the map with no WebGL, and sign-in, sharing and live edits against a local Worker. Nothing leaves the machine: tiles, place search, routes and sights fail, as they can for real. `npm run e2e` |
 | [test/](test) | Unit tests: time zones, a trip's days and stays, the map's sums and layers (geo.js, mapstyle.js), the stop check, the D1 copy (on SQLite with the migrations), and the app's and the prototype's pages loading the same modules. `npm test` |
 | [web/](web) | The frontend: plain HTML, CSS and JS modules, served as they are with no bundler (the top of [web/app.js](web/app.js) says which module does what). [web/backend.js](web/backend.js) is all it says to the server; `../prototype` runs the same modules with its own `backend.js`. [web/tz-lookup.js](web/tz-lookup.js) finds a place's time zone from where it is ([@photostructure/tz-lookup](https://github.com/photostructure/tz-lookup), CC0), so a stop's time is its place's local time; only a zone someone picked by hand is saved (`tz`) |
-| [scripts/build.mjs](scripts/build.mjs) | Copies `web/` and `../design-system/` into `public/`, which Wrangler serves. Runs on `dev` and `deploy` |
+| [web/developer/](web/developer) | The pages for developers, open to anyone: `/developer` documents the MCP server (its tools and sign-in from `GET /api/developer/mcp`, so from the code that runs them) and the API (this README's API section and how to connect an assistant, published by the build), and `/developer/spots` searches the spots data. Product-only |
+| [scripts/build.mjs](scripts/build.mjs) | Copies `web/` and `../design-system/` into `public/`, which Wrangler serves, and turns this README's API section and the start of its MCP section into `public/developer/docs.json` for `/developer` (with [scripts/markdown.mjs](scripts/markdown.mjs)). Runs on `dev` and `deploy`. Since that section is published, `npm test` checks every route in `src/index.ts` is in it |
 
 The frontend saves edits in the background (they show at once) and keeps a WebSocket open on the current trip, so co-editors' changes appear live. A trip can be saved for offline from trip settings: the frontend keeps the trip's last snapshot in `localStorage`, and the app's files and the trip's Stadia tiles in Cache Storage, and [web/sw.js](web/sw.js) serves them when the network can't (see Offline in [the UX design](../docs/ux-design.md#offline)). The API itself isn't cached by the service worker. `../prototype` must stay the same as `web/` apart from the server: make every UX change to both (see [CLAUDE.md](../CLAUDE.md)).
 
@@ -67,7 +68,7 @@ Rate limits (in `wrangler.jsonc`): 20 sign-in steps per minute per IP (an email 
 
 ## API
 
-All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sign-in-options`, `/api/invite/:token`, `/api/developer/spots/*`, the OAuth routes, and `/api/mcp`, which takes an OAuth access token instead.
+All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sign-in-options`, `/api/invite/:token`, `/api/developer/*`, the OAuth routes, and `/api/mcp`, which takes an OAuth access token instead.
 
 | Route | |
 | --- | --- |
@@ -81,7 +82,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `PATCH /api/trips/:id` `{ name }` | Rename |
 | `DELETE /api/trips/:id` · `POST /api/trips/:id/restore` | Soft delete and undo. Owner only (403 `not_owner`) |
 | `POST /api/trips/:id/leave` | Leave the trip; your stops stay. Everyone but the owner (the owner gets 400 `invalid`) |
-| `GET /api/trips/:id/invite` · `POST …/invite/rotate` | Share link, or a fresh one that kills the old |
+| `GET /api/trips/:id/invite` · `POST /api/trips/:id/invite/rotate` | Share link, or a fresh one that kills the old |
 | `POST /api/join/:token` | Join through a share link |
 | `PUT /api/trips/:id/stops/:stopId` | Create a stop, or restore one (Undo). The client picks the id |
 | `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ kind: 'hotel', nights: 2, checkout: '11:00' }`. `links` is the whole list, `[{ url, label }]`: up to 10 http(s) pages, `label` up to 60 characters (`''` shows the page's site) |
@@ -89,6 +90,8 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
 | `GET /api/sights?tile=12/x/y` | What's worth seeing in one map tile at zoom 12: `[{ id, name, address, lat, lng, kind, rank }]`, at most 80, best ranked first. `kind` is `attraction`, `museum`, `viewpoint` or `nature`; `rank` is higher for better known places. 202 `{ pending: true }` while a tile no one has looked at yet is looked up (ask again in a few seconds); 503 `unavailable` when Overpass is down or busy |
+| `GET /api/about?id=Q123` | A sight's card: `{ title, text, url, image }` from its Wikidata item's English Wikipedia article (its first sentences and free lead picture, with author and license), or `null` when it has none |
+| `GET /api/developer/mcp` | For the developer page: the MCP server's address, `server`, `versions`, `instructions` and `tools` (as `tools/list` gives them), and `oauth`, how a client signs in. Open to anyone |
 | `GET /api/developer/spots/states` | The states loaded into the spots data so far: `[{ state, loadedAt, builtAt, records }]`. Open to anyone, like the rest of `/api/developer/spots`, limited to 60 lookups a minute per IP |
 | `GET /api/developer/spots/search?q=&state=&source=&offset=` | Places whose name contains `q`, most read on English Wikipedia first, 50 at a time: `{ results: [{ source, id, state, name, description, lat, lng, types, views }], more }`. `source` is `wikidata`, an NPS source such as `nps:places`, or `nps` for all of them |
 | `GET /api/developer/spots/place/:source/:id` | One place: the fields above plus `url`, `wikipedia`, `website`, `ids` (scheme → values), `schemes` (scheme → name) and `links` (`[{ via, source, id, name }]`, records elsewhere that share an identifier) |

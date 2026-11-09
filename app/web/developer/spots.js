@@ -42,7 +42,7 @@ function search(more = false) {
     const rows = results.map(p => `<button type="button" class="wt-option" data-place="${esc(p.source)}/${esc(p.id)}">
         <span class="wt-option__text"><span class="wt-option__label">${esc(p.name)}</span>
         <span class="wt-option__detail">${esc([p.types.slice(0, 2).join(', '), p.description, p.state].filter(Boolean).join(' · '))}</span></span>
-        ${p.views != null ? `<span class="data__views" title="English Wikipedia views, last 12 months">${count(p.views)}</span>` : ''}</button>`).join('');
+        ${p.views != null ? `<span class="dev__views" title="English Wikipedia views, last 12 months">${count(p.views)}</span>` : ''}</button>`).join('');
     if (more) $('#results').insertAdjacentHTML('beforeend', rows);
     else $('#results').innerHTML = rows || message(q ? `Nothing named like “${q}”` : 'No places loaded yet', q ? 'Try part of the name, or another state or source.' : 'The data workflow hasn’t loaded a state yet.');
     $('#more').hidden = !hasMore;
@@ -70,9 +70,9 @@ function showPlace(p) {
       <span class="wt-option__text"><span class="wt-option__label">${esc(l.name)}</span>
       <span class="wt-option__detail">${esc(sourceName(l.source))} · shares ${esc(p.schemes[l.via] ?? l.via)}</span></span></button>`).join('');
   $('#detail').innerHTML = `
-    <button type="button" class="wt-btn wt-btn--secondary data__back" id="back">Back to search</button>
-    <h2 class="data__name">${esc(p.name)}</h2>
-    <dl class="data__fields">
+    <button type="button" class="wt-btn wt-btn--secondary dev__back" id="back">Back to search</button>
+    <h2 class="dev__name">${esc(p.name)}</h2>
+    <dl class="dev__fields">
       ${field('Description', esc(p.description))}
       ${field('Type', esc(p.types.join(', ')))}
       ${field('Source', link(p.url, `${sourceName(p.source)}: ${p.id}`) || esc(`${sourceName(p.source)}: ${p.id}`))}
@@ -82,8 +82,8 @@ function showPlace(p) {
       ${field('Wikipedia views', p.views != null ? `${p.views.toLocaleString('en-US')} in the last 12 months` : '')}
       ${field('Website', link(p.website))}
     </dl>
-    ${ids ? `<h3 class="data__section">Identifiers</h3><dl class="data__fields">${ids}</dl>` : ''}
-    ${links ? `<h3 class="data__section">Same place in other sources</h3><div class="data__results">${links}</div>` : ''}`;
+    ${ids ? `<h3 class="dev__section">Identifiers</h3><dl class="dev__fields">${ids}</dl>` : ''}
+    ${links ? `<h3 class="dev__section">Same place in other sources</h3><div class="dev__results">${links}</div>` : ''}`;
   $('#back').addEventListener('click', () => { history.length > 1 ? history.back() : (location.hash = ''); });
 }
 async function route() {
@@ -97,7 +97,7 @@ async function route() {
     document.title = `${p.name} · Spots data · Dotsie`;
     showPlace(p);
   } catch (err) {
-    $('#detail').innerHTML = `<button type="button" class="wt-btn wt-btn--secondary data__back" onclick="location.hash=''">Back to search</button>${message('This place couldn’t be shown', err.message)}`;
+    $('#detail').innerHTML = `<button type="button" class="wt-btn wt-btn--secondary dev__back" onclick="location.hash=''">Back to search</button>${message('This place couldn’t be shown', err.message)}`;
   }
   scrollTo(0, 0);
 }
