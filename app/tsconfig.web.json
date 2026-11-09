@@ -14,5 +14,5 @@
     "checkJs": true,
     "skipLibCheck": true
   },
-  "include": ["web/fields.js", "web/time.js", "web/plan.js", "web/geo.js", "web/mapstyle.js", "types/web-globals.d.ts"]
+  "include": ["web/fields.js", "web/time.js", "web/plan.js", "web/geo.js", "web/mapstyle.js", "web/places.js", "types/web-globals.d.ts"]
 }
