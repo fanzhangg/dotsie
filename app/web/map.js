@@ -319,7 +319,8 @@ export let tiles = null; // the Stadia pictures, shown or not: what's saved for 
 // water and roads under the routes, and the names, road numbers and places over them (the labels pane, between the
 // routes and the pins). The pictures stay when MapLibre can't run, and for a trip saved for offline with them.
 // MapLibre is loaded the first time a trip opens.
-const MAPLIBRE = ['https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js', 'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js'];
+// Served with the app (see vendor/README.md), next to this file wherever the page is: the prototype's is in another folder
+const MAPLIBRE = ['vendor/maplibre/maplibre-gl.js', 'vendor/maplibre/leaflet-maplibre-gl.js'].map(f => new URL(f, import.meta.url).href);
 let glLoaded = null;
 const loadScript = src => new Promise((done, fail) => {
   const s = document.createElement('script');

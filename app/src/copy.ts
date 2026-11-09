@@ -12,12 +12,15 @@ export function copyStatements(c: TripCopy): [string, unknown[]][] {
   const won = 'exists (select 1 from trips where id = ?1 and rev = ?3)';
   return [
     // A copy older than the row's is ignored. A trip last edited before TripRooms kept when (editedAt null) keeps D1's.
+    // This runs on every change to every trip, so it's written to cost D1 one row: an update, and an insert only for a
+    // row that isn't there yet, rather than an upsert (two rows); and the share link's hash, which is indexed and so
+    // costs another row whenever it's set, only when it's a new link.
+    [`update trips set name = ?2, first_stop = ?4, last_stop = ?5, preview = ?6, deleted_at = ?7, updated_at = coalesce(?8, updated_at), rev = ?9
+      where id = ?1 and rev < ?9`, [c.id, c.name, c.inviteHash, c.first, c.last, c.preview, c.deletedAt, c.editedAt, c.rev]],
+    [`update trips set invite_hash = ?2 where id = ?1 and rev = ?3 and invite_hash is not ?2`, [c.id, c.inviteHash, c.rev]],
     [`insert into trips (id, name, invite_hash, first_stop, last_stop, preview, deleted_at, updated_at, rev)
-      values (?1, ?2, ?3, ?4, ?5, ?6, ?7, coalesce(?8, 0), ?9)
-      on conflict (id) do update set name = excluded.name, invite_hash = excluded.invite_hash, first_stop = excluded.first_stop,
-        last_stop = excluded.last_stop, preview = excluded.preview, deleted_at = excluded.deleted_at,
-        updated_at = coalesce(?8, trips.updated_at), rev = excluded.rev
-      where excluded.rev > trips.rev`, [c.id, c.name, c.inviteHash, c.first, c.last, c.preview, c.deletedAt, c.editedAt, c.rev]],
+      select ?1, ?2, ?3, ?4, ?5, ?6, ?7, coalesce(?8, 0), ?9 where not exists (select 1 from trips where id = ?1)`,
+      [c.id, c.name, c.inviteHash, c.first, c.last, c.preview, c.deletedAt, c.editedAt, c.rev]],
     [`delete from trip_members where trip_id = ?1 and user_id not in (select json_extract(value, '$.id') from json_each(?2)) and ${won}`,
       [c.id, members, c.rev]],
     // Only people D1 still has an account for: a deleted one would fail the whole batch on its foreign key
