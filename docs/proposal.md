@@ -1,4 +1,4 @@
-# Waythread: A Minimal Trip Planner
+# Dotsie: A Minimal Trip Planner
 
 ## Motivation
 

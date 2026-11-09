@@ -1,4 +1,4 @@
-/* Waythread design system — tokens v2.0.0
+/* Dotsie design system — tokens v2.1.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -136,6 +136,12 @@
   --wt-kind-nature: #0e844c;
   --wt-kind-museum: #df3c8c;
   --wt-kind-shopping: #a98410;
+  /* The logo's dots are stops, in the app's own pin colors, and follow them into dark mode: the colon of :D, an
+     attraction's color over a restaurant's, and the wordmark's dot on the i, the restaurant's again, the brightest of
+     the two. Only the logo and the wordmark use these. */
+  --wt-brand-dot-top: var(--wt-kind-attraction);
+  --wt-brand-dot-bottom: var(--wt-kind-restaurant);
+  --wt-brand-dot-i: var(--wt-kind-restaurant);
   --wt-kind-drive: var(--wt-color-gray-450);        /* the car on a drive: quieter than any stop */
   --wt-kind-drive-current: var(--wt-color-gray-700); /* the car on the selected drive: a step darker */
   --wt-kind-past: var(--wt-color-gray-350);         /* markers, cars and pins of what's over: the color drains out */

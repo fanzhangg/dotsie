@@ -1,8 +1,8 @@
-/* Waythread design system — icons v3.0.0
+/* Dotsie design system — icons v4.0.0
  *
  * Line icons on a 24px grid, 2px stroke, round caps and joins, drawn in currentColor.
- * Usage: WaythreadIcons.svg('car')            -> default size and stroke
- *        WaythreadIcons.svg('check', 16, 3)   -> size 16, stroke 3
+ * Usage: DotsieIcons.svg('car')            -> default size and stroke
+ *        DotsieIcons.svg('check', 16, 3)   -> size 16, stroke 3
  * Add an icon by adding its path data to PATHS; keep it inside a 2px margin of the 24px box. */
 (function () {
   const PATHS = {
@@ -57,5 +57,5 @@
     const s = size ?? ds, w = stroke ?? dw;
     return `<svg class="wt-icon" viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${d}"/></svg>`;
   }
-  window.WaythreadIcons = { svg, names: Object.keys(PATHS) };
+  window.DotsieIcons = { svg, names: Object.keys(PATHS) };
 })();

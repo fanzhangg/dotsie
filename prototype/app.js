@@ -1,6 +1,6 @@
 'use strict';
 
-/* Waythread prototype — vanilla JS, no build step. The app's frontend (app/web/app.js) with its backend swapped out:
+/* Dotsie prototype — vanilla JS, no build step. The app's frontend (app/web/app.js) with its backend swapped out:
    the sections marked "Prototype only" stand in for the server, and everything else is the same as the app's, line for line.
    One trip screen: a full-screen map with one day of the plan as a draggable sheet on top; from 768px wide,
    the plan is a side panel next to the map instead.
@@ -12,9 +12,12 @@ const params = new URLSearchParams(location.search);
 const TODAY = /^\d{4}-\d{2}-\d{2}$/.test(params.get('today') || '') ? params.get('today') : null;
 const NOW_HM = /^\d{2}:\d{2}$/.test(params.get('now') || '') ? params.get('now') : null;
 
+// Saved keys and caches keep the app's first name, waythread, so what a device already saved outlives the rename to Dotsie
 const ROUTE_KEY = 'waythread:routes:v1';
 const $app = document.getElementById('app');
 const $sheets = document.getElementById('sheets');
+// The app's name as its wordmark, with a stop for the i's dot (see Wordmark in the design system); read as plain text
+const WORDMARK = '<span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span>';
 // sel: the selected stop · selRow: which of its rows was tapped (a hotel can start and end the day) · leg: the drive whose route is shown · snap: the phone's list, 'half' or 'full' ·
 // draft: the stop open in the stop sheet, as edited so far, which the map shows in its place
 const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, snap: 'half', draft: null, flash: new Set() };
@@ -48,7 +51,7 @@ const token = name => getComputedStyle(document.documentElement).getPropertyValu
 
 // ---------- Icons (design system) ----------
 const ICON = Object.fromEntries(['home', 'settings', 'back', 'forward', 'chevron-down', 'chevron-up-down', 'close', 'plus', 'edit', 'car', 'directions', 'map', 'list', 'check', 'fit', 'search', 'pin', 'download', 'saved', 'cloud-off', 'alert', 'link', 'external']
-  .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), WaythreadIcons.svg(n)]));
+  .map(n => [n.replace(/-(\w)/g, (_, c) => c.toUpperCase()), DotsieIcons.svg(n)]));
 
 // ---------- Time & distance formatting (times are trip-local, stored as "YYYY-MM-DDTHH:MM") ----------
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -631,11 +634,11 @@ function guessKind(name = '', cat = '') {
 const stayOf = s => (kindOf(s) !== 'hotel' && s.duration > 0 ? s.duration : null);
 const kindOf = s => (KINDS[s.kind] ? s.kind : guessKind(s.name) !== 'place' ? guessKind(s.name) : /\b(breakfast|brunch|lunch|dinner)\b/i.test(s.note || '') ? 'restaurant' : 'place');
 const kindColor = s => `var(--wt-kind-${kindOf(s)})`;
-const kindIcon = (s, size = 16) => WaythreadIcons.svg(KINDS[kindOf(s)].icon, size);
+const kindIcon = (s, size = 16) => DotsieIcons.svg(KINDS[kindOf(s)].icon, size);
 
 // ---------- How you get there: each stop says how you get to it from the place before (a hotel, also the way back each night) ----------
 // Drive, walk and bike follow a route, with a time that can run late. Transit and flights are drawn straight, with no
-// time: Waythread can't look up timetables, and the stops' own times already say when you leave and land.
+// time: Dotsie can't look up timetables, and the stops' own times already say when you leave and land.
 // `noun` finishes the row's sentence ("12 min walk"); `google` and `apple` are the maps apps' directions modes
 // (Apple Maps has none for bikes); `speed` (m/s) is the straight-line estimate when a route can't be looked up.
 // Keep the keys in sync with TRAVEL in src/trip.ts.
@@ -651,7 +654,7 @@ const travelOf = s => (TRAVEL[s.travel] ? s.travel : 'drive');
 const backOf = (s, day) => (TRAVEL[s.back?.[day]] ? s.back[day] : 'drive');
 // How you get to a place in a day's plan: the way back to a hotel at night is that night's; anywhere else, the stop's own
 const wayTo = e => (e.role === 'night' ? backOf(e.place, e.day) : travelOf(e.place));
-const travelIcon = (mode, size = 14) => WaythreadIcons.svg(TRAVEL[mode].icon, size);
+const travelIcon = (mode, size = 14) => DotsieIcons.svg(TRAVEL[mode].icon, size);
 
 // ---------- Session (Prototype only) ----------
 // No sign-in: someone is always signed in (see USERS), and Sign out says how to be someone else.
@@ -767,7 +770,7 @@ function placeURL(p) {
   const q = encodeURIComponent([p.name, p.address].filter(Boolean).join(', '));
   return mapsApp === 'apple' ? `https://maps.apple.com/?q=${q}&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
-// Places to eat around a place, in the maps app, whose reviews and hours say where's good: no free source Waythread
+// Places to eat around a place, in the maps app, whose reviews and hours say where's good: no free source Dotsie
 // could use does (sights come from OpenStreetMap, which has restaurants but no reviews)
 function foodURL(p) {
   return mapsApp === 'apple' ? `https://maps.apple.com/?q=restaurants&sll=${p.lat},${p.lng}` : `https://www.google.com/maps/search/restaurants/@${p.lat},${p.lng},15z`;
@@ -1012,7 +1015,7 @@ function offlineFieldHTML(trip) {
   if (job) return { kind: 'saving', html: `${head('Saving the map: <span data-offline-pct>' + pctOf(job) + '</span>%')}
       <button class="wt-btn wt-btn--secondary" data-offline-remove>${job.first ? 'Cancel' : 'Remove from this device'}</button>` };
   // Safari in a browser tab clears a site's saved data after about a week without a visit; an app on the Home Screen keeps it
-  const ios = navigator.standalone === false ? '<p class="wt-section__hint">On iPhone, Safari clears saved trips you haven’t opened in a week. To keep this one, add Waythread to your Home Screen, open it from there and save the trip again.</p>' : '';
+  const ios = navigator.standalone === false ? '<p class="wt-section__hint">On iPhone, Safari clears saved trips you haven’t opened in a week. To keep this one, add Dotsie to your Home Screen, open it from there and save the trip again.</p>' : '';
   const map = t.noMap ? ' The map can’t be saved with this map provider.' : t.missing ? ' Part of the map didn’t download.' : '';
   return { kind: 'saved', html: `${head(`Saved on this device (${fmtMB(t.bytes)}), updated ${fmtAgo(t.savedAt)}. It updates whenever you open the trip online.${map}`)}${ios}
       ${t.missing && !trip.offline ? '<button class="wt-btn wt-btn--secondary" data-offline-save>Try again</button>' : ''}
@@ -1172,7 +1175,7 @@ const TRIP_ERRORS = {
 
 function render() {
   const r = parseHash();
-  document.title = 'Waythread';
+  document.title = 'Dotsie';
   if (!me) { closeTrip(); teardownTrip(); $app.dataset.page = 'signin'; renderSignIn(r); return; }
   if (r.page === 'join') { teardownTrip(); join(r.token); return; }
   if (r.page !== 'trip') {
@@ -1197,7 +1200,7 @@ function render() {
   const trip = cur;
   if (trip.error) { teardownTrip(); $app.dataset.page = 'message'; $app.innerHTML = messageHTML(TRIP_ERRORS[trip.error] || TRIP_ERRORS.offline); return; }
   if ($app.dataset.trip !== trip.id) mountTrip(trip);
-  document.title = `${trip.name} · Waythread`;
+  document.title = `${trip.name} · Dotsie`;
   const el = $app.querySelector('.trip');
   el.querySelector('.wt-trip-head__name').textContent = trip.name;
   renderOfflineStatus(trip);
@@ -1238,7 +1241,7 @@ function homeHTML() {
     <div class="home-grid">${ts.map(t => tripCardHTML(t, done, today)).join('')}</div></section>`;
   const newTrip = cls => `<button class="wt-btn wt-btn--primary ${cls}" data-action="new-trip">${ICON.plus}New trip</button>`;
   return `
-    <header class="home-head"><h1>Waythread</h1>
+    <header class="home-head"><h1 class="wt-wordmark">${WORDMARK}</h1>
       <div class="home-head__actions">${newTrip('home-new')}
         <button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>
       </div></header>
@@ -3479,7 +3482,7 @@ function openSettings(trip) {
     const show = url => { input.value = url; copy.dataset.text = url; copy.disabled = false; if (share) share.disabled = false; };
     // Share opens the phone's (or computer's) own share sheet, so the link goes straight into a chat or a post. Only
     // where the browser has one; Copy covers the rest.
-    if (share) share.onclick = () => navigator.share({ title: trip.name, text: `Join “${trip.name}” on Waythread`, url: input.value })
+    if (share) share.onclick = () => navigator.share({ title: trip.name, text: `Join “${trip.name}” on Dotsie`, url: input.value })
       .catch(err => { if (err.name !== 'AbortError') toast({ error: true, title: 'Couldn’t share', detail: 'Copy the link instead.' }); });
     // A new link is for when the old one went somewhere it shouldn't have: the old one stops working.
     el.querySelector('[data-new-link]').onclick = async () => {
@@ -3536,7 +3539,7 @@ function openAccount() {
   });
 }
 
-// AI assistant, in Account: how to connect one (Waythread's MCP server address, which an assistant adds as a
+// AI assistant, in Account: how to connect one (Dotsie's MCP server address, which an assistant adds as a
 // connector; it then sends you to sign in and allow it), and the assistants you've connected, each with Disconnect.
 async function assistantField(box) {
   const day = ms => { const d = new Date(ms); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; };

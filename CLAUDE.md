@@ -1,4 +1,4 @@
-# Waythread
+# Dotsie
 
 | Folder | What it is |
 | --- | --- |
@@ -13,7 +13,7 @@
 
 - `prototype/app.js` is `app/web/app.js` with its backend swapped out: the sections marked *Prototype only* (a pretend `/api`, the session, live edits over a BroadcastChannel, the note in trip settings) replace the app's, and the app's *Sign in* section is left out. Everything else is the same, line for line, so `diff app/web/app.js prototype/app.js` shows only those sections. Port a change by applying the same edit to both files.
 - `prototype/styles.css` is `app/web/styles.css` plus `.proto-note`. `prototype/index.html` differs only in the `../design-system/` paths.
-- `prototype/sw.js` (the offline service worker), `prototype/manifest.json` and `prototype/tz-lookup.js` (a place's time zone from where it is) are the same as `app/web`'s: copy them over unchanged.
+- `prototype/sw.js` (the offline service worker), `prototype/manifest.json`, `prototype/tz-lookup.js` (a place's time zone from where it is) and the icons (`favicon.svg`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`; see the design system's [Logo](design-system/README.md#logo)) are the same as `app/web`'s: copy them over unchanged.
 - What stays product-only, because the prototype has no server: sign-in and accounts (the prototype uses `?as=` instead), connecting an AI assistant (OAuth and its Allow page), the API, and the WebSocket (the prototype uses localStorage and a BroadcastChannel). Wherever the product has UI for these, such as the share link and its new-link button, the prototype fakes it locally rather than leaving it out.
 - Before finishing a change to either one, run `diff app/web/app.js prototype/app.js`, `diff app/web/styles.css prototype/styles.css` and `diff app/web/sw.js prototype/sw.js` and check that nothing outside those sections differs. Then open both and try the change in each.
 - If a docs page or the design system's README describes the change, update it once for both.

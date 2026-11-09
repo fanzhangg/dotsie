@@ -1,12 +1,13 @@
-# Waythread Design System
+# Dotsie Design System
 
-Version 12.3.0. The design system behind Waythread, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step:
+Version 13.0.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
 | [`tokens.css`](tokens.css) | Every color, font, size, radius, shadow, duration and layer, in light and dark themes. |
 | [`components.css`](components.css) | The component classes (`.wt-*`), built only from tokens. |
-| [`icons.js`](icons.js) | The icon set, as `WaythreadIcons.svg(name, size?, stroke?)`. |
+| [`icons.js`](icons.js) | The icon set, as `DotsieIcons.svg(name, size?, stroke?)`. |
+| [`logo.svg`](logo.svg) | The logo, :D. See [Logo](#logo). |
 
 To see everything live, in both themes, run the preview server and open [`index.html`](index.html) at `/design-system/`:
 
@@ -217,14 +218,26 @@ Stop types: `plane` `bed` `utensils` `cup` `star` `museum` `tree` `camera` `bag`
 How you get there: `car` `walk` `bike` `train` `plane` (Drive, Walk, Bike, Transit, Flight).
 
 ```js
-WaythreadIcons.svg('car');           // the size the product uses
-WaythreadIcons.svg('check', 16, 3);  // custom size and stroke
+DotsieIcons.svg('car');           // the size the product uses
+DotsieIcons.svg('check', 16, 3);  // custom size and stroke
 ```
 
 - An icon next to a label is decoration (`aria-hidden`).
 - An icon-only button needs an `aria-label`.
 - `external` means "opens another app or site". Use it only for that.
 - `chevron-up-down` means "tap for a list to choose from" (the day bar's day). `forward` and `back` step or go to another page; don't put two controls that look alike but do different things next to each other.
+
+## Logo
+
+<img src="logo.svg" width="96" alt="Dotsie's logo, :D">
+
+The logo is **:D**, the emoticon, typed upright: a colon of two stops and a capital D. It reads as a grin, and it starts the name.
+
+- **The D** is Inter Bold, as an outline, in the first ink (`--wt-text-primary`: `gray-950`, `gray-100` in dark). Inter is open source (OFL), so it can be a logo; the phone's system font isn't licensed for one.
+- **The colon** is two stops: an attraction's color on top and a restaurant's below (`--wt-brand-dot-top`, `--wt-brand-dot-bottom`), set about the D's middle, not on its baseline, so the face is level. Each dot is 30% of the D's height across, the two 58% of it apart, and 16% of it before the D.
+- **On one color**, both dots take the D's ink.
+- **Files:** [`logo.svg`](logo.svg) is the mark on a clear background and follows the light or dark theme. The app's icons (`favicon.svg`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`, in `app/web` and `prototype`) are the mark on white, inside the middle 80% so a phone can crop them to any shape.
+- **The name** is the wordmark ([`.wt-wordmark`](#wordmark-wt-wordmark)): Dotsie, with the logo's orange stop for the i's dot. The colon is the icon's alone: before a word it reads as a typo.
 
 ## Components
 
@@ -369,7 +382,7 @@ A stop's type icon on its type's color, shaded from that color (lighter at the t
 <i class="wt-marker wt-marker--sm" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)">${icon('utensils')}</i>
 ```
 
-Every type has its own color, so no two look alike. The colors follow maps apps where they can; where those use blue (airports, gas), Waythread uses the nearest hue that isn't the route's.
+Every type has its own color, so no two look alike. The colors follow maps apps where they can; where those use blue (airports, gas), Dotsie uses the nearest hue that isn't the route's.
 
 | Type | Icon | Color | Light / dark |
 | --- | --- | --- | --- |
@@ -861,7 +874,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 
 ```html
 <div class="wt-sight" style="--wt-kind-color: var(--wt-kind-nature)">
-  <i class="wt-sight__marker"><!-- WaythreadIcons.svg('tree', 12) --></i>
+  <i class="wt-sight__marker"><!-- DotsieIcons.svg('tree', 12) --></i>
   <span class="wt-sight__name">White Sands National Park</span>
 </div>
 ```
@@ -897,6 +910,21 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - **Under them,** in caption type: the photo's author and license in tertiary ink, linking to its Commons page (a CC license asks for the credit), cut with an ellipsis when long; and **Wikipedia ↗** in link blue at the right, which never shrinks. With no photo, only the link.
 - **`--compact`:** a 72px square photo beside the lines, three at most, in caption type. For the top of a stop's sheet, where the fields matter more.
 - **`--loading`:** grey blocks where the photo and three lines will be (`.wt-about__line`, the last one shorter), so the card doesn't jump when they come. If nothing comes, take it out.
+
+### Wordmark `.wt-wordmark`
+
+```html
+<h1 class="wt-wordmark">
+  <span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span>
+  <span class="wt-visually-hidden">Dotsie</span>
+</h1>
+```
+
+The app's name, with a stop for the i's dot, where the app names itself: Home's title and the sign-in page. Set it in whatever bold type that place uses (the display type on Home); the dot is sized from the type and follows it.
+
+- **The i** is a dotless ı (`.wt-wordmark__i`) with the logo's orange stop (`--wt-brand-dot-i`) for its dot, a little bigger than a letter's, where Inter Bold puts its own.
+- **No colon.** The :D colon is the icon's; before a word it reads as a typo.
+- **What's read** is the hidden "Dotsie": the drawn name, "Dotsıe" with its dot, is `aria-hidden`, so a screen reader doesn't spell it out.
 
 ### Empty state `.wt-empty`
 
@@ -983,6 +1011,14 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 13.0.0
+
+Waythread is now Dotsie, with a logo.
+
+- Renamed: the icons' global `WaythreadIcons` is `DotsieIcons` (icons.js 4.0.0).
+- New: the logo, [`logo.svg`](logo.svg), and the wordmark, `.wt-wordmark` with `__i`. See [Logo](#logo).
+- New tokens: `--wt-brand-dot-top`, `--wt-brand-dot-bottom` (the logo's colon) and `--wt-brand-dot-i` (the wordmark's i) (tokens 2.1.0).
 
 ### Added in 12.3.0
 

@@ -30,7 +30,7 @@ export const oauthProvider = (env: Env, app: ExportedHandler<Env>) => (provider 
   resourceMetadata: {
     resource: mcpURL(env),
     authorization_servers: [env.BETTER_AUTH_URL],
-    resource_name: 'Waythread',
+    resource_name: 'Dotsie',
     bearer_methods_supported: ['header'],
   },
   // An hour per access token; the grant lasts while it's used, and ends after 90 days without, like a session
@@ -46,18 +46,18 @@ type Signed = { id: string; name: string; email: string | null; guest: boolean }
 const esc = (s: string) => s.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const HTML = { 'Content-Type': 'text/html; charset=utf-8' };
 
-// The app's sign-in screen, so it looks like the rest of Waythread
+// The app's sign-in screen, so it looks like the rest of Dotsie
 function page(title: string, body: string) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(title)} · Waythread</title>
+<title>${esc(title)} · Dotsie</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/design-system/tokens.css"><link rel="stylesheet" href="/design-system/components.css"><link rel="stylesheet" href="/styles.css">
 </head><body class="wt-base"><div id="app" data-page="signin">
 <header class="home-head"><h1 class="signin-title">${esc(title)}</h1></header>
 <main class="signin">${body}</main></div></body></html>`;
 }
 const message = (title: string, text: string, status = 400) =>
-  new Response(page(title, `<p class="signin__text">${text}</p><a class="wt-btn wt-btn--secondary wt-btn--block" href="/">Open Waythread</a>`), { status, headers: HTML });
+  new Response(page(title, `<p class="signin__text">${text}</p><a class="wt-btn wt-btn--secondary wt-btn--block" href="/">Open Dotsie</a>`), { status, headers: HTML });
 
 // Errors before the client and its redirect address are checked are shown here, never sent back to it.
 function authError(err: unknown) {
@@ -78,12 +78,12 @@ export async function authorizePage(req: Request, env: Env, user: Signed | null)
       return Response.redirect(`${here.origin}/?next=${encodeURIComponent(here.pathname + here.search)}`, 302);
     }
     // A guest's trips are only reachable from their own browser, so a guest has nothing to connect.
-    if (user.guest) return message('Sign in first', 'You’re using Waythread as a guest. To connect an assistant, open Waythread, sign in from Account, then connect again.', 403);
+    if (user.guest) return message('Sign in first', 'You’re using Dotsie as a guest. To connect an assistant, open Dotsie, sign in from Account, then connect again.', 403);
     const d = await oauth.describeConsent(request);
     const consent = await oauth.beginConsent(request);
     const who = d.clientDomain
       ? `<b>${esc(d.clientName)}</b> (${esc(d.clientDomain)})`
-      : `<b>${esc(d.clientName)}</b>, an app that named itself, so Waythread can’t vouch for it,`;
+      : `<b>${esc(d.clientName)}</b>, an app that named itself, so Dotsie can’t vouch for it,`;
     const body = `
       <p class="signin__text">${who} wants to see your trips and add, change and delete their stops, as you. Everyone on a trip sees its changes.</p>
       <p class="signin__text">Access goes to <b>${esc(d.redirectHost)}</b>.${d.redirectIsLoopback ? ' That’s an app on this device: continue only if you just started connecting from it.' : ''}</p>

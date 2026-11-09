@@ -17,8 +17,8 @@ type Tool = {
 // Versions this server can speak. The tools use nothing that differs between them.
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 // Bump the version whenever a tool or its arguments change: a client may keep its copy of the tools until it does.
-const SERVER = { name: 'waythread', title: 'Waythread', version: '2.0.0' };
-const INSTRUCTIONS = `Waythread plans road trips. A trip is a list of stops, each with a time ("YYYY-MM-DDTHH:MM"): the clock time where the stop is, in the place's own time zone, as on a ticket or a booking. A flight that leaves Los Angeles at 10:00 and lands in New York at 18:30 is two stops at those times.
+const SERVER = { name: 'dotsie', title: 'Dotsie', version: '2.0.0' };
+const INSTRUCTIONS = `Dotsie plans road trips. A trip is a list of stops, each with a time ("YYYY-MM-DDTHH:MM"): the clock time where the stop is, in the place's own time zone, as on a ticket or a booking. A flight that leaves Los Angeles at 10:00 and lands in New York at 18:30 is two stops at those times.
 Call list_trips to find a trip and list_stops to see its plan; add_stop, edit_stop and delete_stop change it. Changes show at once for everyone on the trip.
 A stop's links are buttons under it in the app, one tap from the plan. Whenever you find or are given a web page for a stop, add it with add_link instead of writing the URL in the note: a booking or reservation, a flight (the airline's booking or its flight status), tickets, the place's own site, a guide to it. Label each in a few words ("UA 123", "Hotel booking", "Tickets"). A flight's links go on the airport you fly from, where you'll need them; with no stop there, on the one you land at.`;
 
