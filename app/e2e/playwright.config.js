@@ -22,7 +22,8 @@ export default defineConfig({
   ],
   webServer: [
     { command: 'python3 -m http.server 5199 -d ../..', url: 'http://localhost:5199/prototype/', reuseExistingServer: !CI },
-    // .dev.vars must exist (see app/README.md); BETTER_AUTH_URL there is this port
-    { command: 'npm run db:migrate:local && npx wrangler dev --port 8787', cwd: '..', url: 'http://localhost:8787/api/config', reuseExistingServer: !CI, timeout: 120_000 },
+    // .dev.vars must exist (see app/README.md); BETTER_AUTH_URL there is this port. e2e/places.sql is the spots data
+    // app.spec.js searches (a server already running locally doesn't get it: load it with the same command)
+    { command: 'npm run db:migrate:local && npx wrangler d1 execute waythread --local --file e2e/places.sql && npx wrangler dev --port 8787', cwd: '..', url: 'http://localhost:8787/api/config', reuseExistingServer: !CI, timeout: 120_000 },
   ],
 });

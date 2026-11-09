@@ -8,6 +8,7 @@ record goes in as the source gave it, and records are linked only through identi
 | --- | --- |
 | `store.py` | Builds or updates one state's store, `data/<ST>.sqlite` |
 | `pageviews_month.py` | One month of English Wikipedia page views, from Wikimedia's monthly dump |
+| `export_d1.py` | A state's store as SQL for D1, for the public page at `/developer/spots`: metadata and links, no page text |
 | `states.json` | The 50 states and DC, with their Wikidata items |
 | `../.github/workflows/spots-data.yml` | Runs both every month on GitHub Actions and keeps the results in R2 |
 
@@ -29,6 +30,17 @@ scoring and model ratings tried on Washington, Seattle, Portland and Santa Fe.
 A run fetches only what changed since the last one: Wikidata items and Wikipedia articles whose revision
 changed, websites not fetched in 90 days, months of page views it doesn't have yet. The NPS API is read whole
 each time (a few requests per state).
+
+## The public page
+
+After saving a state's store, the workflow loads it into D1 (`places`, `place_links`, `place_schemes`, `place_loads`;
+see `app/migrations/0004_places.sql`), replacing that state's rows. The app shows it at `/developer/spots`: search by name, filter
+by state and source, and open a place to see its identifiers and the records in other sources that share one. Only
+metadata and links are loaded, never text copied from Wikipedia or other sites.
+
+Search matches names with `LIKE`, which reads the whole table: fine for a few states on D1's free plan (5 million rows
+read a day). Each load rewrites the state's rows, which counts against the free plan's 100,000 rows written a day, so
+loading many states, or all of them, needs Workers Paid; a full-text index can replace `LIKE` then.
 
 ## Running it
 

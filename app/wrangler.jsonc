@@ -41,12 +41,13 @@
   ],
 
   // Sign-in steps per IP (an email lookup plus a sign-in counts twice), place searches plus route lookups per person,
-  // and MCP calls per person (an assistant's), per minute.
+  // MCP calls per person (an assistant's), and spots data lookups (/developer/spots, open to anyone) per IP, per minute.
   // namespace_id is any number unique to this account's rate limiters.
   "ratelimits": [
     { "name": "SIGNIN_LIMIT", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
     { "name": "MAPS_LIMIT", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
-    { "name": "MCP_LIMIT", "namespace_id": "1003", "simple": { "limit": 60, "period": 60 } }
+    { "name": "MCP_LIMIT", "namespace_id": "1003", "simple": { "limit": 60, "period": 60 } },
+    { "name": "DATA_LIMIT", "namespace_id": "1004", "simple": { "limit": 60, "period": 60 } }
   ],
 
   // BETTER_AUTH_URL (the app's own origin) isn't set here: .dev.vars sets it for local dev, and
