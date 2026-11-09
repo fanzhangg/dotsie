@@ -1,14 +1,13 @@
 /* The day's list (rail · stop · time), the day bar, and which row has the focus. */
 import { $app, ICON, WIDE, esc, state, token } from './core.js';
-import { DAYS, fmtDay, fmtDur, instantOf, nowIn, nowStamp, toDate, zoneOf } from './time.js';
+import { DAYS, MONTHS, fmtDay, fmtDur, instantOf, nowIn, nowStamp, toDate, zoneOf } from './time.js';
 import { cur } from './trips.js';
-import { ALL, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, daysOf, kindColor, kindOf, pagesOf, samePlace, stayOf, staysOf, travelIcon } from './plan.js';
+import { ALL, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysOf, kindColor, kindOf, pagesOf, samePlace, stayOf, staysOf, travelIcon } from './plan.js';
 import { dayLegs, directionsURL, legsOn, placeURL } from './routes.js';
 import { offlineNow } from './offline.js';
 import { render, scheduleRender } from './app.js';
 import { camFree, dayFramed, drawMap, lateMin, map, markerHTML, refit, setDayShown, timeHTML, updateFitBtn, zoneShown } from './map.js';
 import { drag, headBottom, holdScroll, listContentHeight, listTop, motion, moveSheet, setBottom, setListTop, setSheetHeight, stopMotion } from './sheet.js';
-import { modalHead, openSheet } from './sheets.js';
 
 // Today, when it's one of the trip's days, with what's happening now highlighted; else the overview.
 // If the day's stops are gone (deleted, moved), the next day that has some.
@@ -225,10 +224,10 @@ export function overviewItems(trip) {
   }
   return items;
 }
-// Its action is said in words, "View day", not with a ›: the day bar's ‹ › just above it step through the days.
+// Its action is said in words, "View day", not with a ›.
 const dayHeadHTML = (d, past) => `<button class="wt-tl-day${past ? ' is-past' : ''}" data-action="pick-day" data-day="${d}" aria-label="${dayName(d)}. Open this day">
     <span class="wt-tl-day__name">${dayName(d)}</span><span class="wt-tl-day__open" aria-hidden="true">View day</span></button>`;
-function listHTML(trip, day) {
+export function listHTML(trip, day) {
   if (!day) return '<p class="wt-empty">Add a flight, a hotel, or a place to see.</p>';
   const items = day === ALL ? overviewItems(trip) : dayItems(trip, day);
   if (!items.length) return '<p class="wt-empty">Nothing planned this day yet.</p>';
@@ -265,29 +264,124 @@ export function renderList(trip) {
 // Keep the highlight and the dimming current while the trip is open.
 setInterval(() => { if ($app.dataset.trip) scheduleRender(); }, 60000);
 
-// ---------- Day bar: ‹ day › to step, or tap the day to pick from all of them. All days comes before the first. ----------
-export function dayBarHTML(trip) {
-  const days = pagesOf(trip), d = currentDay(trip), i = days.indexOf(d);
-  if (!d) return '';
-  return `<button class="wt-icon-btn wt-day-bar__step" data-action="prev-day" aria-label="Previous day"${i > 0 ? '' : ' disabled'}>${ICON.back}</button>
-    <button class="wt-day-bar__title" data-action="days" aria-label="${dayName(d)}. Pick a day">
-      <span class="wt-day-bar__label">${dayName(d)}${ICON.chevronUpDown}</span>
-    </button>
-    <button class="wt-icon-btn wt-day-bar__step" data-action="next-day" aria-label="Next day"${i < days.length - 1 ? '' : ' disabled'}>${ICON.forward}</button>`;
+// ---------- Day tabs: Overview, then every day of the trip ----------
+// A row of quiet tabs at the top of the sheet: the open one in primary ink with a short bar under it, the rest in
+// tertiary. Tap one, or swipe the list sideways (see sheet.js), to change page. The row scrolls sideways, so a long trip
+// fits, and keeps the open day in the middle; the calendar at its end jumps to any day of the trip.
+// (It used to be ‹ day › with a list of days in a modal sheet: one day showed, and the rest were two taps away.)
+// "Today, Nov 21" on today, so it's easy to find your way back to it; otherwise "Sat, Nov 21".
+const dayName = d => (d === ALL ? 'Overview' : d === nowStamp().slice(0, 10) ? `Today, ${fmtDay(d).split(', ')[1]}` : fmtDay(d));
+// A tab says as little: "Today", "Sat 21", or the month on the 1st ("Dec 1").
+function tabLabel(d) {
+  if (d === ALL) return 'Overview';
+  if (d === nowStamp().slice(0, 10)) return 'Today';
+  const t = toDate(d);
+  return t.getDate() === 1 ? `${MONTHS[t.getMonth()]} 1` : `${DAYS[t.getDay()]} ${t.getDate()}`;
 }
-// "Today, Nov 21" on today, so it's easy to find your way back to it; otherwise "Sat, Nov 21". The overview is "All days".
-const dayName = d => (d === ALL ? 'All days' : d === nowStamp().slice(0, 10) ? `Today, ${fmtDay(d).split(', ')[1]}` : fmtDay(d));
-// All days, then every day of the trip, with the icons of its stops and the hotel you sleep at, so you can see what each day holds.
-export function openDays(trip) {
-  const cur = currentDay(trip);
-  openSheet(`${modalHead('Days')}
-    <ul class="wt-day-list">${pagesOf(trip).map(d => {
-      const places = d === ALL ? [] : [...new Set(dayPlan(trip, d).filter(e => e.role === 'stop' || e.role === 'night').map(e => e.place))];
-      return `<li><button class="wt-day-list__item" data-action="pick-day" data-day="${d}"${d === cur ? ` aria-current="${d === ALL ? 'page' : 'date'}"` : ''}>
-        <span class="wt-day-list__name">${dayName(d)}</span>
-        <span class="wt-day-list__kinds">${places.slice(0, 6).map(x => markerHTML(x, 'wt-marker--sm')).join('')}</span>
-      </button></li>`;
-    }).join('')}</ul>`);
+// The tabs and the calendar button. The open tab and whether the calendar is open are set on them in renderDayBar,
+// so the row isn't rebuilt when only the day changes: its scroll and its bar move from where they are.
+const dayTabsHTML = trip => `<div class="wt-day-tabs" role="tablist" aria-label="Days">${pagesOf(trip).map(d =>
+  `<button class="wt-day-tab" role="tab" data-action="pick-day" data-day="${d}" aria-label="${dayName(d)}">${tabLabel(d)}</button>`).join('')}<span class="wt-day-tabs__bar" aria-hidden="true"></span></div>
+  <button class="wt-icon-btn wt-day-bar__cal" data-action="day-cal" aria-label="Jump to a day" title="Jump to a day">${ICON.calendar}</button>`;
+let dayCalOpen = false;
+export const isDayCalOpen = () => dayCalOpen;
+export function renderDayBar(trip) {
+  const bar = $app.querySelector('.wt-day-bar'), cal = $app.querySelector('.wt-day-cal'), d = currentDay(trip);
+  bar.hidden = !d;
+  if (!d) { bar.innerHTML = bar.wtHTML = ''; dayCalOpen = false; }
+  else {
+    const html = dayTabsHTML(trip);
+    if (bar.wtHTML !== html) { bar.innerHTML = html; bar.wtHTML = html; bar.wtDay = null; }
+    for (const t of bar.querySelectorAll('.wt-day-tab')) t.setAttribute('aria-selected', String(t.dataset.day === d));
+    bar.querySelector('.wt-day-bar__cal').setAttribute('aria-expanded', String(dayCalOpen));
+    // a new day: its tab slides to the middle of the row (at once the first time); the bar under it moves with it
+    const moved = bar.wtDay !== d, animate = moved && bar.wtDay != null;
+    bar.wtDay = d;
+    if (moved) centerDayTab(animate);
+    placeTabBar(animate);
+  }
+  cal.hidden = !dayCalOpen;
+  cal.innerHTML = dayCalOpen ? dayCalHTML(trip) : '';
+}
+const tabOf = d => $app.querySelector(`.wt-day-tab[data-day="${d}"]`);
+const tabMid = t => t.offsetLeft + t.offsetWidth / 2;
+function centerDayTab(smooth) {
+  const row = $app.querySelector('.wt-day-tabs'), t = row && tabOf(state.day);
+  if (!t) return;
+  const left = Math.max(0, tabMid(t) - row.clientWidth / 2);
+  row.scrollTo({ left, behavior: smooth && parseFloat(token('--wt-duration-base')) ? 'smooth' : 'instant' });
+}
+function setTabBar(x, animate) {
+  const b = $app.querySelector('.wt-day-tabs__bar');
+  if (!b) return;
+  b.style.transition = animate ? '' : 'none';
+  b.style.transform = `translateX(${x - b.offsetWidth / 2}px)`;
+}
+export function placeTabBar(animate = false) {
+  const t = tabOf(state.day);
+  if (t) setTabBar(tabMid(t), animate);
+}
+// While the list is swiped, the bar slides from the open day's tab toward the next one's, `p` (0–1) of the way.
+export function followDayTabs(to, p) {
+  const a = tabOf(state.day), b = to && tabOf(to);
+  if (a) setTabBar(tabMid(a) + (b ? (tabMid(b) - tabMid(a)) * p : 0), false);
+}
+// A vertical wheel scrolls the row sideways, so a mouse without a sideways wheel can reach every day.
+document.addEventListener('wheel', e => {
+  const row = e.target.closest?.('.wt-day-tabs');
+  if (!row || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+  e.preventDefault();
+  row.scrollLeft += e.deltaY;
+}, { passive: false });
+
+// ---------- Jump to a day: the trip's weeks as a calendar ----------
+// Opened by the calendar at the end of the tabs, it sits between them and the list. Its days are the design system's
+// month (.wt-cal): the open day in black, today with a ring, and a dot under a day with stops of its own, so the days
+// still to plan stand out. Days not on the trip are light grey, and weeks with none of the trip's days are left out.
+// The first month's name heads it; a later month's name comes before its first week. Overview is at its top too,
+// for when its tab has scrolled away.
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const monthName = d => { const t = toDate(d); return `${MONTH_NAMES[t.getMonth()]} ${t.getFullYear()}`; };
+function dayCalHTML(trip) {
+  const days = daysOf(trip), on = new Set(days), today = nowStamp().slice(0, 10), open = currentDay(trip);
+  const first = days[0], last = days.at(-1);
+  let cells = '', month = first.slice(0, 7);
+  for (let w = addDays(first, -toDate(first).getDay()); w <= last; w = addDays(w, 7)) {
+    const week = Array.from({ length: 7 }, (_, i) => addDays(w, i)), ours = week.find(x => on.has(x));
+    if (!ours) continue;
+    if (ours.slice(0, 7) !== month) { month = ours.slice(0, 7); cells += `<span class="wt-day-cal__month">${monthName(ours)}</span>`; }
+    cells += week.map(x => {
+      const n = toDate(x).getDate();
+      if (!on.has(x)) return `<span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">${n}</span></span>`;
+      const has = dayStops(trip, x).length > 0;
+      return `<button type="button" class="wt-cal__day${has ? ' has-stops' : ''}" data-action="pick-day" data-day="${x}" aria-pressed="${x === open}"${x === today ? ' aria-current="date"' : ''} aria-label="${dayName(x)}${has ? '' : ', nothing planned'}"><span class="wt-cal__n">${n}</span></button>`;
+    }).join('');
+  }
+  return `<div class="wt-day-cal__head">
+      <span class="wt-cal__month">${monthName(first)}</span>
+      <button type="button" class="wt-day-cal__overview" data-action="pick-day" data-day="${ALL}" aria-pressed="${open === ALL}">Overview</button>
+    </div>
+    <div class="wt-cal__grid" role="group" aria-label="The trip's days">
+      ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(w => `<span class="wt-cal__wd" aria-hidden="true">${w}</span>`).join('')}${cells}
+    </div>`;
+}
+export function toggleDayCal() {
+  dayCalOpen = !dayCalOpen;
+  render();
+  if (dayCalOpen) $app.querySelector('.wt-day-cal [aria-pressed="true"]')?.focus({ preventScroll: true });
+}
+// Picking a day (a tab, the calendar, a heading on the overview) closes the calendar.
+export function pickDay(d) {
+  const was = dayCalOpen;
+  dayCalOpen = false;
+  if (d !== state.day) setDay(d);
+  else if (was) render();
+}
+export function closeDayCal() {
+  if (!dayCalOpen) return false;
+  dayCalOpen = false;
+  render();
+  return true;
 }
 export function setDay(d) {
   const trip = cur?.stops ? cur : null;
@@ -299,8 +393,8 @@ export function setDay(d) {
 export function stepDay(n) {
   const trip = cur?.stops ? cur : null;
   if (!trip) return;
-  const pages = pagesOf(trip);
-  setDay(pages[pages.indexOf(currentDay(trip)) + n]);
+  const pages = pagesOf(trip), to = pages[pages.indexOf(currentDay(trip)) + n];
+  if (to) pickDay(to);
 }
 export const isWide = () => ($app.querySelector('.trip')?.clientWidth || 0) >= WIDE;
 // The list has two heights on a phone: half (the default) and full (the whole day, docked under the header).

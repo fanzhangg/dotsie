@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 13.0.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 14.0.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -85,7 +85,7 @@ A new theme, such as high-contrast, only redefines tier 2.
 | `.wt-<component>--<variant>` | A lasting variant | `.wt-marker--sm`, `.wt-btn--primary` |
 | `.is-<state>` | A passing state set by script | `.is-open`, `.is-selected`, `.is-past` |
 
-Prefer ARIA attributes for state where one exists. The type picker reads `aria-checked="true"`, and the open day in the day list `aria-current="date"`, not a class.
+Prefer ARIA attributes for state where one exists. The type picker reads `aria-checked="true"`, and the open day's tab `aria-selected="true"`, not a class.
 
 The timeline's parts are named `.wt-tl-*` (`.wt-tl-stop`, `.wt-tl-drive`), not `.wt-tl__*`. Each row is a small component of its own, with its own parts (`.wt-tl-drive__what`).
 
@@ -159,7 +159,7 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 | --- | --- | --- | --- |
 | `--wt-type-display` | 28 / 34 | 700 | The app name on Home. Pair it with `--wt-tracking-display`. |
 | `--wt-type-title` | 18 / 24 | 600 | Modal titles. |
-| `--wt-type-context` | 15 / 20 | 500 | Where you are: the trip's name and the day bar, in `--wt-text-secondary`. Smaller and lighter than a stop's name, so the plan leads. |
+| `--wt-type-context` | 15 / 20 | 500 | Where you are: the trip's name, in `--wt-text-secondary`, and the day tabs, in `--wt-text-tertiary` (the open one primary). Smaller and lighter than a stop's name, so the plan leads. |
 | `--wt-type-heading` | 15 / 20 | 600 | Section titles in trip settings and Account (`.wt-section__title`). |
 | `--wt-type-name` | 16 / 21 | 500 | Stop and trip names: the strongest text in a list. |
 | `--wt-type-body` | 15 / 21 | 400 | Running text. |
@@ -167,14 +167,14 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 | `--wt-type-label` | 14 / 20 | 500 | Buttons and pin labels. A primary button is 600. |
 | `--wt-type-caption` | 13 / 18 | 400 | Notes, drives, field labels, hints. |
 | `--wt-type-caption-strong` | 13 / 18 | 500 | A late drive's "Arrives 13 min late". |
-| `--wt-type-overline` | 12 / 16 | 600 | Day headings in All days. Set in capitals, with `--wt-tracking-caps`. |
+| `--wt-type-overline` | 12 / 16 | 600 | Day headings on the overview. Set in capitals, with `--wt-tracking-caps`. |
 | `--wt-type-micro` | 11 / 14 | 500 | AM/PM (in `--wt-text-tertiary`), avatar initials (600). |
 | `--wt-type-input` | 16 / 22 | 400 | Form fields. 16px stops iPhone zooming in. |
 
 ### Space, shape, size
 
 - **Columns:** icons and text line up down the screen, the way the timeline's rail does.
-  - **Trip screen:** home, the day bar's ‹, and every marker and car are centred on the rail (36px in from the screen edge on a phone). Settings, the day bar's › and Directions share a column on the right. The trip's name starts where stop names do. The header card, docked header and side panel all keep these positions, so nothing shifts as the sheet docks.
+  - **Trip screen:** home and every marker and car are centred on the rail (36px in from the screen edge on a phone). Settings, the day tabs' calendar and Directions share a column on the right. The trip's name starts where stop names do. The header card, docked header and side panel all keep these positions, so nothing shifts as the sheet docks.
   - **Sheets:** two icon columns measured from the content edge: the options' markers on the left (23px), and their checks on the right (17px). The search icon, a picker's marker, a sub-page's back button, Close and a picker's chevron all sit on these columns. The typed search, a picker's value and a sub-page's title start where option names do.
 - **Space:** a 4px grid. `--wt-space-1` (4) · `2` (8) · `3` (12) · `4` (16) · `5` (20) · `6` (24) · `8` (32) · `10` (40). The side margin on a phone is `--wt-space-4`; the list's inner margin is `--wt-space-3`.
 - **Radius:** `--wt-radius-sm` (8, pin labels) · `md` (12, cards, inputs, block buttons, timeline rows) · `lg` (18, sheets) · `pill` (buttons, toasts) · `round` (avatars, markers, icon buttons).
@@ -209,7 +209,7 @@ Four weights, each with a job: **700** the app name only; **600** headings and t
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `directions` `map` `list` `fit` `alert` (something failed)
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed)
 
 Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
 
@@ -225,7 +225,7 @@ DotsieIcons.svg('check', 16, 3);  // custom size and stroke
 - An icon next to a label is decoration (`aria-hidden`).
 - An icon-only button needs an `aria-label`.
 - `external` means "opens another app or site". Use it only for that.
-- `chevron-up-down` means "tap for a list to choose from" (the day bar's day). `forward` and `back` step or go to another page; don't put two controls that look alike but do different things next to each other.
+- `chevron-up-down` means "tap for a list to choose from". `forward` and `back` step or go to another page; don't put two controls that look alike but do different things next to each other.
 
 ## Logo
 
@@ -375,7 +375,7 @@ Labels are verbs that say exactly what happens.
 
 ### Marker `.wt-marker`
 
-A stop's type icon on its type's color, shaded from that color (lighter at the top, darker at the bottom, the same hue throughout), so it reads as a solid, tappable object like a maps app's marker. The same marker sits on the timeline's rail, in the day list, in the Type picker and in place search. On the map, a stop's [pin](#map-pin-wt-pin) has the same color but carries its number instead of the icon.
+A stop's type icon on its type's color, shaded from that color (lighter at the top, darker at the bottom, the same hue throughout), so it reads as a solid, tappable object like a maps app's marker. The same marker sits on the timeline's rail, on a trip card, in the Type picker and in place search. On the map, a stop's [pin](#map-pin-wt-pin) has the same color but carries its number instead of the icon.
 
 ```html
 <i class="wt-marker" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)">${icon('utensils')}</i>
@@ -400,7 +400,7 @@ Every type has its own color, so no two look alike. The colors follow maps apps 
 
 - Set `--wt-kind-color` on the marker or on a parent, to `var(--wt-kind-<kind>)`. Without one, the marker is grey.
 - The colors are about as light as each other, so no type looks more important than another; what matters more (a late drive, now) is louder than any of them.
-- `--sm` (20px) is for the day list. The default is 30px.
+- `--sm` (20px) is for a trip card's now and next. The default is 30px.
 - `.wt-option__meta`, after `__text`, puts a short value on the right of an option, such as a way's time (`17 min`).
 - `--travel` is a way of getting somewhere (Drive, Walk, Bike, Transit, Flight) in the list of them: flat `--wt-kind-drive` grey with no shading, like a drive's car on the rail, so a way never looks like a stop type. `<i class="wt-marker wt-marker--travel">${icon('walk')}</i>`
 - The `aria-label` names the type, so color is never the only signal.
@@ -455,7 +455,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - Give the row `role="button"` and `aria-pressed` while its route is shown.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
-- **Day heading** (`.wt-tl-day`): the overview, **All days**, puts every day in one timeline, each day's stops under its name. See [All days](#all-days-wt-tl-day).
+- **Day heading** (`.wt-tl-day`): the **Overview** puts every day in one timeline, each day's stops under its name. See [Overview](#overview-wt-tl-day).
 - **States:**
 
   | State | On | Means |
@@ -471,7 +471,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
 
   **Now is ink, not color.** The row happening now keeps its black ring or car and its primary time even while another row is selected, so the day's position is never lost; only the grey background moves to the selection. It's not tinted blue or any other color: a colored highlight is louder than the information it marks.
 
-### All days `.wt-tl-day`
+### Overview `.wt-tl-day`
 
 The overview: every day of the trip on one page, before the first day. Each day's stops, and the drives between them, go under a heading with the day's name.
 
@@ -487,36 +487,47 @@ The overview: every day of the trip on one page, before the first day. Each day'
 </div>
 ```
 
-- **The heading** is a row in the timeline with **View day** on the right (`.wt-tl-day__open`, caption size in `--wt-text-link`; secondary ink on a past day): tapping it opens that day. It's in words, not a `forward` icon, since the day bar's ‹ › sit just above it and step through days instead. It's a label, not a name: `--wt-type-overline` in grey capitals (`text-transform` and `--wt-tracking-caps`; the text stays "Fri, Nov 20" for screen readers), starting at the list's left edge, where the markers start. Stop names are larger, black and indented past the rail, so a date never reads as a stop. It's at least `--wt-size-touch` tall, with its text at the bottom, next to the day's first stop.
+- **The heading** is a row in the timeline with **View day** on the right (`.wt-tl-day__open`, caption size in `--wt-text-link`; secondary ink on a past day): tapping it opens that day. It's in words, not a `forward` icon. It's a label, not a name: `--wt-type-overline` in grey capitals (`text-transform` and `--wt-tracking-caps`; the text stays "Fri, Nov 20" for screen readers), starting at the list's left edge, where the markers start. Stop names are larger, black and indented past the rail, so a date never reads as a stop. It's at least `--wt-size-touch` tall, with its text at the bottom, next to the day's first stop.
 - **It isn't on the rail.** Each day's rail runs from its first stop's marker to its last; a day with one stop has no rail.
 - **Stops and the drives between them,** as on a day: marker, name, time, and `1 hr 36 min drive`. Notes are left to the day's own page, and so are the hotel you wake up at and go back to, with the drives to and from it (the map still draws every drive). A day's rows start and end with a place, never a drive, so its rail runs from marker to marker. A hotel keeps its nights on its check-in day, and check-out morning is a row with `Check out`. A day with no stops of its own, in the middle of a stay, shows the hotel you wake up at.
 - `is-selected`, `is-now` and `is-past` work as on a day. A past day's heading gets `is-past` and turns `--wt-text-past` with its stops.
 
-### Day bar `.wt-day-bar` and day list `.wt-day-list`
+### Day tabs `.wt-day-bar` and day calendar `.wt-day-cal`
 
-The day bar sits at the top of the sheet and steps through the trip one day at a time, with All days before the first day. Tapping the day opens the day list in a modal sheet.
+The day tabs sit at the top of the sheet: Overview, then every day of the trip. The open page's tab is in primary ink with a short bar under it; the rest are quiet. A calendar button at the end opens the day calendar between the tabs and the list, to jump to any day of a long trip.
 
 ```html
 <div class="wt-day-bar">
-  <button class="wt-icon-btn wt-day-bar__step" aria-label="Previous day">${icon('back')}</button>
-  <button class="wt-day-bar__title" aria-label="Today, Nov 21. Pick a day">
-    <span class="wt-day-bar__label">Today, Nov 21${icon('chevron-up-down')}</span>
-  </button>
-  <button class="wt-icon-btn wt-day-bar__step" aria-label="Next day">${icon('forward')}</button>
+  <div class="wt-day-tabs" role="tablist" aria-label="Days">
+    <button class="wt-day-tab" role="tab" aria-selected="false" aria-label="Overview">Overview</button>
+    <button class="wt-day-tab" role="tab" aria-selected="false" aria-label="Fri, Nov 20">Fri 20</button>
+    <button class="wt-day-tab" role="tab" aria-selected="true" aria-label="Today, Nov 21">Today</button>
+    <!-- … every day of the trip -->
+    <span class="wt-day-tabs__bar" aria-hidden="true"></span>
+  </div>
+  <button class="wt-icon-btn wt-day-bar__cal" aria-expanded="false" aria-label="Jump to a day">${icon('calendar')}</button>
 </div>
 
-<ul class="wt-day-list">
-  <li><button class="wt-day-list__item" aria-current="date">
-    <span class="wt-day-list__name">Today, Nov 21</span>
-    <span class="wt-day-list__kinds"><!-- .wt-marker--sm for each place --></span>
-  </button></li>
-</ul>
+<div class="wt-day-cal">   <!-- hidden unless the calendar is open; between .wt-sheet__top and .wt-sheet__body -->
+  <div class="wt-day-cal__head">
+    <span class="wt-cal__month">November 2026</span>
+    <button class="wt-day-cal__overview" aria-pressed="false">Overview</button>
+  </div>
+  <div class="wt-cal__grid" role="group" aria-label="The trip's days">
+    <!-- the weekdays' letters (.wt-cal__wd), then whole weeks: -->
+    <span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">19</span></span>   <!-- not on the trip -->
+    <button class="wt-cal__day has-stops" aria-pressed="false" aria-label="Fri, Nov 20"><span class="wt-cal__n">20</span></button>
+    <span class="wt-day-cal__month">December 2026</span>   <!-- before a later month's first week -->
+  </div>
+</div>
 ```
 
-- The title says "Today, Nov 21" on today, so it's easy to find your way back. Other days are "Sat, Nov 21", and the overview is "All days".
-- **‹ and › are round buttons on a grey disc** (32px of `--wt-surface-hover`, drawn by `::before` inside the 44px button, so the button keeps its size and its place on the columns). The day has a `chevron-up-down` picker glyph. The two look different because they do different things: step, or pick from a list.
-- Disable the previous arrow on All days and the next arrow on the last day.
-- The day list shows All days, then every day, with up to six small markers: the day's stops in order, then the hotel you sleep at. `aria-current="date"` marks the open day (`"page"` on All days).
+- **A tab says as little as it can:** "Overview", "Today", "Sat 21", or the month on the 1st ("Dec 1"). Its `aria-label` says the whole day ("Today, Nov 21", "Sat, Nov 21"). `--wt-type-context` in `--wt-text-tertiary`; the open tab (`aria-selected="true"`) is `--wt-text-primary`. No fills, no outlines: the day says where you are, so it stays below the plan.
+- **The bar** (`__bar`, 24 × 2px of `--wt-text-primary`) is placed under the open tab by script, with `transform`, and slides there on `--wt-duration-base`. While the list is swiped sideways, the script moves it toward the next tab with the finger.
+- **The row scrolls sideways** with no scrollbar, and fades out at either edge, so a long trip fits. Keep the open tab in the middle of the row whenever it changes. It sits on the hairline under the sheet's top (`.wt-sheet__top` has no bottom padding with day tabs in it).
+- **The calendar button** (`__cal`) stays at the row's end. `aria-expanded="true"` while the calendar is open, with a `--wt-surface-hover` disc.
+- **The day calendar** uses the month's days (`.wt-cal__day`, 36px here): the open day `aria-pressed="true"` in black, today `aria-current="date"` with a ring, `has-stops` with a dot for a day with stops of its own. Days off the trip are spans in `--wt-text-past`. Show only the weeks with days of the trip in them; `__month` names a later month before its first week. **Overview** (`__overview`) is in link ink, primary and semibold when it's the open page. It takes the room it needs, up to all of the list's, and scrolls past that.
+- **Swiping:** the list turns the page when swiped sideways. The page coming in is `.wt-sheet__peek`, a copy of the next page's rows beside the list; `.wt-sheet.is-full .wt-sheet__body` is `touch-action: pan-y` so the sideways swipe is the script's at full height too, as it is below full (`none`) and in the side panel.
 
 ### Picker `.wt-picker`, options `.wt-options` and check-out
 
@@ -647,8 +658,9 @@ A day and a time, picked in that order, as in Google Calendar: a stop's Arrive, 
 <section class="wt-sheet" aria-label="Plan">   <!-- .is-full, or half with no class -->
   <div class="wt-sheet__top">
     <button class="wt-sheet__grab" aria-label="Show the whole day"></button>
-    <div class="wt-day-bar">…</div>
+    <div class="wt-day-bar">…</div>   <!-- the day tabs -->
   </div>
+  <div class="wt-day-cal" hidden>…</div>   <!-- the day calendar, while open -->
   <div class="wt-sheet__body wt-tl"><!-- the day's timeline --></div>
   <div class="wt-add-bar"><button class="wt-btn wt-btn--primary wt-btn--block">${icon('plus')}Add stop</button></div>
 </section>
@@ -671,10 +683,10 @@ With a stop selected, the add bar holds Open in Maps, a round Edit stop and a ro
   - **Full** (`.is-full`): the whole day, up to the header's bottom edge. The sheet goes square and flat, and the docked header and the list read as one page.
   - It never hides.
 - **The offline status** (`.wt-trip-head__status`) sits between the name and settings, and only while it has something to say: `saved` when the trip is saved on this device, `download` while it's saving, and `cloud-off` with `.is-offline` when there's no connection. It's quieter than home and settings (18px, `--wt-text-tertiary`); offline is a step louder (`--wt-text-secondary`), since changes won't save. Its `aria-label` names the status ("Available offline", "Saving for offline", "Offline"), and a tap explains it in a toast. It isn't an action, so it's the one icon-only button whose icon isn't a universal one.
-- **Moving it is dragging,** as in a maps app: the grab handle, the day bar, or the list itself. Below full, dragging the list moves the sheet rather than scrolling it, and the list can't be scrolled by hand at all (`touch-action: none` and `overflow: hidden`): your code scrolls it, to keep the focused row in its middle. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the other height; a slower drag settles at the nearer. Add `.is-dragging` while a finger is moving it.
+- **Moving it is dragging,** as in a maps app: the grab handle, the day tabs, or the list itself (a sideways swipe on the list turns the page instead). Below full, dragging the list moves the sheet rather than scrolling it, and the list can't be scrolled by hand at all (`touch-action: none` and `overflow: hidden`): your code scrolls it, to keep the focused row in its middle. At full, the list scrolls; pulled down from its top, it shrinks the sheet. A flick goes on to the other height; a slower drag settles at the nearer. Add `.is-dragging` while a finger is moving it.
 - **Taps:** the grab handle is a button that switches between half and full. Choosing a stop or a drive on the whole day brings the sheet down to half. No other tap resizes the sheet.
 - **The map:** a new height re-frames the map for what's left of it, unless the map has been touched since it was last framed. Selecting a pin or showing a route opens the sheet to half. Zooming doesn't move the sheet.
-- The top holds the grab handle and the day bar, with a 1px `--wt-border-default` line under it that divides the day bar from the list (left out when the day bar is hidden, on an empty trip). The handle is laid over the day bar's top edge rather than taking a row of its own; the day bar's buttons sit above it and take their own taps, and a tap anywhere else on that strip is the handle's. People live in trip settings.
+- The top holds the grab handle and the day tabs, with a 1px `--wt-border-default` line under it that divides the tabs from the list (left out when they're hidden, on an empty trip). The handle is laid over the tabs' top edge rather than taking a row of its own; the tabs and the calendar button sit above it and take their own taps, and a tap anywhere else on that strip is the handle's. People live in trip settings.
 - The add bar comes after `.wt-sheet__body`, not inside it. It's static, not sticky.
 - **The add bar follows the selection.** With nothing selected it's Add stop. Tapping a stop in the list selects it rather than opening it, and the bar becomes **Open in Maps** (the place in the maps app picked in Account, the same one Directions opens; `<a class="wt-btn wt-btn--primary wt-btn--block" target="_blank">`), then a round white **Edit stop** with only its pencil, then a round `+`, so adding is always one tap away. Seeing what a place is (its photos, reviews and hours) is what you most often want from a stop on the road, so it's the black button; editing is one tap to its right. A stop you've just added is selected, so it's there to check the moment you save. Tapping a drive shows its route, and the bar becomes Directions (a link to the maps app, as Open in Maps), then a round white button with the leg's way (`car`, `walk`…) that changes it, then the same `+`. A flight has no directions, so its black button is Open in Maps, for where it lands. It's always one primary button. Every button in the bar is a pill (the 44px ones are circles), so the row reads as one set.
 - **Changing set morphs** (see [Motion](#elevation-motion-layers)): Add stop shrinks to the right into the `+`, Open in Maps grows from the left and Edit stop grows in between; clearing the selection runs it back. Open in Maps and Directions stretch into each other.
@@ -857,7 +869,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 
 - **A round dot, centered on its place,** like a stop on a transit map: place the element at the place and its center lands there. 24px, ring included (`--wt-pin-size`). It covers its place and little else, so the routes running into it stay visible.
 - **Its color is the stop's type** (`--wt-kind-color`, as on a [marker](#marker-wt-marker)), shaded like a marker, in a 2px `--wt-pin-fill` ring that keeps it apart from the route under it.
-- **It holds one thing: its number,** in `--wt-marker-ink`. **Every pin has one: its row's in the list,** in the order the list reads, so the hotel you wake up in is 1. On All days, the trip's stops. Numbers change only when the list does, never as the map zooms. Only a stop that isn't saved yet, with no row, has `.wt-pin__dot` instead.
+- **It holds one thing: its number,** in `--wt-marker-ink`. **Every pin has one: its row's in the list,** in the order the list reads, so the hotel you wake up in is 1. On the overview, the trip's stops. Numbers change only when the list does, never as the map zooms. Only a stop that isn't saved yet, with no row, has `.wt-pin__dot` instead.
 - **Rows at one place share one pin, with the first one's number** (the hotel you wake up in and go back to is 1: the route comes back to it).
 - **Where pins crowd, they merge** into one `--cluster` pin, at the first one's place. It's the first one's pin, round and with its own number, with the next ones' pins stacked behind it, up and to the right, each in its own color and `--wt-pin-fill` ring, like a fanned deck: one behind for two stops, two behind (`--deep`) for more. Set their colors in `--wt-pin-behind-1` and `-2` (`--wt-kind-past` for one that's over). Behind, they're flat and faded, half their color over `--wt-pin-fill` (`--wt-pin-behind-soft`, 50%), so the pin in front leads. The stack says there are several, and of what kinds; one shadow goes around the whole. The numbers it holds are the ones missing from the map, and its `aria-label` gives them all ("1–3", or "2, 6" for numbers not in a row).
   - Pins merge when they would come within 4px of each other, each into the first pin before it in the list's order that it would touch, and merged pins that touch merge again. Zoom in and it comes apart; tap it and the map zooms in to its stops. A selected pin, and both ends of a route on show, never merge.
@@ -868,7 +880,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - Variants: `--selected` (32px, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (20px and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). A merged pin is muted only when all its stops are. The pins still in color are the ones that matter now.
 - **A tap target of 36px**, centered on the pin (`::after`).
 - **Put the pins in a `.wt-pins` element** (with Leaflet, the marker pane). While one of them is `--selected`, the rest step back: still solid, flat, in a lighter version of their color (`--wt-pin-faded-mix` of it over `--wt-pin-fill`; deeper in dark mode), with the number in their own color, so the selected pin stands out among pins of every type. Not see-through, so the route and the map don't show through them (they used to fade to 55% opacity, which muddied them). They keep their colors rather than turn grey, since grey means over; a pin that's over stays as it is.
-- The map shows only the open day, or the whole trip on All days. Framing a day or a route leaves half a selected pin clear at the edges.
+- The map shows only the open day, or the whole trip on the overview. Framing a day or a route leaves half a selected pin clear at the edges.
 
 ### Sight `.wt-sight`
 
@@ -939,11 +951,11 @@ Say what can go here, in the user's words. No illustrations.
 - **The trip screen.**
   - On a phone: `.wt-trip-head` across the top, the map under it, and `.wt-sheet` over the map, at half height or the whole day.
   - From 768px wide: the header and the sheet are a side panel on the left, and the map fills the rest. Modal sheets cover the panel. Fit the map with even padding: nothing covers it.
-  - One day at a time, after All days. The day bar steps through them, and the map shows only the open day; on All days, the whole trip.
+  - One day at a time, after the overview. The day tabs go to any of them (or swipe the list sideways), and the map shows only the open day; on the overview, the whole trip.
   - A pin is a dot in its marker's color with its row's number in the list; where pins crowd, they merge into the first one's pin, with the others' pins stacked behind it. The map has no text. The list says what each pin is: the half list keeps the row in focus in its middle.
   - Tapping a pin selects its stop (`is-selected`). Tapping a route, or its drive in the list, marks the drive `is-active` and shows the route: both ends' pins larger, the map fitted to it, and the drive in the middle of the half list, between its two stops. Tapping the drive again goes back to the whole day.
   - Editing a stop leaves the map in view (a panel), with the stop's pin showing the edit as it happens.
-- **Today.** During the trip, the trip opens on today. On any other day, it opens on All days.
+- **Today.** During the trip, the trip opens on today. On any other day, it opens on the overview.
   - The row happening now is highlighted (`is-now`), unless another row is selected.
   - Rows before it turn light grey (`is-past`), their routes turn grey (`--wt-route-done`), and their pins mute to grey (`.wt-pin--muted`).
   - The hotel you go back to tonight stays bright.
@@ -1011,6 +1023,17 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 14.0.0
+
+The day bar is a row of day tabs: Overview, then every day, with a calendar to jump to any day. The list turns the page when swiped sideways.
+
+- New: `.wt-day-tabs`, `.wt-day-tab` and `.wt-day-tabs__bar`, and `.wt-day-bar__cal`, in `.wt-day-bar`. See [Day tabs](#day-tabs-wt-day-bar-and-day-calendar-wt-day-cal).
+- New: `.wt-day-cal`, with `__head`, `__overview` and `__month`, built on `.wt-cal`'s days.
+- New: `.wt-sheet__peek`, the page coming in while the list is swiped. The list is `touch-action: pan-y` at full height and in the side panel (was `auto`).
+- New icon: `calendar` (icons 4.1.0).
+- Removed: `.wt-day-bar__step`, `.wt-day-bar__title` and `.wt-day-bar__label` (the ‹ day › bar), and `.wt-day-list` with `__item`, `__name` and `__kinds` (the list of days in a modal sheet).
+- "All days" is now "Overview". Tokens are unchanged.
 
 ### Changed in 13.0.0
 
