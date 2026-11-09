@@ -81,11 +81,12 @@ export class TripRoom extends DurableObject<Env> {
   }
 
   // Opening the trip. Home lists it from D1's copy, but this object decides: when it says you're not on the trip, or
-  // it's deleted, that copy was out of date (its D1 write failed), so it's written again and the card goes.
+  // it's deleted, and Home still lists it for you, that copy is out of date (its D1 write failed), so it's written again
+  // and the card goes.
   async open(userId: string) {
     try { return this.snapshot(userId); } catch (e) {
       const m = (e as Error).message;
-      if (m === ERR.notMember || m === ERR.gone) await this.publish();
+      if ((m === ERR.notMember || m === ERR.gone) && await this.listedFor(userId)) await this.publish();
       throw e;
     }
   }
@@ -199,9 +200,12 @@ export class TripRoom extends DurableObject<Env> {
   }
 
   // Anyone but the owner can leave; the owner deletes the trip instead. Stops they added stay.
-  // Leaving again is fine: it puts right a D1 copy that still has you.
+  // Leaving again is fine, and puts right a D1 copy that still has you.
   async leave(userId: string) {
-    if (this.trip() && !this.isMember(userId)) return this.publish();
+    if (this.trip() && !this.isMember(userId)) {
+      if (await this.listedFor(userId)) await this.publish();
+      return;
+    }
     const trip = this.check(userId);
     if (trip.created_by === userId) throw new Error(ERR.invalid);
     const { name } = this.sql.exec<{ name: string }>('select name from members where id = ?', userId).one();
@@ -305,6 +309,12 @@ export class TripRoom extends DurableObject<Env> {
     const copy = { id: trip.id, name: trip.name, first: r.first, last: r.last, preview: JSON.stringify(this.preview()), deletedAt: trip.deleted_at, editedAt: edited_at, rev, members };
     const D = this.env.DB, statements = copyStatements({ ...copy, inviteHash: await sha256(trip.invite) });
     await D.batch(statements.map(([sql, values]) => D.prepare(sql).bind(...values)));
+  }
+  // Whether Home lists this trip for someone: only then is a copy that disagrees with this object worth writing again
+  // (asking costs a read, not a write, however often someone opens a trip they're not on)
+  private async listedFor(userId: string) {
+    return !!(await this.env.DB.prepare('select 1 from trip_members m join trips t on t.id = m.trip_id where m.trip_id = ? and m.user_id = ? and t.deleted_at is null')
+      .bind(this.trip()!.id, userId).first());
   }
   // A change is saved here once it's made, so D1 being out of reach doesn't fail it: the copy is tried again shortly
   // (the alarm), and by the next change, and by open.

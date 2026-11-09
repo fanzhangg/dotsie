@@ -6,14 +6,23 @@
    The prototype (../../prototype) runs these same modules with its own backend.js in place of this one.
 
    This file is the entry: the page for the address (#/, #/trip/…, #/join/…), and the app's taps and keys.
-   core      shared helpers and the screen's state         time       clock times, time zones and formatting
-   plan      a trip's days, stays, stop types, travel      backend    the server: /api, the live socket, sign-out
-   signin    who's signed in, and the sign-in screens      trips      the open trip, the home list, live events
-   routes    looking up drives, a day's legs, maps apps    offline    a trip saved on this device
-   home      the trip cards                                 map        the trip's map, its camera and pins
-   timeline  the day's list and the day bar                 sheet      the plan's sheet: its height and dragging
-   sights    what's worth seeing nearby, and its card       edits      adding, changing and deleting stops
-   sheets    sheets: new trip, trip settings, account       stopsheet  the stop sheet and its pickers
+   core      shared helpers, and the trip screen's state
+   fields    what a stop is made of (the server checks the same)
+   time      clock times, time zones and how they read
+   plan      a trip's days, stays, stop types and travel
+   backend   the server: /api, the live socket, sign-out
+   signin    who's signed in, and the sign-in screens
+   trips     the open trip, the home list, live events
+   routes    looking up drives, a day's legs, maps apps
+   offline   a trip saved on this device
+   home      the trip cards
+   map       the trip's map, its camera and pins
+   timeline  the day's list and the day bar
+   sheet     the plan's sheet: its height and dragging
+   sights    what's worth seeing nearby, and its card
+   edits     adding, changing and deleting stops
+   sheets    new trip, trip settings, account
+   stopsheet the stop sheet and its pickers
    notices   toasts and questions */
 import { $app, $sheets, esc, state } from './core.js';
 import { boot, me, renderSignIn, signInSocial } from './signin.js';
