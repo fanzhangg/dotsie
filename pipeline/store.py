@@ -21,7 +21,8 @@ Run: python3 store.py --state WA [--limit N] [--pageviews DIR] [steps...]
   --limit N     only the first N Wikidata items (to try the code on a few)
   --pageviews   a folder of enwiki-YYYYMM.tsv.gz files from pageviews_month.py
 """
-import argparse, glob, gzip, hashlib, html.parser, json, os, re, sqlite3, subprocess, sys, time, urllib.parse, urllib.request, zlib
+import argparse, glob, gzip, hashlib, html.parser, json, math, os, re, sqlite3, subprocess, sys, time, unicodedata, urllib.parse, urllib.request, zlib
+from difflib import SequenceMatcher
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -333,8 +334,38 @@ class Store:
                            SELECT a.source, a.id, b.source, b.id, 'website' FROM ids a JOIN ids b
                              ON a.source = 'wikidata' AND a.scheme = 'P856' AND b.scheme = 'url' AND b.source != 'wikidata'
                             AND rtrim(lower(a.value), '/') = rtrim(lower(b.value), '/')""")
+        self.name_links()
         self.db.commit()
         log("links:", self.db.execute("SELECT via, source_b, COUNT(*) FROM links GROUP BY 1, 2").fetchall())
+
+    def name_links(self):
+        """Probably the same place: a record from another source and a Wikidata item within NAME_LINK_M of each other
+        whose names are the same once written alike (case, accents, punctuation, "the", a "(#12)" tour number), via
+        "name", or nearly so (NAME_LINK_RATIO, an apostrophe or a space apart: "Gobblers Knob" and "Gobbler's Knob"),
+        via "similar name". A guess, unlike an identifier, so kept apart by its `via`. A name only inside the other
+        doesn't count: "Tipsoo Lake Comfort Station" isn't Tipsoo Lake, nor "Narada Falls Exhibit Panel" the falls.
+        Tried on Washington's NPS records: of 69 pairs at 0.9 or more, the only 2 wrong ones (a trailhead and its
+        trail, an activity and its site) scored 0.90 and 0.91, hence 0.95."""
+        grid = {}
+        for qid, name, lat, lng in self.db.execute(
+                "SELECT id, name, lat, lng FROM records WHERE source = 'wikidata' AND lat IS NOT NULL"):
+            grid.setdefault((round(lat, 2), round(lng, 2)), []).append((qid, name_key(name), lat, lng))
+        rows = []
+        for source, rid, name, lat, lng in self.db.execute(
+                "SELECT source, id, name, lat, lng FROM records WHERE source != 'wikidata' AND lat IS NOT NULL").fetchall():
+            key = name_key(name)
+            if not key:
+                continue
+            for dy in (-0.02, -0.01, 0, 0.01, 0.02):
+                for dx in (-0.02, -0.01, 0, 0.01, 0.02):
+                    for qid, other, qlat, qlng in grid.get((round(lat + dy, 2), round(lng + dx, 2)), []):
+                        if metres(lat, lng, qlat, qlng) > NAME_LINK_M or not other:
+                            continue
+                        if other == key:
+                            rows.append((source, rid, "wikidata", qid, "name"))
+                        elif SequenceMatcher(None, key, other).ratio() >= NAME_LINK_RATIO:
+                            rows.append((source, rid, "wikidata", qid, "similar name"))
+        self.db.executemany("INSERT OR IGNORE INTO links VALUES (?,?,?,?,?)", rows)
 
     def summary(self):
         s = {
@@ -350,6 +381,23 @@ class Store:
         with open(os.path.join(HERE, "data", f"{self.state['code']}.json"), "w") as f:
             json.dump(s, f, indent=1)
         log(json.dumps(s))
+
+
+NAME_LINK_M, NAME_LINK_RATIO = 1000, 0.95
+
+
+def name_key(name):
+    """A name written one way: no accents, case, punctuation, "the", "&", or trailing "(#12)"."""
+    s = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower()
+    s = re.sub(r"\(#?\d+\)\s*$", "", s).replace("&", " and ")
+    return " ".join(w for w in re.sub(r"[^a-z0-9]+", " ", s).split() if w != "the")
+
+
+def metres(lat1, lng1, lat2, lng2):
+    p = math.pi / 180
+    h = (math.sin((lat2 - lat1) * p / 2) ** 2 +
+         math.cos(lat1 * p) * math.cos(lat2 * p) * math.sin((lng2 - lng1) * p / 2) ** 2)
+    return 12742000 * math.asin(math.sqrt(h))
 
 
 def simple(snak):
