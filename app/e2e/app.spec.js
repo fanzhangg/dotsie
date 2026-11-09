@@ -97,10 +97,10 @@ test('an email account: create it, sign out, sign back in', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Account' })).toBeVisible();
 });
 
-// The place data page reads /api/data, open to anyone; e2e/places.sql loads its two places
-test('anyone can search the place data and follow a place to the same place in another source', async ({ page }) => {
-  await page.goto('/data');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Place data');
+// The spots data page reads /api/developer/spots, open to anyone; e2e/places.sql loads its two places
+test('anyone can search the spots data and follow a place to the same place in another source', async ({ page }) => {
+  await page.goto('/developer/spots');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
   await page.getByLabel('State').selectOption('ZZ');
   await page.getByRole('searchbox', { name: 'Search places by name' }).fill('test lodge');
   const results = page.locator('#results').getByRole('button');

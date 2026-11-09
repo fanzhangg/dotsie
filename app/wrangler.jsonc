@@ -39,7 +39,7 @@
   ],
 
   // Sign-in steps per IP (an email lookup plus a sign-in counts twice), place searches plus route lookups per person,
-  // MCP calls per person (an assistant's), and place data lookups (/data, open to anyone) per IP, per minute.
+  // MCP calls per person (an assistant's), and spots data lookups (/developer/spots, open to anyone) per IP, per minute.
   // namespace_id is any number unique to this account's rate limiters.
   "ratelimits": [
     { "name": "SIGNIN_LIMIT", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },

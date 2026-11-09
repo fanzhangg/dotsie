@@ -1,6 +1,6 @@
 'use strict';
 
-/* Place data: search and read what outside sources say about places (GET /api/data/*), at /data.
+/* Spots data: search and read what outside sources say about places (GET /api/developer/spots/*), at /developer/spots.
    Read-only and open to anyone. Product-only: it has nothing to show without the server, so the prototype has no copy.
    A place opens at #place/<source>/<id>, so it can be linked to. */
 const $ = s => document.querySelector(s);
@@ -13,7 +13,7 @@ const day = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'sho
 $('#search-icon').innerHTML = DotsieIcons.svg('search', 20);
 
 async function api(path) {
-  const res = await fetch(`/api/data/${path}`);
+  const res = await fetch(`/api/developer/spots/${path}`);
   if (res.status === 429) throw new Error('Too many lookups from here. Try again in a minute.');
   if (res.status === 404) throw new Error('That place isn’t in the data any more.');
   if (!res.ok) throw new Error('The data couldn’t be loaded. Try again.');
@@ -90,11 +90,11 @@ async function route() {
   const m = location.hash.match(/^#place\/([^/]+)\/(.+)$/);
   $('#list').hidden = !!m;
   $('#detail').hidden = !m;
-  if (!m) { document.title = 'Place data · Dotsie'; return; }
+  if (!m) { document.title = 'Spots data · Dotsie'; return; }
   $('#detail').innerHTML = '<span class="wt-spinner"></span>';
   try {
     const p = await api(`place/${encodeURIComponent(decodeURIComponent(m[1]))}/${encodeURIComponent(decodeURIComponent(m[2]))}`);
-    document.title = `${p.name} · Place data · Dotsie`;
+    document.title = `${p.name} · Spots data · Dotsie`;
     showPlace(p);
   } catch (err) {
     $('#detail').innerHTML = `<button type="button" class="wt-btn wt-btn--secondary data__back" onclick="location.hash=''">Back to search</button>${message('This place couldn’t be shown', err.message)}`;

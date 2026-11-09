@@ -1,4 +1,4 @@
--- Place data for the end-to-end tests (app.spec.js): one NPS place and the Wikidata item that shares its NPS place
+-- Spots data for the end-to-end tests (app.spec.js): one NPS place and the Wikidata item that shares its NPS place
 -- ID, in a state of their own ("ZZ") so they never mix with a state loaded for real. Loaded before the local Worker
 -- starts (see playwright.config.js).
 DELETE FROM places WHERE state = 'ZZ';

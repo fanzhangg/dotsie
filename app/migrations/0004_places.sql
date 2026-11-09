@@ -1,6 +1,6 @@
 -- Places as outside sources describe them (Wikidata, the NPS Data API), one row per record, unfiltered. The Spots
 -- data workflow builds each state's store and loads it here (pipeline/export_d1.py), replacing that state's rows.
--- Shown read-only to anyone at /data. Metadata and links only: no text copied from other sites.
+-- Shown read-only to anyone at /developer/spots. Metadata and links only: no text copied from other sites.
 create table places (
   source text not null,      -- 'wikidata', 'nps:places', 'nps:parks', …
   id text not null,          -- the record's ID at its source (a QID, an NPS ID)

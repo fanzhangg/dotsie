@@ -8,7 +8,7 @@ record goes in as the source gave it, and records are linked only through identi
 | --- | --- |
 | `store.py` | Builds or updates one state's store, `data/<ST>.sqlite` |
 | `pageviews_month.py` | One month of English Wikipedia page views, from Wikimedia's monthly dump |
-| `export_d1.py` | A state's store as SQL for D1, for the public page at `/data`: metadata and links, no page text |
+| `export_d1.py` | A state's store as SQL for D1, for the public page at `/developer/spots`: metadata and links, no page text |
 | `states.json` | The 50 states and DC, with their Wikidata items |
 | `../.github/workflows/spots-data.yml` | Runs both every month on GitHub Actions and keeps the results in R2 |
 
@@ -34,7 +34,7 @@ each time (a few requests per state).
 ## The public page
 
 After saving a state's store, the workflow loads it into D1 (`places`, `place_links`, `place_schemes`, `place_loads`;
-see `app/migrations/0004_places.sql`), replacing that state's rows. The app shows it at `/data`: search by name, filter
+see `app/migrations/0004_places.sql`), replacing that state's rows. The app shows it at `/developer/spots`: search by name, filter
 by state and source, and open a place to see its identifiers and the records in other sources that share one. Only
 metadata and links are loaded, never text copied from Wikipedia or other sites.
 

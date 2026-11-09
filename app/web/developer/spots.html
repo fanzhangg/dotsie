@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
-  <title>Place data · Dotsie</title>
+  <title>Spots data · Dotsie</title>
   <meta name="description" content="Search what Wikidata and the National Park Service say about places in the US, as collected for Dotsie's sights.">
-  <link rel="stylesheet" href="design-system/tokens.css">
-  <link rel="stylesheet" href="design-system/components.css">
+  <link rel="stylesheet" href="/design-system/tokens.css">
+  <link rel="stylesheet" href="/design-system/components.css">
   <style>
     /* Layout only: colors, type and shapes come from the design system. One column, like the app. */
     .data { max-width: var(--wt-size-column); margin: 0 auto; padding: var(--wt-space-6) max(var(--wt-space-4), env(safe-area-inset-right)) var(--wt-space-10) max(var(--wt-space-4), env(safe-area-inset-left)); display: grid; gap: var(--wt-space-4); }
@@ -35,7 +35,7 @@
 <body class="wt-base">
   <main class="data">
     <header class="data__head">
-      <h1 class="data__title">Place data</h1>
+      <h1 class="data__title">Spots data</h1>
       <p class="data__intro" id="loaded">What Wikidata and the National Park Service say about places in the US, collected each month for Dotsie's sights. Nothing here is filtered or rated yet.</p>
     </header>
 
@@ -61,7 +61,7 @@
 
     <p class="data__foot">Sources: <a href="https://www.wikidata.org/">Wikidata</a> (CC0), the <a href="https://www.nps.gov/subjects/developer/">NPS Data API</a> (public domain) and English Wikipedia page views from <a href="https://dumps.wikimedia.org/other/pageview_complete/">Wikimedia</a>.</p>
   </main>
-  <script src="design-system/icons.js"></script>
-  <script src="data.js"></script>
+  <script src="/design-system/icons.js"></script>
+  <script src="/developer/spots.js"></script>
 </body>
 </html>

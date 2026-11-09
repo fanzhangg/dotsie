@@ -121,7 +121,7 @@ jobs:
           aws s3 cp --endpoint-url "$R2" "data/$ST.sqlite.gz" "s3://$BUCKET/stores/$ST.sqlite.gz"
           aws s3 cp --endpoint-url "$R2" "data/$ST.json" "s3://$BUCKET/stores/$ST.json"
           { echo "### $ST"; echo '```json'; cat "data/$ST.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-      # The public page at /data reads D1: names, points, types, identifiers, links and views, no page text.
+      # The public page at /developer/spots reads D1: names, points, types, identifiers, links and views, no page text.
       - uses: actions/setup-node@v4
         with:
           node-version: 22

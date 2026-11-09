@@ -87,10 +87,10 @@ const signedIn = async (c: Context<AppEnv>) => {
 app.get(AUTHORIZE_PATH.slice(4), async c => authorizePage(c.req.raw, c.env, await signedIn(c)));
 app.post(AUTHORIZE_PATH.slice(4), async c => authorizeDecision(c.req.raw, c.env, await signedIn(c)));
 
-// ---------- Place data: what outside sources say about places, open to anyone, read-only ----------
-// Loaded per state by the Spots data workflow (pipeline/export_d1.py) and shown at /data. Every lookup reads
+// ---------- Spots data: what outside sources say about places, open to anyone, read-only ----------
+// Loaded per state by the Spots data workflow (pipeline/export_d1.py) and shown at /developer/spots. Every lookup reads
 // D1, so they're limited per IP.
-app.use('/data/*', async (c, next) => {
+app.use('/developer/spots/*', async (c, next) => {
   if (await tooMany(c.env.DATA_LIMIT, c.req.header('cf-connecting-ip') ?? 'local')) return rateLimited(c);
   await next();
 });
@@ -100,12 +100,12 @@ const PLACE_ID = /^[A-Za-z0-9-]{1,64}$/;
 type PlaceRow = { source: string; id: string; state: string; name: string; description: string | null; lat: number | null; lng: number | null; types: string | null; views: number | null };
 const place = ({ types, ...p }: PlaceRow) => ({ ...p, types: JSON.parse(types ?? '[]') as string[] });
 // The states loaded so far, and when
-app.get('/data/states', async c => {
+app.get('/developer/spots/states', async c => {
   const { results } = await c.env.DB.prepare('select state, loaded_at as loadedAt, built_at as builtAt, records from place_loads order by state').all();
   return c.json(results);
 });
 // Places whose name contains q (all, when q is empty), most read on Wikipedia first, 50 at a time. source "nps" is every NPS endpoint.
-app.get('/data/search', async c => {
+app.get('/developer/spots/search', async c => {
   const q = (c.req.query('q') ?? '').trim(), state = c.req.query('state') ?? '', source = c.req.query('source') ?? '';
   const offset = Number(c.req.query('offset') ?? 0);
   if (q.length > 100 || (state && !STATE.test(state)) || (source && source !== 'nps' && !SOURCE.test(source))
@@ -122,7 +122,7 @@ app.get('/data/search', async c => {
   return c.json({ results: results.slice(0, 50).map(place), more: results.length > 50 });
 });
 // One place: everything loaded about it, what each identifier is called, and the records it shares an identifier with
-app.get('/data/place/:source/:id', async c => {
+app.get('/developer/spots/place/:source/:id', async c => {
   const source = c.req.param('source'), id = c.req.param('id');
   if (!SOURCE.test(source) || !PLACE_ID.test(id)) bad();
   const row = await c.env.DB.prepare('select * from places where source = ? and id = ?').bind(source, id)

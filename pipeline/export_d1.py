@@ -1,7 +1,7 @@
 """One state's store as SQL for D1 (app/migrations/0004_places.sql): its rows in `places`, `place_links`,
 `place_schemes` and `place_loads`, replacing what D1 had for the state.
 
-Metadata and links only, for the public page at /data: names, points, descriptions, types, identifiers, links
+Metadata and links only, for the public page at /developer/spots: names, points, descriptions, types, identifiers, links
 between records, page views. No text fetched from other sites.
 
 Run: python3 export_d1.py --state WA > data/WA.d1.sql
