@@ -321,11 +321,14 @@ class Store:
     # ---------- Links: records that share an identifier ----------
 
     def links(self):
+        """A record from another source and a Wikidata item that carry the same identifier, ignoring case: Wikidata
+        writes park codes in capitals (P4083 "MORA"), the NPS API in lower case ("mora"). Starts from the other
+        sources' few thousand identifiers rather than joining every identifier with every other."""
         self.db.execute("DELETE FROM links")
         self.db.execute("""INSERT OR IGNORE INTO links
                            SELECT a.source, a.id, b.source, b.id, a.scheme FROM ids a JOIN ids b
-                             ON a.scheme = b.scheme AND a.value = b.value AND a.source < b.source
-                           WHERE a.scheme NOT LIKE 'sitelink:%' AND a.scheme NOT IN ('parkCode', 'url')""")
+                             ON b.source = 'wikidata' AND b.scheme = a.scheme AND lower(b.value) = lower(a.value)
+                           WHERE a.source != 'wikidata' AND a.scheme NOT IN ('parkCode', 'url')""")
         self.db.execute("""INSERT OR IGNORE INTO links
                            SELECT a.source, a.id, b.source, b.id, 'website' FROM ids a JOIN ids b
                              ON a.source = 'wikidata' AND a.scheme = 'P856' AND b.scheme = 'url' AND b.source != 'wikidata'
