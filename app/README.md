@@ -1,6 +1,6 @@
 # Dotsie app (Cloudflare)
 
-One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`TripRoom`) that owns its stops and members and pushes live edits over WebSockets. D1 holds accounts and sessions, and a copy of what spans trips: who's on which trip, each trip's home card (name, dates, people and stop places) and its share link's hash. Only the trip's `TripRoom` writes that copy, whole and in one batch, after every change (see "The D1 copy" in [src/trip.ts](src/trip.ts)): a copy that fails is tried again by the room's alarm and by the next change, and one that lands after a newer one is ignored (`rev`). So D1 can lag for a moment but doesn't stay wrong, and the room's own data is what a trip is.
+One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`TripRoom`) that owns its stops and members and pushes live edits over WebSockets. D1 holds accounts and sessions, and a copy of what spans trips: who's on which trip, each trip's home card (name, dates, people and stop places) and its share link's hash. Only the trip's `TripRoom` writes that copy, whole and in one batch, after every change (see "The D1 copy" in [src/trip.ts](src/trip.ts)): a copy that fails is tried again by the room's alarm and by the next change, and one that lands after a newer one is ignored (`rev`). So D1 can lag for a moment but doesn't stay wrong, and the room's own data is what a trip is. It also holds the place data shown at `/data`: what Wikidata and the NPS Data API say about places, loaded per state by the Spots data workflow ([pipeline/](../pipeline)).
 
 | File | What it does |
 | --- | --- |
@@ -67,7 +67,7 @@ Rate limits (in `wrangler.jsonc`): 20 sign-in steps per minute per IP (an email 
 
 ## API
 
-All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sign-in-options`, `/api/invite/:token`, the OAuth routes, and `/api/mcp`, which takes an OAuth access token instead.
+All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sign-in-options`, `/api/invite/:token`, `/api/data/*`, the OAuth routes, and `/api/mcp`, which takes an OAuth access token instead.
 
 | Route | |
 | --- | --- |
@@ -89,6 +89,9 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
 | `GET /api/sights?tile=12/x/y` | What's worth seeing in one map tile at zoom 12: `[{ id, name, address, lat, lng, kind, rank }]`, at most 80, best ranked first. `kind` is `attraction`, `museum`, `viewpoint` or `nature`; `rank` is higher for better known places. 202 `{ pending: true }` while a tile no one has looked at yet is looked up (ask again in a few seconds); 503 `unavailable` when Overpass is down or busy |
+| `GET /api/data/states` | The states loaded into the place data so far: `[{ state, loadedAt, builtAt, records }]`. Open to anyone, like the rest of `/api/data`, limited to 60 lookups a minute per IP |
+| `GET /api/data/search?q=&state=&source=&offset=` | Places whose name contains `q`, most read on English Wikipedia first, 50 at a time: `{ results: [{ source, id, state, name, description, lat, lng, types, views }], more }`. `source` is `wikidata`, an NPS source such as `nps:places`, or `nps` for all of them |
+| `GET /api/data/place/:source/:id` | One place: the fields above plus `url`, `wikipedia`, `website`, `ids` (scheme → values), `schemes` (scheme → name) and `links` (`[{ via, source, id, name }]`, records elsewhere that share an identifier) |
 | `GET /api/route?from=lat,lng&to=lat,lng&mode=` | `{ duration, distance, coords }`. `mode` is `drive` (the default), `walk` or `bike` |
 | `GET /api/assistants` | For Account: `{ url, connections: [{ id, name, domain, createdAt }] }`, the MCP server's address and the assistants you've allowed |
 | `DELETE /api/assistants/:id` | Disconnect one: its tokens stop working at once |

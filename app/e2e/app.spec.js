@@ -96,3 +96,25 @@ test('an email account: create it, sign out, sign back in', async ({ page }) => 
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('button', { name: 'Account' })).toBeVisible();
 });
+
+// The place data page reads /api/data, open to anyone; e2e/places.sql loads its two places
+test('anyone can search the place data and follow a place to the same place in another source', async ({ page }) => {
+  await page.goto('/data');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Place data');
+  await page.getByLabel('State').selectOption('ZZ');
+  await page.getByRole('searchbox', { name: 'Search places by name' }).fill('test lodge');
+  const results = page.locator('#results').getByRole('button');
+  await expect(results).toHaveCount(2);
+  await expect(results.first()).toContainText('hotel, historic building'); // the one read most on Wikipedia first
+
+  await results.filter({ hasText: 'NPS place' }).click();
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText('Test Lodge');
+  await expect(page.getByText('National Park Service place ID (P8649)')).toBeVisible();
+  await page.getByRole('button', { name: /Test Lodge Wikidata · shares National Park Service place ID/ }).click();
+  await expect(page.getByText('12,345 in the last 12 months')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Back to search' }).click();
+  await expect(page.getByText('Built in 1917')).toBeVisible();
+  await page.getByRole('button', { name: 'Back to search' }).click();
+  await expect(page.getByRole('searchbox', { name: 'Search places by name' })).toHaveValue('test lodge');
+});

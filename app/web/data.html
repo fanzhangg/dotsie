@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
+  <title>Place data · Dotsie</title>
+  <meta name="description" content="Search what Wikidata and the National Park Service say about places in the US, as collected for Dotsie's sights.">
+  <link rel="stylesheet" href="design-system/tokens.css">
+  <link rel="stylesheet" href="design-system/components.css">
+  <style>
+    /* Layout only: colors, type and shapes come from the design system. One column, like the app. */
+    .data { max-width: var(--wt-size-column); margin: 0 auto; padding: var(--wt-space-6) max(var(--wt-space-4), env(safe-area-inset-right)) var(--wt-space-10) max(var(--wt-space-4), env(safe-area-inset-left)); display: grid; gap: var(--wt-space-4); }
+    .data__head { display: grid; gap: var(--wt-space-1); }
+    .data__title { font: var(--wt-type-title); color: var(--wt-text-primary); margin: 0; }
+    .data__intro { font: var(--wt-type-caption); color: var(--wt-text-secondary); margin: 0; }
+    .data__filters { display: flex; flex-wrap: wrap; gap: var(--wt-space-2); }
+    .data__filters select { flex: 1 1 140px; min-width: 0; }
+    .data__results { display: grid; }
+    .data__views { font: var(--wt-type-caption); color: var(--wt-text-tertiary); font-variant-numeric: tabular-nums; flex: none; }
+    .data__place { display: grid; gap: var(--wt-space-4); }
+    .data__back { justify-self: start; }
+    .data__name { font: var(--wt-type-heading); color: var(--wt-text-primary); margin: 0; }
+    .data__fields { display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr); gap: var(--wt-space-2) var(--wt-space-3); margin: 0; font: var(--wt-type-caption); }
+    .data__fields dt { color: var(--wt-text-secondary); }
+    .data__fields dd { margin: 0; color: var(--wt-text-primary); overflow-wrap: anywhere; }
+    .data__fields a { color: var(--wt-text-link); }
+    .data__section { font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; color: var(--wt-text-tertiary); margin: var(--wt-space-2) 0 0; }
+    .data__foot { font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+    .data__foot a { color: var(--wt-text-link); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="wt-base">
+  <main class="data">
+    <header class="data__head">
+      <h1 class="data__title">Place data</h1>
+      <p class="data__intro" id="loaded">What Wikidata and the National Park Service say about places in the US, collected each month for Dotsie's sights. Nothing here is filtered or rated yet.</p>
+    </header>
+
+    <section id="list" class="data__place">
+      <label class="wt-input wt-input-group wt-search">
+        <span id="search-icon"></span>
+        <input id="q" type="search" placeholder="Search by name" aria-label="Search places by name" autocomplete="off">
+        <span class="wt-spinner" id="spinner" hidden></span>
+      </label>
+      <div class="data__filters">
+        <select id="state" class="wt-input" aria-label="State"><option value="">All states</option></select>
+        <select id="source" class="wt-input" aria-label="Source">
+          <option value="">All sources</option>
+          <option value="wikidata">Wikidata</option>
+          <option value="nps">National Park Service</option>
+        </select>
+      </div>
+      <div class="data__results" id="results" aria-live="polite"></div>
+      <button type="button" class="wt-btn wt-btn--secondary" id="more" hidden>Show more</button>
+    </section>
+
+    <section id="detail" class="data__place" hidden></section>
+
+    <p class="data__foot">Sources: <a href="https://www.wikidata.org/">Wikidata</a> (CC0), the <a href="https://www.nps.gov/subjects/developer/">NPS Data API</a> (public domain) and English Wikipedia page views from <a href="https://dumps.wikimedia.org/other/pageview_complete/">Wikimedia</a>.</p>
+  </main>
+  <script src="design-system/icons.js"></script>
+  <script src="data.js"></script>
+</body>
+</html>
