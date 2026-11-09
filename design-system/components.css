@@ -1,4 +1,4 @@
-/* Waythread design system — components v12.3.0
+/* Dotsie design system — components v13.0.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -1029,6 +1029,14 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-about--loading:not(.wt-about--compact) .wt-about__line:first-child { margin-top: var(--wt-space-3); }
 .wt-about--loading .wt-about__line:last-child { width: 60%; }
 .wt-about--compact.wt-about--loading .wt-about__line:first-child { margin-top: 0; }
+
+/* ---------- Wordmark: the app's name, "Dotsie", with a stop for the i's dot ----------
+   The i is a dotless ı, and its dot an orange stop, the logo's, a little bigger than a letter's dot (30% of the cap
+   height), where Inter Bold has its own: centered over the stem (.136em in) and .69em over the baseline. The dot is
+   an empty inline-block before the ı, so its bottom margin edge sits on the baseline whatever the font's metrics; the
+   right margin gives its width back. Sized in em, it follows whatever bold type the name is set in. */
+.wt-wordmark { white-space: nowrap; }
+.wt-wordmark__i::before { content: ''; display: inline-block; vertical-align: baseline; width: .213em; height: .213em; margin: 0 -.242em .586em .029em; border-radius: var(--wt-radius-round); background: var(--wt-brand-dot-i); }
 
 /* ---------- Empty state ---------- */
 .wt-empty { margin: 0; padding: var(--wt-space-10) var(--wt-space-6); text-align: center; color: var(--wt-text-secondary); }

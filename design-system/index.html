@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Waythread Design System</title>
+  <title>Dotsie Design System</title>
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="components.css">
   <style>
@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b>Waythread</b><span>Design system · v12.3.0</span></div>
+  <div class="demo-brand"><b class="wt-wordmark"><span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span></b><span>Design system · v13.0.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -197,6 +197,7 @@
       <li><a href="#space">Space and shape</a></li>
       <li><a href="#elevation">Elevation and motion</a></li>
       <li><a href="#icons">Icons</a></li>
+      <li><a href="#logo">Logo</a></li>
       <li class="group">Components</li>
       <li><a href="#buttons">Buttons</a></li>
       <li><a href="#people">People</a></li>
@@ -221,13 +222,13 @@
   <main class="demo-main">
 
     <section id="principles">
-      <h1>Waythread Design System</h1>
-      <p class="lede">The tokens, components and rules behind Waythread, a phone-first trip planner where friends plan one route together. Everything on this page is the real system, so switch the theme above to see it change.</p>
+      <h1>Dotsie Design System</h1>
+      <p class="lede">The tokens, components and rules behind Dotsie, a phone-first trip planner where friends plan one route together. Everything on this page is the real system, so switch the theme above to see it change.</p>
       <div class="principles">
         <div class="principle"><b>Less is more</b><p>Show information only when it's essential, isn't shown elsewhere, and can't be inferred at a glance.</p></div>
         <div class="principle"><b>The plan and the route lead</b><p>Stop names are the strongest text, and ink and color get quieter as information matters less. Routes are the only blue. Controls stay quiet.</p></div>
         <div class="principle"><b>Built for sharing</b><p>Everyone on a trip can edit. People are always visible, and their changes show up as they happen.</p></div>
-        <div class="principle"><b>Hand off what others do best</b><p>Navigation opens in Apple Maps or Google Maps. Waythread never rebuilds it.</p></div>
+        <div class="principle"><b>Hand off what others do best</b><p>Navigation opens in Apple Maps or Google Maps. Dotsie never rebuilds it.</p></div>
       </div>
       <h3>Using it</h3>
       <div class="demo"><pre><code>&lt;link rel="stylesheet" href="design-system/tokens.css"&gt;
@@ -261,7 +262,7 @@
 
     <section id="type">
       <h2>Type</h2>
-      <p class="intro">The phone's own system font, so Waythread feels native everywhere. Each token is a complete <code>font</code> shorthand: <code>font: var(--wt-type-name)</code>.</p>
+      <p class="intro">The phone's own system font, so Dotsie feels native everywhere. Each token is a complete <code>font</code> shorthand: <code>font: var(--wt-type-name)</code>.</p>
       <div class="table-wrap" style="padding: 0 var(--wt-space-5)"><div id="type-specimens"></div></div>
     </section>
 
@@ -303,8 +304,23 @@
       <h2>Icons</h2>
       <p class="intro">Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color. <code>external</code> is only for "opens another app or site". An icon-only button always has an <code>aria-label</code>.</p>
       <div class="icons" id="icon-grid"></div>
-      <div class="demo"><pre><code>WaythreadIcons.svg('car');           // the size the product uses
-WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div>
+      <div class="demo"><pre><code>DotsieIcons.svg('car');           // the size the product uses
+DotsieIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div>
+    </section>
+
+    <section id="logo">
+      <h2>Logo</h2>
+      <p class="intro">:D, typed upright: a colon of two stops (<code>--wt-brand-dot-top</code>, <code>--wt-brand-dot-bottom</code>) and an Inter Bold D in the first ink. The name is the wordmark, <code>.wt-wordmark</code>: Dotsie, with the logo's orange stop for the i's dot (<code>--wt-brand-dot-i</code>); the colon is the icon's alone. The wordmark follows the theme; <code>logo.svg</code>, as an image, follows the device's light or dark setting.</p>
+      <div class="demo">
+        <div class="demo__live" data-snippet>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap: var(--wt-space-6)">
+            <img src="logo.svg" width="96" height="96" alt="Dotsie's logo, :D">
+            <img src="logo.svg" width="32" height="32" alt="">
+            <img src="logo.svg" width="16" height="16" alt="">
+            <h3 class="wt-wordmark" style="margin:0; font: var(--wt-type-display)"><span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span></h3>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="buttons">
@@ -361,7 +377,7 @@ WaythreadIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div
               </ul></section>
             <section class="wt-section"><h3 class="wt-section__title">Share link</h3>
               <p class="wt-section__text">Anyone with the link can join and edit this trip.</p>
-              <div class="wt-copy-row"><input class="wt-input" readonly value="https://waythread.app/#/join/4f9a2c" aria-label="Trip link"><button class="wt-btn wt-btn--secondary" type="button">Copy</button></div>
+              <div class="wt-copy-row"><input class="wt-input" readonly value="https://dotsie.app/#/join/4f9a2c" aria-label="Trip link"><button class="wt-btn wt-btn--secondary" type="button">Copy</button></div>
               <button class="wt-btn wt-btn--secondary" type="button">Make a new link</button></section>
             <div class="wt-section"><button class="wt-btn wt-btn--danger" type="button">Delete trip</button></div>
           </div>
@@ -1084,7 +1100,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
           <li><b>One look, list and map.</b> A stop's marker is its pin: same icon, same color. The two read as one without numbers.</li>
           <li><b>Tapping links them.</b> A pin selects its stop (<code>is-selected</code>). A route highlights its drive (<code>is-active</code>).</li>
           <li><b>Doesn't fit.</b> A drive longer than the gap between its stops turns its time red and says how late it arrives. No badge.</li>
-          <li><b>Hand off.</b> Every drive's Directions button opens Apple Maps or Google Maps. Waythread draws routes but never gives turn-by-turn directions.</li>
+          <li><b>Hand off.</b> Every drive's Directions button opens Apple Maps or Google Maps. Dotsie draws routes but never gives turn-by-turn directions.</li>
           <li><b>Changes from others.</b> A toast names the person and the stop, and the stop flashes once (<code>is-flash</code>). <button class="wt-btn wt-btn--secondary" type="button" id="replay-flash" style="height:32px; padding: 0 10px">Replay</button></li>
           <li><b>Deleting.</b> Delete right away and offer Undo. Ask first only when undo isn't possible, like deleting a whole trip.</li>
         </ol>
@@ -1132,7 +1148,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Waythread design system v12.3.0 · tokens.css · components.css · icons.js</footer>
+    <footer class="demo-foot">Dotsie design system v13.0.0 · tokens.css · components.css · icons.js · logo.svg</footer>
   </main>
 </div>
 
@@ -1163,8 +1179,8 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     const code = dedent(live.innerHTML).replace(/<i data-icon="([\w-]+)"(?: data-size="(\d+)")?><\/i>/g, (_, n, size) => `\${icon('${n}'${size ? `, ${size}` : ''})}`);
     live.insertAdjacentHTML('afterend', `<details><summary>Markup</summary><pre><code>${esc(code)}</code></pre></details>`);
   });
-  // <i data-icon="car" data-size="14"> becomes WaythreadIcons.svg('car', 14); without data-size, the icon's own size.
-  const fillIcons = el => el.querySelectorAll('i[data-icon]').forEach(i => { i.outerHTML = WaythreadIcons.svg(i.dataset.icon, i.dataset.size ? +i.dataset.size : undefined); });
+  // <i data-icon="car" data-size="14"> becomes DotsieIcons.svg('car', 14); without data-size, the icon's own size.
+  const fillIcons = el => el.querySelectorAll('i[data-icon]').forEach(i => { i.outerHTML = DotsieIcons.svg(i.dataset.icon, i.dataset.size ? +i.dataset.size : undefined); });
   fillIcons(document);
 
   // ---------- Token readers ----------
@@ -1265,7 +1281,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
 
   // ---------- Scales ----------
   const TYPE = [
-    ['--wt-type-display', 'Waythread', 'App name on Home'],
+    ['--wt-type-display', 'Dotsie', 'App name on Home'],
     ['--wt-type-title', 'Edit stop', 'Modal titles'],
     ['--wt-type-context', 'Today, Nov 21', 'The trip’s name, the day bar'],
     ['--wt-type-heading', 'Keep your trips', 'Section headings in settings'],
@@ -1334,9 +1350,9 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     document.getElementById('size-scale').innerHTML = SIZES.map(([t, use]) => `<tr><td><code>${t}</code></td><td class="num mono" data-len="${t}"></td><td>${use}</td></tr>`).join('');
     document.getElementById('shadow-scale').innerHTML = SHADOWS.map(([n, use]) => `
       <div class="tile"><div class="tile__shadow" style="box-shadow: var(--wt-shadow-${n})"></div><code>--wt-shadow-${n}</code><span>${use}</span></div>`).join('');
-    document.getElementById('icon-grid').innerHTML = WaythreadIcons.names.map(n => `<div class="icon-cell">${WaythreadIcons.svg(n, 24)}<code>${n}</code></div>`).join('');
+    document.getElementById('icon-grid').innerHTML = DotsieIcons.names.map(n => `<div class="icon-cell">${DotsieIcons.svg(n, 24)}<code>${n}</code></div>`).join('');
     document.getElementById('marker-row').innerHTML = `<div class="marker-row">${KINDS.map(([key, icon, label]) => {
-      const m = sm => `<i class="wt-marker${sm ? ' wt-marker--sm' : ''}" role="img" aria-label="${label}" style="--wt-kind-color: var(--wt-kind-${key})">${WaythreadIcons.svg(icon, 16)}</i>`;
+      const m = sm => `<i class="wt-marker${sm ? ' wt-marker--sm' : ''}" role="img" aria-label="${label}" style="--wt-kind-color: var(--wt-kind-${key})">${DotsieIcons.svg(icon, 16)}</i>`;
       return `<div class="marker-cell"><div class="marker-cell__pair">${m(false)}${m(true)}</div><code>${icon}</code><span>${label}</span></div>`;
     }).join('')}</div>`;
     document.getElementById('identity-row').innerHTML = [1, 2, 3, 4, 5, 6].map(n => `<span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-${n})" title="--wt-identity-${n}">${'ASJMRK'[n - 1]}</span>`).join('');
@@ -1437,7 +1453,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     el.classList.toggle('wt-toast--rich', !!detail);
     el.classList.toggle('wt-toast--error', !!error);
     el.innerHTML = detail
-      ? `<span class="wt-toast__icon">${WaythreadIcons.svg(icon)}</span><span class="wt-toast__text"><b class="wt-toast__title">${esc(msg)}</b><span class="wt-toast__detail">${esc(detail)}</span></span>`
+      ? `<span class="wt-toast__icon">${DotsieIcons.svg(icon)}</span><span class="wt-toast__text"><b class="wt-toast__title">${esc(msg)}</b><span class="wt-toast__detail">${esc(detail)}</span></span>`
       : `<span>${esc(msg)}</span>${action ? `<button class="wt-toast__action" type="button">${esc(action)}</button>` : ''}`;
     el.querySelector('.wt-toast__action')?.addEventListener('click', () => { el.classList.remove('is-visible'); setTimeout(() => showToast('Cloudcroft is back'), 300); });
     el.classList.add('is-visible');

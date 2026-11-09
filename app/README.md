@@ -1,4 +1,4 @@
-# Waythread app (Cloudflare)
+# Dotsie app (Cloudflare)
 
 One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`TripRoom`) that owns its stops and members and pushes live edits over WebSockets. D1 holds accounts, sessions, trip membership, and the home-screen summaries: each trip's name, dates, people and stop places, which its `TripRoom` writes whenever they change.
 
@@ -97,14 +97,14 @@ Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member` 
 
 `/api/mcp` lets an AI assistant (Claude, or any client that speaks [MCP](https://modelcontextprotocol.io)) read your trips and add, edit and delete their stops as you. It signs in with OAuth, so all an assistant needs is the address, `https://<app URL>/api/mcp`, which Account shows under **AI assistant**.
 
-- **Claude (web, iOS, Android, Desktop):** in Claude on the web, Customize → Connectors → Add custom connector, paste the address, then Connect. Claude opens Waythread: sign in if you aren't, then Allow. Connectors belong to your Claude account, so one added on the web works in the mobile apps too, and in Claude Code sessions on the web and in the app.
+- **Claude (web, iOS, Android, Desktop):** in Claude on the web, Customize → Connectors → Add custom connector, paste the address, then Connect. Claude opens Dotsie: sign in if you aren't, then Allow. Connectors belong to your Claude account, so one added on the web works in the mobile apps too, and in Claude Code sessions on the web and in the app.
 - **Claude Code in a terminal:**
 
   ```bash
-  claude mcp add --transport http waythread https://<app URL>/api/mcp
+  claude mcp add --transport http dotsie https://<app URL>/api/mcp
   ```
 
-  then run `/mcp` in Claude Code and pick waythread to sign in.
+  then run `/mcp` in Claude Code and pick dotsie to sign in.
 - **Other clients:** a Streamable HTTP server at that address, with OAuth sign-in.
 
 Claude reaches the server from Anthropic's cloud, so a connector needs the deployed app; `wrangler dev` works with Claude Code on the same machine. Locally, use `http://localhost:8787` (what `BETTER_AUTH_URL` says), not `127.0.0.1`, since the OAuth issuer and resource are that address.

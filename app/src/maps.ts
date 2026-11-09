@@ -96,7 +96,7 @@ const SIGHTS_PER_TILE = 80; // the best ranked: more than ever fit on a screen s
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 const SIGHT_TIMEOUT = 60, SIGHT_ABORT = 75_000;
 export const sightsKey = (x: number, y: number) => `sights:v3:${x}/${y}`;
-const OSM_UA = { 'User-Agent': 'Waythread (road trip planner)' }; // Overpass and Nominatim ask for one
+const OSM_UA = { 'User-Agent': 'Dotsie (road trip planner)' }; // Overpass and Nominatim ask for one
 
 // Each line is a kind of sight. Minor kinds need a Wikidata item or a Wikipedia article to count: OpenStreetMap maps
 // every named peak, park and plaque, and only the known ones are worth a trip. Only parks and protected areas are asked
@@ -323,7 +323,7 @@ const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"'
 const plainText = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e) => ENTITIES[e]).replace(/\s+/g, ' ').trim();
 
 // ---------- Local dev without a Stadia key: the public OSM demo servers (not for production traffic) ----------
-const DEV_UA = { 'User-Agent': 'Waythread-dev (local development)' }; // Nominatim requires one
+const DEV_UA = { 'User-Agent': 'Dotsie-dev (local development)' }; // Nominatim requires one
 
 async function devSearch(q: string, near?: { lat: number; lng: number }): Promise<Place[]> {
   const u = new URL('https://nominatim.openstreetmap.org/search');

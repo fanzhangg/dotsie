@@ -1,5 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  // The Worker and its database keep the app's first name: renaming the Worker would move its workers.dev address,
+  // and with it every trip link and connected assistant. A custom domain goes in APP_URL instead.
   "name": "waythread",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-15",

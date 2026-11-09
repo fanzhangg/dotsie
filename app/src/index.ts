@@ -9,7 +9,7 @@ import { ERR, type Preview } from './trip';
 export { TripRoom } from './trip';
 export { SightsLookup } from './sights';
 
-/* Waythread API. Static files are served by the assets binding; only /api/* reaches this Worker.
+/* Dotsie API. Static files are served by the assets binding; only /api/* reaches this Worker.
    Auth is a session cookie (Better Auth). Each trip's data lives in its TripRoom Durable Object,
    which checks membership itself; this layer authenticates, validates the URL, and routes. */
 
