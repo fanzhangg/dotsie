@@ -133,4 +133,11 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           python3 export_d1.py --state "$ST" > "data/$ST.d1.sql"
-          cd ../app && npm ci && npx wrangler d1 execute waythread --remote --file "../pipeline/data/$ST.d1.sql"
+          cd ../app && npm ci
+          # Once, wrangler lost track of an import it had run ("Not currently importing anything"); the same file
+          # loaded fine on the next run. The file replaces the state's rows, so running it again is safe.
+          for try in 1 2 3; do
+            npx wrangler d1 execute waythread --remote --file "../pipeline/data/$ST.d1.sql" && exit 0
+            echo "Load $try failed; trying again in 30 s"; sleep 30
+          done
+          exit 1
