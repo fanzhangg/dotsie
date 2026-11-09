@@ -374,7 +374,7 @@
 
   /* Layers */
   --wt-z-raised: 1;
-  --wt-z-sheet: 500;        /* above Leaflet panes (400) */
+  --wt-z-sheet: 500;        /* above the map's pins and sights */
   --wt-z-modal: 1000;
   --wt-z-dialog: 1500;      /* a confirmation, over any sheet */
   --wt-z-toast: 2000;

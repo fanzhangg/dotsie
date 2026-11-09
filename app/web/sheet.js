@@ -4,7 +4,7 @@ import { cur } from './trips.js';
 import { SNAPS, applySnap, centerFocus, currentDay, followDayTabs, isWide, listHTML, placeTabBar, setDay, setSnap, snaps, updateFades } from './timeline.js';
 import { pagesOf } from './plan.js';
 import { scheduleRender } from './app.js';
-import { camFree, map, refit, zoomToStop } from './map.js';
+import { camFree, map, mapSize, refit, resizeMap, toScreen, zoomToStop } from './map.js';
 import { sightOpen } from './sights.js';
 
 // ---------- Sheet motion ----------
@@ -345,7 +345,7 @@ addEventListener('resize', () => {
   applySnap();
   centerFocus({ animate: false });
   if (map) {
-    map.invalidateSize();
+    resizeMap();
     // The day, or the drive on show, re-fits the new size. A map you've moved, or brought to a stop, keeps its zoom
     // and what's in its middle, with the selected stop brought back into view if the new size hid it. (Turning the
     // phone used to throw the zoom away and show the whole day again.)
@@ -369,6 +369,6 @@ export const coveredTop = () => (isWide() ? 0 : headBottom());
 // Is this point in the part of the map you can see, with room to spare for its label?
 export function inView(ll, margin = 40) {
   const top = coveredTop();
-  const p = map.latLngToContainerPoint(ll), size = map.getSize();
+  const p = toScreen(ll), size = mapSize();
   return p.x > margin && p.x < size.x - margin && p.y > top + margin && p.y < size.y - coveredBottom() - margin;
 }

@@ -981,7 +981,7 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   transition: width var(--wt-duration-fast), height var(--wt-duration-fast), margin var(--wt-duration-fast);
 }
 .wt-sight .wt-sight__marker .wt-icon { width: 14px; height: 14px; }
-/* Focused (it, or the element holding it, as Leaflet's marker), or selected: the solid marker, 24px about the same center */
+/* Focused (it, or the element holding it, as the map's marker), or selected: the solid marker, 24px about the same center */
 .wt-sight:is(:focus-visible, .is-selected) .wt-sight__marker, :focus-visible > .wt-sight .wt-sight__marker {
   width: 24px; height: 24px; margin-left: -1px; border: 1.5px solid var(--wt-pin-fill);
   background: var(--wt-kind-color, var(--wt-kind-place)); color: var(--wt-marker-ink); box-shadow: var(--wt-shadow-pin);
@@ -1009,7 +1009,7 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-sight.is-selected .wt-sight__marker .wt-icon { width: 18px; height: 18px; }
 /* While a pin is selected, the other pins step back to a lighter solid color: the sights step back to 70%, so none
    outshines the plan, and they still read, since a selected stop is where you look around. For the sights inside the
-   element that holds the .wt-pins element (with Leaflet, the map pane, which holds every pane). */
+   element that holds the .wt-pins element (in the app, the map, which holds the pins and the sights). */
 :has(> .wt-pins .wt-pin--selected) .wt-sight:not(.is-selected) { opacity: .7; }
 
 /* ---------- About a place: a photo, a few lines, and where they're from ---------- */

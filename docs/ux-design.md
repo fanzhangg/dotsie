@@ -443,7 +443,7 @@ The full visual language (tokens, components, light and dark themes, accessibili
 ## Prototype notes
 
 - **Running it:** from the repo root, `python -m http.server 5173 -d .`, then open `http://localhost:5173/prototype/`. The design system demo is at `http://localhost:5173/design-system/`.
-- **Tech:** plain HTML, CSS, and JavaScript with no build step, styled entirely by the [design system](../design-system/README.md). It follows the phone's light or dark setting. The map uses [Leaflet](https://leafletjs.com) 1.9.4.
+- **Tech:** plain HTML, CSS, and JavaScript with no build step, styled entirely by the [design system](../design-system/README.md). It follows the phone's light or dark setting. The map is drawn by [MapLibre GL JS](https://maplibre.org) 5.24, served with the app; with no WebGL it says so where the map would be, and the plan works as ever.
 - **External services:**
 
   | Purpose | Service | Notes |
