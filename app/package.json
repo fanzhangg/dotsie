@@ -9,7 +9,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply waythread --remote",
     "typegen": "wrangler types",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.web.json",
-    "test": "TZ=America/Denver node --test test/*.test.js"
+    "test": "TZ=America/Denver node --no-warnings=ExperimentalWarning --test test/*.test.js"
   },
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "^1.2.4",

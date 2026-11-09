@@ -1,10 +1,12 @@
 import { DurableObject } from 'cloudflare:workers';
 import { MAX_LINKS } from '../web/fields.js';
+import { copyStatements } from './copy';
 import { cleanStop, ERR, type Back, type Link, type Stop, type StopFields, type Travel } from './stop';
 
 /* One TripRoom per trip (addressed by idFromName(tripId)). It owns the trip's stops and members in
    its own SQLite, applies writes one at a time, and pushes every change to the trip's open WebSockets.
-   D1 gets a mirror of what spans trips: membership and the home-screen summary.
+   D1 gets a copy of what spans trips: membership, the home-screen summary and the share link's hash, written only by
+   project() (see "The D1 copy").
    Every method takes the acting user's id from the Worker's session, never from the client. */
 
 // identity is 1–6, the design system's --wt-identity-N avatar colors
@@ -58,6 +60,11 @@ export class TripRoom extends DurableObject<Env> {
     // ...and a time zone other than the place's own, and how long you're there
     if (!cols.has('tz')) this.sql.exec('alter table stops add column tz text');
     if (!cols.has('duration')) this.sql.exec('alter table stops add column duration integer');
+    // ...and the D1 copy's revision, and when the trip was last edited (for Home's order; null for trips last edited
+    // before it was kept here, whose D1 row has it)
+    const tripCols = new Set(this.sql.exec<{ name: string }>('pragma table_info(trip)').toArray().map(c => c.name));
+    if (!tripCols.has('rev')) this.sql.exec('alter table trip add column rev integer not null default 0');
+    if (!tripCols.has('edited_at')) this.sql.exec('alter table trip add column edited_at integer');
     // Answer keep-alive pings without waking the object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
@@ -65,27 +72,20 @@ export class TripRoom extends DurableObject<Env> {
   // ---------- Trip ----------
   // The share-link token is kept here, behind the membership check, so members can show the link
   // again; D1 only has its hash, for looking up which trip a link opens.
-  async create(id: string, name: string, user: Omit<Member, 'identity'>, invite: { token: string; hash: string }) {
+  async create(id: string, name: string, user: Omit<Member, 'identity'>, invite: string) {
     if (this.trip()) throw new Error(ERR.invalid);
-    const now = Date.now();
-    this.sql.exec('insert into trip (id, name, created_by, invite) values (?, ?, ?, ?)', id, name, user.id, invite.token);
-    await this.env.DB.batch([
-      this.env.DB.prepare('insert into trips (id, name, invite_hash, updated_at) values (?, ?, ?, ?)').bind(id, name, invite.hash, now),
-      this.env.DB.prepare('insert into trip_members (trip_id, user_id, joined_at) values (?, ?, ?)').bind(id, user.id, now),
-    ]);
+    this.sql.exec('insert into trip (id, name, created_by, invite, edited_at) values (?, ?, ?, ?, ?)', id, name, user.id, invite, Date.now());
     this.addMember(user);
-    await this.syncPreview();
+    await this.publish();
     return this.snapshot(user.id);
   }
 
-  // Opening the trip. D1 says who's on which trip for the home screen, but this object decides: when it says you're not
-  // on it, D1's row is out of date (a leave whose D1 write failed, say), so it goes, and the card leaves your home screen.
-  // Checked here, one request at a time, so a join that has just added you isn't undone.
+  // Opening the trip. Home lists it from D1's copy, but this object decides: when it says you're not on the trip, or
+  // it's deleted, that copy was out of date (its D1 write failed), so it's written again and the card goes.
   async open(userId: string) {
     try { return this.snapshot(userId); } catch (e) {
-      if ((e as Error).message === ERR.notMember) {
-        await this.env.DB.prepare('delete from trip_members where trip_id = ? and user_id = ?').bind(this.trip()!.id, userId).run();
-      }
+      const m = (e as Error).message;
+      if (m === ERR.notMember || m === ERR.gone) await this.publish();
       throw e;
     }
   }
@@ -101,25 +101,24 @@ export class TripRoom extends DurableObject<Env> {
 
   async rename(userId: string, name: string) {
     this.check(userId);
-    this.sql.exec('update trip set name = ?', name);
-    await this.syncSummary();
+    this.sql.exec('update trip set name = ?, edited_at = ?', name, Date.now());
+    await this.publish();
     this.broadcast({ type: 'trip.updated', name }, userId);
   }
 
   // Soft delete: the trip leaves everyone's home screen but can be restored. Only its owner (who made it) can.
   async remove(userId: string) {
-    const trip = this.checkOwner(userId);
-    const now = Date.now();
-    this.sql.exec('update trip set deleted_at = ?', now);
-    await this.env.DB.prepare('update trips set deleted_at = ? where id = ?').bind(now, trip.id).run();
+    this.checkOwner(userId);
+    this.sql.exec('update trip set deleted_at = ?', Date.now());
+    await this.publish();
     this.broadcast({ type: 'trip.deleted' }, userId);
     for (const ws of this.ctx.getWebSockets()) ws.close(4410, 'Trip deleted');
   }
 
   async restore(userId: string) {
-    const trip = this.checkOwner(userId, true);
-    this.sql.exec('update trip set deleted_at = null');
-    await this.env.DB.prepare('update trips set deleted_at = null, updated_at = ? where id = ?').bind(Date.now(), trip.id).run();
+    this.checkOwner(userId, true);
+    this.sql.exec('update trip set deleted_at = null, edited_at = ?', Date.now());
+    await this.publish();
   }
 
   // ---------- Stops ----------
@@ -169,7 +168,8 @@ export class TripRoom extends DurableObject<Env> {
     const row = this.sql.exec<StopRow>('select * from stops where id = ?', stopId).toArray()[0];
     if (!row) return null;
     this.sql.exec('delete from stops where id = ?', stopId);
-    await this.syncSummary();
+    this.sql.exec('update trip set edited_at = ?', Date.now());
+    await this.publish();
     this.broadcast({ type: 'stop.removed', id: stopId, name: row.name }, userId);
     return toStop(row);
   }
@@ -180,10 +180,10 @@ export class TripRoom extends DurableObject<Env> {
   }
 
   // A new link, for when the old one went somewhere it shouldn't have
-  async rotateInvite(userId: string, invite: { token: string; hash: string }) {
-    const trip = this.check(userId);
-    await this.env.DB.prepare('update trips set invite_hash = ? where id = ?').bind(invite.hash, trip.id).run();
-    this.sql.exec('update trip set invite = ?', invite.token);
+  async rotateInvite(userId: string, invite: string) {
+    this.check(userId);
+    this.sql.exec('update trip set invite = ?', invite);
+    await this.publish();
   }
 
   // The Worker has already checked the share-link token against D1.
@@ -191,27 +191,22 @@ export class TripRoom extends DurableObject<Env> {
     const trip = this.trip();
     if (!trip) throw new Error(ERR.notFound);
     if (trip.deleted_at) throw new Error(ERR.gone);
-    // Here first, then D1: D1 never lists someone this object doesn't (see open). If the D1 write fails, joining
-    // again writes it, since it's written whether or not you were already on the trip.
+    // Published whether or not you were on it already, so joining again puts right a D1 copy that missed you
     const member = this.isMember(user.id) ? null : this.addMember(user);
-    await this.env.DB.prepare('insert or ignore into trip_members (trip_id, user_id, joined_at) values (?, ?, ?)')
-      .bind(trip.id, user.id, Date.now()).run();
-    if (member) {
-      await this.syncPreview();
-      this.broadcast({ type: 'member.joined', member }, user.id);
-    }
+    await this.publish();
+    if (member) this.broadcast({ type: 'member.joined', member }, user.id);
     return this.snapshot(user.id);
   }
 
   // Anyone but the owner can leave; the owner deletes the trip instead. Stops they added stay.
+  // Leaving again is fine: it puts right a D1 copy that still has you.
   async leave(userId: string) {
+    if (this.trip() && !this.isMember(userId)) return this.publish();
     const trip = this.check(userId);
     if (trip.created_by === userId) throw new Error(ERR.invalid);
     const { name } = this.sql.exec<{ name: string }>('select name from members where id = ?', userId).one();
-    // D1 first, then here: if the D1 write fails you're still on the trip, so leaving again works
-    await this.env.DB.prepare('delete from trip_members where trip_id = ? and user_id = ?').bind(trip.id, userId).run();
     this.sql.exec('delete from members where id = ?', userId);
-    await this.syncPreview(); // the home card's people
+    await this.publish();
     this.broadcast({ type: 'member.left', id: userId, name }, userId);
     for (const ws of this.ctx.getWebSockets(userId)) ws.close(4403, 'Left the trip');
   }
@@ -224,11 +219,7 @@ export class TripRoom extends DurableObject<Env> {
     else this.sql.exec('update members set id = ?, name = ?, image = ? where id = ?', to.id, to.name, to.image, fromId);
     this.sql.exec('update stops set by = ? where by = ?', to.id, fromId);
     if (trip.created_by === fromId) this.sql.exec('update trip set created_by = ?', to.id);
-    await this.env.DB.batch([
-      this.env.DB.prepare('insert or ignore into trip_members (trip_id, user_id, joined_at) values (?, ?, ?)').bind(trip.id, to.id, Date.now()),
-      this.env.DB.prepare('delete from trip_members where trip_id = ? and user_id = ?').bind(trip.id, fromId),
-    ]);
-    await this.syncPreview();
+    await this.publish();
   }
 
   // Keep names and photos current when someone updates their profile, live for anyone looking.
@@ -236,14 +227,14 @@ export class TripRoom extends DurableObject<Env> {
     if (!this.isMember(user.id)) return;
     this.sql.exec('update members set name = ?, image = ? where id = ?', user.name, user.image, user.id);
     const member = this.sql.exec<Member>('select id, name, image, identity from members where id = ?', user.id).one();
-    await this.syncPreview();
+    await this.publish();
     this.broadcast({ type: 'member.updated', member }, user.id);
   }
 
   // The home card's people and stops, for a trip whose D1 row doesn't have them yet (written before they were kept).
   async summary(): Promise<Preview | null> {
     if (!this.trip()) return null;
-    await this.syncPreview();
+    await this.publish();
     return this.preview();
   }
 
@@ -292,23 +283,39 @@ export class TripRoom extends DurableObject<Env> {
   }
   private async afterStopWrite(stopId: string) {
     const stop = toStop(this.sql.exec<StopRow>('select * from stops where id = ?', stopId).one());
-    await this.syncSummary();
+    this.sql.exec('update trip set edited_at = ?', Date.now());
+    await this.publish();
     this.broadcast({ type: 'stop.upserted', stop }, stop.by);
     return stop;
   }
-  // Mirror the home-card fields to D1 (name, date range, people and stops, last edit for sorting). The trip ends at
-  // its last stop, or later if a hotel's nights run past it.
-  private async syncSummary() {
-    const trip = this.trip()!;
+  // ---------- The D1 copy ----------
+  // D1 has what spans trips: who's on which trip (Home's list, an assistant's), each trip's home card, and the share
+  // link's hash. It's a copy of this object, written only here, whole, in one batch: every change ends by publishing it,
+  // so a write that failed is put right by the next one. rev numbers the copies, so one that lands late is ignored.
+  // The trip ends at its last stop, or later if a hotel's nights run past it.
+  private async project() {
+    const trip = this.trip();
+    if (!trip) return;
+    // Everything is read in the same step as the revision, before anything is awaited, so a copy is one moment's
+    this.sql.exec('update trip set rev = rev + 1');
+    const { rev, edited_at } = this.sql.exec<{ rev: number; edited_at: number | null }>('select rev, edited_at from trip').one();
     const r = this.sql.exec<{ first: string | null; last: string | null }>(
       `select min(time) as first, max(max(time), coalesce((select max(date(time, '+' || nights || ' days')) from stops where nights is not null), '')) as last from stops`).one();
-    await this.env.DB.prepare('update trips set name = ?, first_stop = ?, last_stop = ?, preview = ?, updated_at = ? where id = ?')
-      .bind(trip.name, r.first, r.last, JSON.stringify(this.preview()), Date.now(), trip.id).run();
+    const members = this.sql.exec<{ id: string; joined: number }>('select id, joined_at as joined from members').toArray();
+    const copy = { id: trip.id, name: trip.name, first: r.first, last: r.last, preview: JSON.stringify(this.preview()), deletedAt: trip.deleted_at, editedAt: edited_at, rev, members };
+    const D = this.env.DB, statements = copyStatements({ ...copy, inviteHash: await sha256(trip.invite) });
+    await D.batch(statements.map(([sql, values]) => D.prepare(sql).bind(...values)));
   }
-  // Someone joined or renamed themselves: the card's people change, but the trip doesn't move up everyone's list.
-  private async syncPreview() {
-    await this.env.DB.prepare('update trips set preview = ? where id = ?').bind(JSON.stringify(this.preview()), this.trip()!.id).run();
+  // A change is saved here once it's made, so D1 being out of reach doesn't fail it: the copy is tried again shortly
+  // (the alarm), and by the next change, and by open.
+  private async publish() {
+    try { await this.project(); } catch (e) {
+      console.error(`D1 copy of trip ${this.trip()?.id}:`, e);
+      await this.ctx.storage.setAlarm(Date.now() + 10_000);
+    }
   }
+  // Cloudflare retries an alarm that throws, waiting longer each time
+  async alarm() { await this.project(); }
   private preview(): Preview {
     return {
       members: this.sql.exec<Member>('select id, name, image, identity from members order by joined_at').toArray(),
@@ -322,4 +329,9 @@ export class TripRoom extends DurableObject<Env> {
       try { ws.send(msg); } catch {}
     }
   }
+}
+
+async function sha256(s: string) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
 }

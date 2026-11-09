@@ -1,11 +1,12 @@
 # Dotsie app (Cloudflare)
 
-One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`TripRoom`) that owns its stops and members and pushes live edits over WebSockets. D1 holds accounts, sessions, trip membership, and the home-screen summaries: each trip's name, dates, people and stop places, which its `TripRoom` writes whenever they change.
+One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`TripRoom`) that owns its stops and members and pushes live edits over WebSockets. D1 holds accounts and sessions, and a copy of what spans trips: who's on which trip, each trip's home card (name, dates, people and stop places) and its share link's hash. Only the trip's `TripRoom` writes that copy, whole and in one batch, after every change (see "The D1 copy" in [src/trip.ts](src/trip.ts)): a copy that fails is tried again by the room's alarm and by the next change, and one that lands after a newer one is ignored (`rev`). So D1 can lag for a moment but doesn't stay wrong, and the room's own data is what a trip is.
 
 | File | What it does |
 | --- | --- |
 | [src/index.ts](src/index.ts) | API routes, session check, share links |
 | [src/trip.ts](src/trip.ts) | `TripRoom`: trip data, membership, live events |
+| [src/copy.ts](src/copy.ts) | The statements that write a trip's D1 copy |
 | [src/stop.ts](src/stop.ts) | A stop's fields and the check every write goes through, on the lists and limits in [web/fields.js](web/fields.js), which the frontend uses too |
 | [src/auth.ts](src/auth.ts) | Better Auth: Google, Apple, email and password, guests |
 | [src/sights.ts](src/sights.ts) | `SightsLookup`, the Durable Object that looks up one map tile's sights from Overpass, which can take longer than a request can wait |
@@ -13,7 +14,7 @@ One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`Tri
 | [src/mcp.ts](src/mcp.ts) | The MCP server: tools for an AI assistant to list trips and stops, and add, edit and delete stops |
 | [src/oauth.ts](src/oauth.ts) | OAuth sign-in for the MCP server, and its Allow page |
 | [migrations/](migrations) | D1 schema |
-| [test/](test) | Unit tests: time zones, a trip's days and stays, the stop check, and the app's and the prototype's pages loading the same modules. `npm test` |
+| [test/](test) | Unit tests: time zones, a trip's days and stays, the stop check, the D1 copy (on SQLite with the migrations), and the app's and the prototype's pages loading the same modules. `npm test` |
 | [web/](web) | The frontend: plain HTML, CSS and JS modules, served as they are with no bundler (the top of [web/app.js](web/app.js) says which module does what). [web/backend.js](web/backend.js) is all it says to the server; `../prototype` runs the same modules with its own `backend.js`. [web/tz-lookup.js](web/tz-lookup.js) finds a place's time zone from where it is ([@photostructure/tz-lookup](https://github.com/photostructure/tz-lookup), CC0), so a stop's time is its place's local time; only a zone someone picked by hand is saved (`tz`) |
 | [scripts/build.mjs](scripts/build.mjs) | Copies `web/` and `../design-system/` into `public/`, which Wrangler serves. Runs on `dev` and `deploy` |
 
