@@ -61,7 +61,7 @@ Load the files in this order, then put `wt-base` on `<body>`:
 
   ```js
   const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  L.polyline(coords, { color: token('--wt-route') });
+  map.addLayer({ id: 'routes', type: 'line', source: 'routes', paint: { 'line-color': token('--wt-route') } });
   ```
 
 ## How it's organized
@@ -879,7 +879,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal; a merged pin's gives all its numbers and names its stops.
 - Variants: `--selected` (32px, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (20px and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). A merged pin is muted only when all its stops are. The pins still in color are the ones that matter now.
 - **A tap target of 36px**, centered on the pin (`::after`).
-- **Put the pins in a `.wt-pins` element** (with Leaflet, the marker pane). While one of them is `--selected`, the rest step back: still solid, flat, in a lighter version of their color (`--wt-pin-faded-mix` of it over `--wt-pin-fill`; deeper in dark mode), with the number in their own color, so the selected pin stands out among pins of every type. Not see-through, so the route and the map don't show through them (they used to fade to 55% opacity, which muddied them). They keep their colors rather than turn grey, since grey means over; a pin that's over stays as it is.
+- **Put the pins in a `.wt-pins` element** (in the app, the map, which holds its markers). While one of them is `--selected`, the rest step back: still solid, flat, in a lighter version of their color (`--wt-pin-faded-mix` of it over `--wt-pin-fill`; deeper in dark mode), with the number in their own color, so the selected pin stands out among pins of every type. Not see-through, so the route and the map don't show through them (they used to fade to 55% opacity, which muddied them). They keep their colors rather than turn grey, since grey means over; a pin that's over stays as it is.
 - The map shows only the open day, or the whole trip on the overview. Framing a day or a route leaves half a selected pin clear at the edges.
 
 ### Sight `.wt-sight`
@@ -896,7 +896,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - **Pointed at with a mouse, or focused** (it, or the element holding it), it's the solid marker: 24px in the type's color, the icon at 14px in `--wt-marker-ink`, a `--wt-pin-fill` ring and the pin's shadow, the same about its center. On its own, outside a `.wt-sight` (as in a sight's card), `.wt-sight__marker` is that solid marker.
 - **Its name shows while it's hovered with a mouse:** to the marker's right, in 12px ink with a halo in `--wt-pin-fill`, so it reads over the light and the dark map. A long name stops at 160px with an ellipsis. Bring that marker in front of the others while its name shows. Not while it's selected: its card is open, with the name at the top.
 - **The plan comes first.** A stop's pin is a solid color with a white number, standing off the map; a sight is the pin's ring color with a colored ring and icon, smaller and never numbered, so the pins and the routes read first. Put sights in a layer over the map's own names, so no name hides them, and under the pins; leave a place for a sight only where its marker clears the pins, the routes and the other sights, so the day's line runs unbroken from stop to stop. (They used to be solid 20px markers with a shadow, as strong as the pins, and sat on the routes, breaking the line. Then 16px tinted discs with a 10px icon and no shadow, which were too faint to see on the map.)
-- **While a pin is `--selected`,** the other pins step back to a lighter solid color and the sights to 70%, so none outshines the plan; they still read, since a selected stop is where you look around. This works for sights inside the element that holds the `.wt-pins` element (with Leaflet, the map pane).
+- **While a pin is `--selected`,** the other pins step back to a lighter solid color and the sights to 70%, so none outshines the plan; they still read, since a selected stop is where you look around. This works for sights inside the element that holds the `.wt-pins` element (in the app, the map's parent).
 - **It's a button.** Give it (or the element holding it) `role="button"`, a tab stop and an `aria-label` that says its name and what tapping does ("Alameda Park Zoo, Attraction. Show more"). Its tap target is 42px square, around the marker.
 - **`.is-selected`** while its card is open: the solid marker grows to 32px (its icon to 18px) about the same center, with the selected pin's shadow, and no name beside it (its card says it). Bring it in front of the other sights.
 - It fades in on `--wt-duration-base` when it appears.

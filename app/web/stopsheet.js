@@ -9,7 +9,7 @@ import { foodURL, legRoute, legsOn } from './routes.js';
 import { addStop, deleteStop, editStop } from './edits.js';
 import { offlineNow } from './offline.js';
 import { render } from './app.js';
-import { drawMap, focusStop, map, markerHTML, moveCamera, reduceMotion } from './map.js';
+import { drawMap, focusStop, map, mapCamera, markerHTML, moveCamera, reduceMotion } from './map.js';
 import { aboutHTML, aboutSlot, loadAbout, showAbout, sightAt, sightsAlong } from './sights.js';
 import { closeSheet, modalHead, openSheet } from './sheets.js';
 import { MAX, MAX_LINKS } from './fields.js';
@@ -371,7 +371,7 @@ export function openStopSheet(trip, stop, place = null) {
   if ($sheets.innerHTML) closeSheet();
   const draft = stop ? { ...stop, kind: kindOf(stop) } : { lat: null, lng: null, address: '', name: '', kind: 'place', ...place };
   let chosen = !!stop, saved = false;
-  const camera = map && { center: map.getCenter(), zoom: map.getZoom() };
+  const camera = mapCamera();
   const after = stop ? null : anchorStop(trip); // before the selection's cleared
   state.leg = null;
   if (state.sel !== stop?.id) state.selRow = null;

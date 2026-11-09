@@ -6,7 +6,8 @@ import { cur, fromSnapshot, reloadTrip } from './trips.js';
 import { TRAVEL, dayPlan, daysOf, pagesOf, samePlace, wayTo } from './plan.js';
 import { BG_ROUTE_GAP, fetchRoute, legKey, routes } from './routes.js';
 import { scheduleRender } from './app.js';
-import { STADIA_CHECK, TILE_PRELOAD_PARALLEL, basemap, dayView, glFiles, glTileURLs, isGLStyle, map, tiles } from './map.js';
+import { STOP_ZOOM, TILE_PRELOAD_PARALLEL, basemap, dayView, glFiles, glTileURLs, isGLStyle, map, mapSize } from './map.js';
+import { project } from './geo.js';
 import { toast } from './notices.js';
 
 // ---------- Offline: a trip saved on this device ----------
@@ -64,26 +65,25 @@ export function keepOfflinePlan() {
   }, 1000);
 }
 
-// The map files a saved trip needs, for the map showing: each day's view, and the overview's, at its zoom (with a tile to
-// spare around it), a level out and a level in; and a street-level patch around each place. MapLibre's map also needs
-// its style, sprite and fonts, and its tiles go no closer than street level, where it enlarges them.
+// The map files a saved trip needs, for the map showing: each day's view, and the overview's, at its zoom (with half a
+// tile to spare around it), a level out and a level in; and a street-level patch around each place. MapLibre also needs
+// the style, sprite and fonts, and its tiles go no closer than street level, where it enlarges them. OpenStreetMap's
+// map, when Stadia's can't be had, isn't saved: its tile policy discourages fetching tiles nobody looks at.
 function offlineTileURLs(trip) {
   const gs = basemap?.gs;
-  if (!map || !(tiles || gs)) return [];
-  const urls = new Set([STADIA_CHECK, ...(gs ? glFiles(gs) : [])]), size = map.getSize(), street = L.point(256, 256);
-  // MapLibre's map reaches a tenth of the map past each side (the plugin's padding)
-  const spare = L.point(128, 128).add(gs ? size.multiplyBy(0.1) : L.point(0, 0));
-  const add = (center, z, half) => {
-    const c = map.project(center, z), b = L.bounds(c.subtract(half), c.add(half));
-    for (const u of gs ? glTileURLs(gs, b, z) : tiles.tileURLs(b, z)) urls.add(u);
+  if (!map || !gs) return [];
+  const urls = new Set(glFiles(gs)), size = mapSize(), spare = 128;
+  const add = (center, z, hx, hy) => {
+    const c = project(center, z);
+    for (const u of glTileURLs(gs, { x: c.x - hx, y: c.y - hy }, { x: c.x + hx, y: c.y + hy }, z)) urls.add(u);
   };
   for (const d of pagesOf(trip)) {
     const v = dayView(trip, d);
     if (!v) continue;
     // a level in covers the whole view, where a zoom in can land; a level out, a view-sized area around its middle
-    for (const dz of [-1, 0, 1]) add(v.center, Math.round(v.zoom) + dz, size.multiplyBy(Math.max(1, 2 ** dz) / 2).add(spare));
+    for (const dz of [-1, 0, 1]) { const k = Math.max(1, 2 ** dz) / 2; add(v.center, v.zoom + dz, size.x * k + spare, size.y * k + spare); }
   }
-  for (const s of trip.stops) for (const z of [15, 16]) add(L.latLng(s.lat, s.lng), z, street);
+  for (const s of trip.stops) for (const z of [STOP_ZOOM, STOP_ZOOM + 1]) add(s, z, 256, 256);
   return [...urls];
 }
 
@@ -108,7 +108,7 @@ export async function saveOffline(trip, { quiet = false } = {}) {
   t.snap = { trip: { id, name: trip.name }, members: trip.members, stops: trip.stops };
   t.savedAt = Date.now();
   // the map showing; a trip saved with the other kind keeps it until this one is all saved
-  const style = basemap?.gs.url || tiles?._url;
+  const style = basemap?.gs.url;
   if (style && (!t.style || isGLStyle(t.style) === isGLStyle(style))) t.style = style;
   t.noMap = !style;
   rememberSession();

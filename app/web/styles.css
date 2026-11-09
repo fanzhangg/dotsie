@@ -105,24 +105,18 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
 }
 .trip.is-editing .trip-fit { display: none; }
 /* The selected sight's bigger marker, and a hovered sight's name (see .wt-sight), come in front of the other sights. */
-.leaflet-marker-icon:has(.wt-sight.is-selected), .leaflet-marker-icon:has(.wt-sight:hover) { z-index: 1000 !important; }
+.wt-sight-marker:has(.wt-sight.is-selected), .wt-sight-marker:has(.wt-sight:hover) { z-index: 9 !important; } /* still behind the pins (PIN_Z in map.js) */
 /* A sight's card (openSight in app.js): like a stop's sheet on a phone, it takes the list's place at the bottom. Its type
    sits beside the sight's own marker, then what Wikipedia says (.wt-about), then Add to trip. */
 .trip.has-card .wt-sheet { visibility: hidden; }
 .trip.has-card .trip-fit { display: none; }
 .sight-type { display: flex; align-items: center; gap: var(--wt-space-2); }
 .sight-type + .sight-add { margin-top: var(--wt-space-2); }
-/* Only the busier fallback basemap needs quieting. */
-.trip.osm-tiles .leaflet-tile-pane { filter: saturate(.55) brightness(1.03); }
-@media (prefers-color-scheme: dark) {
-  .trip.osm-tiles .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) saturate(.4) brightness(.9); }
-}
-/* Routes, drawn by the app over the tiles (see RouteLayer in app.js); their colors and widths come from the route tokens.
- * A route eases into a new look: shown, muted while another is shown, or over. */
-.wt-routes { overflow: visible; pointer-events: none; }
-.wt-route path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.wt-route__casing { stroke-opacity: .9; }
-.wt-route__casing, .wt-route__line { transition: stroke var(--wt-duration-base), stroke-width var(--wt-duration-base); }
-/* A wide line nobody sees, so a route is easy to tap. */
-.leaflet-pane > svg path.wt-route__hit { stroke: transparent; stroke-width: 24px; pointer-events: stroke; }
-.leaflet-pane > svg .wt-route.is-leaving .wt-route__hit { pointer-events: none; }
+/* With no map (no WebGL, or MapLibre couldn't load): why, where the map would be. The plan works as ever. */
+.wt-map-none { margin: 0; padding: calc(var(--wt-space-8) + 44px) var(--wt-space-5) 0; text-align: center; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+@container wt-trip (min-width: 768px) { .wt-map-none { padding-top: var(--wt-space-8); } }
+/* A pin or a sight on the map (addMarker in map.js): a point, its look centered on it. A keyboard's focus on a pin
+   shows as a ring (a sight's marker grows instead, see .wt-sight). */
+.wt-map-marker { width: 0; height: 0; }
+.wt-map-marker:focus-visible { outline: none; }
+.wt-map-marker:focus-visible > .wt-pin { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }

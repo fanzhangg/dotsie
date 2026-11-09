@@ -10,10 +10,15 @@ export default defineConfig({
   forbidOnly: CI,
   retries: CI ? 1 : 0,
   reporter: CI ? [['list'], ['github']] : 'list',
-  use: { viewport: { width: 390, height: 844 }, timezoneId: 'America/Denver', locale: 'en-US', trace: 'on-first-retry' },
+  // WebGL, which MapLibre draws the map with, by software (SwiftShader): headless Chromium has no GPU
+  use: {
+    viewport: { width: 390, height: 844 }, timezoneId: 'America/Denver', locale: 'en-US', trace: 'on-first-retry',
+    launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
+  },
   projects: [
     { name: 'prototype', testMatch: /(prototype|map)\.spec\.js/, use: { baseURL: 'http://localhost:5199/prototype/' } },
     { name: 'app', testMatch: 'app.spec.js', use: { baseURL: 'http://localhost:8787/' } },
+    { name: 'no-webgl', testMatch: 'nowebgl.spec.js', use: { baseURL: 'http://localhost:5199/prototype/', launchOptions: { args: ['--disable-3d-apis'] } } },
   ],
   webServer: [
     { command: 'python3 -m http.server 5199 -d ../..', url: 'http://localhost:5199/prototype/', reuseExistingServer: !CI },

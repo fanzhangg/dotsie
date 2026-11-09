@@ -4,7 +4,8 @@ import { cur } from './trips.js';
 import { api } from './backend.js';
 import { KINDS, kindColor, kindIcon } from './plan.js';
 import { needsConnection, offlineNow } from './offline.js';
-import { focusStop, map, onMapTap, pins, routeLayer, sightLayer, sightsShown } from './map.js';
+import { addMarker, focusStop, map, mapSize, mapZoom, onMapTap, pins, routeCells, sightsShown, toScreen, viewBounds } from './map.js';
+import { latLng, tileOf } from './geo.js';
 import { coveredBottom, coveredTop, inView } from './sheet.js';
 import { modalHead, openSheet } from './sheets.js';
 import { ON_THE_WAY_KM, kmOff, kmPerDeg, openStopSheet } from './stopsheet.js';
@@ -16,7 +17,7 @@ import { ON_THE_WAY_KM, kmOff, kmPerDeg, openStopSheet } from './stopsheet.js';
 // sit over the map's names but under the trip's pins, and none goes on a pin or on a route, so the day's line runs
 // unbroken from stop to stop. Tapping one opens its card (see openSight). Places already on the trip aren't repeated.
 // None while a stop is open, nor offline. They come from /api/sights a tile at a time (zoom 12), kept for the visit.
-const SIGHTS_FROM_ZOOM = 13;
+const SIGHTS_FROM_ZOOM = 12;
 const SIGHT_TILE_ZOOM = 12;
 const SIGHTS_MAX = 12; // in view at once, at most, so they never crowd out the plan
 const SIGHT_GAP = 4; // px between two sights' markers, and around the trip's pins
@@ -58,33 +59,32 @@ function loadSightTile(k) {
   }));
 }
 export function drawSights() {
-  if (!map || !sightLayer) return;
-  const trip = cur?.stops ? cur : null, z = map.getZoom();
+  if (!map) return;
+  const trip = cur?.stops ? cur : null, z = mapZoom();
   const show = new Map();
   if (trip && !state.draft && !offlineNow() && z >= SIGHTS_FROM_ZOOM - 0.01) {
     // The tiles under the view
-    const n = 2 ** SIGHT_TILE_ZOOM, view = map.getBounds();
-    const lo = map.project(view.getNorthWest(), SIGHT_TILE_ZOOM).divideBy(256).floor();
-    const hi = map.project(view.getSouthEast(), SIGHT_TILE_ZOOM).divideBy(256).floor(), found = new Map();
-    for (let y = Math.max(0, lo.y); y <= Math.min(n - 1, hi.y); y++) {
+    const view = viewBounds(), found = new Map();
+    const lo = tileOf({ lat: view.north, lng: view.west }, SIGHT_TILE_ZOOM), hi = tileOf({ lat: view.south, lng: view.east }, SIGHT_TILE_ZOOM);
+    for (let y = lo.y; y <= hi.y; y++) {
       for (let x = lo.x; x <= hi.x; x++) {
-        const k = `${((x % n) + n) % n}/${y}`, list = sightTiles.get(k);
+        const k = `${x}/${y}`, list = sightTiles.get(k);
         if (Array.isArray(list)) for (const s of list) found.set(s.id, s); else loadSightTile(k);
       }
     }
     // The best known first, each where it fits: in the part of the map you can see, clear of the trip's pins, its routes
     // and the sights already placed. Its box is its marker.
-    const size = map.getSize(), top = coveredTop(), bottom = size.y - coveredBottom();
-    const taken = pins.filter(p => !p.hidden).map(p => { const c = map.latLngToContainerPoint(p.ll), r = p.r + SIGHT_GAP; return [c.x - r, c.y - r, c.x + r, c.y + r]; });
+    const size = mapSize(), top = coveredTop(), bottom = size.y - coveredBottom();
+    const taken = pins.filter(p => !p.hidden).map(p => { const c = toScreen(p.ll), r = p.r + SIGHT_GAP; return [c.x - r, c.y - r, c.x + r, c.y + r]; });
     const onTrip = s => sightOnTrip(trip, s);
     const overlaps = (a, c) => a[0] < c[2] && c[0] < a[2] && a[1] < c[3] && c[1] < a[3];
-    const routeCells = routeLayer ? routeLayer.cells(SIGHT_ROUTE_CELL) : new Set(), G = SIGHT_ROUTE_CELL;
+    const onRoutes = routeCells(SIGHT_ROUTE_CELL), G = SIGHT_ROUTE_CELL;
     const onRoute = b => {
-      for (let y = Math.floor(b[1] / G); y <= Math.floor(b[3] / G); y++) for (let x = Math.floor(b[0] / G); x <= Math.floor(b[2] / G); x++) if (routeCells.has(`${x},${y}`)) return true;
+      for (let y = Math.floor(b[1] / G); y <= Math.floor(b[3] / G); y++) for (let x = Math.floor(b[0] / G); x <= Math.floor(b[2] / G); x++) if (onRoutes.has(`${x},${y}`)) return true;
       return false;
     };
     for (const s of [...found.values()].sort((a, c) => c.rank - a.rank || a.id.localeCompare(c.id))) {
-      const p = map.latLngToContainerPoint([s.lat, s.lng]);
+      const p = toScreen(s);
       if (p.x < 0 || p.x > size.x || p.y < top || p.y > bottom || onTrip(s)) continue;
       const r = SIGHT_R + SIGHT_GAP / 2, box = [p.x - r, p.y - r, p.x + r, p.y + r];
       if (taken.some(t => overlaps(t, box)) || onRoute(box)) continue;
@@ -94,16 +94,12 @@ export function drawSights() {
     }
   }
   // Only what changed, so the sights still in view stay put as the map moves
-  for (const [id, m] of sightsShown) if (!show.has(id)) { sightLayer.removeLayer(m); sightsShown.delete(id); }
+  for (const [id, m] of sightsShown) if (!show.has(id)) { m.remove(); sightsShown.delete(id); }
   for (const [id, s] of show) {
     if (sightsShown.has(id)) continue;
-    const m = L.marker([s.lat, s.lng], {
-      pane: 'sights',
-      icon: L.divIcon({ className: '', iconSize: [0, 0], html: sightHTML(s) }),
-    }).on('click', () => onMapTap(() => openSight(s))).addTo(sightLayer);
-    // A button to the keyboard too: Leaflet makes a marker focusable, but only a click opens it
-    m.getElement()?.setAttribute('aria-label', `${s.name}, ${KINDS[s.kind].label}. Show more`);
-    m.getElement()?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSight(s); } });
+    // over the map's names, behind the trip's pins (see PIN_Z)
+    const m = addMarker(s, { html: sightHTML(s), z: 1, label: `${s.name}, ${KINDS[s.kind].label}. Show more`, tap: () => onMapTap(() => openSight(s)) });
+    m.getElement().classList.add('wt-sight-marker');
     sightsShown.set(id, m);
   }
 }
@@ -130,13 +126,13 @@ const sightOnTrip = (trip, s) => trip.stops.some(t => (Math.abs(t.lat - s.lat) <
 // some are still loading (or the route is still being looked up), so the page asks again.
 const ALONG_TILES = 16, ALONG_PICK = 16, ALONG_MAX = 8;
 export function sightsAlong(trip, way) {
-  if (!window.L || offlineNow()) return { list: [], waiting: false };
-  const n = 2 ** SIGHT_TILE_ZOOM, keys = new Set();
+  if (offlineNow()) return { list: [], waiting: false };
+  const keys = new Set();
   for (const [lat, lng] of way.line) {
     const [kx, ky] = kmPerDeg(lat), dLat = ON_THE_WAY_KM / ky, dLng = ON_THE_WAY_KM / kx;
     for (const y of [-dLat, 0, dLat]) for (const x of [-dLng, 0, dLng]) {
-      const t = L.CRS.EPSG3857.latLngToPoint(L.latLng(lat + y, lng + x), SIGHT_TILE_ZOOM).divideBy(256).floor();
-      keys.add(`${((t.x % n) + n) % n}/${Math.min(n - 1, Math.max(0, t.y))}`);
+      const t = tileOf({ lat: lat + y, lng: lng + x }, SIGHT_TILE_ZOOM);
+      keys.add(`${t.x}/${t.y}`);
     }
   }
   let tiles = [...keys];
@@ -157,8 +153,7 @@ export function sightsAlong(trip, way) {
 
 const plainName = n => (n || '').normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 export function sightAt(p) {
-  if (!window.L) return Promise.resolve(null); // no map script (offline before it was ever loaded): no sights either
-  const t = L.CRS.EPSG3857.latLngToPoint(L.latLng(p.lat, p.lng), SIGHT_TILE_ZOOM).divideBy(256).floor(), k = `${t.x}/${t.y}`;
+  const t = tileOf(latLng({ lat: +p.lat, lng: +p.lng }), SIGHT_TILE_ZOOM), k = `${t.x}/${t.y}`;
   if (!offlineNow()) loadSightTile(k);
   const now = sightTiles.get(k);
   return Promise.resolve(now instanceof Promise ? now : null).then(() => {

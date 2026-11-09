@@ -10,7 +10,6 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
   <link rel="stylesheet" href="design-system/tokens.css">
   <link rel="stylesheet" href="design-system/components.css">
@@ -26,6 +25,8 @@
   <link rel="modulepreload" href="routes.js">
   <link rel="modulepreload" href="offline.js">
   <link rel="modulepreload" href="home.js">
+  <link rel="modulepreload" href="geo.js">
+  <link rel="modulepreload" href="mapstyle.js">
   <link rel="modulepreload" href="map.js">
   <link rel="modulepreload" href="timeline.js">
   <link rel="modulepreload" href="sheet.js">
@@ -38,7 +39,6 @@
 <body class="wt-base">
   <div id="app"></div>
   <div id="sheets" class="wt-modal-root"></div>
-  <script src="vendor/leaflet/leaflet.js"></script>
   <script src="design-system/icons.js"></script>
   <script src="tz-lookup.js"></script>
   <script type="module" src="app.js"></script>

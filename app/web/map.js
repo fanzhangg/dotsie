@@ -1,5 +1,6 @@
-/* The trip screen's map: setting it up and tearing it down, the routes on it, the basemap, preloading other days,
-   gestures, and the camera and pins. */
+/* The trip screen's map, drawn by MapLibre: setting it up and tearing it down, the basemap and the routes in it,
+   preloading other days, gestures, and the camera and pins. Places are { lat, lng } (or [lat, lng]); MapLibre's own
+   [lng, lat] stays in this file, and its sums are in geo.js. */
 import { $app, $sheets, ICON, esc, state, token } from './core.js';
 import { DEVICE_ZONE, fmtTime, momentOf, zoneName, zoneOf } from './time.js';
 import { cur } from './trips.js';
@@ -11,330 +12,108 @@ import { render } from './app.js';
 import { coveredBottom, coveredTop, inView, onListScroll, setListTop } from './sheet.js';
 import { drawSights, sightOpen } from './sights.js';
 import { closeSheet } from './sheets.js';
+import { boundsOf, frame, latLng, project, tilesUnder, unproject } from './geo.js';
+import { ROUTE_HIT, ROUTE_SOURCE, blankStyle, firstLabelLayer, osmStyle, pictureStyle, routeLayers } from './mapstyle.js';
 
 // ---------- Trip screen: map + one day of the plan ----------
-// Stadia answers a domain it doesn't know with a "401" picture instead of an error, which Leaflet
-// can't tell from a real tile; ask once per visit whether it will serve this site. With no connection there's no
-// answer: use Stadia, whose tiles a trip saved for offline has (the tile asked for is saved with them), and ask again next time.
-export const STADIA_CHECK = 'https://tiles.stadiamaps.com/tiles/alidade_smooth/0/0/0.png';
-let stadiaCheck = null;
-const stadiaServes = () => (stadiaCheck ??= fetch(STADIA_CHECK).then(r => r.ok, () => { stadiaCheck = null; return true; }));
-export let map = null, layer = null, routeLayer = null, fitKey = '';
+export let map = null, fitKey = '';
 // Frame the map again on the next draw, as if it had just opened on this view
 export const refit = () => { fitKey = ''; };
 let camPlaced = false; // the new map has been framed once: its first framing is placed, not flown to
 let camTarget = null; // where the camera is flying, and until when
 export const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-let zoomAnim = false, drawPending = false; // Leaflet is sliding the map to a new zoom (a wheel, a double tap, the end of a pinch)
+const MAX_ZOOM = 19;
+const toGL = v => { const p = latLng(v); return [p.lng, p.lat]; };
+// What the rest of the app asks of the map: its size, zoom and camera, and where a place is on it
+export const mapSize = () => { const el = map.getContainer(); return { x: el.clientWidth, y: el.clientHeight }; };
+export const mapZoom = () => map.getZoom();
+export const toScreen = v => { const p = map.project(toGL(v)); return { x: p.x, y: p.y }; };
+export function mapCamera() {
+  if (!map) return null;
+  const c = map.getCenter();
+  return { center: { lat: c.lat, lng: c.lng }, zoom: map.getZoom() };
+}
+export function viewBounds() {
+  const b = map.getBounds();
+  return { south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() };
+}
+export const resizeMap = () => map?.resize();
 
 // ---------- Routes on the map ----------
-// Leaflet's own vector layers draw a route once each time the map stops, and while the map moves they scale that
-// picture with CSS: lines fatten as the map zooms in and thin out as it zooms out, and whatever lay outside the view
-// they were drawn for is missing until the map stops. This layer draws the routes itself, on every frame of a move,
-// at the map's real scale, so a line keeps its width and reaches the edge of the map the whole way:
-// - a flight (flyTo), a pinch, a drag and its glide move the map frame by frame, and each frame is drawn as it comes;
-// - Leaflet's short zoom animation (a wheel, a double tap, the end of a pinch) slides the tiles and pins with a CSS
-//   transition, so each frame is drawn where that transition has them by then.
-// Routes are kept by key: one that changes its look (shown, muted, over) eases into it, and one that comes or goes
-// (another day, a route that has come in) fades.
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const ROUTE_PAD = 0.3; // drawn this far past each edge of the map (a share of its size), so a drag doesn't reach the end
-const ROUTE_FADE = 250; // ms, as --wt-duration-base
-const ZOOM_ANIM = 250; // ms: Leaflet's zoom transition, transform .25s cubic-bezier(0, 0, .25, 1) in leaflet.css
-// How far along Leaflet's zoom transition is at `t` (0–1): cubic-bezier(0, 0, .25, 1), solved for x = t
-function zoomEase(t) {
-  let lo = 0, hi = 1, u = t;
-  for (let i = 0; i < 24; i++) {
-    u = (lo + hi) / 2;
-    if (0.75 * u * u * (1 - u) + u * u * u < t) lo = u; else hi = u;
-  }
-  return 3 * u * u * (1 - u) + u * u * u;
-}
-const svgEl = (tag, cls) => { const el = document.createElementNS(SVG_NS, tag); if (cls) el.setAttribute('class', cls); return el; };
-// Where the routes are drawn from: a point on the map is at `world * s - o` in Leaflet's layer pixels, where `world`
-// is its place at zoom 0. Every view the map passes through, flying, pinching or in a zoom transition, is one of these.
-const viewOf = m => { const o = m.getPixelOrigin(); return { s: m.getZoomScale(m.getZoom(), 0), ox: o.x, oy: o.y }; };
-const RouteLayer = window.L && L.Layer.extend({
-  options: { pane: 'overlayPane' },
-  initialize() { this._routes = new Map(); this._leaving = new Set(); },
-  onAdd(map) {
-    this._svg = svgEl('svg', 'wt-routes');
-    this._base = svgEl('g');
-    this._top = svgEl('g'); // the route on show, over the others where they cross
-    this._svg.append(this._base, this._top);
-    this.getPane().appendChild(this._svg);
-    this._view = this._bounds = this._size = null;
-    this._draw(viewOf(map));
-  },
-  onRemove() {
-    cancelAnimationFrame(this._anim);
-    this._svg.remove();
-    this._routes.clear();
-    this._leaving.clear();
-  },
-  getEvents() {
-    return { zoom: this._onMove, move: this._onMove, moveend: this._onMove, viewreset: this._onMove, resize: this._onResize, zoomanim: this._onZoomAnim };
-  },
-  // The routes to show, bottom first: { key, coords: [[lat, lng], …], color, width, casing, casingWidth, dash, top, onClick }.
-  // A route under the same key with other coordinates (the drive came in, or moved) is a new route: the old one fades out.
-  setRoutes(list) {
-    const next = new Map();
-    for (const r of list) {
-      const sig = `${r.coords.length}|${r.coords[0]}|${r.coords.at(-1)}`;
-      let route = this._routes.get(r.key);
-      if (route && route.sig !== sig) { this._leave(route); route = null; }
-      this._routes.delete(r.key);
-      if (!route) route = this._enter(r, sig);
-      else if (route.coords !== r.coords) this._project(route, r.coords);
-      this._style(route, r);
-      next.set(r.key, route);
-    }
-    for (const route of this._routes.values()) this._leave(route);
-    this._routes = next;
-    // in the order asked, moving routes only when the order has changed (a move restarts a route's transitions)
-    for (const g of [this._base, this._top]) {
-      const want = [...next.values()].filter(route => route.g.parentNode === g || (!route.g.parentNode && route.top === (g === this._top))).map(route => route.g);
-      const have = [...g.children].filter(el => !el.classList.contains('is-leaving'));
-      if (want.length !== have.length || want.some((el, i) => el !== have[i])) for (const el of want) g.appendChild(el);
-    }
-    for (const route of next.values()) {
-      if (this._view && !route.drawn) this._drawRoute(route);
-      if (route.entering && !reduceMotion.matches) route.g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ROUTE_FADE, easing: 'ease-out' });
-      route.entering = false;
-    }
-  },
-  _enter(r, sig) {
-    const g = svgEl('g', 'wt-route');
-    const casing = svgEl('path', 'wt-route__casing'), line = svgEl('path', 'wt-route__line');
-    g.append(casing, line);
-    const route = { key: r.key, sig, g, paths: [casing, line], top: !!r.top, drawn: false, entering: true };
-    if (r.onClick) {
-      // a wide line nobody sees, so the route is easy to tap
-      const hit = svgEl('path', 'wt-route__hit leaflet-interactive');
-      g.append(hit);
-      route.paths.push(hit);
-      hit.addEventListener('click', e => {
-        e.stopPropagation(); // the map's own click clears the selection
-        if (!this._map?.dragging?.moved()) route.onClick?.();
-      });
-    }
-    this._project(route, r.coords);
-    return route;
-  },
-  _leave(route) {
-    route.g.classList.add('is-leaving');
-    this._leaving.add(route);
-    const done = () => { route.g.remove(); this._leaving.delete(route); };
-    if (reduceMotion.matches || !route.g.parentNode) return done();
-    const from = getComputedStyle(route.g).opacity;
-    route.g.animate([{ opacity: from }, { opacity: 0 }], { duration: ROUTE_FADE, easing: 'ease-in', fill: 'forwards' }).finished.then(done, done);
-  },
-  _style(route, r) {
-    const [casing, line] = route.paths;
-    route.onClick = r.onClick;
-    casing.style.stroke = r.casing;
-    casing.style.strokeWidth = `${r.casingWidth}px`;
-    line.style.stroke = r.color;
-    line.style.strokeWidth = `${r.width}px`;
-    line.style.strokeDasharray = r.dash || 'none';
-  },
-  // Each point at zoom 0, once: every frame after that is a multiply and a subtract
-  _project(route, coords) {
-    const m = this._map, w = new Float64Array(coords.length * 2);
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    coords.forEach((c, i) => {
-      const p = m.project(c, 0);
-      w[i * 2] = p.x; w[i * 2 + 1] = p.y;
-      x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y);
-    });
-    Object.assign(route, { coords, world: w, box: [x0, y0, x1, y1] });
-  },
-  _onMove() {
-    const m = this._map;
-    if (!m || m._animatingZoom) return; // the zoom transition's frames draw themselves
-    cancelAnimationFrame(this._anim);
-    const v = viewOf(m), last = this._view;
-    // a drag moves the drawing with the map; it's only drawn again once the map nears its edge
-    if (!this._dirty && last && v.s === last.s && v.ox === last.ox && v.oy === last.oy && this._covers()) return;
-    this._draw(v);
-  },
-  _onResize() { this._dirty = true; this._onMove(); },
-  // Leaflet moves the map to its new zoom at once and lets a CSS transition slide the tiles and pins there; on every frame
-  // of it, each point is that far between where it was and where it's going, so draw the routes at that view.
-  _onZoomAnim(e) {
-    const m = this._map, from = viewOf(m), o = m._getNewPixelOrigin(e.center, e.zoom);
-    const to = { s: m.getZoomScale(e.zoom, 0), ox: o.x, oy: o.y }, pane = m.getPane('mapPane'), t0 = document.timeline?.currentTime ?? performance.now();
-    let css = null;
-    cancelAnimationFrame(this._anim);
-    const frame = now => {
-      if (!m._animatingZoom) return; // over: the map's own zoom and move events have drawn the end
-      // Timed by the tiles' and pins' own transition when there is one: the browser can start it a frame later than
-      // it was asked for, and the curve is steep at the start, so a frame early would put the routes well ahead of the pins.
-      css ||= pane.getAnimations?.({ subtree: true }).find(a => a.transitionProperty === 'transform');
-      const t = css ? (css.currentTime ?? 0) : now - t0;
-      const k = zoomEase(Math.min(1, Math.max(0, t) / ZOOM_ANIM));
-      this._draw({ s: from.s + (to.s - from.s) * k, ox: from.ox + (to.ox - from.ox) * k, oy: from.oy + (to.oy - from.oy) * k });
-      if (k < 1) this._anim = requestAnimationFrame(frame);
-    };
-    this._anim = requestAnimationFrame(frame);
-  },
-  // Does the drawing still reach past every edge of the map?
-  _covers() {
-    const m = this._map, tl = m.containerPointToLayerPoint([0, 0]);
-    return !!this._bounds && this._bounds.contains(tl) && this._bounds.contains(tl.add(m.getSize()));
-  },
-  _draw(v) {
-    const m = this._map, size = m.getSize(), pad = size.multiplyBy(ROUTE_PAD).round();
-    const min = m.containerPointToLayerPoint([0, 0]).subtract(pad).round(), dim = size.add(pad.multiplyBy(2));
-    this._view = v;
-    this._dirty = false;
-    this._bounds = L.bounds(min, min.add(dim));
-    if (!this._size?.equals(dim)) {
-      this._size = dim;
-      this._svg.setAttribute('width', dim.x);
-      this._svg.setAttribute('height', dim.y);
-    }
-    L.DomUtil.setPosition(this._svg, min);
-    this._svg.setAttribute('viewBox', `${min.x} ${min.y} ${dim.x} ${dim.y}`);
-    for (const route of this._routes.values()) this._drawRoute(route);
-    for (const route of this._leaving) this._drawRoute(route);
-  },
-  // The cells of a `cell`-pixel grid over the map's container that a route on the map runs through, as "x,y": so the
-  // sights can keep off the routes (see drawSights). Each segment in view is walked in steps of half a cell.
-  cells(cell) {
-    const m = this._map, out = new Set();
-    if (!m) return out;
-    const v = viewOf(m), tl = m.containerPointToLayerPoint([0, 0]), size = m.getSize();
-    const ox = v.ox + tl.x, oy = v.oy + tl.y, inView = (x, y) => x > -cell && y > -cell && x < size.x + cell && y < size.y + cell;
-    for (const route of this._routes.values()) {
-      const w = route.world, [x0, y0, x1, y1] = route.box;
-      if (x1 * v.s - ox < 0 || x0 * v.s - ox > size.x || y1 * v.s - oy < 0 || y0 * v.s - oy > size.y) continue;
-      for (let i = 0; i < w.length / 2 - 1; i++) {
-        const ax = w[i * 2] * v.s - ox, ay = w[i * 2 + 1] * v.s - oy, bx = w[i * 2 + 2] * v.s - ox, by = w[i * 2 + 3] * v.s - oy;
-        if (!inView(ax, ay) && !inView(bx, by) && !L.LineUtil.clipSegment(L.point(ax, ay), L.point(bx, by), L.bounds([0, 0], size))) continue;
-        const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / (cell / 2)));
-        for (let k = 0; k <= steps; k++) {
-          const x = ax + ((bx - ax) * k) / steps, y = ay + ((by - ay) * k) / steps;
-          if (inView(x, y)) out.add(`${Math.floor(x / cell)},${Math.floor(y / cell)}`);
-        }
-      }
-    }
-    return out;
-  },
-  // The route as a path at the current view: points less than a pixel apart are merged, and the line is cut where it
-  // leaves the drawing, so a long drive at a close zoom stays a short path.
-  _drawRoute(route) {
-    const { s, ox, oy } = this._view, b = this._bounds, w = route.world, [x0, y0, x1, y1] = route.box;
-    route.drawn = true;
-    let d = '';
-    if (x1 * s - ox >= b.min.x && x0 * s - ox <= b.max.x && y1 * s - oy >= b.min.y && y0 * s - oy <= b.max.y) {
-      const pts = [], n = w.length / 2;
-      for (let i = 0; i < n; i++) {
-        const x = w[i * 2] * s - ox, y = w[i * 2 + 1] * s - oy, last = pts.at(-1);
-        if (last && i < n - 1 && Math.abs(x - last.x) < 1 && Math.abs(y - last.y) < 1) continue;
-        pts.push(L.point(x, y));
-      }
-      let part = false;
-      for (let i = 0; i < pts.length - 1; i++) {
-        const seg = L.LineUtil.clipSegment(pts[i], pts[i + 1], b, i > 0, false);
-        if (!seg) { part = false; continue; }
-        if (!part) d += `M${seg[0].x.toFixed(1)} ${seg[0].y.toFixed(1)}`;
-        d += `L${seg[1].x.toFixed(1)} ${seg[1].y.toFixed(1)}`;
-        part = seg[1] === pts[i + 1]; // cut off at the edge: the next piece starts a new line
-      }
-      if (pts.length === 1) d = `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}l0 0`;
-    }
-    if (d !== route.d) { route.d = d; for (const p of route.paths) p.setAttribute('d', d); }
-  },
+// Drawn by MapLibre in the basemap itself, under its names (see routeLayers in mapstyle.js), from one GeoJSON source.
+// Each route: { key, coords: [[lat, lng], …], color, width, casing, casingWidth, dash ('dot', 'dash' or none), top, onClick }.
+let routes = [], routesDrawn = '';
+const routeFeatures = () => ({
+  type: 'FeatureCollection',
+  features: routes.map(r => ({
+    type: 'Feature',
+    properties: { key: r.key, color: r.color, width: r.width, casing: r.casing, casingWidth: r.casingWidth, dash: r.dash || 'solid', top: !!r.top },
+    geometry: { type: 'LineString', coordinates: r.coords.map(toGL) },
+  })),
 });
-// The map's credits live in trip settings rather than over the map.
+function setRoutes(list) {
+  routes = list;
+  const data = routeFeatures(), sig = JSON.stringify(data);
+  if (sig === routesDrawn) return;
+  const src = map.getSource(ROUTE_SOURCE);
+  if (!src) return; // the style is still coming in: addRoutes draws them once it has
+  routesDrawn = sig;
+  src.setData(data);
+}
+// Every style the map is given (the blank one it starts with, Stadia's, OpenStreetMap's) gets the routes' layers
+function addRoutes() {
+  if (!map || map.getSource(ROUTE_SOURCE)) return;
+  map.addSource(ROUTE_SOURCE, { type: 'geojson', data: routeFeatures() });
+  routesDrawn = JSON.stringify(routeFeatures());
+  const before = firstLabelLayer(map.getStyle().layers);
+  for (const l of routeLayers()) map.addLayer(l, before);
+}
+// The cells of a `cell`-pixel grid over the map that a route runs through, as "x,y": so the sights can keep off the
+// routes (see drawSights). Each segment in view is walked in steps of half a cell.
+export function routeCells(cell) {
+  const out = new Set();
+  if (!map) return out;
+  const size = mapSize(), inView = (x, y) => x > -cell && y > -cell && x < size.x + cell && y < size.y + cell;
+  for (const r of routes) {
+    const pts = r.coords.map(toScreen);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      if (Math.max(a.x, b.x) < -cell || Math.min(a.x, b.x) > size.x + cell || Math.max(a.y, b.y) < -cell || Math.min(a.y, b.y) > size.y + cell) continue;
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (cell / 2)));
+      for (let k = 0; k <= steps; k++) {
+        const x = a.x + ((b.x - a.x) * k) / steps, y = a.y + ((b.y - a.y) * k) / steps;
+        if (inView(x, y)) out.add(`${Math.floor(x / cell)},${Math.floor(y / cell)}`);
+      }
+    }
+  }
+  return out;
+}
+
+// ---------- The basemap ----------
+// Stadia's style, drawn by MapLibre from its vector tiles, so the routes can go under its names; OpenStreetMap's pictures
+// when Stadia won't serve this site; Stadia's pictures for a trip saved for offline with those. MapLibre loads the first
+// time a trip opens. The map's credits live in trip settings rather than over the map.
 const CREDIT = {
   stadia: '© <a href="https://stadiamaps.com/">Stadia Maps</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   osm: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 };
 export let mapCredit = CREDIT.stadia;
-// Leaflet fetches only the tiles in view, so a zoom waits on a whole fresh set and a pan shows blank edges.
-// This layer also loads a ring of tiles around the view, and once the view's tiles are in, it fetches the
-// next zoom level in (where a zoom-in lands) and the one out (a quarter as many) so the browser has them cached.
-// Stadia tiles only. Skipped when the browser asks to save data. `_getTiledPixelBounds` is Leaflet-internal: check it on upgrade.
-// The trip's other days are preloaded too (see preloadTrip), behind these and a few tiles at a time.
-const EDGE_TILES = 1;
-const PREFETCH_ZOOMS = [1, -1];
-export const TILE_PRELOAD_PARALLEL = 4;
-const fetchedTiles = new Set(); // asked for once per visit; after that the browser's cache has them
-let tileQueue = [], tilesInFlight = 0;
-function pumpTiles() {
-  while (tilesInFlight < TILE_PRELOAD_PARALLEL && tileQueue.length) {
-    const src = tileQueue.shift(), done = () => { tilesInFlight--; pumpTiles(); };
-    tilesInFlight++;
-    // a picture as Leaflet loads it; MapLibre's tiles as sharedFetch does
-    if (src.endsWith('.pbf')) fetch(src, { priority: 'low' }).then(r => r.arrayBuffer()).catch(() => {}).finally(done);
-    else { const img = new Image(); img.onload = img.onerror = done; img.src = src; }
-  }
-}
-// Tiles to load behind everything else, each once a visit
-function queueTiles(urls) {
-  for (const src of urls) if (!fetchedTiles.has(src)) { fetchedTiles.add(src); tileQueue.push(src); }
-  pumpTiles();
-}
-function bufferedTileLayer(url, opts) {
-  const t = L.tileLayer(url, { keepBuffer: 4, ...opts });
-  const inView = t._getTiledPixelBounds;
-  t._getTiledPixelBounds = function (center) {
-    const b = inView.call(this, center), pad = this.getTileSize().multiplyBy(EDGE_TILES);
-    return L.bounds(b.min.subtract(pad), b.max.add(pad));
-  };
-  // The address of every tile under pixel bounds `b` at zoom `z`
-  t.tileURLs = (b, z) => {
-    if (z < t.options.minZoom || z > t.options.maxZoom) return [];
-    const size = t.getTileSize(), n = 2 ** z, out = [];
-    const lo = b.min.unscaleBy(size).floor(), hi = b.max.unscaleBy(size).ceil();
-    for (let y = Math.max(lo.y, 0); y < Math.min(hi.y, n); y++) {
-      for (let x = lo.x; x < hi.x; x++) out.push(L.Util.template(url, { ...t.options, r: L.Browser.retina ? '@2x' : '', x: ((x % n) + n) % n, y, z }));
-    }
-    return out;
-  };
-  // Every tile under pixel bounds `b` at zoom `z`: now, or with `later`, queued behind everything else
-  t.prefetchArea = (b, z, later = false) => {
-    if (later) return queueTiles(t.tileURLs(b, z));
-    for (const src of t.tileURLs(b, z)) if (!fetchedTiles.has(src)) { fetchedTiles.add(src); new Image().src = src; }
-  };
-  t.on('load', () => {
-    const m = t._map;
-    if (!m || navigator.connection?.saveData) return;
-    const z0 = Math.round(m.getZoom()), view = m.getBounds();
-    for (const dz of PREFETCH_ZOOMS) {
-      const z = z0 + dz;
-      // A zoom in centers on the pointer or pinch, so cover the whole view; a zoom out shows a view-sized area around the center
-      t.prefetchArea(dz > 0 ? L.bounds(m.project(view.getNorthWest(), z), m.project(view.getSouthEast(), z)) : m.getPixelBounds(m.getCenter(), z), z);
-    }
-  });
-  return t;
-}
-export let tiles = null; // the Stadia pictures, shown or not: what's saved for offline. Not the OpenStreetMap fallback, which isn't preloaded
-
-// ---------- The basemap, drawn in the browser ----------
-// Stadia's pictures have the place and road names painted in, so a route drawn over them hides the names of the roads
-// it follows. The map is Stadia's same style drawn by MapLibre from its vector tiles instead, in two layers: land,
-// water and roads under the routes, and the names, road numbers and places over them (the labels pane, between the
-// routes and the pins). The pictures stay when MapLibre can't run, and for a trip saved for offline with them.
-// MapLibre is loaded the first time a trip opens.
 // Served with the app (see vendor/README.md), next to this file wherever the page is: the prototype's is in another folder
-const MAPLIBRE = ['vendor/maplibre/maplibre-gl.js', 'vendor/maplibre/leaflet-maplibre-gl.js'].map(f => new URL(f, import.meta.url).href);
+const MAPLIBRE = new URL('vendor/maplibre/maplibre-gl.js', import.meta.url).href;
 let glLoaded = null;
-const loadScript = src => new Promise((done, fail) => {
+const loadGL = () => (glLoaded ??= new Promise((done, fail) => {
+  if (window.maplibregl) return done();
   const s = document.createElement('script');
-  s.src = src;
+  s.src = MAPLIBRE;
   s.onload = done;
   s.onerror = () => { s.remove(); fail(); };
   document.head.append(s);
-});
-const loadGL = () => (glLoaded ??= MAPLIBRE.reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
-  .then(() => { maplibregl.addProtocol('wt-shared', sharedFetch); return true; }, () => { glLoaded = null; return false; }));
-// MapLibre asks for Stadia's tiles, sprite and fonts through this. Both layers draw from the same tiles and ask for each
-// at the same moment, too soon for the browser's cache to answer the second: they share one fetch per file instead, so
-// a tile counts once against the Stadia plan. Each gets its own copy of the bytes, since MapLibre hands them over to its
-// worker. The sprite and fonts asked for are noted, so saving the trip for offline saves them.
+}).then(() => { maplibregl.addProtocol('wt-shared', sharedFetch); return true; }, () => { glLoaded = null; return false; }));
+// MapLibre asks for Stadia's tiles, sprite and fonts through this, from the page rather than from its worker: so the
+// service worker answers them for a trip saved for offline, and a tile preloaded for another day (see queueTiles) and
+// the same tile asked for by the map share one fetch, and count once against the Stadia plan. Each gets its own copy
+// of the bytes, since MapLibre hands them over to its worker. The sprite and fonts asked for are noted, so saving the
+// trip for offline saves them.
 const glFetches = new Map(), glUsed = new Set();
 function sharedFetch({ url, type }) {
   url = url.replace(/^wt-shared:/, 'https:');
@@ -354,8 +133,7 @@ const getJSON = url => fetch(url).then(r => (r.ok ? r.json() : null), () => null
 const glStyleURL = dark => `https://tiles.stadiamaps.com/styles/alidade_smooth${dark ? '_dark' : ''}.json`;
 export const isGLStyle = url => url.endsWith('.json'); // a saved trip's map: the vector style, or the pictures' address
 // A style, ready for MapLibre: { url, style, tiles (the tiles' address), minzoom, maxzoom, fonts, files (what else it reads) }.
-// Its tile source's description is read once here rather than by each layer, and everything Stadia serves for it goes
-// through sharedFetch.
+// Its tile source's description is read once here, and everything Stadia serves for it goes through sharedFetch.
 const glStyles = {};
 const glStyle = url => (glStyles[url] ??= getJSON(url).then(async style => {
   const src = Object.values(style?.sources || {}).find(s => s.type === 'vector');
@@ -370,16 +148,11 @@ const glStyle = url => (glStyles[url] ??= getJSON(url).then(async style => {
   const fonts = new Set(style.layers.map(l => l.layout?.['text-font']).filter(f => Array.isArray(f) && f.every(x => typeof x === 'string')).map(f => f.join(',')));
   return { url, style, tiles: tj.tiles[0], minzoom: src.minzoom, maxzoom: src.maxzoom, fonts: [...fonts], files };
 }).then(s => { if (!s) delete glStyles[url]; return s; }));
-// The vector tiles MapLibre draws Leaflet's pixel bounds `b` at zoom `z` from. MapLibre's zoom is Leaflet's less one (its
-// tiles are twice the size), and it draws from the whole level below a fractional zoom, no closer than the tiles' highest
-// level. A tile at a level covers what one of Leaflet's 256-pixel tiles at that level does.
-export function glTileURLs(gs, b, z) {
-  const k = Math.max(gs.minzoom, Math.min(gs.maxzoom, Math.floor(z - 1))), s = 2 ** (k - z), n = 2 ** k, out = [];
-  const lo = b.min.multiplyBy(s).divideBy(256).floor(), hi = b.max.multiplyBy(s).divideBy(256).floor();
-  for (let y = Math.max(lo.y, 0); y <= Math.min(hi.y, n - 1); y++) {
-    for (let x = lo.x; x <= hi.x; x++) out.push(gs.tiles.replace('{z}', k).replace('{x}', ((x % n) + n) % n).replace('{y}', y));
-  }
-  return out;
+// The vector tiles MapLibre draws a box of the map (pixels at zoom `z`, from `min` to `max`) from: those of the whole
+// level at or below the zoom, no closer than the tiles' highest level, where it enlarges them
+export function glTileURLs(gs, min, max, z) {
+  const k = Math.max(gs.minzoom, Math.min(gs.maxzoom, Math.floor(z)));
+  return tilesUnder(min, max, z, k).map(([x, y]) => gs.tiles.replace('{z}', k).replace('{x}', x).replace('{y}', y));
 }
 // Everything else a style needs to be drawn with no connection: its own files, the sprite, and the fonts for Latin
 // names (the alphabet and its accents) and for any other names drawn so far
@@ -389,49 +162,46 @@ export function glFiles(gs) {
   const fonts = glyphs ? gs.fonts.flatMap(f => ['0-255', '256-511'].map(r => glyphs.replace('{fontstack}', f).replace('{range}', r))) : [];
   return [...gs.files, ...(sprite ? [`${sprite}${retina}.json`, `${sprite}${retina}.png`] : []), ...fonts, ...glUsed];
 }
-// Two changes to the plugin, so the map stays under the routes and pins, which move with every frame:
-// - while Leaflet zooms or flies, the plugin follows only the frames that change the zoom, and doesn't move its layer:
-//   a frame that only pans, or a pan at the same time (the keyboard's), left MapLibre's map behind. It follows each one here.
-// - it moves MapLibre's map and leaves the drawing for MapLibre's next frame, a frame late: it's drawn at once instead.
-const glLayer = opts => new (L.MaplibreGL.extend({
-  getEvents() {
-    const { zoom, ...events } = L.MaplibreGL.prototype.getEvents.call(this);
-    return { ...events, move: this._follow }; // a zoom always comes with a move
-  },
-  _follow(e) {
-    const m = this._map;
-    if (!this._zooming) return this._throttledUpdate(e);
-    if (m._animatingZoom) return; // in the zoom transition, CSS moves the layer
-    this._offset = m.containerPointToLayerPoint([0, 0]);
-    L.DomUtil.setPosition(this._container, this._roundPoint(this._offset.subtract(m.getSize().multiplyBy(this.options.padding))));
-    this._transformGL(this._glMap);
-  },
-  _transformGL(gl) { L.MaplibreGL.prototype._transformGL.call(this, gl); gl.redraw(); },
-}))({ validateStyle: false, ...opts });
-// The map MapLibre is drawing: { layers: [under the routes, over them], gs: its style (see glStyle) }
+// The vector style drawing the map, { gs: see glStyle }, for preloading and saving for offline; null while the map is
+// OpenStreetMap's or a saved trip's pictures
 export let basemap = null;
-// Stadia gives anyone its style and fonts but refuses its tiles to a site not registered with it, which would leave the
-// names over an empty map: a refused tile puts the pictures back instead (and those fall back to OpenStreetMap)
+// Stadia gives anyone its style and fonts but refuses its tiles to a site not registered with it: a refused tile puts
+// OpenStreetMap's map in its place
 let glRefused = null;
-// Show the map drawn by MapLibre in the style at `url`; false if it can't be (MapLibre or the style didn't load, no WebGL)
-async function showGLMap(m, url) {
-  const [ok, gs] = await Promise.all([loadGL(), glStyle(url)]);
-  if (!ok || !gs || map !== m || !window.L?.MaplibreGL) return false;
-  const part = names => {
-    const s = structuredClone(gs.style);
-    s.layers = s.layers.filter(l => (l.type === 'symbol') === names);
-    if (!names) delete s.sprite; // only the names and road numbers use its pictures
-    return s;
-  };
-  const layers = [glLayer({ style: part(false) }), glLayer({ style: part(true), pane: 'labels' })];
-  try {
-    for (const l of layers) l.addTo(m);
-  } catch {
-    for (const l of layers) { try { m.removeLayer(l); } catch {} l.getContainer?.()?.remove(); }
-    return false;
+// Each other day's map is fetched behind the one on screen (see preloadTrip), a few tiles at a time, each once a visit;
+// after that the browser's cache has them. Skipped when the browser asks to save data.
+export const TILE_PRELOAD_PARALLEL = 4;
+const fetchedTiles = new Set();
+let tileQueue = [], tilesInFlight = 0;
+function pumpTiles() {
+  while (tilesInFlight < TILE_PRELOAD_PARALLEL && tileQueue.length) {
+    const src = tileQueue.shift(), done = () => { tilesInFlight--; pumpTiles(); };
+    tilesInFlight++;
+    sharedFetch({ url: src, type: 'arrayBuffer' }).catch(() => {}).finally(done);
   }
-  basemap = { layers, gs };
-  return true;
+}
+function queueTiles(urls) {
+  for (const src of urls) if (!fetchedTiles.has(src)) { fetchedTiles.add(src); tileQueue.push(src); }
+  pumpTiles();
+}
+// The map for a trip: a saved trip opened from its copy shows the map that was saved with it, light or dark, whichever
+// the phone is now; otherwise Stadia's, falling back to OpenStreetMap's.
+function showBasemap(m, trip) {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const osm = () => { basemap = glRefused = null; mapCredit = CREDIT.osm; m.setStyle(osmStyle(dark), { diff: false }); };
+  const saved = trip.offline && savedTrip(trip.id)?.style;
+  if (saved && !isGLStyle(saved)) { mapCredit = CREDIT.stadia; m.setStyle(pictureStyle(saved, devicePixelRatio > 1), { diff: false }); return; }
+  glStyle(saved || glStyleURL(dark)).then(gs => {
+    if (map !== m) return; // left the trip meanwhile
+    // With no connection and no saved style, there's no map to show: the plain one stays
+    if (!gs) return offlineNow() ? null : osm();
+    basemap = { gs };
+    mapCredit = CREDIT.stadia;
+    // A tile that fails with no connection is one that wasn't saved, not Stadia refusing the site
+    glRefused = () => { if (map === m && basemap && !offlineNow()) osm(); };
+    m.setStyle(structuredClone(gs.style), { diff: false }); // the style is kept for the visit, and MapLibre works on what it's given
+    schedulePreload();
+  });
 }
 
 // ---------- Preloading the trip's other days ----------
@@ -455,26 +225,27 @@ function preloadTrip() {
     for (let i = 1; i < plan.length; i++) legRoute(plan[i - 1], plan[i], { background: true });
   }
   // the camera depends on how much of the map the open stop covers; wait until it's closed
-  if (!tiles || navigator.connection?.saveData || state.draft) return;
+  if (!basemap || navigator.connection?.saveData || state.draft) return;
   // the day on screen comes first
-  const gl = basemap?.layers[0].getMaplibreMap();
-  if (gl ? !gl.loaded() : tiles.isLoading()) { if (gl) gl.once('idle', schedulePreload); else tiles.once('load', schedulePreload); return; }
+  if (!map.loaded()) { map.once('idle', schedulePreload); return; }
   topUpOffline(trip);
-  const size = map.getSize(), shown = L.point(size.x, size.y - coveredBottom());
+  const size = mapSize(), shown = { x: size.x, y: size.y - coveredBottom() };
   if (shown.x <= 0 || shown.y <= 0) return;
   for (const d of days) {
     const v = dayView(trip, d);
     if (!v) continue;
-    // Leaflet's pictures are at the nearest whole zoom; MapLibre's tiles depend on the zoom itself (see glTileURLs)
-    const z = gl ? v.zoom : Math.round(v.zoom), c = map.project(v.center, z), tl = c.subtract(size.divideBy(2)), b = L.bounds(tl, tl.add(shown));
-    if (gl) queueTiles(glTileURLs(basemap.gs, b, z)); else tiles.prefetchArea(b, z, true);
+    const c = project(v.center, v.zoom), tl = { x: c.x - size.x / 2, y: c.y - size.y / 2 };
+    queueTiles(glTileURLs(basemap.gs, tl, { x: tl.x + shown.x, y: tl.y + shown.y }, v.zoom));
   }
 }
 
 export function teardownTrip() {
-  if (map) { map.remove(); map = null; layer = routeLayer = sightLayer = null; fitKey = ''; }
+  if (map) { map.remove(); map = null; fitKey = ''; }
   sightsShown.clear();
-  tiles = basemap = glRefused = null;
+  routes = [];
+  routesDrawn = '';
+  pins = [];
+  basemap = glRefused = null;
   tileQueue = [];
   clearTimeout(preloadTimer);
   clearTimeout(mapTapTimer);
@@ -519,95 +290,91 @@ export function mountTrip(trip) {
   setListTop(0);
   list.addEventListener('scroll', onListScroll, { passive: true });
   new ResizeObserver(updateFades).observe(list); // the sheet changing height
-  if (!window.L) return;
-  // double-tap zoom is our own (see mapGestures), so it works over routes and pins too.
-  // Quarter zoom levels, so a day (or a drive) fills the map it's framed in: with whole levels only, the next level
-  // in often didn't fit, and the day showed at up to half the size it could have.
-  map = L.map($app.querySelector('#map'), { zoomControl: false, attributionControl: false, doubleClickZoom: false, zoomSnap: 0.25 }).setView([32.6, -106.1], 8);
-  map.getPane('markerPane').classList.add('wt-pins'); // so the other pins step back while one is selected
+  // The map comes once MapLibre has loaded (the first trip of a visit waits for it); the plan doesn't wait for the map
+  const el = $app.querySelector('#map');
+  loadGL().then(ok => {
+    if ($app.querySelector('#map') !== el) return; // left the trip meanwhile
+    if (!ok) return noMap(el, 'The map couldn’t load. Check your connection: the plan is all here.');
+    try { createMap(el, trip); } catch {
+      map = null;
+      return noMap(el, 'This browser can’t draw the map: it needs WebGL, which is turned off or missing here. The plan is all here.');
+    }
+    render();
+  });
+}
+// No map: say why where it would be. The plan works as ever.
+function noMap(el, why) {
+  el.innerHTML = `<p class="wt-map-none">${esc(why)}</p>`;
+}
+function createMap(el, trip) {
+  // Double-tap zoom is our own (see mapGestures), so it works over pins and routes too. Quarter zoom levels, as
+  // frame() fits a day: with whole levels only, the next level in often didn't fit, and the day showed at up to half the
+  // size it could have. No turning or tilting: north stays up, as on the paper maps the plan reads like.
+  const m = map = new maplibregl.Map({
+    container: el, style: blankStyle(token('--wt-surface-map')), center: [-106.1, 32.6], zoom: 7, maxZoom: MAX_ZOOM,
+    attributionControl: false, doubleClickZoom: false, dragRotate: false, pitchWithRotate: false, touchPitch: false, boxZoom: false,
+  });
+  m.touchZoomRotate.disableRotation();
+  m.keyboard.disableRotation();
+  el.classList.add('wt-pins'); // so the other pins step back while one is selected
   camPlaced = false;
   camTarget = null;
-  zoomAnim = drawPending = false;
-  // A pin added during Leaflet's zoom animation is placed where the map is going, while the map is still sliding
-  // there, so drawMap waits the quarter second for it to end. A flight is drawn as it goes: pins follow the map
-  // frame by frame, and so do routes (see RouteLayer).
-  map.on('zoomanim', () => { zoomAnim = true; });
-  map.on('moveend', () => {
-    zoomAnim = false;
-    if (drawPending && cur?.stops) { drawPending = false; drawMap(cur); }
-  });
-  map.on('zoom zoomend moveend', fitPins); // crowded pins merge as you zoom out, and come apart as you zoom in
-  // A quiet basemap so routes lead. Stadia needs no key on localhost; in production, register the
-  // domain with Stadia. Fall back to OpenStreetMap if it's refused.
-  const m = map, dark = matchMedia('(prefers-color-scheme: dark)').matches;
-  const osm = () => {
-    // No prefetch here: OpenStreetMap's tile policy discourages loading tiles nobody looks at
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(m);
-    mapCredit = CREDIT.osm;
-    $app.querySelector('.trip')?.classList.add('osm-tiles');
-  };
-  stadiaServes().then(async ok => {
-    if (map !== m) return; // left the trip meanwhile
-    if (!ok) return osm();
-    mapCredit = CREDIT.stadia;
-    // A trip opened from its saved copy shows the map that was saved with it, light or dark, whichever the phone is now:
-    // drawn by MapLibre, or Stadia's pictures for a trip saved with those
-    const saved = trip.offline && savedTrip(trip.id)?.style, pictured = saved && !isGLStyle(saved);
-    const quiet = bufferedTileLayer(pictured ? saved : `https://tiles.stadiamaps.com/tiles/alidade_smooth${dark ? '_dark' : ''}/{z}/{x}/{y}{r}.png`, { maxZoom: 20 });
-    const drawn = !pictured && await showGLMap(m, saved || glStyleURL(dark));
-    if (map !== m) return;
-    tiles = quiet;
-    const pictures = () => {
-      quiet.addTo(m);
-      // A tile that fails with no connection is one that wasn't saved, not Stadia refusing the site: keep the rest
-      const fallBack = () => {
-        if (offlineNow()) return;
-        quiet.off('tileerror', fallBack);
-        m.removeLayer(quiet); tiles = null; tileQueue = []; osm();
-      };
-      quiet.on('tileerror', fallBack);
-    };
-    if (drawn) {
-      glRefused = () => {
-        if (map !== m || !basemap) return;
-        for (const l of basemap.layers) m.removeLayer(l);
-        basemap = glRefused = null;
-        pictures();
-      };
-    } else pictures();
-    schedulePreload();
-  });
-  // The map's names over the routes (the overlay pane, 400); sights over both, so no name hides them, and under the pins
-  map.createPane('sights').style.zIndex = 500;
-  Object.assign(map.createPane('labels').style, { zIndex: 450, pointerEvents: 'none' });
-  sightLayer = L.layerGroup().addTo(map);
-  routeLayer = new RouteLayer().addTo(map);
-  layer = L.layerGroup().addTo(map);
+  m.on('style.load', addRoutes);
+  // A tile that can't be had (no connection, one not saved for offline, Stadia refusing the site: see sharedFetch) is
+  // expected, and the map goes on without it. MapLibre logs every error unless something listens for them.
+  m.on('error', e => { if (!e.sourceId) console.error(e.error); });
+  showBasemap(m, trip);
+  m.on('zoom', fitPins); // crowded pins merge as you zoom out, and come apart as you zoom in
   // once you've touched the map, a new sheet height leaves the camera where you put it
-  map.getContainer().addEventListener('pointerdown', () => { camFree = true; });
+  el.addEventListener('pointerdown', () => { camFree = true; });
   // Zooming the map is touching it: the camera stays where you put it when the sheet changes height.
   // A wheel doesn't fire pointerdown; without this, the re-frame for the new height would fight the zoom you asked for.
   const zooming = () => { camFree = true; };
-  map.getContainer().addEventListener('wheel', zooming, { passive: true });
-  map.getContainer().addEventListener('touchstart', e => { if (e.touches.length > 1) zooming(); }, { passive: true });
-  mapGestures(map, zooming);
-  // Tapping empty map clears the selection, a route's included, and leaves the camera where it is: you tapped the map
-  // you're looking at, so it doesn't fly off to the whole day (Whole day does that). (It used to.)
-  // While a stop is open, the map is there to look at, so taps leave everything as it is.
-  map.on('click', () => onMapTap(() => {
-    if (sightOpen) return closeSheet();
-    if (state.draft || (!state.sel && !state.leg)) return;
-    state.sel = state.selRow = state.leg = null;
-    render();
-  }));
-  map.on('moveend', () => { dayShown = dayFramed(); updateFitBtn(); drawSights(); });
+  el.addEventListener('wheel', zooming, { passive: true });
+  el.addEventListener('touchstart', e => { if (e.touches.length > 1) zooming(); }, { passive: true });
+  mapGestures(m, zooming);
+  // A tap on a route shows that drive. Tapping empty map clears the selection, a route's included, and leaves the
+  // camera where it is: you tapped the map you're looking at, so it doesn't fly off to the whole day (Whole day does
+  // that). While a stop is open, the map is there to look at, so taps leave everything as it is.
+  m.on('click', e => {
+    if (e.originalEvent.target.closest?.('.wt-map-marker')) return; // a pin or a sight: its own tap
+    const hit = m.getLayer(ROUTE_HIT) && m.queryRenderedFeatures(e.point, { layers: [ROUTE_HIT] })[0];
+    const route = hit && routes.find(r => r.key === hit.properties.key);
+    if (route?.onClick) return route.onClick();
+    onMapTap(() => {
+      if (sightOpen) return closeSheet();
+      if (state.draft || (!state.sel && !state.leg)) return;
+      state.sel = state.selRow = state.leg = null;
+      render();
+    });
+  });
+  m.on('moveend', () => { fitPins(); dayShown = dayFramed(); updateFitBtn(); drawSights(); });
+}
+// A pin or a sight on the map: HTML, centered on its place, over the map and its names. `tap` makes it a button (to
+// the keyboard too), named by `label` or else by what's in it. `z`: which is in front where they overlap.
+let downAt = null; // where the last press on the map was: a press that became a drag isn't a tap
+export function addMarker(ll, { html, z = 0, label = null, tap = null }) {
+  const el = document.createElement('div');
+  el.className = 'wt-map-marker';
+  el.innerHTML = html;
+  el.style.zIndex = z;
+  if (tap) {
+    el.tabIndex = 0;
+    el.setAttribute('role', 'button');
+    if (label) el.setAttribute('aria-label', label);
+    el.addEventListener('click', e => {
+      if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > TAP_SLOP_PX) return;
+      tap();
+    });
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(); } });
+  }
+  return new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(toGL(ll)).addTo(map);
 }
 
 // ---------- Map gestures, as in a maps app ----------
-// Double-tap (or double-click) zooms in a step around that spot, anywhere on the map. Leaflet's own double-click zoom
-// misses routes and pins, which keep their taps to themselves, and they're what you'd want a closer look at.
-// The first tap still does what a tap does; the second only zooms. Shift-double-click zooms out.
-// A two-finger tap zooms out a step, around the fingers.
+// Double-tap (or double-click) zooms in a step around that spot, anywhere on the map, pins and routes included: they're
+// what you'd want a closer look at. The first tap still does what a tap does; the second only zooms.
+// Shift-double-click zooms out. A two-finger tap zooms out a step, around the fingers.
 const DOUBLE_TAP_MS = 300, DOUBLE_TAP_PX = 32, TAP_SLOP_PX = 10;
 let mapTapTimer = 0;
 // A tap on the map, a pin or a route waits out a double-tap's second tap before it acts, as in a maps app: picking a pin
@@ -618,20 +385,21 @@ export function onMapTap(fn) {
   mapTapTimer = setTimeout(() => { if (map === m) fn(); }, DOUBLE_TAP_MS);
 }
 function mapGestures(m, zooming) {
-  const el = m.getContainer();
-  let down = null, last = null, two = null;
-  el.addEventListener('pointerdown', e => { if (e.isPrimary) down = { x: e.clientX, y: e.clientY }; }, true);
+  const el = m.getContainer(), at = (x, y) => { const r = el.getBoundingClientRect(); return { x: x - r.left, y: y - r.top }; };
+  const zoomAround = (p, z) => m.easeTo({ zoom: Math.max(0, Math.min(MAX_ZOOM, z)), around: m.unproject([p.x, p.y]), duration: reduceMotion.matches ? 0 : 250 });
+  let last = null, two = null;
+  el.addEventListener('pointerdown', e => { if (e.isPrimary) downAt = { x: e.clientX, y: e.clientY }; }, true);
   // In the capture phase, so the second tap can be kept from the pin, route or map under it
   el.addEventListener('click', e => {
     if (!e.detail) return; // a keyboard "click"
     // the end of a pan isn't a tap
-    if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > TAP_SLOP_PX) { last = null; return; }
-    const p = m.mouseEventToContainerPoint(e), now = performance.now();
-    if (!last || now - last.t > DOUBLE_TAP_MS || p.distanceTo(last.p) > DOUBLE_TAP_PX) { last = { t: now, p }; return; }
+    if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > TAP_SLOP_PX) { last = null; return; }
+    const p = at(e.clientX, e.clientY), now = performance.now();
+    if (!last || now - last.t > DOUBLE_TAP_MS || Math.hypot(p.x - last.p.x, p.y - last.p.y) > DOUBLE_TAP_PX) { last = { t: now, p }; return; }
     last = null;
     e.stopImmediatePropagation();
     clearTimeout(mapTapTimer);
-    m.setZoomAround(p, m.getZoom() + (e.shiftKey ? -1 : 1));
+    zoomAround(p, m.getZoom() + (e.shiftKey ? -1 : 1));
     zooming();
   }, true);
   el.addEventListener('touchstart', e => {
@@ -643,7 +411,7 @@ function mapGestures(m, zooming) {
   el.addEventListener('touchend', e => {
     if (!two || e.touches.length) return;
     const [a, b] = two.at;
-    if (performance.now() - two.t < DOUBLE_TAP_MS && m.getZoom() === two.z) m.setZoomAround(m.mouseEventToContainerPoint({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }), two.z - 1);
+    if (performance.now() - two.t < DOUBLE_TAP_MS && m.getZoom() === two.z) zoomAround(at((a.x + b.x) / 2, (a.y + b.y) / 2), two.z - 1);
     two = null;
   });
   el.addEventListener('touchcancel', () => { two = null; });
@@ -659,7 +427,8 @@ export function dayFramed() {
   const trip = cur?.stops ? cur : null, day = trip && currentDay(trip), v = map && day && dayView(trip, day);
   if (!v) return true;
   // A few pixels off still counts: turning the phone frames the day while the header is still sliding into place
-  return Math.abs(map.getZoom() - v.zoom) < 0.01 && map.latLngToContainerPoint(v.center).distanceTo(map.getSize().divideBy(2)) < 8;
+  const c = toScreen(v.center), size = mapSize();
+  return Math.abs(map.getZoom() - v.zoom) < 0.01 && Math.hypot(c.x - size.x / 2, c.y - size.y / 2) < 8;
 }
 export function updateFitBtn() {
   const btn = $app.querySelector('.trip-fit');
@@ -689,51 +458,44 @@ export const markerHTML = (s, cls) => `<i class="wt-marker ${cls}" role="img" ar
 export let camFree = false; // you've touched the map since it was last framed
 
 // ---------- Camera ----------
-// Every camera move the app makes goes through here, so they all look the same: one flyTo that pans and zooms
-// together, timed by how far it goes. Leaflet's setView, fitBounds and panTo each pick an animation by distance:
-// a 250ms slide within a screen, a CSS scale for a zoom of up to 4 levels around an on-screen point, and otherwise
-// a jump with no animation. And a zoom asked for while one of those scales is still running is dropped.
+// Every camera move the app makes goes through here, so they all look the same: one flight that pans and zooms
+// together, timed by how far it goes.
 export function moveCamera(center, zoom) {
   if (!map) return;
-  center = L.latLng(center);
-  zoom = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), zoom));
-  const z0 = map.getZoom(), px = map.project(center, z0).distanceTo(map.project(map.getCenter(), z0)), dz = Math.abs(zoom - z0);
-  const now = performance.now();
+  center = latLng(center);
+  zoom = Math.max(0, Math.min(MAX_ZOOM, zoom));
+  const z0 = map.getZoom(), a = project(center, z0), b = project(mapCamera().center, z0);
+  const px = Math.hypot(a.x - b.x, a.y - b.y), dz = Math.abs(zoom - z0), now = performance.now();
   // already there, or already on the way there: don't restart the flight
-  if (camTarget && now < camTarget.until && camTarget.center.equals(center, 1e-7) && camTarget.zoom === zoom) return;
+  const same = c => Math.abs(c.lat - center.lat) < 1e-7 && Math.abs(c.lng - center.lng) < 1e-7;
+  if (camTarget && now < camTarget.until && same(camTarget.center) && camTarget.zoom === zoom) return;
   if (px < 1 && dz < 0.01) { camTarget = null; return; }
   // A new map is placed where it belongs rather than flown in from its default view
   if (!camPlaced || reduceMotion.matches) {
     camPlaced = true;
     camTarget = null;
-    map.setView(center, zoom, { animate: false });
+    map.jumpTo({ center: toGL(center), zoom });
     return;
   }
   // A move within the screen takes about as long as the sheet does to change height; a hop to another region, under a second
-  const size = map.getSize(), screens = px / Math.max(1, Math.hypot(size.x, size.y));
+  const size = mapSize(), screens = px / Math.max(1, Math.hypot(size.x, size.y));
   const duration = Math.min(0.9, 0.3 + 0.15 * Math.log2(1 + screens) + 0.06 * dz);
   camTarget = { center, zoom, until: now + duration * 1000 };
-  map.flyTo(center, zoom, { duration });
+  map.flyTo({ center: toGL(center), zoom, duration: duration * 1000, essential: true });
 }
-// The center and zoom that fit `bounds` into the map with `tl` and `br` (points, in pixels) kept clear at the
-// top left and bottom right: fitBounds worked out by hand, as Leaflet does it, without moving the map.
-function frameBounds(bounds, tl, br, maxZoom) {
-  const zoom = Math.min(map.getBoundsZoom(bounds, false, tl.add(br)), maxZoom);
-  const sw = map.project(bounds.getSouthWest(), zoom), ne = map.project(bounds.getNorthEast(), zoom);
-  return { center: map.unproject(sw.add(ne).divideBy(2).add(br.subtract(tl).divideBy(2)), zoom), zoom };
-}
+// The center and zoom that fit places into the map with `tl` and `br` (points, in pixels) kept clear at the top left
+// and bottom right, without moving the map
+const frameOn = (lls, tl, br, maxZoom) => frame(boundsOf(lls.map(latLng)), mapSize(), tl, br, maxZoom);
 
 export function drawMap(trip) {
   if (!map) return;
-  // Mid zoom animation, only where the camera is going can change now; the pins and routes are redrawn when it ends
-  if (zoomAnim) { drawPending = true; return frameMap(trip); }
-  layer.clearLayers();
+  for (const p of pins) p.marker.remove();
   pins = [];
   // Only the day on screen, from its plan: the hotel at either end is a pin like any stop.
   // With no hotel last night, the day before's last stop is a quiet pin, so the first drive leads somewhere.
   // The overview draws every day this way: all the trip's places and drives. Its days' starts are stops of the day before, so none is quiet.
   const day = currentDay(trip);
-  if (!day) { routeLayer.setRoutes([]); return drawDraft(); }
+  if (!day) { setRoutes([]); return drawDraft(); }
   const plan = planOn(trip, day);
   const start = day === ALL ? null : plan.find(e => e.role === 'from')?.place;
   const legs = legsOn(trip, day);
@@ -746,15 +508,15 @@ export function drawMap(trip) {
   const pastLeg = new Set(items.filter(it => it.leg && it.past).map(it => it.leg));
   const isPast = s => { const rows = items.filter(it => it.entry?.place === s); return rows.length > 0 && rows.every(it => it.past); };
   const C = { on: token('--wt-route-active'), muted: token('--wt-route-muted'), route: token('--wt-route'), done: token('--wt-route-done'), casing: token('--wt-route-casing') };
-  // Past routes first, so they sit under the rest. The route on show widens and darkens in place, and a copy of it
-  // fades in on top, over any route it crosses; moving the route itself to the top would cut its transition short.
+  // Past routes first, so they sit under the rest. The route on show widens and darkens, and a copy of it goes on top,
+  // over any route it crosses.
   const style = (l, isOn) => {
     const stale = moved && (editing(l.from) || editing(l.to));
     return {
       coords: legCoords(l), casing: C.casing, casingWidth: isOn ? 11 : 8, width: isOn ? 7 : 4.5,
       color: isOn ? C.on : active || stale ? C.muted : pastLeg.has(l.key) ? C.done : C.route,
       // a route not looked up yet is dotted; transit and flights, which have none, are dashed
-      dash: !TRAVEL[l.mode].route ? '10 8' : l.r?.ok && !stale ? null : '1 9',
+      dash: !TRAVEL[l.mode].route ? 'dash' : l.r?.ok && !stale ? null : 'dot',
     };
   };
   const order = l => (pastLeg.has(l.key) ? 0 : 1);
@@ -763,7 +525,7 @@ export function drawMap(trip) {
     onClick: () => onMapTap(() => { if (!state.draft) previewLeg(l, { fromMap: true }); }),
   }));
   if (active) drawn.push({ key: `on:${active.key}`, top: true, ...style(active, true) });
-  routeLayer.setRoutes(drawn);
+  setRoutes(drawn);
   // The map has only the routes and the pins: names, times and drive times are in the list, so the map doesn't repeat them.
   // A route on show enlarges the pins at its ends.
   const ends = active ? [active.from, active.to] : [];
@@ -792,10 +554,7 @@ export function drawMap(trip) {
     // the selected stop can be the day's start, from the day before's row at the top of the list
     const focus = end || all.find(s => s.id === state.sel);
     const cls = [focus ? 'wt-pin--selected' : '', quiet && !focus ? 'wt-pin--muted' : ''].join(' ');
-    addPin(L.marker([all[0].lat, all[0].lng], {
-      icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML(focus || g[0] || start, nums, cls) }),
-      zIndexOffset: focus ? 1000 : quiet ? -1000 : 0, title: all[0].name,
-    }), {
+    addPin(all[0], pinHTML(focus || g[0] || start, nums, cls), focus ? PIN_Z.sel : quiet ? PIN_Z.quiet : PIN_Z.pin, {
       nums, sel: !!focus, muted: quiet && !focus, stops: all,
       tap: () => { if (state.draft) return; if (g.length) selectStop(g[0]); else { setDay(dayOf(start)); selectStop(start); } },
     });
@@ -827,12 +586,13 @@ function frameMap(trip) {
 // Where the camera goes for a day (or the overview): around all its places, clear of the list. Preloading uses it to
 // fetch the tiles a day will land on, so it works the view out without moving the map.
 export function dayView(trip, day) {
-  const pts = planOn(trip, day).map(e => [e.place.lat, e.place.lng]);
+  if (!map) return null;
+  const pts = planOn(trip, day).map(e => ({ lat: e.place.lat, lng: e.place.lng }));
   if (!pts.length) return null;
-  if (new Set(pts.map(String)).size === 1) return { center: L.latLng(pts[0]), zoom: 13 };
+  if (new Set(pts.map(p => `${p.lat},${p.lng}`)).size === 1) return { center: pts[0], zoom: 12 };
   // the side panel sits beside the map, not on it; on a phone, the list covers the bottom
   // a pin is centered on its place, so leave half a selected pin clear around the edges
-  return frameBounds(L.latLngBounds(pts), L.point(32, coveredTop() + 24), L.point(32, coveredBottom() + 24), 15);
+  return frameOn(pts, { x: 32, y: coveredTop() + 24 }, { x: 32, y: coveredBottom() + 24 }, 14);
 }
 // A map pin: a round dot in the stop's type color, centered on the place, with its number inside: its first row's,
 // when several rows are at that place (the hotel in the morning and at night: 1, as the day starts there).
@@ -864,16 +624,16 @@ let draftNums = []; // the number of the stop being edited, so its pin keeps it
 //   merge again, until none do.
 // - A selected pin, and both ends of a route on show, never merge: they stand on their own, on top.
 export let pins = []; // for each pin on the map: { ll, nums, sel, muted, stops, marker, el, own, r, members, hidden }
+// In front where they overlap: the stop being edited, a selected pin, the rest, then quiet ones; the sights are behind all
+// of them (see sights.js)
+export const PIN_Z = { draft: 40, sel: 30, pin: 20, quiet: 10 };
 const PIN_GAP = 4; // px of map between two pins
 const PIN_FAN = 4; // each pin stacked behind a merged pin, further up and right
-function addPin(marker, { nums = [], sel = false, muted = false, stops = [], tap = null } = {}) {
-  marker.addTo(layer);
-  const el = marker.getElement()?.firstElementChild;
-  const p = {
-    ll: marker.getLatLng(), nums, sel, muted, stops, marker, el, r: 12, members: null, hidden: false,
-    own: el && { aria: el.getAttribute('aria-label'), color: el.style.getPropertyValue('--wt-kind-color') },
-  };
-  if (tap) marker.on('click', () => onMapTap(() => (p.members ? openMerged(p.members) : tap())));
+function addPin(place, html, z, { nums = [], sel = false, muted = false, stops = [], tap = null } = {}) {
+  const p = { ll: latLng(place), nums, sel, muted, stops, r: 12, members: null, hidden: false };
+  p.marker = addMarker(p.ll, { html, z, tap: tap && (() => onMapTap(() => (p.members ? openMerged(p.members) : tap()))) });
+  p.el = p.marker.getElement().firstElementChild;
+  p.own = p.el && { aria: p.el.getAttribute('aria-label'), color: p.el.style.getPropertyValue('--wt-kind-color') };
   pins.push(p);
 }
 // How far a pin reaches from its center: half its width, and a merged pin's stack, included
@@ -888,10 +648,11 @@ function fitPins() {
   const flying = camTarget && performance.now() < camTarget.until;
   const z = flying ? camTarget.zoom : map.getZoom();
   const first = p => (p.nums.length ? Math.min(...p.nums) : Infinity);
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const merged = [];
   for (const p of pins.filter(q => !q.sel).sort((a, b) => first(a) - first(b))) {
-    const pt = map.project(p.ll, z), r = pinReach([p]);
-    const m = merged.find(c => pt.distanceTo(c.pt) < r + c.r + PIN_GAP);
+    const pt = project(p.ll, z), r = pinReach([p]);
+    const m = merged.find(c => dist(pt, c.pt) < r + c.r + PIN_GAP);
     if (m) { m.members.push(p); m.r = pinReach(m.members); } else merged.push({ pt, r, members: [p] });
   }
   for (let again = true; again;) {
@@ -899,7 +660,7 @@ function fitPins() {
     for (let i = 0; i < merged.length && !again; i++) {
       for (let j = i + 1; j < merged.length; j++) {
         const a = merged[i], b = merged[j];
-        if (a.pt.distanceTo(b.pt) >= a.r + b.r + PIN_GAP) continue;
+        if (dist(a.pt, b.pt) >= a.r + b.r + PIN_GAP) continue;
         a.members.push(...b.members);
         a.r = pinReach(a.members);
         merged.splice(j, 1);
@@ -935,24 +696,20 @@ function showMerged(p, members) {
 function hidePin(p, hidden) {
   if (p.hidden === hidden) return;
   p.hidden = hidden;
-  const icon = p.marker.getElement();
-  if (icon) icon.style.display = hidden ? 'none' : '';
+  p.marker.getElement().style.display = hidden ? 'none' : '';
   if (hidden) p.members = null;
 }
 // Tapping a merged pin zooms in to its stops, far enough that it comes apart
 function openMerged(members) {
   if (!map) return;
-  const v = frameBounds(L.latLngBounds(members.map(m => m.ll)), L.point(48, coveredTop() + 40), L.point(48, coveredBottom() + 40), 18);
-  moveCamera(v.center, Math.max(v.zoom, Math.min(map.getZoom() + 1, 18)));
+  const v = frameOn(members.map(m => m.ll), { x: 48, y: coveredTop() + 40 }, { x: 48, y: coveredBottom() + 40 }, 17);
+  moveCamera(v.center, Math.max(v.zoom, Math.min(map.getZoom() + 1, 17)));
 }
 // The stop being edited, where it would go: its new place and type.
 function drawDraft() {
   const d = state.draft;
   if (!d || d.lat == null) return;
-  addPin(L.marker([d.lat, d.lng], {
-    interactive: false, keyboard: false, zIndexOffset: 1500,
-    icon: L.divIcon({ className: '', iconSize: [0, 0], html: pinHTML(d, draftNums, 'wt-pin--selected') }),
-  }), { nums: draftNums, sel: true, stops: [d] });
+  addPin(d, pinHTML(d, draftNums, 'wt-pin--selected'), PIN_Z.draft, { nums: draftNums, sel: true, stops: [d] });
 }
 const legCoords = l => (l.r ? l.r.coords : [[l.from.lat, l.from.lng], [l.to.lat, l.to.lng]]);
 // Minutes a drive runs past the next stop's time, between two of the day's stops
@@ -963,7 +720,7 @@ export const lateMin = l => (l.r && l.fromEntry.role === 'stop' && l.toEntry.rol
 function fitLeg(l, onlyIfHidden = false) {
   if (!map || (onlyIfHidden && inView(l.from) && inView(l.to))) return;
   camFree = false;
-  const v = frameBounds(L.latLngBounds(legCoords(l)), L.point(40, coveredTop() + 32), L.point(40, coveredBottom() + 32), 15);
+  const v = frameOn(legCoords(l), { x: 40, y: coveredTop() + 32 }, { x: 40, y: coveredBottom() + 32 }, 14);
   moveCamera(v.center, v.zoom);
 }
 // Show a drive's route: highlighted, with larger pins at its ends, and the map moved to fit it.
@@ -1017,7 +774,7 @@ export function selectStop(s, row = null) {
   centerFocus({ force: true });
 }
 // Street level: where a stop's streets show, and the sights around it. Offline saves each place's map at this zoom.
-const STOP_ZOOM = 15;
+export const STOP_ZOOM = 14;
 // Bring a stop up close: its pin in the middle of the map you can see, zoomed in to street level, or left closer if
 // the map already is; it never zooms out. Already that close, with the pin in view, the map stays put. Zoomed out to
 // a road trip's day, a selected pin was a dot on a map of the region, with no streets around it and no sights.
@@ -1028,14 +785,17 @@ export function zoomToStop(s, least = STOP_ZOOM) {
   const z = Math.max(flying ? camTarget.zoom : map.getZoom(), least);
   if (!flying && map.getZoom() > least - 0.01 && inView([s.lat, s.lng])) return;
   camFree = true; // the map is placed for the stop: a new sheet height leaves it there rather than re-fitting the day
-  const p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
-  moveCamera(map.unproject(p, z), z);
+  moveCamera(toCenter(s, z), z);
 }
 // Move a place into the middle of the map you can see: above the stop sheet on a phone, the whole map on a wide screen.
 export function focusStop(s) {
   if (!map || s.lat == null) return;
-  const z = Math.max(map.getZoom(), 13);
-  const p = map.project([s.lat, s.lng], z).add([0, (coveredBottom() - coveredTop()) / 2]);
-  moveCamera(map.unproject(p, z), z);
+  const z = Math.max(map.getZoom(), 12);
+  moveCamera(toCenter(s, z), z);
 }
-export let sightLayer = null, sightsShown = new Map(); // id → its marker
+// The camera's center that puts a place in the middle of the map you can see, at zoom `z`
+function toCenter(s, z) {
+  const p = project(latLng(s), z);
+  return unproject({ x: p.x, y: p.y + (coveredBottom() - coveredTop()) / 2 }, z);
+}
+export const sightsShown = new Map(); // id → its marker
