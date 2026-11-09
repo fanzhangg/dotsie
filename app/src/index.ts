@@ -9,7 +9,8 @@ import { ERR, type Preview } from './trip';
 export { TripRoom } from './trip';
 export { SightsLookup } from './sights';
 
-/* Dotsie API. Static files are served by the assets binding; only /api/* reaches this Worker.
+/* Dotsie API. Static files are served by the assets binding; only /api/* (and the page itself, see "Moved") reaches
+   this Worker.
    Auth is a session cookie (Better Auth). Each trip's data lives in its TripRoom Durable Object,
    which checks membership itself; this layer authenticates, validates the URL, and routes. */
 
@@ -255,9 +256,27 @@ app.get('/about', async c => {
   }
 });
 
-// The OAuth provider sees every request first: it answers discovery (/.well-known/*) and its own endpoints
+// ---------- Moved ----------
+// The page opened at any address but the app's own (BETTER_AUTH_URL: the workers.dev one, once APP_URL sets a custom
+// domain) goes there, so old links and bookmarks still work: the path and query come along, and the browser keeps
+// the # part, where a share link's token is. Sign-in only trusts the app's own address, so the old one couldn't be
+// used anyway. Only the page moves; the API answers where it's asked.
+function moved(req: Request, env: Env) {
+  if (isLocal(env) || (req.method !== 'GET' && req.method !== 'HEAD')) return null;
+  const url = new URL(req.url), home = new URL(env.BETTER_AUTH_URL);
+  if (url.host === home.host) return null;
+  return Response.redirect(`${home.origin}${url.pathname}${url.search}`, 301);
+}
+const isPage = (req: Request) => ['/', '/index.html'].includes(new URL(req.url).pathname);
+
+// The OAuth provider sees every API request first: it answers discovery (/.well-known/*) and its own endpoints
 // (/api/oauth/token, /api/oauth/register), checks the token on /api/mcp, and hands the rest to the app.
-export default { fetch: (req, env, ctx) => oauthProvider(env, app).fetch(req, env, ctx) } satisfies ExportedHandler<Env>;
+export default {
+  fetch: (req, env, ctx) => {
+    if (isPage(req)) return moved(req, env) ?? env.ASSETS.fetch(req);
+    return oauthProvider(env, app).fetch(req, env, ctx);
+  },
+} satisfies ExportedHandler<Env>;
 
 // ---------- Helpers ----------
 function randomId(len: number) {
