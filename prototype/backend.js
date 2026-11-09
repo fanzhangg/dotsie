@@ -4,6 +4,7 @@
    other open tabs as the server's live events would, so two tabs work like two people on the trip. */
 import { ApiError, params, ROUTE_KEY, uid } from '../app/web/core.js';
 import { QID } from '../app/web/fields.js';
+import { OVERPASS, nominatimPlaces, nominatimURL, osrmRoute, osrmURL, sightsFrom, sightsQuery, tileBounds, wikiAbout, wikiPlace } from '../app/web/places.js';
 import { dayOf, stopsOf } from '../app/web/plan.js';
 import { onEvent } from '../app/web/trips.js';
 import { toast } from '../app/web/notices.js';
@@ -84,8 +85,9 @@ function inviteToken(tripId) {
   if (!t.invite) { t.invite = newToken(); storeDB(d); }
   return t.invite;
 }
-// A sight's photo and a few lines about it, straight from Wikidata, English Wikipedia and Wikimedia Commons, as the
-// app's server asks them (see wikiAbout in app/src/maps.ts): null when there's no article. The app keeps each for the visit.
+// A sight's photo and a few lines about it, straight from Wikidata, English Wikipedia and Wikimedia Commons, asked as
+// the app's server asks them (see wikiAbout in app/web/places.js), with origin=* as a page on another site must. The
+// app keeps each for the visit.
 const wikiGet = async (host, params, signal) => {
   let res;
   try {
@@ -94,56 +96,17 @@ const wikiGet = async (host, params, signal) => {
   if (!res.ok) throw new ApiError(503, 'unavailable');
   return res.json();
 };
-// A place with no Wikidata item, by its name and where it is: the article Wikipedia's search puts first whose title
-// is its name (or starts it) and whose place is within 50 km, as the app's server finds it (see wikiPlace in app/src/maps.ts)
-const placeKey = n => n.replace(/\s*\([^)]*\)/g, '').replace(/,.*$/, '').replace(/^\s*the\s+/i, '').replace(/\bsaint\b/gi, 'st')
-  .normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-const kmBetween = (a, b) => {
-  const r = Math.PI / 180, x = (b.lng - a.lng) * r * Math.cos(((a.lat + b.lat) / 2) * r), y = (b.lat - a.lat) * r;
-  return Math.hypot(x, y) * 6371;
-};
+// A place with no Wikidata item, by its name and where it is (see wikiPlace in app/web/places.js)
 async function findPlaceAbout(name, where, signal) {
-  const [lat, lng] = (where || '').split(',').map(Number), n = placeKey(name || '');
+  const [lat, lng] = (where || '').split(',').map(Number);
   if (!name || !Number.isFinite(lat) || !Number.isFinite(lng)) throw new ApiError(400, 'invalid');
-  if (n.length < 4) return null;
-  const pages = (await wikiGet('en.wikipedia.org', {
-    action: 'query', generator: 'search', gsrsearch: name, gsrnamespace: '0', gsrlimit: '5', prop: 'coordinates|pageprops', ppprop: 'wikibase_item|disambiguation',
-  }, signal)).query?.pages ?? [];
-  const page = pages.sort((a, b) => a.index - b.index).find(p => {
-    const t = placeKey(p.title), c = p.coordinates?.[0];
-    return (t === n || (t.length >= 8 && n.startsWith(t))) && c && kmBetween({ lat, lng }, { lat: c.lat, lng: c.lon }) <= 50
-      && p.pageprops?.disambiguation === undefined && QID.test(p.pageprops?.wikibase_item || '');
-  });
-  return page ? findAbout(page.pageprops.wikibase_item, signal) : null;
+  const qid = await wikiPlace((host, params) => wikiGet(host, params, signal), name, { lat, lng });
+  return qid ? findAbout(qid, signal) : null;
 }
 async function findAbout(qid, signal) {
   if (!QID.test(qid || '')) throw new ApiError(400, 'invalid');
-  const get = (host, params) => wikiGet(host, params, signal);
-  const item = await get('www.wikidata.org', { action: 'wbgetentities', ids: qid, props: 'sitelinks', sitefilter: 'enwiki' });
-  const title = item.entities?.[qid]?.sitelinks?.enwiki?.title;
-  if (!title) return null;
-  const page = (await get('en.wikipedia.org', {
-    action: 'query', titles: title, redirects: '1', prop: 'extracts|pageimages|info|pageprops',
-    exintro: '1', explaintext: '1', exsentences: '3', piprop: 'name', pilicense: 'free', inprop: 'url', ppprop: 'disambiguation',
-  })).query?.pages?.[0];
-  const text = (page?.extract ?? '').replace(/\s+/g, ' ').trim();
-  if (!page || page.missing || page.pageprops?.disambiguation !== undefined || !text) return null;
-  let image = null;
-  if (page.pageimage && !/\.svg$/i.test(page.pageimage)) {
-    const info = (await get('commons.wikimedia.org', {
-      action: 'query', titles: `File:${page.pageimage}`, prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '960',
-      iiextmetadatafilter: 'Artist|LicenseShortName',
-    })).query?.pages?.[0]?.imageinfo?.[0];
-    const meta = info?.extmetadata ?? {}, license = plainText(meta.LicenseShortName?.value ?? '');
-    if (info?.thumburl && license) image = {
-      src: info.thumburl, width: info.thumbwidth, height: info.thumbheight, license, page: info.descriptionurl,
-      credit: plainText(meta.Artist?.value ?? '').slice(0, 100),
-    };
-  }
-  return { title: page.title, text: text.slice(0, 1200), url: page.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, '_'))}`, image };
+  return wikiAbout((host, params) => wikiGet(host, params, signal), qid);
 }
-const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' };
-const plainText = html => html.replace(/<[^>]*>/g, ' ').replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e) => ENTITIES[e]).replace(/\s+/g, ' ').trim();
 const bc = 'BroadcastChannel' in window ? new BroadcastChannel('waythread') : null;
 const broadcast = (trip, m) => bc?.postMessage({ trip, ...m, by: ME });
 
@@ -152,7 +115,7 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
   // With no connection the app can't reach its server, so here the trips can't be reached either: turn the network off
   // (DevTools → Network → Offline) to try a trip saved for offline. Who you are still answers, as there's no sign-in.
   if (!navigator.onLine && route !== '/me' && route !== '/config') throw new ApiError(0, 'offline');
-  if (route === '/route') return osrmRoute(q.get('from'), q.get('to'), q.get('mode') || 'drive');
+  if (route === '/route') return findRoute(q.get('from'), q.get('to'), q.get('mode') || 'drive');
   if (route === '/places') return searchPlaces(q.get('q'), q.get('near'), signal);
   if (route === '/sights') return findSights(q.get('tile'), signal);
   if (route === '/about') return q.has('id') ? findAbout(q.get('id'), signal) : findPlaceAbout(q.get('name'), q.get('at'), signal);
@@ -251,72 +214,21 @@ async function fetchJSON(url, signal) {
   if (!res.ok) throw new ApiError(502, 'unavailable');
   return res.json();
 }
-// The OSRM demo server only drives; OpenStreetMap Germany's runs the same API on foot and by bike (as openstreetmap.org's
-// directions call it: the profile in the path is always driving, the server decides)
-const OSRM = {
-  drive: 'https://router.project-osrm.org/route/v1/driving',
-  walk: 'https://routing.openstreetmap.de/routed-foot/route/v1/driving',
-  bike: 'https://routing.openstreetmap.de/routed-bike/route/v1/driving',
-};
-async function osrmRoute(from, to, mode) {
-  const [a, b] = [from, to].map(x => x.split(',').map(Number)); // lat,lng
-  const j = await fetchJSON(`${OSRM[mode]}/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`);
-  if (j.code !== 'Ok') throw new ApiError(502, 'unavailable');
-  const rt = j.routes[0];
-  return { duration: rt.duration, distance: rt.distance, coords: rt.geometry.coordinates.map(([x, y]) => [+y.toFixed(5), +x.toFixed(5)]) };
+async function findRoute(from, to, mode) {
+  const [a, b] = [from, to].map(x => { const [lat, lng] = x.split(',').map(Number); return { lat, lng }; });
+  const j = await fetchJSON(osrmURL(mode, a, b));
+  try { return osrmRoute(j); } catch { throw new ApiError(502, 'unavailable'); }
 }
 async function searchPlaces(text, near, signal) {
-  const u = new URL('https://nominatim.openstreetmap.org/search');
-  u.search = new URLSearchParams({ format: 'jsonv2', limit: '5', addressdetails: '1', q: text }).toString();
-  if (near) { const [lat, lng] = near.split(',').map(Number); u.searchParams.set('viewbox', `${lng - 1.5},${lat + 1.5},${lng + 1.5},${lat - 1.5}`); }
-  const list = await fetchJSON(u, signal);
-  return list.map(p => {
-    const a = p.address ?? {};
-    return {
-      name: p.name || p.display_name.split(', ')[0],
-      address: [[a.house_number, a.road].filter(Boolean).join(' '), a.city || a.town || a.village, a.state].filter(Boolean).join(', '),
-      lat: +p.lat, lng: +p.lon,
-      category: `${p.category}:${p.type}`,
-    };
-  });
+  const at = near && near.split(',').map(Number);
+  return nominatimPlaces(await fetchJSON(nominatimURL(text, at && { lat: at[0], lng: at[1] }), signal));
 }
-// What's worth seeing in a map tile, straight from OpenStreetMap's Overpass API, as the app's server asks it (see
-// findSights in app/src/maps.ts): the same servers, query, kinds and ranks. The app keeps each tile for the visit.
-const SIGHT_QUERY = [
-  'nw[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]',
-  'nw[historic~"^(castle|palace|fort|monument|archaeological_site|ruins|ship|city_gate)$"][name]',
-  'nw[historic=memorial][name][wikidata]',
-  'nw[natural~"^(peak|volcano|beach|bay|cave_entrance|arch|cliff|hot_spring|geyser|glacier)$"][name][wikidata]',
-  'nw[waterway=waterfall][name]',
-  'nwr[leisure~"^(park|garden|nature_reserve)$"][name][wikidata]',
-  'rel[boundary~"^(national_park|protected_area)$"][name][wikidata]',
-  'nw[man_made=lighthouse][name]',
-  'nw[amenity=place_of_worship][name][wikipedia]',
-  'nw[tourism=information][information~"^(office|visitor_centre)$"][name]',
-  'node[highway=trailhead][name]',
-];
-const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
-function sightKind(t) {
-  const tourism = t.tourism, historic = t.historic;
-  if (tourism === 'museum') return { kind: 'museum', worth: 3 };
-  if (tourism === 'gallery') return { kind: 'museum', worth: 2 };
-  if (tourism === 'viewpoint') return { kind: 'viewpoint', worth: 2 };
-  if (/^(attraction|zoo|theme_park|aquarium)$/.test(tourism)) return { kind: 'attraction', worth: 3 };
-  if (t.boundary === 'national_park' || t.protected_area === 'national_park' || (t.boundary === 'protected_area' && t.protect_class === '2')) return { kind: 'nature', worth: 3 };
-  if (/^(castle|palace|fort)$/.test(historic)) return { kind: 'attraction', worth: 3 };
-  if (/^(monument|archaeological_site|ship|city_gate)$/.test(historic)) return { kind: 'attraction', worth: 2 };
-  if (t.waterway === 'waterfall' || t.natural) return { kind: 'nature', worth: 2 };
-  if (t.leisure || t.boundary) return { kind: 'nature', worth: 1 };
-  if (historic || t.man_made === 'lighthouse' || t.amenity === 'place_of_worship') return { kind: 'attraction', worth: 1 };
-  if (tourism === 'information') return { kind: 'attraction', worth: 1 };
-  if (t.highway === 'trailhead') return { kind: 'nature', worth: 1 };
-  return null;
-}
+// What's worth seeing in a map tile, straight from OpenStreetMap's Overpass API, asked as the app's server asks it (see
+// app/web/places.js): the same servers, query, kinds and ranks. The app keeps each tile for the visit.
 async function findSights(tile, signal) {
-  const [z, x, y] = (tile || '').split('/').map(Number), n = 2 ** z;
-  const lng = i => (i / n) * 360 - 180, lat = j => (Math.atan(Math.sinh(Math.PI * (1 - (2 * j) / n))) * 180) / Math.PI;
+  const [, x, y] = (tile || '').split('/').map(Number);
   // Both servers at once, the first good answer, each given a minute, as the app's server asks them
-  const q = `[out:json][timeout:60][bbox:${lat(y + 1)},${lng(x)},${lat(y)},${lng(x + 1)}];(${SIGHT_QUERY.join(';')};);out center tags qt;`;
+  const q = sightsQuery(tileBounds(x, y), 60);
   const done = new AbortController();
   let offline = false;
   const ask = async url => {
@@ -333,27 +245,7 @@ async function findSights(tile, signal) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     throw new ApiError(offline ? 0 : 503, offline ? 'offline' : 'unavailable');
   } finally { done.abort(); }
-  const out = [];
-  for (const el of elements) {
-    const t = el.tags || {}, at = el.center || (el.lat != null ? { lat: el.lat, lon: el.lon } : null), what = sightKind(t);
-    if (!t.name || !at || !what) continue;
-    out.push({
-      id: `${el.type[0]}${el.id}`, wikidata: QID.test(t.wikidata || '') ? t.wikidata : undefined, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind,
-      rank: what.worth + (t.wikipedia ? 4 : t.wikidata ? 2 : 0) + (el.type === 'node' ? 0 : 1),
-      address: [[t['addr:housenumber'], t['addr:street']].filter(Boolean).join(' '), t['addr:city']].filter(Boolean).join(', '),
-    });
-  }
-  out.sort((a, b) => b.rank - a.rank);
-  const kept = [], names = new Set(), items = new Set();
-  for (const sg of out) {
-    if (names.has(sg.name) || (sg.wikidata && items.has(sg.wikidata))) continue;
-    names.add(sg.name);
-    if (sg.wikidata) items.add(sg.wikidata);
-    else delete sg.wikidata;
-    kept.push(sg);
-    if (kept.length === 80) break;
-  }
-  return kept;
+  return sightsFrom(elements);
 }
 // In trip settings: links to try co-editing as someone else, and to preview a trip day
 export function settingsNoteHTML(trip) {

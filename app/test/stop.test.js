@@ -9,7 +9,7 @@ const bad = (input, partial = false) => assert.throws(() => cleanStop(input, par
 test('a new stop needs a name, a place and a time, and gets defaults for the rest', () => {
   assert.deepEqual(cleanStop({ ...base, name: '  White Sands  ', extra: 'dropped' }, false), {
     address: '', note: '', tz: null, duration: null, kind: '', nights: null, checkout: null, travel: 'drive', back: {}, links: [],
-    wikidata: null, done: false, name: 'White Sands', lat: 32.78, lng: -106.17, time: '2026-11-20T15:00',
+    wikidata: null, name: 'White Sands', lat: 32.78, lng: -106.17, time: '2026-11-20T15:00',
   });
   for (const k of ['name', 'lat', 'lng', 'time']) bad({ ...base, [k]: undefined });
   bad({ ...base, name: '   ' });
@@ -36,6 +36,7 @@ test('each field is checked', () => {
   bad({ checkout: '25:00' }, true);
   bad({ wikidata: 'Q0' }, true);
   bad({ done: 'yes' }, true);
+  assert.deepEqual(cleanStop({ done: true }, true), {}, 'an older client’s done is accepted, and dropped');
   assert.deepEqual(cleanStop({ kind: '', tz: 'America/Denver', nights: 30, duration: 24 * 60, checkout: '11:00', wikidata: 'Q123' }, true),
     { kind: '', tz: 'America/Denver', nights: 30, duration: 24 * 60, checkout: '11:00', wikidata: 'Q123' });
 });

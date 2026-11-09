@@ -37,10 +37,9 @@ const isZone = (z: unknown): z is string => {
 // place's own; null means the place's own, which the app looks up from where it is.
 // duration is how long you're at the stop, in minutes, or null for not said; the drive after it leaves when it ends.
 // A hotel's stay is its nights and check-out, so it has none.
-// done is no longer shown; it's kept so older clients' writes still validate.
 export type Stop = {
   id: string; name: string; address: string; lat: number; lng: number;
-  time: string; tz: string | null; duration: number | null; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; links: Link[]; wikidata: string | null; done: boolean; by: string; updatedAt: number;
+  time: string; tz: string | null; duration: number | null; note: string; kind: Kind | ''; nights: number | null; checkout: string | null; travel: Travel; back: Back; links: Link[]; wikidata: string | null; by: string; updatedAt: number;
 };
 export type Link = { url: string; label: string };
 export type StopFields = Omit<Stop, 'id' | 'by' | 'updatedAt'>;
@@ -119,10 +118,8 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
     if (i.wikidata !== null && !(typeof i.wikidata === 'string' && QID.test(i.wikidata))) throw new Error(ERR.invalid);
     out.wikidata = i.wikidata as string | null;
   }
-  if (i.done !== undefined) {
-    if (typeof i.done !== 'boolean') throw new Error(ERR.invalid);
-    out.done = i.done;
-  }
-  if (!partial) out = { address: '', note: '', tz: null, duration: null, kind: '', nights: null, checkout: null, travel: 'drive', back: {}, links: [], wikidata: null, done: false, ...out };
+  // done is gone (see the schema's second change), but an older client may still send it: checked, and dropped
+  if (i.done !== undefined && typeof i.done !== 'boolean') throw new Error(ERR.invalid);
+  if (!partial) out = { address: '', note: '', tz: null, duration: null, kind: '', nights: null, checkout: null, travel: 'drive', back: {}, links: [], wikidata: null, ...out };
   return out;
 }

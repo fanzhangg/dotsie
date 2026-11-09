@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { MAX_LINKS } from '../web/fields.js';
 import { copyStatements } from './copy';
+import { migrate } from './schema';
 import { cleanStop, ERR, type Back, type Link, type Stop, type StopFields, type Travel } from './stop';
 
 /* One TripRoom per trip (addressed by idFromName(tripId)). It owns the trip's stops and members in
@@ -27,44 +28,17 @@ const PREVIEW_STOPS = 300;
 export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights' | 'travel' | 'back' | 'wikidata'>[] };
 
 // folder is a column from when stops could be grouped in folders: older trips still have it, and it's left out
-type StopRow = Omit<Stop, 'done' | 'updatedAt' | 'back' | 'links'> & { done: number; updated_at: number; back: string; links: string; folder?: string | null };
+type StopRow = Omit<Stop, 'updatedAt' | 'back' | 'links'> & { updated_at: number; back: string; links: string };
 const parseBack = (back: string): Back => { try { return JSON.parse(back) || {}; } catch { return {}; } };
 const parseLinks = (links: string): Link[] => { try { return JSON.parse(links) || []; } catch { return []; } };
-const toStop = ({ done, updated_at, back, links, folder: _folder, ...r }: StopRow): Stop => ({ ...r, back: parseBack(back), links: parseLinks(links), done: !!done, updatedAt: updated_at });
+const toStop = ({ updated_at, back, links, ...r }: StopRow): Stop => ({ ...r, back: parseBack(back), links: parseLinks(links), updatedAt: updated_at });
 
 export class TripRoom extends DurableObject<Env> {
   private sql = this.ctx.storage.sql;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.sql.exec(`
-      create table if not exists trip (id text primary key, name text not null, created_by text not null, invite text not null, deleted_at integer);
-      create table if not exists members (id text primary key, name text not null, image text, identity integer not null, joined_at integer not null);
-      create table if not exists stops (
-        id text primary key, name text not null, address text not null, lat real not null, lng real not null,
-        time text not null, note text not null, done integer not null, by text not null, updated_at integer not null
-      );`);
-    // Added after launch: stop types, hotel nights, check-out time and how you get there
-    const cols = new Set(this.sql.exec<{ name: string }>('pragma table_info(stops)').toArray().map(c => c.name));
-    if (!cols.has('kind')) this.sql.exec("alter table stops add column kind text not null default ''");
-    if (!cols.has('nights')) this.sql.exec('alter table stops add column nights integer');
-    if (!cols.has('checkout')) this.sql.exec('alter table stops add column checkout text');
-    if (!cols.has('travel')) this.sql.exec("alter table stops add column travel text not null default 'drive'");
-    if (!cols.has('back')) this.sql.exec("alter table stops add column back text not null default '{}'");
-    // (Older trips also have a folder column and a folders table, from when stops could be grouped in folders. Neither
-    // is read or written any more.)
-    // ...and links
-    if (!cols.has('links')) this.sql.exec("alter table stops add column links text not null default '[]'");
-    // ...and the Wikidata item of a stop added from a sight
-    if (!cols.has('wikidata')) this.sql.exec('alter table stops add column wikidata text');
-    // ...and a time zone other than the place's own, and how long you're there
-    if (!cols.has('tz')) this.sql.exec('alter table stops add column tz text');
-    if (!cols.has('duration')) this.sql.exec('alter table stops add column duration integer');
-    // ...and the D1 copy's revision, and when the trip was last edited (for Home's order; null for trips last edited
-    // before it was kept here, whose D1 row has it)
-    const tripCols = new Set(this.sql.exec<{ name: string }>('pragma table_info(trip)').toArray().map(c => c.name));
-    if (!tripCols.has('rev')) this.sql.exec('alter table trip add column rev integer not null default 0');
-    if (!tripCols.has('edited_at')) this.sql.exec('alter table trip add column edited_at integer');
+    migrate(this.sql, fn => this.ctx.storage.transactionSync(fn));
     // Answer keep-alive pings without waking the object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
@@ -128,8 +102,8 @@ export class TripRoom extends DurableObject<Env> {
     this.check(userId);
     const f = cleanStop(input, false) as StopFields;
     this.sql.exec(
-      `insert or replace into stops (id, name, address, lat, lng, time, tz, duration, note, kind, nights, checkout, travel, back, links, wikidata, done, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stopId, f.name, f.address, f.lat, f.lng, f.time, f.tz, f.duration, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), JSON.stringify(f.links), f.wikidata, +f.done, userId, Date.now());
+      `insert or replace into stops (id, name, address, lat, lng, time, tz, duration, note, kind, nights, checkout, travel, back, links, wikidata, by, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stopId, f.name, f.address, f.lat, f.lng, f.time, f.tz, f.duration, f.note, f.kind, f.nights, f.checkout, f.travel, JSON.stringify(f.back), JSON.stringify(f.links), f.wikidata, userId, Date.now());
     return this.afterStopWrite(stopId);
   }
 
@@ -142,7 +116,7 @@ export class TripRoom extends DurableObject<Env> {
     // A stop moved to another place isn't that sight any more
     if (f.wikidata === undefined && ((f.lat ?? was.lat) !== was.lat || (f.lng ?? was.lng) !== was.lng)) f.wikidata = null;
     const cols = Object.keys(f) as (keyof StopFields)[];
-    const vals = cols.map(k => (k === 'done' ? +f.done! : k === 'back' || k === 'links' ? JSON.stringify(f[k]) : f[k]));
+    const vals = cols.map(k => (k === 'back' || k === 'links' ? JSON.stringify(f[k]) : f[k]));
     this.sql.exec(
       `update stops set ${[...cols, 'by', 'updated_at'].map(c => `${c} = ?`).join(', ')} where id = ?`,
       ...vals, userId, Date.now(), stopId);

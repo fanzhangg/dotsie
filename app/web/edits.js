@@ -17,7 +17,7 @@ export let routeWatch = null; // called as each lookup finishes, while something
 // ---------- Edits ----------
 // The new stop is selected, so it's the list's focus and its pin is named.
 export function addStop(trip, data) {
-  const stop = { id: uid(), ...data, done: false, by: me.id, updatedAt: Date.now() };
+  const stop = { id: uid(), ...data, by: me.id, updatedAt: Date.now() };
   openTripOf(trip.id)?.stops.push(stop);
   if (state.leg) refit();
   state.leg = null;
