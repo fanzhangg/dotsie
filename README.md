@@ -1,4 +1,4 @@
-# Waythread
+# Dotsie
 
 Plan your next road trips with your friends and AI agents.
 
