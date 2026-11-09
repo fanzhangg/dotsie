@@ -1,4 +1,4 @@
-/* Dotsie design system — components v13.0.0
+/* Dotsie design system — components v14.0.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -19,7 +19,7 @@
 :where(.wt-btn, .wt-icon-btn, .wt-avatar-stack, .wt-toast__action, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel, .wt-link-add) {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
 }
-:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-tl-day, .wt-day-list__item, .wt-trip-card, .wt-avatar-stack, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
+:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-tl-day, .wt-trip-card, .wt-avatar-stack, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
   outline: 2px solid var(--wt-border-focus);
   outline-offset: 2px;
   border-radius: var(--wt-radius-md);
@@ -372,41 +372,47 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-tl > :has(+ .wt-tl-day) .wt-tl-rail::before { bottom: auto; height: var(--wt-tl-mark-y); }
 .wt-tl-day + :is(:last-child, :has(+ .wt-tl-day)) .wt-tl-rail::before { display: none; }
 
-/* ---------- Day bar: ‹ day › at the top of the sheet; tap the day for the list of days ---------- */
-/* The arrows are centred on the timeline's columns: ‹ on the rail, › on the Directions column (with the sheet top's padding).
-   Three controls sit close together here, each with its own look: ‹ and › are round buttons on a grey disc (step),
-   the day has a ⌃⌄ picker glyph (choose from a list), and a day heading below says "View day" in words. */
-.wt-day-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: 0 var(--wt-space-1) 0 var(--wt-space-2); }
+/* ---------- Day tabs: Overview, then every day, at the top of the sheet ---------- */
+/* Quiet on purpose: the day says where you are, so it stays below the plan. Each tab is --wt-type-context in tertiary ink;
+   the open one is primary, with a short bar under it that slides to the next tab as the list is swiped. The row scrolls
+   sideways (no scrollbar) and fades out at either edge with more days past it; the calendar button at its end stays put. */
+.wt-day-bar { display: flex; align-items: center; }
 .wt-day-bar[hidden] { display: none; }
-.wt-day-bar__step { color: var(--wt-text-primary); }
-/* The disc is drawn inside the 44px tap target, so the button keeps its size and its place on the columns */
-.wt-day-bar__step::before {
-  content: ''; grid-area: 1 / 1; width: 32px; height: 32px; border-radius: var(--wt-radius-round);
-  background: var(--wt-surface-hover); transition: background var(--wt-duration-fast);
+.wt-day-tabs {
+  position: relative; flex: 1; min-width: 0; display: flex; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain;
+  touch-action: pan-x; padding: 0 var(--wt-space-1);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--wt-space-3), #000 calc(100% - var(--wt-space-5)), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 var(--wt-space-3), #000 calc(100% - var(--wt-space-5)), transparent);
 }
-.wt-day-bar__step > .wt-icon { grid-area: 1 / 1; width: 18px; height: 18px; position: relative; }
-.wt-day-bar__step:active { background: none; }
-.wt-day-bar__step:active::before { background: var(--wt-border-strong); }
-.wt-day-bar__title {
-  font: inherit; color: inherit; background: none; border: 0; margin: 0; cursor: pointer;
-  display: grid; justify-items: center; padding: 2px var(--wt-space-3); border-radius: var(--wt-radius-md);
+.wt-day-tabs::-webkit-scrollbar { display: none; }
+.wt-day-tab {
+  flex: none; height: var(--wt-size-touch); padding: 0 var(--wt-space-3); margin: 0; border: 0; background: none; cursor: pointer;
+  font: var(--wt-type-context); color: var(--wt-text-tertiary); white-space: nowrap; transition: color var(--wt-duration-fast);
 }
-.wt-day-bar__title:active { background: var(--wt-surface-hover); }
-.wt-day-bar__title:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
-/* The day says where you are, so it stays below the plan: --wt-type-context in secondary ink, quieter than a stop's name. */
-.wt-day-bar__label { display: inline-flex; align-items: center; gap: 2px; font: var(--wt-type-context); color: var(--wt-text-secondary); }
-.wt-day-bar__label .wt-icon { width: 16px; height: 16px; color: var(--wt-text-tertiary); }
+.wt-day-tab[aria-selected="true"] { color: var(--wt-text-primary); }
+.wt-day-tab:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: -4px; border-radius: var(--wt-radius-md); }
+.wt-day-tabs__bar {
+  position: absolute; left: 0; bottom: 0; width: 24px; height: 2px; border-radius: 1px; background: var(--wt-text-primary);
+  pointer-events: none; transition: transform var(--wt-duration-base) var(--wt-ease-out);
+}
+.wt-day-bar__cal { flex: none; color: var(--wt-text-secondary); }
+.wt-day-bar__cal[aria-expanded="true"] { color: var(--wt-text-primary); background: var(--wt-surface-hover); }
 
-/* ---------- Day list: every day of the trip, in a modal sheet ---------- */
-.wt-day-list { list-style: none; margin: 0; padding: 0; }
-.wt-day-list__item {
-  font: inherit; color: inherit; background: none; border: 0; margin: 0; cursor: pointer; text-align: left;
-  width: 100%; display: flex; align-items: center; gap: var(--wt-space-3); padding: var(--wt-space-3); border-radius: var(--wt-radius-md);
+/* ---------- Day calendar: jump to any day of the trip ---------- */
+/* Between the tabs and the list, when the calendar button is on. Its days are .wt-cal's: the open one black, today
+   ringed, a dot under a day with stops. Days that aren't on the trip are spans in --wt-text-past. It takes the room it
+   needs, up to all of the list's, and scrolls past that. */
+.wt-day-cal { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-2); border-bottom: 1px solid var(--wt-border-default); }
+.wt-day-cal[hidden] { display: none; }
+.wt-day-cal__head { display: flex; align-items: center; justify-content: space-between; gap: var(--wt-space-2); min-height: var(--wt-size-touch); padding-left: var(--wt-space-2); }
+.wt-day-cal__overview {
+  height: var(--wt-size-touch); padding: 0 var(--wt-space-2); margin: 0 calc(-1 * var(--wt-space-2)) 0 0; border: 0; background: none;
+  cursor: pointer; font: var(--wt-type-body); color: var(--wt-text-link); border-radius: var(--wt-radius-md);
 }
-.wt-day-list__item:active { background: var(--wt-surface-hover); }
-.wt-day-list__item[aria-current] { background: var(--wt-surface-sunken); }
-.wt-day-list__name { flex: 1; min-width: 0; font: var(--wt-type-name); }
-.wt-day-list__kinds { display: flex; gap: 3px; }
+.wt-day-cal__overview[aria-pressed="true"] { color: var(--wt-text-primary); font-weight: 600; }
+.wt-day-cal__month { grid-column: 1 / -1; padding: var(--wt-space-2) 0 var(--wt-space-1) var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.wt-day-cal .wt-cal__day { --wt-cal-size: 36px; }
+.wt-day-cal span.wt-cal__day { color: var(--wt-text-past); cursor: default; }
 
 /* ---------- Picker: a field that shows the current choice and opens the options on a page of their own ---------- */
 /* Every choice from a list is one: a stop's Type (marker · Hotel · ›), Account's Maps app (--text: Google Maps · ›).
@@ -616,6 +622,12 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 /* Below full, dragging the list moves the sheet (up first, then it scrolls once full), and the list can't be scrolled
    by hand at all, not by a finger, a wheel or a trackpad: the app scrolls it, to keep the focused row in the middle. */
 .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: none; overflow: hidden; }
+/* Sideways is the app's at every height: a swipe turns the page (.wt-sheet__peek is the page coming in). */
+.wt-sheet.is-full .wt-sheet__body { touch-action: pan-y; }
+.wt-sheet__peek {
+  position: absolute; left: 0; right: 0; overflow: hidden; pointer-events: none;
+  padding: 0 var(--wt-space-3) var(--wt-space-3); background: var(--wt-surface-raised);
+}
 /* The grab handle sits in the top margin, over the day bar's top edge, rather than on a row of its own, as in a maps app's sheet.
    A hairline under the day bar divides it from the list (not when there's no day bar: an empty trip). */
 .wt-sheet__top {
@@ -623,8 +635,10 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   border-bottom: 1px solid var(--wt-border-default);
 }
 .wt-sheet__top:has(> .wt-day-bar[hidden]) { border-bottom: 0; padding-bottom: 0; }
+/* The tabs' bar sits on the hairline under them */
+.wt-sheet__top:has(> .wt-day-bar:not([hidden])) { padding-bottom: 0; }
 /* The grab handle is a button as wide as the sheet, so it's easy to hit and nothing else on the sheet's top resizes it.
-   The day bar's buttons sit over its lower part, so a tap on ‹, the day or › is theirs. */
+   The day tabs sit over its lower part, so a tap on a tab or the calendar is theirs. */
 .wt-sheet__grab { position: absolute; top: 0; left: 0; right: 0; display: block; width: 100%; height: 16px; cursor: grab; }
 /* Above the handle, but only its buttons take taps: a tap between them is the handle's. */
 .wt-sheet__top .wt-day-bar { position: relative; pointer-events: none; }
@@ -687,12 +701,11 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
     border-radius: 0; box-shadow: 1px 0 0 var(--wt-border-default); transition: none;
   }
   .wt-sheet__top { touch-action: auto; min-height: 0; padding-top: var(--wt-space-1); }
-  .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: auto; overflow: auto; }
+  .wt-sheet .wt-sheet__body, .wt-sheet:not(.is-full) .wt-sheet__body { touch-action: pan-y; overflow: auto; }
   .wt-sheet__grab { display: none; }
 }
 @media (hover: hover) {
-  .wt-day-bar__title:hover { background: var(--wt-surface-hover); }
-  .wt-day-bar__step:hover:not(:disabled)::before { background: var(--wt-border-strong); }
+  .wt-day-tab:hover { color: var(--wt-text-primary); }
 }
 
 /* ---------- Modal sheet ---------- */

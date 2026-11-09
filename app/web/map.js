@@ -509,6 +509,7 @@ export function mountTrip(trip) {
         <button class="wt-sheet__grab" data-action="grab"></button>
         <div class="wt-day-bar" hidden></div>
       </div>
+      <div class="wt-day-cal" hidden></div>
       <div class="wt-sheet__body wt-tl"></div>
       <div class="wt-add-bar"></div>
     </section>
@@ -766,7 +767,7 @@ export function drawMap(trip) {
   // A route on show enlarges the pins at its ends.
   const ends = active ? [active.from, active.to] : [];
   // Every row of the list has a number, in the order the list reads: the hotel you wake up in, the day's stops, the
-  // hotel you go back to; on All days, the trip's stops. So the numbers change when the list does, and never as you
+  // hotel you go back to; on the overview, the trip's stops. So the numbers change when the list does, and never as you
   // zoom: where pins crowd, they merge and keep their numbers (see fitPins).
   const rows = (day === ALL ? overviewItems(trip) : items).filter(it => it.entry).map(it => it.entry);
   const num = new Map();

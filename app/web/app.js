@@ -29,12 +29,12 @@ import { boot, me, renderSignIn, signInSocial } from './signin.js';
 import { closeTrip, cur, join, loadTrips, openTrip, setTrips, tripLoad, trips } from './trips.js';
 import { homeHTML, loadCardPhotos } from './home.js';
 import { signOut } from './backend.js';
-import { applySnap, centerFocus, currentDay, dayBarHTML, grabLabel, isWide, openDays, renderAddBar, renderList, setDay, setSnap, snaps, stepDay } from './timeline.js';
+import { applySnap, centerFocus, closeDayCal, currentDay, grabLabel, isWide, pickDay, renderAddBar, renderDayBar, renderList, setSnap, snaps, stepDay, toggleDayCal } from './timeline.js';
 import { legsOn } from './routes.js';
 import { openTravel } from './edits.js';
 import { keepOfflinePlan, needsConnection, renderOfflineStatus, savedTrip, statusSay } from './offline.js';
 import { drawMap, mountTrip, previewLeg, refit, schedulePreload, selectStop, showWholeDay, teardownTrip, updateFitBtn } from './map.js';
-import { drag, sheetTarget } from './sheet.js';
+import { drag, holdRender, sheetTarget } from './sheet.js';
 import { closeSheet, openAccount, openNewTrip, openSettings } from './sheets.js';
 import { openStopSheet } from './stopsheet.js';
 import { toast } from './notices.js';
@@ -82,6 +82,7 @@ export function render() {
     openTrip(r.id);
     return;
   }
+  if (holdRender()) return; // the page is being swiped: this render comes when it's let go
   const trip = cur;
   if (trip.error) { teardownTrip(); $app.dataset.page = 'message'; $app.innerHTML = messageHTML(TRIP_ERRORS[trip.error] || TRIP_ERRORS.offline); return; }
   if ($app.dataset.trip !== trip.id) mountTrip(trip);
@@ -90,10 +91,8 @@ export function render() {
   el.querySelector('.wt-trip-head__name').textContent = trip.name;
   renderOfflineStatus(trip);
   if (savedTrip(trip.id)) keepOfflinePlan();
-  const bar = el.querySelector('.wt-day-bar');
   const topH = el.querySelector('.wt-sheet__top').offsetHeight;
-  bar.innerHTML = dayBarHTML(trip);
-  bar.hidden = !trip.stops.length;
+  renderDayBar(trip);
   const newDay = renderList(trip);
   renderAddBar(trip);
   el.querySelector('.wt-sheet__grab').setAttribute('aria-label', grabLabel());
@@ -122,10 +121,8 @@ document.addEventListener('click', e => {
     case 'edit': if (stop && needsConnection()) openStopSheet(trip, stop); break;
     case 'settings': openSettings(trip); break;
     case 'offline-status': if (statusSay) toast(statusSay); break;
-    case 'prev-day': stepDay(-1); break;
-    case 'next-day': stepDay(1); break;
-    case 'days': openDays(trip); break;
-    case 'pick-day': closeSheet(); setDay(el.dataset.day); break;
+    case 'pick-day': closeSheet(); pickDay(el.dataset.day); break;
+    case 'day-cal': toggleDayCal(); break;
     case 'leg': {
       const l = legsOn(trip, currentDay(trip)).find(x => x.key === el.dataset.leg);
       if (l) previewLeg(l);
@@ -147,7 +144,8 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    // with no sheet open, Esc clears the selection, like tapping empty map
+    // with no sheet open, Esc closes the calendar of days, or else clears the selection, like tapping empty map
+    if (!$sheets.innerHTML && $app.dataset.trip && closeDayCal()) return;
     if (!$sheets.innerHTML && $app.dataset.trip && (state.sel || state.leg)) {
       if (state.leg) refit();
       state.sel = state.selRow = state.leg = null;

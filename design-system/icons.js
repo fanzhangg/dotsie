@@ -1,4 +1,4 @@
-/* Dotsie design system — icons v4.0.0
+/* Dotsie design system — icons v4.1.0
  *
  * Line icons on a 24px grid, 2px stroke, round caps and joins, drawn in currentColor.
  * Usage: DotsieIcons.svg('car')            -> default size and stroke
@@ -21,6 +21,7 @@
     settings: 'M4 7h9M19 7h1M4 17h1M11 17h9M16 9.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 19.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z',
     'chevron-down': 'M6 9l6 6 6-6',
     'chevron-up-down': 'M8 9.5l4-4 4 4M8 14.5l4 4 4-4',   // a picker: tap for a list to choose from
+    calendar: 'M6.5 5h11A2.5 2.5 0 0120 7.5v10a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 17.5v-10A2.5 2.5 0 016.5 5zM4 10h16M8.5 3v4M15.5 3v4',   // jump to a day
     map: 'M9 4.5L3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2zM9 4.5v13M15 6.5v13',
     list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
     fit: 'M4 9V6a2 2 0 012-2h3M15 4h3a2 2 0 012 2v3M20 15v3a2 2 0 01-2 2h-3M9 20H6a2 2 0 01-2-2v-3',

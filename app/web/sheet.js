@@ -1,7 +1,8 @@
 /* The plan's sheet on a phone: how tall it is, its motion, and dragging it. */
 import { $app, $sheets, state, token } from './core.js';
 import { cur } from './trips.js';
-import { SNAPS, applySnap, centerFocus, isWide, setSnap, snaps, updateFades } from './timeline.js';
+import { SNAPS, applySnap, centerFocus, currentDay, followDayTabs, isWide, listHTML, placeTabBar, setDay, setSnap, snaps, updateFades } from './timeline.js';
+import { pagesOf } from './plan.js';
 import { scheduleRender } from './app.js';
 import { camFree, map, refit, zoomToStop } from './map.js';
 import { sightOpen } from './sights.js';
@@ -193,29 +194,134 @@ document.addEventListener('pointerdown', e => {
 document.addEventListener('pointermove', e => { if (drag.active && !drag.list) dragMove(e.clientY); });
 for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () => { if (drag.active && !drag.list) dragEnd(); });
 // The list, with a finger: below full it moves the sheet (it can't scroll there); at full, only a pull down from
-// its top does, and otherwise it scrolls as usual.
+// its top does, and otherwise it scrolls as usual. A sideways swipe turns the page (see below), on a wide screen too.
+// The rest of the touch is followed on the element it started on: a render can replace the row under the finger, and
+// the touchmove and touchend of a row that's been taken out of the page no longer reach the document, so the sheet
+// (or the page) was left where the finger had it.
+let touchEl = null;
+function unfollowTouch() {
+  if (!touchEl) return;
+  touchEl.removeEventListener('touchmove', onTouchMove);
+  for (const t of ['touchend', 'touchcancel']) touchEl.removeEventListener(t, onTouchEnd);
+  touchEl = null;
+}
 document.addEventListener('touchstart', e => {
   const list = e.target.closest?.('.wt-sheet__body');
-  if (!list || e.touches.length > 1 || isWide()) return;
+  if (!list || e.touches.length > 1 || swipe.busy) return;
   dragStart(e.touches[0].clientY, list);
+  drag.x0 = e.touches[0].clientX;
+  unfollowTouch();
+  touchEl = e.target;
+  touchEl.addEventListener('touchmove', onTouchMove, { passive: false });
+  for (const t of ['touchend', 'touchcancel']) touchEl.addEventListener(t, onTouchEnd);
 }, { passive: true });
-document.addEventListener('touchmove', e => {
+function onTouchMove(e) {
   if (!drag.active || !drag.list) return;
-  const y = e.touches[0].clientY, dy = drag.y0 - y;
+  const y = e.touches[0].clientY, dy = drag.y0 - y, dx = e.touches[0].clientX - drag.x0;
   if (!drag.mode) {
     // Nothing is claimed until the finger has clearly gone one way. On an iPhone, holding back a touch's first move
     // stops the list scrolling for the whole touch, and a finger setting off up the list often first moves a pixel
     // down: a pull down from the top used to be claimed at once, so the first swipe up the whole day from its top
     // did nothing, and it took a second. A pull down the browser has started scrolling doesn't bounce the list
     // instead of moving the sheet: at its top, the whole day has no overscroll (styles.css).
-    if (Math.abs(dy) < 6) return;
-    drag.mode = state.snap !== 'full' || (dy < 0 && drag.list.scrollTop <= 1) ? 'sheet' : 'scroll';
+    // Sideways has to be clearly sideways (half as much again as it's gone up or down), so a drag up that wobbles
+    // doesn't turn the page.
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ax >= 8 && ax > ay * 1.5) drag.mode = canSwipe() ? 'page' : 'none';
+    else if (ay >= 6 && ay >= ax) drag.mode = isWide() ? 'scroll' : state.snap !== 'full' || (dy < 0 && drag.list.scrollTop <= 1) ? 'sheet' : 'scroll';
+    else return;
   }
+  if (drag.mode === 'page') { if (e.cancelable) e.preventDefault(); swipeMove(dx); return; }
   if (drag.mode !== 'sheet') return;
   if (e.cancelable) e.preventDefault();
   dragMove(y);
-}, { passive: false });
-for (const t of ['touchend', 'touchcancel']) document.addEventListener(t, () => { if (drag.active && drag.list) dragEnd(); });
+}
+function onTouchEnd() {
+  unfollowTouch();
+  if (!drag.active || !drag.list) return;
+  if (drag.mode === 'page') swipeEnd(); else dragEnd();
+}
+
+// ---------- Swiping between pages ----------
+// A sideways swipe on the list turns the page: Overview, then each day, in the tabs' order. The list follows the
+// finger with the next page coming in beside it, and the bar under the tabs slides along with them. Let go more than a
+// quarter of the way across, or flick, and it carries on to that page; otherwise it slides back. Past the first or
+// last page it gives a little and comes back. The map changes once the page has.
+const swipe = { peek: null, to: null, dir: 0, w: 0, x: 0, pts: [], busy: false, held: false };
+// A render while the page is being swiped waits for the swipe to end (see render), so the rows and the tabs' bar stay
+// where the finger has them.
+export function holdRender() {
+  if (!swipe.w && !swipe.busy) return false;
+  swipe.held = true;
+  return true;
+}
+function canSwipe() {
+  const trip = cur?.stops ? cur : null;
+  return !!trip && !state.draft && !swipe.busy && pagesOf(trip).length > 1;
+}
+// The page coming in: the next (dir 1) or previous (-1) page's rows, drawn beside the list, for the length of the swipe
+function showPeek(trip, body) {
+  swipe.peek?.remove();
+  swipe.peek = null;
+  if (!swipe.to) return;
+  const p = document.createElement('div');
+  p.className = 'wt-sheet__peek wt-tl';
+  p.inert = true;
+  p.setAttribute('aria-hidden', 'true');
+  Object.assign(p.style, { top: `${body.offsetTop}px`, height: `${body.offsetHeight}px` });
+  const sel = [state.sel, state.selRow];
+  state.sel = state.selRow = null; // a new page opens with nothing selected
+  p.innerHTML = listHTML(trip, swipe.to);
+  [state.sel, state.selRow] = sel;
+  body.after(p);
+  swipe.peek = p;
+}
+function swipeMove(dx) {
+  const trip = cur, body = $app.querySelector('.wt-sheet__body');
+  if (!body) return;
+  if (!swipe.w) { swipe.w = body.offsetWidth; stopMotion(); }
+  const pages = pagesOf(trip), i = pages.indexOf(currentDay(trip)), dir = dx < 0 ? 1 : dx > 0 ? -1 : swipe.dir;
+  if (dir && dir !== swipe.dir) { swipe.dir = dir; swipe.to = pages[i + dir] || null; showPeek(trip, body); }
+  const now = performance.now();
+  swipe.pts.push([now, dx]);
+  while (swipe.pts.length > 2 && now - swipe.pts[0][0] > 100) swipe.pts.shift();
+  swipe.x = swipe.to ? dx : dx / 3;
+  body.style.transform = `translateX(${swipe.x}px)`;
+  if (swipe.peek) swipe.peek.style.transform = `translateX(${swipe.x + swipe.dir * swipe.w}px)`;
+  followDayTabs(swipe.to, Math.min(1, Math.abs(swipe.x) / swipe.w));
+}
+function swipeEnd() {
+  drag.active = false;
+  const body = $app.querySelector('.wt-sheet__body'), { to, dir, w, x } = swipe;
+  if (!body || !w) { endSwipe(); return; }
+  // the finger's speed over its last 100ms, in px/ms, rightward positive
+  const now = performance.now(), pts = swipe.pts.filter(p => now - p[0] <= 100);
+  const v = pts.length > 1 ? (pts.at(-1)[1] - pts[0][1]) / Math.max(1, pts.at(-1)[0] - pts[0][0]) : 0;
+  const go = !!to && x * dir < 0 && (Math.abs(x) > w / 4 || v * dir < -0.3);
+  const end = go ? -dir * w : 0, opts = { duration: parseFloat(token('--wt-duration-base')) || 0, easing: token('--wt-ease-out') || 'ease-out', fill: 'forwards' };
+  swipe.busy = true;
+  drag.suppressClick = true;
+  setTimeout(() => { drag.suppressClick = false; }, 50);
+  const slide = (el, off) => el.animate([{ transform: `translateX(${x + off}px)` }, { transform: `translateX(${end + off}px)` }], opts);
+  const runs = [slide(body, 0)];
+  if (swipe.peek) runs.push(slide(swipe.peek, dir * w));
+  if (!go) placeTabBar(true);
+  const done = () => {
+    const peek = swipe.peek, held = swipe.held;
+    swipe.peek = null;
+    endSwipe();
+    body.style.transform = '';
+    // the new page's rows, its tab, and its map, drawn before the slide's last frame is let go
+    if (go) setDay(to); else if (held) scheduleRender();
+    for (const r of runs) r.cancel();
+    peek?.remove();
+  };
+  Promise.all(runs.map(r => r.finished)).then(done, done);
+}
+function endSwipe() {
+  swipe.peek?.remove();
+  Object.assign(swipe, { peek: null, to: null, dir: 0, w: 0, x: 0, pts: [], busy: false, held: false });
+}
 document.addEventListener('click', e => {
   if (drag.suppressClick) { drag.suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
 }, true);

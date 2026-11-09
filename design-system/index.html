@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b class="wt-wordmark"><span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span></b><span>Design system · v13.0.0</span></div>
+  <div class="demo-brand"><b class="wt-wordmark"><span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span></b><span>Design system · v14.0.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -658,11 +658,11 @@ DotsieIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div>
       </div>
       <ul class="rules">
         <li>Set <code>--wt-kind-color</code> to a <code>--wt-kind-*</code> token, on the marker or on a parent. Without one, the marker is grey (<code>place</code>).</li>
-        <li><code>--sm</code> (20px) is for the day list. The rail uses the default (30px); pins are 28px, and 36px when selected.</li>
+        <li><code>--sm</code> (20px) is for a trip card's now and next. The rail uses the default (30px); pins are 28px, and 36px when selected.</li>
         <li>The marker has <code>role="img"</code> and an <code>aria-label</code> with the type, so color is never the only signal.</li>
       </ul>
 
-      <h3>All days</h3>
+      <h3>Overview</h3>
       <p class="intro">The overview, before the first day: every day under its name (<code>.wt-tl-day</code>), with its stops and their times. Tap a day's name to open it.</p>
       <div class="demo">
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
@@ -699,8 +699,8 @@ DotsieIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div>
     </section>
 
     <section id="sheet">
-      <h2>Bottom sheet and day bar</h2>
-      <p class="intro">The trip header names the trip, on a card floating over the map. The plan lives in a white sheet over the map, one day at a time. On a phone it's dragged between two heights: half, and the whole day, with the header docked over it. It never hides. The app sets the height and the system animates it. The day bar steps through the days, and the one add button sits below the list. Try the heights below.</p>
+      <h2>Bottom sheet and day tabs</h2>
+      <p class="intro">The trip header names the trip, on a card floating over the map. The plan lives in a white sheet over the map, one day at a time. On a phone it's dragged between two heights: half, and the whole day, with the header docked over it. It never hides. The app sets the height and the system animates it. The day tabs above the list go from the trip's overview to each of its days, and the one add button sits below the list. Try the heights below.</p>
       <div class="demo">
         <div class="demo__live demo__live--column">
           <div class="stage" id="sheet-stage">
@@ -720,9 +720,14 @@ DotsieIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div>
             <section class="wt-sheet" style="height: 58%" aria-label="White Sands, NM (demo)">
               <div class="wt-sheet__top"><button class="wt-sheet__grab" type="button" data-sheet-toggle aria-label="Show the whole day"></button>
                 <div class="wt-day-bar">
-                  <button class="wt-icon-btn wt-day-bar__step" type="button" aria-label="Previous day"><i data-icon="back"></i></button>
-                  <button class="wt-day-bar__title" type="button" aria-label="Today, Nov 21. Pick a day"><span class="wt-day-bar__label">Today, Nov 21<i data-icon="chevron-up-down"></i></span></button>
-                  <button class="wt-icon-btn wt-day-bar__step" type="button" aria-label="Next day"><i data-icon="forward"></i></button>
+                  <div class="wt-day-tabs" role="tablist" aria-label="Days">
+                    <button class="wt-day-tab" role="tab" type="button" aria-selected="false" aria-label="Overview">Overview</button>
+                    <button class="wt-day-tab" role="tab" type="button" aria-selected="false" aria-label="Fri, Nov 20">Fri 20</button>
+                    <button class="wt-day-tab" role="tab" type="button" aria-selected="true" aria-label="Today, Nov 21">Today</button>
+                    <button class="wt-day-tab" role="tab" type="button" aria-selected="false" aria-label="Sun, Nov 22">Sun 22</button>
+                    <span class="wt-day-tabs__bar" aria-hidden="true"></span>
+                  </div>
+                  <button class="wt-icon-btn wt-day-bar__cal" type="button" aria-expanded="false" aria-label="Jump to a day"><i data-icon="calendar"></i></button>
                 </div>
               </div>
               <div class="wt-sheet__body wt-tl">
@@ -752,13 +757,15 @@ DotsieIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div>
   &lt;div class="wt-sheet__top"&gt;
     &lt;button class="wt-sheet__grab" aria-label="Show the whole day"&gt;&lt;/button&gt;
     &lt;div class="wt-day-bar"&gt;
-      &lt;button class="wt-icon-btn wt-day-bar__step" aria-label="Previous day"&gt;${icon('back')}&lt;/button&gt;
-      &lt;button class="wt-day-bar__title" aria-label="Today, Nov 21. Pick a day"&gt;
-        &lt;span class="wt-day-bar__label"&gt;Today, Nov 21${icon('chevron-up-down')}&lt;/span&gt;
-      &lt;/button&gt;
-      &lt;button class="wt-icon-btn wt-day-bar__step" aria-label="Next day"&gt;${icon('forward')}&lt;/button&gt;
+      &lt;div class="wt-day-tabs" role="tablist" aria-label="Days"&gt;
+        &lt;button class="wt-day-tab" role="tab" aria-selected="false" aria-label="Overview"&gt;Overview&lt;/button&gt;
+        &lt;button class="wt-day-tab" role="tab" aria-selected="true" aria-label="Today, Nov 21"&gt;Today&lt;/button&gt;   &lt;!-- … every day --&gt;
+        &lt;span class="wt-day-tabs__bar" aria-hidden="true"&gt;&lt;/span&gt;   &lt;!-- placed under the open tab by script --&gt;
+      &lt;/div&gt;
+      &lt;button class="wt-icon-btn wt-day-bar__cal" aria-expanded="false" aria-label="Jump to a day"&gt;${icon('calendar')}&lt;/button&gt;
     &lt;/div&gt;
   &lt;/div&gt;
+  &lt;div class="wt-day-cal" hidden&gt; … the trip's weeks, while the calendar is open … &lt;/div&gt;
   &lt;div class="wt-sheet__body wt-tl"&gt; … timeline rows … &lt;/div&gt;
   &lt;div class="wt-add-bar"&gt;&lt;button class="wt-btn wt-btn--primary wt-btn--block"&gt;${icon('plus')}Add stop&lt;/button&gt;&lt;/div&gt;
   &lt;!-- with a stop selected (.is-morphing while it changes set):
@@ -805,29 +812,19 @@ DotsieIcons.svg('check', 16, 3);  // custom size and stroke</code></pre></div>
           <div class="stage-controls"><button class="wt-btn wt-btn--secondary" type="button" id="modal-open">Open the sheet</button></div>
         </div>
       </div>
-      <h3>Day list</h3>
-      <p class="intro">Tapping the day in the day bar opens every day of the trip in a modal sheet, with the markers of each day's stops and the hotel you sleep at, so you can see what each day holds. Tap a day to try it.</p>
+      <h3>Day calendar</h3>
+      <p class="intro">The calendar at the end of the day tabs opens the trip's weeks between the tabs and the list, to jump to any day of a long trip. The open day is black and today has a ring, as in the month; a dot marks a day with stops of its own, so the days still to plan stand out. Days off the trip are light grey. Tap a day to try it.</p>
       <div class="demo">
         <div class="demo__live demo__live--column demo__live--narrow demo__live--raised" data-snippet>
-          <ul class="wt-day-list">
-            <li><button class="wt-day-list__item" type="button">
-              <span class="wt-day-list__name">Fri, Nov 20</span>
-              <span class="wt-day-list__kinds"><i class="wt-marker wt-marker--sm" role="img" aria-label="Airport" style="--wt-kind-color: var(--wt-kind-airport)"><i data-icon="plane"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Attraction" style="--wt-kind-color: var(--wt-kind-attraction)"><i data-icon="star"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-hotel)"><i data-icon="bed"></i></i></span>
-            </button></li>
-            <li><button class="wt-day-list__item" type="button" aria-current="date">
-              <span class="wt-day-list__name">Today, Nov 21</span>
-              <span class="wt-day-list__kinds"><i class="wt-marker wt-marker--sm" role="img" aria-label="Museum" style="--wt-kind-color: var(--wt-kind-museum)"><i data-icon="museum"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Restaurant" style="--wt-kind-color: var(--wt-kind-restaurant)"><i data-icon="utensils"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Nature" style="--wt-kind-color: var(--wt-kind-nature)"><i data-icon="tree"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Hotel" style="--wt-kind-color: var(--wt-kind-hotel)"><i data-icon="bed"></i></i></span>
-            </button></li>
-            <li><button class="wt-day-list__item" type="button">
-              <span class="wt-day-list__name">Sun, Nov 22</span>
-              <span class="wt-day-list__kinds"><i class="wt-marker wt-marker--sm" role="img" aria-label="Café" style="--wt-kind-color: var(--wt-kind-cafe)"><i data-icon="cup"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Gas" style="--wt-kind-color: var(--wt-kind-gas)"><i data-icon="fuel"></i></i><i class="wt-marker wt-marker--sm" role="img" aria-label="Airport" style="--wt-kind-color: var(--wt-kind-airport)"><i data-icon="plane"></i></i></span>
-            </button></li>
-          </ul>
+          <div class="wt-day-cal">
+            <div class="wt-day-cal__head"><span class="wt-cal__month">November 2026</span><button type="button" class="wt-day-cal__overview" aria-pressed="false">Overview</button></div>
+            <div class="wt-cal__grid" role="group" aria-label="The trip's days"><span class="wt-cal__wd" aria-hidden="true">S</span><span class="wt-cal__wd" aria-hidden="true">M</span><span class="wt-cal__wd" aria-hidden="true">T</span><span class="wt-cal__wd" aria-hidden="true">W</span><span class="wt-cal__wd" aria-hidden="true">T</span><span class="wt-cal__wd" aria-hidden="true">F</span><span class="wt-cal__wd" aria-hidden="true">S</span><span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">15</span></span><span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">16</span></span><span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">17</span></span><span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">18</span></span><span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">19</span></span><button type="button" class="wt-cal__day has-stops" aria-pressed="false" aria-label="Nov 20"><span class="wt-cal__n">20</span></button><button type="button" class="wt-cal__day has-stops" aria-pressed="false" aria-current="date" aria-label="Today, Nov 21"><span class="wt-cal__n">21</span></button><button type="button" class="wt-cal__day has-stops" aria-pressed="true" aria-label="Nov 22"><span class="wt-cal__n">22</span></button><button type="button" class="wt-cal__day" aria-pressed="false" aria-label="Nov 23, nothing planned"><span class="wt-cal__n">23</span></button><button type="button" class="wt-cal__day has-stops" aria-pressed="false" aria-label="Nov 24"><span class="wt-cal__n">24</span></button><span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">25</span></span><span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">26</span></span><span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">27</span></span><span class="wt-cal__day" aria-hidden="true"><span class="wt-cal__n">28</span></span></div>
+          </div>
         </div>
       </div>
       <ul class="rules">
-        <li><code>aria-current="date"</code> marks the open day. Picking a day closes the sheet and opens that day.</li>
-        <li>Show up to six markers: the day's stops in order, then the hotel. A place that appears twice shows once.</li>
+        <li>Only the weeks with days of the trip show; a later month's name (<code>.wt-day-cal__month</code>) comes before its first week.</li>
+        <li>Picking a day, or Overview, closes the calendar and opens that page. Esc closes it too.</li>
       </ul>
     </section>
 
@@ -1074,9 +1071,14 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
           <section class="wt-sheet" aria-label="White Sands, NM (example)">
             <div class="wt-sheet__top"><button class="wt-sheet__grab" type="button" aria-label="Show the whole day"></button>
               <div class="wt-day-bar">
-                <button class="wt-icon-btn wt-day-bar__step" type="button" aria-label="Previous day"><i data-icon="back"></i></button>
-                <button class="wt-day-bar__title" type="button" aria-label="Today, Nov 21. Pick a day"><span class="wt-day-bar__label">Today, Nov 21<i data-icon="chevron-up-down"></i></span></button>
-                <button class="wt-icon-btn wt-day-bar__step" type="button" aria-label="Next day"><i data-icon="forward"></i></button>
+                <div class="wt-day-tabs" role="tablist" aria-label="Days">
+                  <button class="wt-day-tab" role="tab" type="button" aria-selected="false" aria-label="Overview">Overview</button>
+                  <button class="wt-day-tab" role="tab" type="button" aria-selected="false" aria-label="Fri, Nov 20">Fri 20</button>
+                  <button class="wt-day-tab" role="tab" type="button" aria-selected="true" aria-label="Today, Nov 21">Today</button>
+                  <button class="wt-day-tab" role="tab" type="button" aria-selected="false" aria-label="Sun, Nov 22">Sun 22</button>
+                  <span class="wt-day-tabs__bar" aria-hidden="true"></span>
+                </div>
+                <button class="wt-icon-btn wt-day-bar__cal" type="button" aria-expanded="false" aria-label="Jump to a day"><i data-icon="calendar"></i></button>
               </div>
             </div>
             <div class="wt-sheet__body wt-tl">
@@ -1148,7 +1150,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Dotsie design system v13.0.0 · tokens.css · components.css · icons.js · logo.svg</footer>
+    <footer class="demo-foot">Dotsie design system v14.0.0 · tokens.css · components.css · icons.js · logo.svg</footer>
   </main>
 </div>
 
@@ -1291,7 +1293,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     ['--wt-type-label', 'Add stop', 'Buttons, pin labels'],
     ['--wt-type-caption', 'UA 1234 lands · rental car at Hertz', 'Notes, drives, field labels'],
     ['--wt-type-caption-strong', 'Arrives 13 min late', 'A late drive'],
-    ['--wt-type-overline', 'Fri, Nov 20', 'Day headings in All days, in capitals'],
+    ['--wt-type-overline', 'Fri, Nov 20', 'Day headings on the overview, in capitals'],
     ['--wt-type-micro', 'AM', 'AM / PM, initials'],
     ['--wt-type-input', 'Search a place', 'Form fields'],
   ];
@@ -1377,6 +1379,14 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
   }
 
   // ---------- Interactions ----------
+  // The day tabs' bar sits under the open tab; the app places it the same way (timeline.js).
+  function placeTabBars() {
+    document.querySelectorAll('.wt-day-tabs').forEach(row => {
+      const t = row.querySelector('[aria-selected="true"]'), b = row.querySelector('.wt-day-tabs__bar');
+      if (t && b) b.style.transform = `translateX(${t.offsetLeft + t.offsetWidth / 2 - b.offsetWidth / 2}px)`;
+    });
+  }
+  addEventListener('load', placeTabBars);
   document.addEventListener('click', e => {
     // Timeline: tapping a row selects it, as tapping its pin or route would. Directions links still open.
     const row = !e.target.closest('a') && e.target.closest('.wt-tl-stop, .wt-tl-drive');
@@ -1403,10 +1413,15 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       showTypes(false);
       return;
     }
-    const day = e.target.closest('.wt-day-list__item');
-    if (day) {
-      day.closest('.wt-day-list').querySelectorAll('[aria-current]').forEach(d => d.removeAttribute('aria-current'));
-      day.setAttribute('aria-current', 'date');
+    const calDay = e.target.closest('.wt-day-cal button.wt-cal__day');
+    if (calDay) {
+      calDay.closest('.wt-day-cal').querySelectorAll('[aria-pressed]').forEach(d => d.setAttribute('aria-pressed', String(d === calDay)));
+      return;
+    }
+    const tab = e.target.closest('.wt-day-tab');
+    if (tab) {
+      tab.parentElement.querySelectorAll('.wt-day-tab').forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+      placeTabBars();
       return;
     }
     // Half and full: the buttons under the stage set the height; at full the header docks.
