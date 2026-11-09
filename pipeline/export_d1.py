@@ -11,7 +11,9 @@ from store import HERE, batches, http_json
 
 NPS_TYPE = {"parks": "NPS park", "places": "NPS place", "thingstodo": "NPS thing to do", "visitorcenters": "NPS visitor center",
             "campgrounds": "NPS campground", "tours": "NPS tour", "webcams": "NPS webcam"}
-NPS_SCHEMES = {"url": "Page URL", "parkCode": "NPS park code", "P8649": "National Park Service place ID", "P4083": "Park Alpha Code"}
+NPS_SCHEMES = {"url": "Page URL", "parkCode": "NPS park code", "P8649": "National Park Service place ID", "P4083": "Park Alpha Code",
+               # Links that aren't identifiers (store.py's links and name_links), as "shares …" on the page
+               "website": "its website", "name": "its name, within 1 km", "similar name": "a near-identical name, within 1 km"}
 STATEMENT_BYTES = 90_000  # D1 allows 100 KB per statement
 
 
