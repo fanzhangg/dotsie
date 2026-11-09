@@ -6,7 +6,7 @@ import { cur, fromSnapshot, reloadTrip } from './trips.js';
 import { TRAVEL, dayPlan, daysOf, pagesOf, samePlace, wayTo } from './plan.js';
 import { BG_ROUTE_GAP, fetchRoute, legKey, routes } from './routes.js';
 import { scheduleRender } from './app.js';
-import { STOP_ZOOM, TILE_PRELOAD_PARALLEL, basemap, dayView, glFiles, glTileURLs, isGLStyle, map, mapSize } from './map.js';
+import { MAPLIBRE, STOP_ZOOM, TILE_PRELOAD_PARALLEL, basemap, dayView, glFiles, glTileURLs, isGLStyle, map, mapSize } from './map.js';
 import { project } from './geo.js';
 import { toast } from './notices.js';
 
@@ -38,6 +38,22 @@ export const offlineCards = () => Object.values(offline.trips).sort((a, b) => b.
 // No connection, or the trip on screen is its saved copy because the server didn't answer
 export const offlineNow = () => !navigator.onLine || !!cur?.offline;
 export const registerOffline = () => navigator.serviceWorker?.register('sw.js').catch(() => {});
+// The app's own files, for opening it with no connection: the page, its scripts, styles and modules as the page names
+// them, and the map's library, which loads only once a trip opens
+const shellFiles = () => [location.pathname, MAPLIBRE, ...[...document.querySelectorAll('script[src], link[rel="stylesheet"], link[rel="modulepreload"]')].map(el => el.src || el.href)];
+function saveShell(onlyMissing = false) {
+  return caches.open(SHELL_CACHE).then(c => Promise.all(shellFiles().map(async f => {
+    if (onlyMissing && await c.match(f)) return;
+    await c.add(f).catch(() => {});
+  }))).catch(() => {});
+}
+// sw.js keeps the files that are saved up to date, but an update can bring files that aren't saved yet: a module the
+// new page loads. So on each visit online with a trip saved, any file missing is saved now. Otherwise the first time
+// offline after such an update, the saved page (updated) asked for a module that wasn't there, and nothing loaded at all,
+// until the saved trip had been opened online (which saves the trip again, files and all).
+export function keepShell() {
+  if (canSaveOffline && navigator.onLine && anySaved()) saveShell(true);
+}
 export function rememberSession() {
   if (!anySaved() || !me) return;
   offline.me = me;
@@ -113,9 +129,7 @@ export async function saveOffline(trip, { quiet = false } = {}) {
   t.noMap = !style;
   rememberSession();
   showOffline();
-  // The app's own files: the page, its scripts and styles
-  const shell = caches.open(SHELL_CACHE).then(c => Promise.all([location.pathname, ...[...document.querySelectorAll('script[src], link[rel="stylesheet"], link[rel="modulepreload"]')].map(el => el.src || el.href)]
-    .map(f => c.add(f).catch(() => {})))).catch(() => {});
+  const shell = saveShell();
   // Each drive's route, a second apart, as preloading fetches them
   const drives = (async () => {
     for (const leg of legs.values()) {

@@ -99,7 +99,7 @@ const CREDIT = {
 };
 export let mapCredit = CREDIT.stadia;
 // Served with the app (see vendor/README.md), next to this file wherever the page is: the prototype's is in another folder
-const MAPLIBRE = new URL('vendor/maplibre/maplibre-gl.js', import.meta.url).href;
+export const MAPLIBRE = new URL('vendor/maplibre/maplibre-gl.js', import.meta.url).href;
 let glLoaded = null;
 const loadGL = () => (glLoaded ??= new Promise((done, fail) => {
   if (window.maplibregl) return done();

@@ -107,3 +107,36 @@ test('a trip saved for offline opens with no connection', async ({ page, context
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('White Sands, NM');
   await expect(stop(page, 'White Sands Visitor Center')).toBeVisible();
 });
+
+test('after an update that adds a file, a saved trip’s app still opens offline, though only Home was opened online since', async ({ page, context }) => {
+  await trip(page, 'white-sands');
+  await page.getByRole('button', { name: 'Trip settings and sharing' }).click();
+  await sheet(page).getByRole('button', { name: 'Save for offline' }).click();
+  await expect(sheet(page).getByRole('button', { name: 'Remove from this device' })).toBeVisible({ timeout: 60_000 });
+  // An update: the page loads one more module, as when the app gained geo.js
+  const page2 = /\/prototype\/(\?.*)?$/;
+  await context.route(page2, async route => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replace('</head>', '<link rel="modulepreload" href="../app/web/update-test.js">\n</head>') });
+  });
+  await context.route('**/app/web/app.js', async route => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: `import './update-test.js';\n${await res.text()}` });
+  });
+  await context.route('**/app/web/update-test.js', route => route.fulfill({ contentType: 'text/javascript', body: "document.documentElement.dataset.updated = 'yes';" }));
+  // Online, Home only: the saved trip isn't opened
+  await page.goto('#/');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-updated', 'yes');
+  await expect(cards(page).getByText('White Sands, NM')).toBeVisible();
+  await page.waitForTimeout(1500);
+  // Then no connection: the updated app, all of it, from what's saved on the phone (the server, updated, is out of reach)
+  await context.unroute(page2);
+  await context.unroute('**/app/web/app.js');
+  await context.unroute('**/app/web/update-test.js');
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-updated', 'yes');
+  await expect(cards(page).getByText('White Sands, NM')).toBeVisible();
+});
+

@@ -2,7 +2,7 @@
 import { $app, ICON, WORDMARK, esc, failMsg, params } from './core.js';
 import { closeTrip, setTrips } from './trips.js';
 import { api } from './backend.js';
-import { anySaved, forgetOffline, offline, registerOffline, rememberSession } from './offline.js';
+import { anySaved, forgetOffline, keepShell, offline, registerOffline, rememberSession } from './offline.js';
 import { parseHash, render } from './app.js';
 import { closeSheet } from './sheets.js';
 import { failToast, toast } from './notices.js';
@@ -28,7 +28,7 @@ export async function boot() {
     api('/me').catch(e => (e.code === 'offline' && offline.me) || null),
   ]);
   if (me && nextURL()) { location.replace(nextURL()); return; }
-  if (anySaved()) { rememberSession(); registerOffline(); }
+  if (anySaved()) { rememberSession(); registerOffline(); keepShell(); }
   render();
   const msg = socialErrorMessage();
   if (msg) toast(msg);
