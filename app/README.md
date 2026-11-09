@@ -14,6 +14,7 @@ One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`Tri
 | [src/mcp.ts](src/mcp.ts) | The MCP server: tools for an AI assistant to list trips and stops, and add, edit and delete stops |
 | [src/oauth.ts](src/oauth.ts) | OAuth sign-in for the MCP server, and its Allow page |
 | [migrations/](migrations) | D1 schema |
+| [e2e/](e2e) | End-to-end tests in Chromium (Playwright): the shared frontend through the prototype's seeded trips, and sign-in, sharing and live edits against a local Worker. Nothing leaves the machine: tiles, place search, routes and sights fail, as they can for real. `npm run e2e` |
 | [test/](test) | Unit tests: time zones, a trip's days and stays, the stop check, the D1 copy (on SQLite with the migrations), and the app's and the prototype's pages loading the same modules. `npm test` |
 | [web/](web) | The frontend: plain HTML, CSS and JS modules, served as they are with no bundler (the top of [web/app.js](web/app.js) says which module does what). [web/backend.js](web/backend.js) is all it says to the server; `../prototype` runs the same modules with its own `backend.js`. [web/tz-lookup.js](web/tz-lookup.js) finds a place's time zone from where it is ([@photostructure/tz-lookup](https://github.com/photostructure/tz-lookup), CC0), so a stop's time is its place's local time; only a zone someone picked by hand is saved (`tz`) |
 | [scripts/build.mjs](scripts/build.mjs) | Copies `web/` and `../design-system/` into `public/`, which Wrangler serves. Runs on `dev` and `deploy` |
@@ -28,6 +29,7 @@ cp .dev.vars.example .dev.vars   # then set BETTER_AUTH_SECRET
 npm run db:migrate:local
 npm run dev                      # http://localhost:8787
 npm test                         # unit tests; npm run typecheck checks the Worker and the frontend's pure modules
+npm run e2e                      # the app and the prototype in a browser (starts both servers if they aren't running)
 ```
 
 Sign-in offers Google (when its keys are set), email, and guest, one choice per screen. Email asks for the address first, then for its password, to use Google, or to create an account. A Google sign-in isn't joined to an existing password account with the same email, because that email was never verified; the app explains this and points to email sign-in. Email addresses aren't verified and there's no password reset yet: both need an email service. Without `STADIA_API_KEY`, local dev uses the public OSM demo servers for place search and routes; production returns 503 instead.
@@ -36,7 +38,7 @@ To try co-editing locally, use a second browser profile (each needs its own sess
 
 ## Deploy
 
-[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) checks every pull request (typecheck, unit tests, bundle) and deploys every push to `main`, as long as that commit is still the newest on `main` (two merges close together can start their deploys out of order, and an older commit deployed last would undo the newer one): it applies D1 migrations, then uploads the Worker together with its secrets, then smoke-tests `/api/config`. The production D1 database and KV namespace already exist; their IDs are in `wrangler.jsonc`.
+[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) checks every pull request (typecheck, unit tests, bundle, end-to-end tests) and deploys every push to `main`, as long as that commit is still the newest on `main` (two merges close together can start their deploys out of order, and an older commit deployed last would undo the newer one): it applies D1 migrations, then uploads the Worker together with its secrets, then smoke-tests `/api/config`. The production D1 database and KV namespace already exist; their IDs are in `wrangler.jsonc`.
 
 One-time setup, in the GitHub repo under Settings → Secrets and variables → Actions:
 
