@@ -118,3 +118,16 @@ test('anyone can search the spots data and follow a place to the same place in a
   await page.getByRole('button', { name: 'Back to search' }).click();
   await expect(page.getByRole('searchbox', { name: 'Search places by name' })).toHaveValue('test lodge');
 });
+
+// The developer page documents the MCP server from GET /api/developer/mcp and the API from README.md
+test('the developer page lists the MCP server’s tools as the server gives them, and the app’s API', async ({ page }) => {
+  await page.goto('/developer');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Developers');
+  const { url, tools } = await (await page.request.get('/api/developer/mcp')).json();
+  await expect(page.locator('#tools h3')).toHaveText(tools.map(t => new RegExp(`^${t.name} · `)));
+  await expect(page.locator('#tool-add_stop')).toContainText('trip_id');
+  await expect(page.locator('#mcp-facts')).toContainText(url);
+  await expect(page.locator('#api-docs')).toContainText('GET /api/trips/:id');
+  await page.getByRole('link', { name: 'Search the spots data' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
+});

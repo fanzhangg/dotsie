@@ -4,7 +4,8 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
 import { QID } from '../web/fields.js';
 import { findAbout, findPlaceAbout, findRoute, findSights, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
-import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
+import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider, oauthSpec } from './oauth';
+import { mcpSpec } from './mcp';
 import { ERR } from './stop';
 import type { Preview } from './trip';
 
@@ -86,6 +87,11 @@ const signedIn = async (c: Context<AppEnv>) => {
 };
 app.get(AUTHORIZE_PATH.slice(4), async c => authorizePage(c.req.raw, c.env, await signedIn(c)));
 app.post(AUTHORIZE_PATH.slice(4), async c => authorizeDecision(c.req.raw, c.env, await signedIn(c)));
+
+// ---------- For developers (the pages under /developer), open to anyone ----------
+// The MCP server's tools, version and instructions, and how a client signs in: what /developer documents, from the
+// code that runs them
+app.get('/developer/mcp', c => c.json({ url: mcpURL(c.env), ...mcpSpec(), oauth: oauthSpec(c.env) }, 200, { 'Cache-Control': 'public, max-age=300' }));
 
 // ---------- Spots data: what outside sources say about places, open to anyone, read-only ----------
 // Loaded per state by the Spots data workflow (pipeline/export_d1.py) and shown at /developer/spots. Every lookup reads

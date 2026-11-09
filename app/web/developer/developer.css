@@ -1,0 +1,45 @@
+/* The pages for developers (/developer): layout only. Colors, type and shapes come from the design system.
+   One column, like the app; tables and code scroll sideways inside themselves on a phone. */
+/* minmax(0, 1fr): a column as wide as the page, never as wide as its widest table or code */
+.dev, .dev__section, .dev__prose, .dev__prose ul, .dev__tool, .dev__place, .dev__head { grid-template-columns: minmax(0, 1fr); }
+.dev { max-width: var(--wt-size-column); margin: 0 auto; padding: var(--wt-space-6) max(var(--wt-space-4), env(safe-area-inset-right)) var(--wt-space-10) max(var(--wt-space-4), env(safe-area-inset-left)); display: grid; gap: var(--wt-space-4); }
+.dev--wide { max-width: 52rem; }
+.dev__head { display: grid; gap: var(--wt-space-1); }
+.dev__crumb { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.dev__crumb a, .dev a { color: var(--wt-text-link); }
+.dev__title { font: var(--wt-type-title); color: var(--wt-text-primary); margin: 0; }
+.dev__intro, .dev__hint { font: var(--wt-type-caption); color: var(--wt-text-secondary); margin: 0; }
+.dev__nav { display: flex; flex-wrap: wrap; gap: var(--wt-space-1) var(--wt-space-4); font: var(--wt-type-caption); }
+.dev__section { display: grid; gap: var(--wt-space-3); scroll-margin-top: var(--wt-space-4); }
+.dev__h2 { font: var(--wt-type-heading); color: var(--wt-text-primary); margin: var(--wt-space-4) 0 0; }
+.dev__h3 { font: var(--wt-type-body); font-weight: 500; color: var(--wt-text-primary); margin: 0; }
+.dev__overline { font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; color: var(--wt-text-tertiary); margin: var(--wt-space-2) 0 0; }
+.dev__prose { display: grid; gap: var(--wt-space-3); font: var(--wt-type-body); color: var(--wt-text-primary); }
+.dev__prose p, .dev__prose ul { margin: 0; }
+.dev__prose ul { padding-left: var(--wt-space-5); display: grid; gap: var(--wt-space-2); }
+.dev__prose li > p + p, .dev__prose li > p + pre, .dev__prose li > pre + p { margin-top: var(--wt-space-2); }
+.dev code { font-family: var(--wt-font-mono); font-size: .9em; overflow-wrap: anywhere; }
+.dev pre { margin: 0; padding: var(--wt-space-3); border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); overflow-x: auto; }
+.dev pre code { overflow-wrap: normal; white-space: pre; }
+.dev__instructions { white-space: pre-wrap; font: var(--wt-type-caption); color: var(--wt-text-secondary); margin: 0; padding: var(--wt-space-3); border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); }
+.dev__table { overflow-x: auto; }
+.dev__table table { border-collapse: collapse; width: 100%; font: var(--wt-type-caption); color: var(--wt-text-primary); }
+.dev__table th { text-align: left; font-weight: 500; color: var(--wt-text-secondary); }
+.dev__table th, .dev__table td { padding: var(--wt-space-2) var(--wt-space-3) var(--wt-space-2) 0; border-bottom: 1px solid var(--wt-border-subtle); vertical-align: top; }
+.dev__table td:first-child { white-space: nowrap; }
+.dev__fields { display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr); gap: var(--wt-space-2) var(--wt-space-3); margin: 0; font: var(--wt-type-caption); }
+.dev__fields dt { color: var(--wt-text-secondary); }
+.dev__fields dd { margin: 0; color: var(--wt-text-primary); overflow-wrap: anywhere; }
+.dev__tool { display: grid; gap: var(--wt-space-2); padding-top: var(--wt-space-3); border-top: 1px solid var(--wt-border-subtle); }
+.dev__tags { font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+.dev__foot { font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+
+/* Spots data (/developer/spots) */
+.dev__filters { display: flex; flex-wrap: wrap; gap: var(--wt-space-2); }
+.dev__filters select { flex: 1 1 140px; min-width: 0; }
+.dev__results { display: grid; }
+.dev__views { font: var(--wt-type-caption); color: var(--wt-text-tertiary); font-variant-numeric: tabular-nums; flex: none; }
+.dev__place { display: grid; gap: var(--wt-space-4); }
+.dev__back { justify-self: start; }
+.dev__name { font: var(--wt-type-heading); color: var(--wt-text-primary); margin: 0; }
+[hidden] { display: none !important; }

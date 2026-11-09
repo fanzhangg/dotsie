@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
+  <title>Developers · Dotsie</title>
+  <meta name="description" content="Connect an AI assistant to Dotsie trips over MCP, see the app's API, and search the places data Dotsie collects.">
+  <link rel="stylesheet" href="/design-system/tokens.css">
+  <link rel="stylesheet" href="/design-system/components.css">
+  <link rel="stylesheet" href="/developer/developer.css">
+</head>
+<body class="wt-base">
+  <main class="dev dev--wide">
+    <header class="dev__head">
+      <a class="dev__crumb" href="/">Dotsie</a>
+      <h1 class="dev__title">Developers</h1>
+      <p class="dev__intro">Dotsie plans road trips that everyone on a trip can edit. An AI assistant can read and change people's trips through the MCP server, with their permission. This page also lists the app's own API and the places data Dotsie collects.</p>
+      <nav class="dev__nav" aria-label="On this page">
+        <a href="#mcp">MCP server</a><a href="#sign-in">Sign-in</a><a href="#tools">Tools</a><a href="#api">App API</a><a href="#spots">Spots data</a>
+      </nav>
+    </header>
+
+    <section class="dev__section" id="mcp" aria-labelledby="mcp-title">
+      <h2 class="dev__h2" id="mcp-title">MCP server</h2>
+      <dl class="dev__fields" id="mcp-facts"></dl>
+      <div class="dev__prose" id="mcp-docs"></div>
+      <h3 class="dev__overline">What the server tells an assistant</h3>
+      <p class="dev__instructions" id="mcp-instructions"></p>
+    </section>
+
+    <section class="dev__section" id="sign-in" aria-labelledby="sign-in-title">
+      <h2 class="dev__h2" id="sign-in-title">Sign-in</h2>
+      <p class="dev__hint">OAuth 2.1. A client finds everything from the discovery documents: an assistant needs nothing but the server's address. People sign in to Dotsie and allow the assistant; it then acts as them, on the trips they're on.</p>
+      <dl class="dev__fields" id="oauth"></dl>
+    </section>
+
+    <section class="dev__section" id="tools" aria-labelledby="tools-title">
+      <h2 class="dev__h2" id="tools-title">Tools</h2>
+      <p class="dev__hint">As the server lists them (<code>tools/list</code>). Each returns JSON as structured content and as text; a mistake in the arguments comes back as a tool result with <code>isError</code>, saying which field is wrong.</p>
+      <div id="tool-list"></div>
+    </section>
+
+    <section class="dev__section" id="api" aria-labelledby="api-title">
+      <h2 class="dev__h2" id="api-title">App API</h2>
+      <p class="dev__hint">The API the Dotsie app itself uses. It's built for the app and can change with it; to work with people's trips from elsewhere, use the MCP server.</p>
+      <div class="dev__prose" id="api-docs"></div>
+    </section>
+
+    <section class="dev__section" id="spots" aria-labelledby="spots-title">
+      <h2 class="dev__h2" id="spots-title">Spots data</h2>
+      <p class="dev__prose">What Wikidata and the National Park Service say about places in the US, collected each month, state by state, as the ground for Dotsie's sights: names, points, types, identifiers, page views, and links between sources. <a href="/developer/spots">Search the spots data</a>.</p>
+    </section>
+
+    <p class="dev__foot" id="loading">Loading…</p>
+  </main>
+  <script src="/developer/developer.js"></script>
+</body>
+</html>
