@@ -114,7 +114,7 @@ test('anyone can search the spots data and follow a place to the same place in a
   await expect(page.getByText('12,345 in the last 12 months')).toBeVisible();
 
   await page.getByRole('button', { name: 'Back to search' }).click();
-  await expect(page.getByText('Built in 1917')).toBeVisible();
+  await expect(page.locator('#detail')).toContainText('Built in 1917'); // the list, hidden behind it, has the same text
   await page.getByRole('button', { name: 'Back to search' }).click();
   await expect(page.getByRole('searchbox', { name: 'Search places by name' })).toHaveValue('test lodge');
 });
