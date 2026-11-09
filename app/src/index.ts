@@ -130,7 +130,7 @@ app.post('/trips', async c => {
   return c.json(await room(c.env, id).create(id, tripName(name), c.get('user'), await newInvite()), 201);
 });
 
-app.get('/trips/:id', async c => c.json(await room(c.env, c.req.param('id')).snapshot(c.get('user').id)));
+app.get('/trips/:id', async c => c.json(await room(c.env, c.req.param('id')).open(c.get('user').id)));
 app.patch('/trips/:id', async c => {
   const { name } = await body(c.req.raw);
   await room(c.env, c.req.param('id')).rename(c.get('user').id, tripName(name));

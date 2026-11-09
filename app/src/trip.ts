@@ -206,6 +206,18 @@ export class TripRoom extends DurableObject<Env> {
     return this.snapshot(user.id);
   }
 
+  // Opening the trip. D1 says who's on which trip for the home screen, but this object decides: when it says you're not
+  // on it, D1's row is out of date (a leave whose D1 write failed, say), so it goes, and the card leaves your home screen.
+  // Checked here, one request at a time, so a join that has just added you isn't undone.
+  async open(userId: string) {
+    try { return this.snapshot(userId); } catch (e) {
+      if ((e as Error).message === ERR.notMember) {
+        await this.env.DB.prepare('delete from trip_members where trip_id = ? and user_id = ?').bind(this.trip()!.id, userId).run();
+      }
+      throw e;
+    }
+  }
+
   snapshot(userId: string) {
     const trip = this.check(userId);
     return {
@@ -307,12 +319,15 @@ export class TripRoom extends DurableObject<Env> {
     const trip = this.trip();
     if (!trip) throw new Error(ERR.notFound);
     if (trip.deleted_at) throw new Error(ERR.gone);
-    if (this.isMember(user.id)) return this.snapshot(user.id);
+    // Here first, then D1: D1 never lists someone this object doesn't (see open). If the D1 write fails, joining
+    // again writes it, since it's written whether or not you were already on the trip.
+    const member = this.isMember(user.id) ? null : this.addMember(user);
     await this.env.DB.prepare('insert or ignore into trip_members (trip_id, user_id, joined_at) values (?, ?, ?)')
       .bind(trip.id, user.id, Date.now()).run();
-    const member = this.addMember(user);
-    await this.syncPreview();
-    this.broadcast({ type: 'member.joined', member }, user.id);
+    if (member) {
+      await this.syncPreview();
+      this.broadcast({ type: 'member.joined', member }, user.id);
+    }
     return this.snapshot(user.id);
   }
 
@@ -321,8 +336,10 @@ export class TripRoom extends DurableObject<Env> {
     const trip = this.check(userId);
     if (trip.created_by === userId) throw new Error(ERR.invalid);
     const { name } = this.sql.exec<{ name: string }>('select name from members where id = ?', userId).one();
-    this.sql.exec('delete from members where id = ?', userId);
+    // D1 first, then here: if the D1 write fails you're still on the trip, so leaving again works
     await this.env.DB.prepare('delete from trip_members where trip_id = ? and user_id = ?').bind(trip.id, userId).run();
+    this.sql.exec('delete from members where id = ?', userId);
+    await this.syncPreview(); // the home card's people
     this.broadcast({ type: 'member.left', id: userId, name }, userId);
     for (const ws of this.ctx.getWebSockets(userId)) ws.close(4403, 'Left the trip');
   }
