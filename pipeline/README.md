@@ -22,7 +22,7 @@ scoring and model ratings tried on Washington, Seattle, Portland and Santa Fe.
 | `records` | Every Wikidata item located in the state that has coordinates, and every record the NPS Data API lists for it (parks, places, things to do, visitor centers, campgrounds, tours, webcams), with the source's raw JSON (Wikidata without references) |
 | `ids` | Every identifier on a record: Wikidata external IDs and items, sitelinks, NPS URLs and park codes |
 | `links` | Two records from different sources that share an identifier (ignoring case: Wikidata writes park codes in capitals, NPS in lower case), such as a Wikidata item's NPS place ID (`P8649`) or park code (`P4083`), or the same website. And, kept apart by their `via` (`name`, `similar name`), records that are probably the same place: within 1 km, with the same name once written alike, or one only an apostrophe or a space apart (a name only inside the other doesn't count) |
-| `documents` | The English Wikipedia article and the official website's first page (`P856`), as text, zlib-compressed |
+| `documents` | The English Wikipedia article's wikitext (infoboxes included), and the official website's first page (`P856`) as text, zlib-compressed |
 | `categories` | English Wikipedia categories per article |
 | `pageviews` | English Wikipedia views per article per month, for the last 12 months |
 | `properties` | Wikidata property labels, to read the raw claims |

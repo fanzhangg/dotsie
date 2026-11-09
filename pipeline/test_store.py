@@ -1,5 +1,7 @@
 """Tests for store.py that need no network: python3 -m unittest test_store (from pipeline/)."""
 import sqlite3, types, unittest
+from unittest import mock
+import store
 from store import SCHEMA, Store
 
 
@@ -49,6 +51,26 @@ class NameLinks(unittest.TestCase):
             ("nps:places", "B", "Q2", "similar name"),
             ("nps:places", "C", "Q3", "name"),
         ])
+
+
+class Wikitext(unittest.TestCase):
+    def test_an_answer_split_by_continuation_and_a_redirect_come_back_whole_under_the_title_asked(self):
+        answers = [
+            {"continue": {"clcontinue": "2|B", "continue": "||"}, "query": {
+                "redirects": [{"from": "Gas Works", "to": "Gas Works Park"}],
+                "pages": [{"title": "Gas Works Park", "revisions": [{"revid": 11, "slots": {"main": {"content": "{{Infobox park}}"}}}],
+                           "categories": [{"title": "Category:Parks in Seattle"}]},
+                          {"title": "Space Needle", "revisions": [{"revid": 22, "slots": {"main": {"content": "{{Infobox building}}"}}}]}]}},
+            {"query": {"pages": [{"title": "Gas Works Park"},
+                                 {"title": "Space Needle", "categories": [{"title": "Category:Towers in Seattle"}]}]}},
+        ]
+        with mock.patch.object(store, "http_json", side_effect=answers):
+            got = store.wikitext(["Gas Works", "Space Needle", "Gas Works Park"])
+        self.assertIs(got["Gas Works Park"], got["Gas Works"])  # a redirect and its page, both asked
+        self.assertEqual(got["Gas Works"]["text"], "{{Infobox park}}")
+        self.assertEqual(got["Gas Works"]["rev"], 11)
+        self.assertEqual(got["Gas Works"]["categories"], ["Parks in Seattle"])
+        self.assertEqual(got["Space Needle"]["categories"], ["Towers in Seattle"])
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ Tables:
   links       record <-> record through a shared identifier
   pageviews   English Wikipedia views per article per month (user agents)
   categories  English Wikipedia categories per article
-  documents   texts fetched for a record (Wikipedia article, official website)
+  documents   texts fetched for a record: its English Wikipedia article's wikitext, its official website's first page
   properties  Wikidata property labels, to read the raw claims
 
 Run: python3 store.py --state WA [--limit N] [--pageviews DIR] [steps...]
@@ -165,40 +165,45 @@ class Store:
     # ---------- English Wikipedia: article text and categories, for articles that changed ----------
 
     def wikipedia(self):
+        """Each English Wikipedia article's wikitext (infoboxes and all) and categories, for the articles whose revision
+        changed. Asked 50 at a time: first only their revision ids, then the changed ones' content and categories."""
         owner = dict((t, q) for q, t in self.db.execute(
             "SELECT id, value FROM ids WHERE source='wikidata' AND scheme='sitelink:enwiki'"))
+        # "wikitext:<revid>": an article kept as plain text by an earlier run is fetched again, once
         have = dict(self.db.execute("SELECT id, rev FROM documents WHERE kind='wikipedia' AND status='ok'"))
 
         def revs(b):
-            q = http_json("https://en.wikipedia.org/w/api.php?" + urllib.parse.urlencode({
+            q = http_json(WIKIPEDIA_API + urllib.parse.urlencode({
                 "action": "query", "prop": "info", "titles": "|".join(b), "format": "json"}))["query"]
             norm = {n["to"]: n["from"] for n in q.get("normalized", [])}
-            return {norm.get(p["title"], p["title"]): str(p.get("lastrevid")) for p in q["pages"].values()}
+            return {norm.get(p["title"], p["title"]): f"wikitext:{p.get('lastrevid')}" for p in q["pages"].values()}
 
         current = {}
         for r in pmap(revs, batches(sorted(owner), 50), 4):
             current.update(r)
-        todo = [t for t in owner if have.get(owner[t]) != current.get(t)]
+        todo = sorted(t for t in owner if have.get(owner[t]) != current.get(t))
         log(f"wikipedia: {len(owner)} articles; {len(todo)} new or changed")
 
-        def fetch(t):
+        def fetch(b):
             try:
-                q = http_json("https://en.wikipedia.org/w/api.php?" + urllib.parse.urlencode({
-                    "action": "query", "prop": "extracts|categories", "explaintext": 1, "clshow": "!hidden",
-                    "cllimit": "max", "redirects": 1, "titles": t, "format": "json"}))["query"]
-                p = next(iter(q["pages"].values()))
-                return t, p.get("title", t), p.get("extract", ""), [c["title"][9:] for c in p.get("categories", [])], "ok"
+                got = wikitext(b)
+                return {t: got.get(t, {"status": "missing"}) for t in b}
             except Exception as err:
-                return t, t, "", [], f"error: {type(err).__name__}: {str(err)[:120]}"
+                return {t: {"status": f"error: {type(err).__name__}: {str(err)[:120]}"} for t in b}
 
-        for n, (t, title, text, cats, status) in enumerate(pmap(fetch, todo, 8)):
-            self.put_doc(owner[t], "wikipedia", "https://en.wikipedia.org/wiki/" + urllib.parse.quote(t.replace(" ", "_")),
-                         title, "CC BY-SA 4.0", current.get(t), status, text)
-            self.db.execute("DELETE FROM categories WHERE article=?", (t,))
-            self.db.executemany("INSERT OR IGNORE INTO categories VALUES (?,?)", [(t, c) for c in cats])
-            if n % 500 == 499:
+        done = 0
+        for got in pmap(fetch, batches(todo, 50), 4):
+            for t, a in got.items():
+                text = a.get("text") or ""
+                status = a.get("status") or ("ok" if text else "missing")
+                self.put_doc(owner[t], "wikipedia", "https://en.wikipedia.org/wiki/" + urllib.parse.quote(t.replace(" ", "_")),
+                             a.get("title", t), "CC BY-SA 4.0", f"wikitext:{a['rev']}" if a.get("rev") else None, status, text)
+                self.db.execute("DELETE FROM categories WHERE article=?", (t,))
+                self.db.executemany("INSERT OR IGNORE INTO categories VALUES (?,?)", [(t, c) for c in a.get("categories", [])])
+            done += len(got)
+            if done % 1000 < 50:
                 self.db.commit()
-                log(f"  {n + 1}/{len(todo)}")
+                log(f"  {done}/{len(todo)}")
         self.db.commit()
 
     def put_doc(self, rid, kind, url, title, license, rev, status, text, source="wikidata"):
@@ -398,6 +403,40 @@ def metres(lat1, lng1, lat2, lng2):
     h = (math.sin((lat2 - lat1) * p / 2) ** 2 +
          math.cos(lat1 * p) * math.cos(lat2 * p) * math.sin((lng2 - lng1) * p / 2) ** 2)
     return 12742000 * math.asin(math.sqrt(h))
+
+
+WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php?"
+
+
+def wikitext(titles):
+    """Up to 50 articles' latest wikitext, revision id and visible categories in one request, following the API's
+    continuation (it splits a big answer, by content and by categories) and its redirects, keyed by the titles asked.
+    A title asked that leads to no article (missing, or an empty answer) isn't in the result."""
+    params = {"action": "query", "prop": "revisions|categories", "rvprop": "ids|content", "rvslots": "main",
+              "clshow": "!hidden", "cllimit": "max", "redirects": 1, "titles": "|".join(titles),
+              "format": "json", "formatversion": 2}
+    pages, to, cont = {}, {}, {}
+    while True:
+        q = http_json(WIKIPEDIA_API + urllib.parse.urlencode({**params, **cont}))
+        for r in q["query"].get("normalized", []) + q["query"].get("redirects", []):
+            to[r["from"]] = r["to"]
+        for p in q["query"].get("pages", []):
+            a = pages.setdefault(p["title"], {"title": p["title"], "categories": []})
+            if p.get("revisions"):
+                rv = p["revisions"][0]
+                a["rev"], a["text"] = rv["revid"], rv["slots"]["main"].get("content")
+            a["categories"] += [c["title"].removeprefix("Category:") for c in p.get("categories", [])]
+        if "continue" not in q:
+            break
+        cont = q["continue"]
+    # From each title asked to its article: two titles can lead to one (a redirect and the page it points to)
+    def article(t):
+        for _ in range(5):
+            if t not in to:
+                break
+            t = to[t]
+        return t
+    return {t: pages[article(t)] for t in titles if article(t) in pages}
 
 
 def simple(snak):
