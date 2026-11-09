@@ -42,16 +42,16 @@ export async function searchPlaces(env: Env, q: string, near?: { lat: number; ln
 
 export async function findRoute(env: Env, mode: RouteMode, a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<Route> {
   const key = routeKey(mode, a, b);
-  const hit = await env.ROUTES.get<Route>(key, 'json');
+  const hit = await env.CACHE.get<Route>(key, 'json');
   if (hit) return hit;
   const route = env.STADIA_API_KEY ? await stadiaRoute(env, mode, a, b) : await devRoute(mode, a, b);
-  await env.ROUTES.put(key, JSON.stringify(route), { expirationTtl: ROUTE_TTL });
+  await env.CACHE.put(key, JSON.stringify(route), { expirationTtl: ROUTE_TTL });
   return route;
 }
 
 // A route someone on the trip has already looked up, without looking it up now
 export const cachedRoute = (env: Env, mode: RouteMode, a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
-  env.ROUTES.get<Route>(routeKey(mode, a, b), 'json');
+  env.CACHE.get<Route>(routeKey(mode, a, b), 'json');
 
 async function stadiaRoute(env: Env, mode: RouteMode, a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<Route> {
   const res = await fetch(`${STADIA}/route/v1?api_key=${env.STADIA_API_KEY}`, {
@@ -84,7 +84,7 @@ async function stadiaRoute(env: Env, mode: RouteMode, a: { lat: number; lng: num
 type Kept<T> = { at: number; value: T };
 const KEEP = 60 * 60 * 24 * 365, FRESH = 1000 * 60 * 60 * 24 * 30;
 const stale = (k: { at: number }, fresh = FRESH) => Date.now() - k.at > fresh;
-export const keep = <T>(env: Env, key: string, value: T, at = Date.now()) => env.ROUTES.put(key, JSON.stringify({ at, value } satisfies Kept<T>), { expirationTtl: KEEP });
+export const keep = <T>(env: Env, key: string, value: T, at = Date.now()) => env.CACHE.put(key, JSON.stringify({ at, value } satisfies Kept<T>), { expirationTtl: KEEP });
 // Two public servers, asked at once: whichever answers first is used. Each is given SIGHT_TIMEOUT s (Overpass's own
 // limit for the query) and a little more to send it back. They're slow because they're busy, not because a tile is
 // big: a query for three museums took mail.ru 15–22 s, a whole tile 20–28 s. Asking them in quarters only made four
@@ -97,7 +97,7 @@ const OSM_UA = { 'User-Agent': 'Dotsie (road trip planner)' }; // Overpass and N
 // A tile's sights, or 'pending' while its SightsLookup asks Overpass for them. Throws once both servers have just failed
 // on it. A copy older than FRESH is answered at once and looked up again behind it.
 export async function findSights(env: Env, x: number, y: number): Promise<Sight[] | 'pending'> {
-  const hit = await env.ROUTES.get<Kept<Sight[]>>(sightsKey(x, y), 'json');
+  const hit = await env.CACHE.get<Kept<Sight[]>>(sightsKey(x, y), 'json');
   if (hit && !stale(hit)) return hit.value;
   const look = await env.SIGHTS.get(env.SIGHTS.idFromName(`${x}/${y}`)).look(x, y, !!hit);
   if (typeof look === 'object') return look.sights;
@@ -147,7 +147,7 @@ const ABOUT_NONE_FRESH = 1000 * 60 * 60 * 24 * 7;
 const aboutsLoading = new Map<string, Promise<About>>();
 export async function findAbout(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, qid: string): Promise<About> {
   const key = `about:v1:${qid}`;
-  const hit = await env.ROUTES.get<Kept<About>>(key, 'json');
+  const hit = await env.CACHE.get<Kept<About>>(key, 'json');
   if (hit && !stale(hit, hit.value ? FRESH : ABOUT_NONE_FRESH)) return hit.value;
   let p = aboutsLoading.get(key);
   if (!p) {
@@ -166,7 +166,7 @@ export async function findAbout(env: Env, ctx: { waitUntil(p: Promise<unknown>):
 // as above. Which item a place is, or that it has none, is kept in KV as `place:v1:<name>@<where>`, like an about.
 export async function findPlaceAbout(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, name: string, at: { lat: number; lng: number }): Promise<About> {
   const key = `place:v1:${placeKey(name)}@${at.lat.toFixed(3)},${at.lng.toFixed(3)}`;
-  const hit = await env.ROUTES.get<Kept<string | null>>(key, 'json');
+  const hit = await env.CACHE.get<Kept<string | null>>(key, 'json');
   let qid = hit?.value ?? null;
   if (!hit || stale(hit, hit.value ? FRESH : ABOUT_NONE_FRESH)) {
     try {

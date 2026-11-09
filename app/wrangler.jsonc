@@ -31,10 +31,12 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripRoom"] }, { "tag": "v2", "new_sqlite_classes": ["SightsLookup"] }],
 
-  // Drive routes, keyed by their endpoints ("drive:…"). OAUTH_KV is the MCP server's OAuth records (clients, grants,
-  // tokens, all under their own prefixes); it shares the namespace so there's nothing to create before deploying.
+  // CACHE is what the Worker looks up and keeps: drive routes ("drive:…"), map tiles' sights ("sights:…") and what
+  // Wikipedia says about places ("about:…", "place:…"). All of it can be looked up again, so it can be emptied at will.
+  // OAUTH_KV is the MCP server's OAuth records (clients, grants, tokens), which can't: emptied, every connected
+  // assistant would have to connect again. (They shared one namespace until 2026-11; the old one is OAUTH_KV's now.)
   "kv_namespaces": [
-    { "binding": "ROUTES", "id": "975e7b4349dc41db85e0b5d325f8182d" },
+    { "binding": "CACHE", "id": "3d4a2553a77d42ca8c94bc87b74f4943" },
     { "binding": "OAUTH_KV", "id": "975e7b4349dc41db85e0b5d325f8182d" }
   ],
 
