@@ -915,14 +915,14 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 
 ```html
 <h1 class="wt-wordmark">
-  <span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span>
+  <span aria-hidden="true">Dots<span class="wt-wordmark__i"><span>ı</span></span>e</span>
   <span class="wt-visually-hidden">Dotsie</span>
 </h1>
 ```
 
 The app's name, with a stop for the i's dot, where the app names itself: Home's title and the sign-in page. Set it in whatever bold type that place uses (the display type on Home); the dot is sized from the type and follows it.
 
-- **The i** is a dotless ı (`.wt-wordmark__i`) with the logo's orange stop (`--wt-brand-dot-i`) for its dot, a little bigger than a letter's, where Inter Bold puts its own.
+- **The i** is a dotless ı, in a span of its own inside `.wt-wordmark__i`, with the logo's orange stop (`--wt-brand-dot-i`) for its dot, a little bigger than a letter's, as high as Inter Bold puts its own. The dot is centered on the ı's own width, so it sits over the stem in any font: the app's is the phone's own (SF Pro, Roboto, Segoe UI), not Inter.
 - **No colon.** The :D colon is the icon's; before a word it reads as a typo.
 - **What's read** is the hidden "Dotsie": the drawn name, "Dotsıe" with its dot, is `aria-hidden`, so a screen reader doesn't spell it out.
 

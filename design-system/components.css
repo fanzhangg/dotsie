@@ -1031,12 +1031,17 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-about--compact.wt-about--loading .wt-about__line:first-child { margin-top: 0; }
 
 /* ---------- Wordmark: the app's name, "Dotsie", with a stop for the i's dot ----------
-   The i is a dotless ı, and its dot an orange stop, the logo's, a little bigger than a letter's dot (30% of the cap
-   height), where Inter Bold has its own: centered over the stem (.136em in) and .69em over the baseline. The dot is
-   an empty inline-block before the ı, so its bottom margin edge sits on the baseline whatever the font's metrics; the
-   right margin gives its width back. Sized in em, it follows whatever bold type the name is set in. */
-.wt-wordmark { white-space: nowrap; }
-.wt-wordmark__i::before { content: ''; display: inline-block; vertical-align: baseline; width: .213em; height: .213em; margin: 0 -.242em .586em .029em; border-radius: var(--wt-radius-round); background: var(--wt-brand-dot-i); }
+   The i is a dotless ı, and its dot the logo's orange stop, a little bigger than a letter's dot (30% of the cap
+   height), .69em over the baseline, where Inter Bold has its own. The ı and the dot share one grid cell: the dot is
+   centered on the ı's own width, so it sits over the stem in whatever font the phone uses, and baseline-aligned
+   with it, then lifted, so its height doesn't depend on the font's metrics either. The ı takes no tracking of its
+   own, which would narrow the cell and pull the dot left; the cell gives the tracking back after it. Sized in em, it
+   follows whatever bold type the name is set in. */
+.wt-wordmark { white-space: nowrap; letter-spacing: var(--wt-tracking-display); }
+.wt-wordmark__i { display: inline-grid; justify-items: center; align-items: baseline; margin-right: var(--wt-tracking-display); }
+.wt-wordmark__i > *, .wt-wordmark__i::before { grid-area: 1 / 1; }
+.wt-wordmark__i > * { letter-spacing: 0; }
+.wt-wordmark__i::before { content: ''; position: relative; bottom: .586em; width: .213em; height: .213em; border-radius: var(--wt-radius-round); background: var(--wt-brand-dot-i); }
 
 /* ---------- Empty state ---------- */
 .wt-empty { margin: 0; padding: var(--wt-space-10) var(--wt-space-6); text-align: center; color: var(--wt-text-secondary); }

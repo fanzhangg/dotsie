@@ -16,7 +16,7 @@ const ROUTE_KEY = 'waythread:routes:v1';
 const $app = document.getElementById('app');
 const $sheets = document.getElementById('sheets');
 // The app's name as its wordmark, with a stop for the i's dot (see Wordmark in the design system); read as plain text
-const WORDMARK = '<span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span>';
+const WORDMARK = '<span aria-hidden="true">Dots<span class="wt-wordmark__i"><span>ı</span></span>e</span><span class="wt-visually-hidden">Dotsie</span>';
 // sel: the selected stop · selRow: which of its rows was tapped (a hotel can start and end the day) · leg: the drive whose route is shown · snap: the phone's list, 'half' or 'full' ·
 // draft: the stop open in the stop sheet, as edited so far, which the map shows in its place
 const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, snap: 'half', draft: null, flash: new Set() };
