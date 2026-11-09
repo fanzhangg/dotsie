@@ -109,6 +109,13 @@ const loadGL = () => (glLoaded ??= new Promise((done, fail) => {
   s.onerror = () => { s.remove(); fail(); };
   document.head.append(s);
 }).then(() => { maplibregl.addProtocol('wt-shared', sharedFetch); return true; }, () => { glLoaded = null; return false; }));
+// MapLibre is a megabyte: Home loads it once it's idle, so the trip opened next draws its map at once
+let glPreload = false;
+export function preloadMap() {
+  if (glPreload) return;
+  glPreload = true;
+  if (window.requestIdleCallback) requestIdleCallback(loadGL, { timeout: 5000 }); else setTimeout(loadGL, 2000);
+}
 // MapLibre asks for Stadia's tiles, sprite and fonts through this, from the page rather than from its worker: so the
 // service worker answers them for a trip saved for offline, and a tile preloaded for another day (see queueTiles) and
 // the same tile asked for by the map share one fetch, and count once against the Stadia plan. Each gets its own copy

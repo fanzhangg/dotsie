@@ -140,3 +140,16 @@ test('after an update that adds a file, a saved trip’s app still opens offline
   await expect(cards(page).getByText('White Sands, NM')).toBeVisible();
 });
 
+
+test('Home loads the map’s library while it’s idle, so a trip’s map doesn’t wait for it', async ({ page }) => {
+  const isLib = u => u.endsWith('/vendor/maplibre/maplibre-gl.js');
+  const lib = page.waitForResponse(r => isLib(r.url()));
+  await page.goto('#/');
+  await lib;
+  await expect.poll(() => page.evaluate(() => !!window.maplibregl)).toBe(true);
+  let again = false;
+  page.on('request', r => { if (isLib(r.url())) again = true; });
+  await cards(page).getByText('White Sands, NM').click();
+  await expect(page.locator('#map .wt-pin').first()).toBeVisible();
+  expect(again).toBe(false);
+});

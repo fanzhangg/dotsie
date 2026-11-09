@@ -33,7 +33,7 @@ import { applySnap, centerFocus, closeDayCal, currentDay, grabLabel, isWide, pic
 import { legsOn } from './routes.js';
 import { openTravel } from './edits.js';
 import { keepOfflinePlan, needsConnection, renderOfflineStatus, savedTrip, statusSay } from './offline.js';
-import { drawMap, mountTrip, previewLeg, refit, schedulePreload, selectStop, showWholeDay, teardownTrip, updateFitBtn } from './map.js';
+import { drawMap, mountTrip, preloadMap, previewLeg, refit, schedulePreload, selectStop, showWholeDay, teardownTrip, updateFitBtn } from './map.js';
 import { drag, holdRender, sheetTarget } from './sheet.js';
 import { closeSheet, openAccount, openNewTrip, openSettings } from './sheets.js';
 import { openStopSheet } from './stopsheet.js';
@@ -70,6 +70,7 @@ export function render() {
     $app.dataset.page = 'home';
     $app.innerHTML = homeHTML();
     loadCardPhotos();
+    preloadMap();
     return;
   }
   setTrips(null); // the home list reloads on the way back
