@@ -1,7 +1,7 @@
 'use strict';
 
-/* Dotsie offline — the same file in app/web and prototype.
-   The app saves a trip for offline itself, from trip settings (see "Offline" in app.js): the app's own files go in the
+/* Dotsie offline. prototype/sw.js imports this file, so it looks after the prototype's pages too.
+   The app saves a trip for offline itself, from trip settings (see offline.js): the app's own files go in the
    waythread-shell cache, and the trip's map (its tiles, and MapLibre's style, sprite and fonts) in one cache per trip.
    This worker only answers from those caches:
    - the app's files: from the network, and from the saved copy when the network fails or is too slow (a weak signal);

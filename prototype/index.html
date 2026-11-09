@@ -5,23 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
+  <!-- The prototype is the app's own frontend (../app/web) with this folder's backend.js in place of the app's, which talks
+       to the server: data in localStorage instead, and open tabs in sync over a BroadcastChannel -->
+  <script type="importmap">{ "imports": { "../app/web/backend.js": "./backend.js" } }</script>
   <title>Dotsie</title>
   <!-- Installable, so a phone can keep trips saved for offline (on iPhone, Add to Home Screen) -->
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" href="../app/web/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../app/web/apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
   <link rel="stylesheet" href="../design-system/tokens.css">
   <link rel="stylesheet" href="../design-system/components.css">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="../app/web/styles.css">
+  <link rel="stylesheet" href="proto.css">
+  <!-- The app's modules, fetched at once rather than one import at a time; saving a trip for offline saves these too -->
+  <link rel="modulepreload" href="../app/web/core.js">
+  <link rel="modulepreload" href="../app/web/time.js">
+  <link rel="modulepreload" href="../app/web/plan.js">
+  <link rel="modulepreload" href="backend.js">
+  <link rel="modulepreload" href="../app/web/signin.js">
+  <link rel="modulepreload" href="../app/web/trips.js">
+  <link rel="modulepreload" href="../app/web/routes.js">
+  <link rel="modulepreload" href="../app/web/offline.js">
+  <link rel="modulepreload" href="../app/web/home.js">
+  <link rel="modulepreload" href="../app/web/map.js">
+  <link rel="modulepreload" href="../app/web/timeline.js">
+  <link rel="modulepreload" href="../app/web/sheet.js">
+  <link rel="modulepreload" href="../app/web/sights.js">
+  <link rel="modulepreload" href="../app/web/edits.js">
+  <link rel="modulepreload" href="../app/web/sheets.js">
+  <link rel="modulepreload" href="../app/web/stopsheet.js">
+  <link rel="modulepreload" href="../app/web/notices.js">
 </head>
 <body class="wt-base">
   <div id="app"></div>
   <div id="sheets" class="wt-modal-root"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="../design-system/icons.js"></script>
-  <script src="tz-lookup.js"></script>
-  <script src="app.js"></script>
+  <script src="../app/web/tz-lookup.js"></script>
+  <script type="module" src="../app/web/app.js"></script>
 </body>
 </html>

@@ -31,7 +31,7 @@ const stopId = (v: unknown) => {
   if (typeof v !== 'string' || !ID.test(v)) throw new ToolError('stop_id isn’t a stop id. Call list_stops for one.');
   return v;
 };
-// Like the app's ids for the stops it adds (uid in web/app.js)
+// Like the app's ids for the stops it adds (uid in web/core.js)
 const newId = () => [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join('');
 // The fields a tool was given that a stop has, each checked on its own, so an error names the one that's wrong
 function fieldsOf(args: Record<string, unknown>) {

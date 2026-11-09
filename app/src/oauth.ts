@@ -72,7 +72,7 @@ export async function authorizePage(req: Request, env: Env, user: Signed | null)
   const oauth = oauthApi(env);
   try {
     const request = await oauth.parseAuthRequest(req);
-    // Not signed in: the app's sign-in, which comes back here (see "next" in web/app.js)
+    // Not signed in: the app's sign-in, which comes back here (see nextURL in web/signin.js)
     if (!user) {
       const here = new URL(req.url);
       return Response.redirect(`${here.origin}/?next=${encodeURIComponent(here.pathname + here.search)}`, 302);

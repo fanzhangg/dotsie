@@ -3,19 +3,18 @@
 | Folder | What it is |
 | --- | --- |
 | [`app/`](app) | The product: a Cloudflare Worker (`app/src`) and its frontend (`app/web`). See [app/README.md](app/README.md) |
-| [`prototype/`](prototype) | The same frontend with no backend: data in localStorage, open tabs sync to simulate co-editing |
+| [`prototype/`](prototype) | The app's frontend with a pretend backend: data in localStorage, open tabs sync to simulate co-editing |
 | [`design-system/`](design-system) | Tokens, components and icons both of them use. See its [README](design-system/README.md) |
 | [`docs/`](docs) | The proposal and the [UX design](docs/ux-design.md) |
 
-## Keep the prototype's UX the same as the product's
+## The prototype runs the app's own frontend
 
-`prototype/` must always look and behave like `app/web`. Any change to what people see or do, in either one, goes into the other **in the same change** (same commit or PR). Don't leave it for later.
+`prototype/` is `app/web` with no server. Its `index.html` loads the app's modules from `../app/web`, and an import map puts `prototype/backend.js` in place of `app/web/backend.js`, so there is one frontend and the two can't drift apart: a change to what people see or do in `app/web` is in the prototype too.
 
-- `prototype/app.js` is `app/web/app.js` with its backend swapped out: the sections marked *Prototype only* (a pretend `/api`, the session, live edits over a BroadcastChannel, the note in trip settings) replace the app's, and the app's *Sign in* section is left out. Everything else is the same, line for line, so `diff app/web/app.js prototype/app.js` shows only those sections. Port a change by applying the same edit to both files.
-- `prototype/styles.css` is `app/web/styles.css` plus `.proto-note`. `prototype/index.html` differs only in the `../design-system/` paths.
-- `prototype/sw.js` (the offline service worker), `prototype/manifest.json`, `prototype/tz-lookup.js` (a place's time zone from where it is) and the icons (`favicon.svg`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`; see the design system's [Logo](design-system/README.md#logo)) are the same as `app/web`'s: copy them over unchanged.
-- What stays product-only, because the prototype has no server: sign-in and accounts (the prototype uses `?as=` instead), connecting an AI assistant (OAuth and its Allow page), the API, and the WebSocket (the prototype uses localStorage and a BroadcastChannel). Wherever the product has UI for these, such as the share link and its new-link button, the prototype fakes it locally rather than leaving it out.
-- Before finishing a change to either one, run `diff app/web/app.js prototype/app.js`, `diff app/web/styles.css prototype/styles.css` and `diff app/web/sw.js prototype/sw.js` and check that nothing outside those sections differs. Then open both and try the change in each.
+- `prototype/backend.js` has the same exports as `app/web/backend.js` (`api`, `connectLive`, `disconnectLive`, `signOut`, `settingsNoteHTML`) and answers them in the browser: trips in localStorage, live edits between open tabs over a BroadcastChannel, `?as=` instead of sign-in. When the app's API changes (a route, a field, a rule such as who may delete a trip), change its pretend `/api` the same way **in the same change** (same commit or PR).
+- Everything else in `prototype/` points at the app's files: `index.html` (the same as `app/web/index.html` with `../app/web/` and `../design-system/` in front, plus the import map and `proto.css`), `sw.js` (imports the app's), `manifest.json` (the app's, with the icons' paths) and `proto.css` (`.proto-note`, the note `settingsNoteHTML` puts in trip settings). A new module goes in the modulepreload list of both `index.html` files; `npm --prefix app test` checks that.
+- What stays product-only, because the prototype has no server: sign-in and accounts (the prototype uses `?as=` instead), connecting an AI assistant (OAuth and its Allow page), the API, and the WebSocket. Their screens are in the shared frontend; the prototype's backend fakes what it can, such as the share link and its new-link button, and never reaches the sign-in screen.
+- Before finishing a change, run `npm --prefix app test`, then open both and try the change in each.
 - If a docs page or the design system's README describes the change, update it once for both.
 
 ## Running
