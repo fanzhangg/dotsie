@@ -253,7 +253,9 @@ export class TripRoom extends DurableObject<Env> {
   }
   // Clients only listen; writes go over HTTP so they can be retried and checked.
   webSocketMessage() {}
-  webSocketClose(ws: WebSocket, code: number) { ws.close(code === 1005 ? 1000 : code); }
+  // Finish the close with the code the client sent. A dropped connection (1006) or one closed with no code (1005) has
+  // none it may be sent back with, and close() throws for those, so they're answered with 1000.
+  webSocketClose(ws: WebSocket, code: number) { ws.close(code === 1000 || (code >= 3000 && code < 5000) ? code : 1000); }
 
   // ---------- Internals ----------
   private trip() {
