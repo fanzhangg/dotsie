@@ -1,0 +1,104 @@
+[
+ {
+  "verdict": "change",
+  "title": "语言数不能当门槛",
+  "body": "很多美国本土的自驾目的地只有 1 到 2 种语言的维基条目，但浏览量很高。第二档改成只看浏览量；语言数只在第一档用，用来挡掉只在美国出名的东西。",
+  "evidence": "Hurricane Ridge：2 种语言，每月 1211 次浏览。Ballard Locks：2 种语言，每月 1720 次。Point Defiance Park：1 种语言，每月 882 次。"
+ },
+ {
+  "verdict": "change",
+  "title": "浏览量改用 Pageviews API，并处理改名和重定向",
+  "body": "一次请求就能拿到 60 个月的数据，3600 篇文章单机大约 15 分钟。但浏览量是按标题算的：条目改名后，旧标题下的月份会丢；sitelink 指向重定向时，算到的只有重定向本身的访问。",
+  "evidence": "426 篇文章需要补算旧标题，95 个 sitelink 指向重定向。Manito Park 改名前的月份全在旧标题下。Ape Cave 重定向到另一篇文章的一个章节，浏览量几乎为 0。"
+ },
+ {
+  "verdict": "change",
+  "title": "去掉“本地前 K 名”的上限",
+  "body": "在西雅图这样的密集地区，60 公里内前 12 名的上限会砍掉真正的景点。郊区被灌满的问题，绝对门槛已经能挡住。",
+  "evidence": "Snoqualmie Falls 排第 14，The Museum of Flight 排第 15，Gas Works Park 排第 25，Kerry Park 排第 66，都被砍掉了。"
+ },
+ {
+  "verdict": "change",
+  "title": "候选不能要求“至少 2 个站点链接”",
+  "body": "只有英文维基的美国地点会被挡掉。改成“有英文维基，或至少 2 个站点链接”。",
+  "evidence": "候选从 5844 个增加到 7496 个。Olympic Sculpture Park 和 Sol Duc Falls 都只有 1 个站点链接。"
+ },
+ {
+  "verdict": "change",
+  "title": "“大地理算背景”这条规则太宽",
+  "body": "湖泊和海峡正是自驾目的地。现在的做法是：位于公园或 NPS 单位里的湖泊算景点。更稳的做法是用 PAD-US 的边界和面积来判断。",
+  "evidence": "Lake Crescent、Lake Chelan、Diablo Lake 原本都被当成背景。Lake Quinault 的 Wikidata 条目没有“位于保护区”这个属性，所以仍然漏掉。"
+ },
+ {
+  "verdict": "change",
+  "title": "白名单和黑名单都没覆盖的类型，最高只进第二档",
+  "body": "这些“中性”类型里，一半是真景点（Gum Wall、Smith Tower），一半根本不是地点。它们不能进第一档，第二档的门槛也提到 1000；地区、半岛、地质构造归进背景，族群和都市传说归进屏蔽。",
+  "evidence": "第一版的第一档里有 Pacific Northwest、Quileute people、Mel's Hole（都市传说）、Cascadia subduction zone。"
+ },
+ {
+  "verdict": "change",
+  "title": "只看“拆除日期”（P576）不够",
+  "body": "1940 年垮掉的那座桥没有 P576，但类型里有“已被摧毁的建筑”。两者任一命中就剔除。",
+  "evidence": "Tacoma Narrows Bridge (1940)：每月 17486 次浏览，第一版排进了第一档。"
+ },
+ {
+  "verdict": "holds",
+  "title": "园区内部的排序，可以看 NPS 自己的页面提到它几次",
+  "body": "NPS 的 places 里混着大量解说牌和步道交叉口，本身没有热度信号。但统计一个地点被同一公园的多少个 NPS 页面提到，排出来就是一份必看清单。这个信号应该补进方案。",
+  "evidence": "Mount Rainier 排在最前的是 Paradise、Longmire、Ohanapecosh、Reflection Lakes、Narada Falls、Grove of the Patriarchs。Olympic 的 thingstodo 页面只有 11 个，要加上 places 正文才能用。"
+ },
+ {
+  "verdict": "change",
+  "title": "Wikidata 会把园区里的地点标成居民点",
+  "body": "Paradise 和 Longmire 的类型是“非建制社区”，会被屏蔽。现在的做法是：NPS 收录、并且浏览量过门槛的，以 NPS 为准救回来。巡逻小屋之类浏览量太低，救不回来。",
+  "evidence": "救回来的条目在名单里标着“NPS 救回”。"
+ },
+ {
+  "verdict": "holds",
+  "title": "按州查询 Wikidata 没问题",
+  "body": "华盛顿州的 P131+ 查询 3.5 秒就返回了，没有超时。全国跑的时候，大州（比如加州）还要再试。",
+  "evidence": ""
+ },
+ {
+  "verdict": "change",
+  "title": "第二档门槛按类型分，不用一刀切",
+  "body": "门槛改成：自然类和景点类（博物馆、花园、公园、雕塑等）150，其他 300，教堂和桥 500，中性类型 1000。原来“300 还是 200”的取舍，用这个办法解决了。",
+  "evidence": "Steamboat Rock State Park（每月 206 次）和 Manito Park（每月 298 次）都进来了，普通教堂和桥没有。徒步步道加进了白名单，归为自然类，所以 Wonderland Trail 和 Pacific Crest Trail 现在都在名单里。"
+ },
+ {
+  "verdict": "change",
+  "title": "关门、拆除、没建成，看维基分类",
+  "body": "Wikidata 常常不写这些，英文维基的分类会写。分类里的地点名词必须和条目本身的类型对得上：“Zoos disestablished” 说的是 Manito Park 以前的动物园，不是公园本身。",
+  "evidence": "全州按分类剔除了 36 个。"
+ },
+ {
+  "verdict": "change",
+  "title": "小景点挂到大景点下面",
+  "body": "雕塑、喷泉、纪念物这类小东西，是去大景点时顺便看的。它们挂在所在或 200 米内的大景点下面，显示在那个景点的卡片里。附近没有大景点、又扎堆的，合成一个街区组。自己够有名的（每月 2000 次以上，或者在第一档）保持独立。",
+  "evidence": "Olympic Sculpture Park 下面挂了 3 个，Fremont 合成了一个街区组。Fremont Troll 和 Statue of Lenin 保持独立。全州的小景点大多本来就过不了门槛，这条规则主要在城市里起作用。"
+ },
+ {
+  "verdict": "holds",
+  "title": "墓地不屏蔽，走 1000 的门槛",
+  "body": "普通墓地过不了，有名人墓的能过。",
+  "evidence": "Lake View Cemetery（有李小龙墓）每月浏览 2509 次，进了第二档。"
+ },
+ {
+  "verdict": "holds",
+  "title": "类型闭包不用 SPARQL，在本地遍历",
+  "body": "对某些类，P279* 查询会超过查询服务 60 秒的上限，而且屏蔽规则一改就要全部重查。改成用 API 取每个类的直接父类，在本地做遍历，结果按实体缓存，全州 945 个类一分钟就能跑完。类型要按“非 deprecated”累加，不能只取首选等级的。",
+  "evidence": "只取首选等级时，1940 年的 Tacoma Narrows Bridge 又回到了名单里：它的“已被摧毁的建筑”这个类型是普通等级。"
+ },
+ {
+  "verdict": "open",
+  "title": "风景道和几个观景点完全缺失",
+  "body": "Wikidata 里道路大多没有坐标，有些观景点干脆没有条目。这部分得靠 FHWA 的风景道数据，加上 OSM 或 GNIS。",
+  "evidence": "North Cascades Highway（SR 20 没有坐标）、Chuckanut Drive、Artist Point、Johnston Ridge Observatory 都不在候选里。"
+ },
+ {
+  "verdict": "open",
+  "title": "小镇本身就是目的地",
+  "body": "Leavenworth 这种巴伐利亚风格小镇，整个镇就是景点，但按规则居民点一律剔除。需要决定：要么单独做一类“目的地小镇”，要么只收镇里的地标。",
+  "evidence": ""
+ }
+]

@@ -1,0 +1,123 @@
+# Collects what outside sources say about places, one US state at a time, into R2 (issue #90).
+# Each state's store (pipeline/store.py) is a SQLite file, kept in R2 and updated in place: a run fetches only
+# what changed since the last one. Nothing is filtered or judged here. One-time setup is in pipeline/README.md.
+name: Spots data
+
+on:
+  schedule:
+    - cron: "0 6 3 * *" # the 3rd of each month: Wikimedia publishes the previous month's page views on the 1st
+  workflow_dispatch:
+    inputs:
+      states:
+        description: 'States to collect: "all", or codes such as "WA,OR"'
+        default: all
+      months:
+        description: How many recent months of page views to make sure R2 has (12 on a first run)
+        default: "1"
+
+# One run at a time: two would update the same stores.
+concurrency:
+  group: spots-data
+  cancel-in-progress: false
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: auto
+  R2: https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+  BUCKET: ${{ vars.SPOTS_BUCKET || 'waythread-spots' }}
+
+defaults:
+  run:
+    working-directory: pipeline
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      states: ${{ steps.plan.outputs.states }}
+      months: ${{ steps.plan.outputs.months }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        env:
+          STATES: ${{ inputs.states || 'all' }}
+          MONTHS: ${{ inputs.months || '1' }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import datetime, json, os
+          codes = [s["code"] for s in json.load(open("states.json"))]
+          want = os.environ["STATES"].strip()
+          picked = codes if want.lower() == "all" else [c.strip().upper() for c in want.split(",") if c.strip()]
+          bad = [c for c in picked if c not in codes]
+          assert not bad, f"unknown states: {bad}"
+          first = datetime.date.today().replace(day=1)
+          months = []
+          for _ in range(int(os.environ["MONTHS"])):
+              first = (first - datetime.timedelta(days=1)).replace(day=1)
+              months.append(first.strftime("%Y%m"))
+          print("states=" + json.dumps(picked))
+          print("months=" + json.dumps(sorted(months)))
+          EOF
+
+  # English Wikipedia page views per month, streamed from Wikimedia's dump. One connection at a time.
+  pageviews:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install -y lbzip2
+      - name: Make the months R2 doesn't have yet
+        env:
+          MONTHS: ${{ needs.plan.outputs.months }}
+        run: |
+          for m in $(echo "$MONTHS" | python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))'); do
+            key="pageviews/enwiki-$m.tsv.gz"
+            if aws s3api head-object --endpoint-url "$R2" --bucket "$BUCKET" --key "$key" > /dev/null 2>&1; then
+              echo "$m: already in R2"; continue
+            fi
+            python3 pageviews_month.py "$m" --out data/pageviews
+            aws s3 cp --endpoint-url "$R2" "data/pageviews/enwiki-$m.tsv.gz" "s3://$BUCKET/$key"
+            rm "data/pageviews/enwiki-$m.tsv.gz"
+          done
+
+  state:
+    needs: [plan, pageviews]
+    # Page views are one input among several: a state still updates if they failed this month.
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 4 # kind to Wikidata, Wikipedia and the NPS API
+      matrix:
+        state: ${{ fromJSON(needs.plan.outputs.states) }}
+    env:
+      NPS_API_KEY: ${{ secrets.NPS_API_KEY }}
+      ST: ${{ matrix.state }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Last run's store, if there is one
+        run: |
+          mkdir -p data/pageviews
+          if aws s3 cp --endpoint-url "$R2" "s3://$BUCKET/stores/$ST.sqlite.gz" "data/$ST.sqlite.gz"; then
+            gunzip "data/$ST.sqlite.gz"
+          else
+            echo "No store for $ST yet: building it from scratch"
+          fi
+      - name: The last 12 months of page views in R2
+        run: |
+          for key in $(aws s3 ls --endpoint-url "$R2" "s3://$BUCKET/pageviews/" | awk '{print $4}' | grep '^enwiki-' | sort | tail -12); do
+            aws s3 cp --endpoint-url "$R2" "s3://$BUCKET/pageviews/$key" "data/pageviews/$key"
+          done
+      - run: python3 store.py --state "$ST" --pageviews data/pageviews
+      - name: Save the store to R2
+        run: |
+          gzip -kf "data/$ST.sqlite"
+          aws s3 cp --endpoint-url "$R2" "data/$ST.sqlite.gz" "s3://$BUCKET/stores/$ST.sqlite.gz"
+          aws s3 cp --endpoint-url "$R2" "data/$ST.json" "s3://$BUCKET/stores/$ST.json"
+          { echo "### $ST"; echo '```json'; cat "data/$ST.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

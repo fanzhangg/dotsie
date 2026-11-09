@@ -1,0 +1,257 @@
+<title>__TITLE__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap">
+<style>
+/* Layout: one reading column; findings first, then the map and checks side by side, then the full lists. */
+:root {
+  --bg: #f3f6f4; --surface: #ffffff; --ink: #16221d; --muted: #5a6b64; --line: #d6dfda;
+  --accent: #2b6a4e; --tier1: #a8691a; --bad: #b0412e; --bad-bg: #f8e7e3; --good-bg: #e3f0e8; --warn-bg: #f6eedc;
+  --land: #e6ece8;
+  --display: "Noto Serif SC", "Songti SC", serif;
+  --body: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1412; --surface: #151d1a; --ink: #e2eae6; --muted: #92a29b; --line: #29342f;
+  --accent: #74c29a; --tier1: #e2a94e; --bad: #ec8470; --bad-bg: #3a1f1a; --good-bg: #17301f; --warn-bg: #332a17;
+  --land: #1b2420; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1412; --surface: #151d1a; --ink: #e2eae6; --muted: #92a29b; --line: #29342f;
+  --accent: #74c29a; --tier1: #e2a94e; --bad: #ec8470; --bad-bg: #3a1f1a; --good-bg: #17301f; --warn-bg: #332a17;
+  --land: #1b2420; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.7 var(--body); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 48px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.3 }
+h1 { font-size: clamp(28px, 5vw, 40px) }
+h2 { font-size: 22px }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent) }
+header { display: grid; gap: 12px }
+.lede { color: var(--muted); max-width: 64ch; margin: 0 }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 8px; font-variant-numeric: tabular-nums }
+.stats div { display: grid }
+.stats b { font: 500 22px/1.2 var(--mono) }
+.stats span { font-size: 12px; color: var(--muted) }
+.stats .t1 b { color: var(--tier1) } .stats .t2 b { color: var(--accent) }
+section { display: grid; gap: 16px; min-width: 0 }
+.sub { color: var(--muted); margin: 0; max-width: 70ch; font-size: 14px }
+.findings { display: grid; gap: 0; border-top: 1px solid var(--line) }
+.finding { display: grid; grid-template-columns: 88px 1fr; gap: 6px 16px; padding: 16px 0; border-bottom: 1px solid var(--line) }
+.finding h3 { margin: 0; font-size: 16px; font-weight: 700 }
+.finding p { margin: 4px 0 0; color: var(--muted); max-width: 72ch }
+.finding .ev { font-size: 13px; color: var(--muted); margin-top: 6px }
+.finding .ev code, td code { font: 12px var(--mono) }
+.chip { font: 500 12px/1 var(--body); padding: 5px 8px; border-radius: 4px; align-self: start; justify-self: start; white-space: nowrap }
+.chip.change { background: var(--bad-bg); color: var(--bad) }
+.chip.holds { background: var(--good-bg); color: var(--accent) }
+.chip.open { background: var(--warn-bg); color: var(--tier1) }
+.split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 32px; align-items: start }
+.map { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px }
+.map svg { width: 100%; height: auto; max-height: 560px; display: block }
+.map .land { fill: var(--land); stroke: var(--line); stroke-width: .6 }
+.map circle { stroke: var(--surface); stroke-width: .5; cursor: pointer }
+.map circle.t1 { fill: var(--tier1) } .map circle.t2 { fill: var(--accent); opacity: .75 }
+.map circle:hover, .map circle.on { stroke: var(--ink); stroke-width: 1.2; opacity: 1 }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--muted); margin-top: 8px; align-items: center }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: -1px }
+#hover { min-height: 1.7em; font-size: 13px }
+.checks { display: grid; gap: 0; max-height: 520px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface) }
+.check { display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px }
+.check:last-child { border-bottom: 0 }
+.check .m { font: 700 13px var(--mono) }
+.check.fail .m { color: var(--bad) } .check.pass .m { color: var(--accent) }
+.check small { display: block; color: var(--muted) }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap }
+.tabs button, input[type=search] { font: 14px var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 6px 12px }
+.tabs button { cursor: pointer }
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+input[type=search] { flex: 1 1 200px; min-width: 0 }
+.count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); max-height: 640px; overflow-y: auto }
+table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 720px }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { position: sticky; top: 0; background: var(--surface); font-weight: 500; color: var(--muted); font-size: 12px; z-index: 1 }
+td.num, th.num { text-align: right; font: 13px var(--mono); font-variant-numeric: tabular-nums }
+td a { color: var(--ink); text-decoration-color: var(--line); text-underline-offset: 3px }
+td a:hover { text-decoration-color: var(--accent) }
+.tier { font: 500 11px var(--mono); padding: 2px 6px; border-radius: 3px; white-space: nowrap }
+.tier { background: var(--land); color: var(--muted) }
+.tier.t1 { background: var(--warn-bg); color: var(--tier1) } .tier.t2 { background: var(--good-bg); color: var(--accent) }
+.flag { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; margin-right: 4px; white-space: nowrap }
+.muted { color: var(--muted) }
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px }
+footer code { font: 12px var(--mono) }
+@media (max-width: 760px) {
+  .split { grid-template-columns: minmax(0, 1fr) }
+  .finding { grid-template-columns: minmax(0, 1fr) }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">spots 数据流 · 试点运行 · 2026-11-08</div>
+    <h1>__TITLE__</h1>
+    <p class="lede">__LEDE__</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section>
+    <h2>结论</h2>
+    <div class="findings" id="findings"></div>
+  </section>
+
+  <section>
+    <div class="split">
+      <div style="display:grid;gap:12px;min-width:0">
+        <h2>分布</h2>
+        <div class="map">
+          <svg id="map" role="img" aria-label="华盛顿州景点分布图"></svg>
+          <div class="legend"><span><i style="background:var(--tier1)"></i>第一档</span><span><i style="background:var(--accent)"></i>第二档</span><span id="hover" class="muted">把鼠标移到点上看名字</span></div>
+        </div>
+      </div>
+      <div style="display:grid;gap:12px;min-width:0">
+        <h2>质量检查</h2>
+        <p class="sub" id="checksum"></p>
+        <div class="checks" id="checks"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>景点名单</h2>
+    <div class="tools">
+      <div class="tabs" role="group" aria-label="按档筛选">
+        <button type="button" id="tab-1" data-t="1" aria-pressed="true">第一档</button>
+        <button type="button" id="tab-2" data-t="2" aria-pressed="false">第二档</button>
+        <button type="button" id="tab-nps" data-t="nps" aria-pressed="false">来自 NPS</button>
+        <button type="button" id="tab-part" data-t="part" aria-pressed="false">附属的小景点</button>
+        <button type="button" id="tab-all" data-t="all" aria-pressed="false">全部</button>
+      </div>
+      <input type="search" id="q" placeholder="搜索名字或类型" aria-label="搜索名字或类型">
+      <span class="count" id="count"></span>
+    </div>
+    <div class="table"><table>
+      <thead><tr><th>档</th><th>名字</th><th>类型</th><th class="num">月浏览量</th><th class="num">语言</th><th>所属 / 挂在</th><th>标记</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </section>
+
+  <section id="ref" hidden>
+    <h2>和 Wikivoyage 对照</h2>
+    <p class="sub" id="refsum"></p>
+    <div class="table"><table>
+      <thead><tr><th>Wikivoyage 列了、名单里没有</th><th class="num">月浏览量</th><th>原因</th></tr></thead>
+      <tbody id="refmissed"></tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>被排除的高浏览量条目</h2>
+    <p class="sub">月浏览量中位数在 1500 以上、却没进任何一档的条目，按浏览量排序。漏掉的真景点多半在这里。</p>
+    <div class="table"><table>
+      <thead><tr><th>名字</th><th>类型</th><th class="num">月浏览量</th><th class="num">语言</th><th>排除原因</th></tr></thead>
+      <tbody id="dropped"></tbody>
+    </table></div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const D = /*DATA*/null;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const n = (x) => x ? x.toLocaleString("en-US") : "—";
+const S = D.stats;
+
+$("#stats").innerHTML = [
+  ["候选条目", n(S.candidates), ""], ["NPS 地点", n(S.nps_places), ""],
+  ["第一档", S.tier1, "t1"], ["第二档", S.tier2, "t2"], ["附属的小景点", S.parts, ""], ["检查通过", `${S.passed}/${S.checks}`, ""],
+].map(([l, v, c]) => `<div class="${c}"><b>${v}</b><span>${l}</span></div>`).join("");
+
+const VERDICT = { change: "方案要改", holds: "方案成立", open: "待定" };
+$("#findings").innerHTML = D.findings.map((f) => `<div class="finding">
+  <span class="chip ${f.verdict}">${VERDICT[f.verdict]}</span>
+  <div><h3>${esc(f.title)}</h3><p>${esc(f.body)}</p>${f.evidence ? `<div class="ev">${f.evidence}</div>` : ""}</div></div>`).join("");
+
+// Map: equirectangular around the area's outline, longitude shrunk by cos(latitude) so it keeps its shape.
+(() => {
+  const lats = D.outline.map((p) => p[0]), lngs = D.outline.map((p) => p[1]);
+  const pad = (Math.max(...lats) - Math.min(...lats)) * 0.03;
+  const lat0 = Math.max(...lats) + pad, lat1 = Math.min(...lats) - pad, lng0 = Math.min(...lngs) - pad, lng1 = Math.max(...lngs) + pad;
+  const k = Math.cos((lat0 + lat1) / 2 * Math.PI / 180), s = 600 / ((lng1 - lng0) * k);
+  const X = (lng) => ((lng - lng0) * k * s).toFixed(1), Y = (lat) => ((lat0 - lat) * s).toFixed(1);
+  const w = (lng1 - lng0) * k * s, h = (lat0 - lat1) * s;
+  const svg = $("#map");
+  svg.setAttribute("viewBox", `0 0 ${w.toFixed(0)} ${h.toFixed(0)}`);
+  const land = `<polygon class="land" points="${D.outline.map(([a, b]) => `${X(b)},${Y(a)}`).join(" ")}"/>`;
+  const pts = [...D.tiered].sort((a, b) => b.tier - a.tier).map((r, i) =>
+    `<circle class="t${r.tier}" cx="${X(r.lng)}" cy="${Y(r.lat)}" r="${r.tier === 1 ? 7 : 4}" data-i="${D.tiered.indexOf(r)}"><title>${esc(r.name)}</title></circle>`).join("");
+  svg.innerHTML = land + pts;
+  svg.addEventListener("mouseover", (e) => {
+    const i = e.target.dataset?.i; if (i == null) return;
+    const r = D.tiered[i];
+    $("#hover").textContent = `${r.name} · 第${r.tier === 1 ? "一" : "二"}档 · ${r.kind}${r.views ? " · 月浏览 " + n(r.views) : ""}`;
+  });
+})();
+
+const fails = D.checks.filter((c) => !c.ok), passes = D.checks.filter((c) => c.ok);
+$("#checksum").textContent = `${D.checks.length} 项检查，${passes.length} 项通过。未通过的排在前面，后面写着原因。`;
+const GROUP = { "tier 1": "应在第一档", "listed": "应在名单里", "never listed": "不应出现" };
+const label = (c) => { const [g, ...rest] = c.check.split(": "); return GROUP[g] ? `${GROUP[g]}：${rest.join(": ")}` : "名单里没有被屏蔽的类型"; };
+$("#checks").innerHTML = [...fails, ...passes].map((c) => `<div class="check ${c.ok ? "pass" : "fail"}">
+  <span class="m" aria-label="${c.ok ? "通过" : "未通过"}">${c.ok ? "✓" : "✗"}</span>
+  <div>${esc(label(c))}<small>${esc(c.detail)}</small></div></div>`).join("");
+
+function flags(r) {
+  const f = [];
+  if (r.source === "NPS") f.push(`NPS 页面提到 ${r.mentions} 次`);
+  if (r.rescued) f.push("NPS 救回");
+  if (r.neutral) f.push("中性类型");
+  if (r.override) f.push("覆盖表");
+  if (r.area) f.push("街区组");
+  if (r.parts && r.parts.length) f.push(`顺便看：${r.parts.join("、")}`);
+  if (r.rising) f.push("近期上升");
+  return f.map((x) => `<span class="flag">${esc(x)}</span>`).join("");
+}
+let tab = "1";
+function render() {
+  const q = $("#q").value.trim().toLowerCase();
+  const pool = tab === "part" ? D.parts : D.tiered;
+  const list = pool.filter((r) =>
+    (tab === "all" || tab === "part" || (tab === "nps" ? r.source === "NPS" || r.rescued : String(r.tier) === tab)) &&
+    (!q || r.name.toLowerCase().includes(q) || r.kind.toLowerCase().includes(q)));
+  $("#count").textContent = `${list.length} 个`;
+  $("#rows").innerHTML = list.map((r) => `<tr>
+    <td>${r.role === "part" ? '<span class="tier">附</span>' : `<span class="tier t${r.tier}">${r.tier === 1 ? "一" : "二"}</span>`}</td>
+    <td><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a></td>
+    <td class="muted">${esc(r.kind)}</td><td class="num">${n(r.views)}</td><td class="num">${r.langs || "—"}</td>
+    <td class="muted">${esc(r.role === "part" ? r.host : r.parent || "")}</td><td>${flags(r)}</td></tr>`).join("");
+}
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
+  tab = b.dataset.t;
+  document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  render();
+}));
+$("#q").addEventListener("input", render);
+render();
+
+if (D.reference) {
+  const R = D.reference, pct = (x) => Math.round(x * 100) + "%";
+  $("#ref").hidden = false;
+  $("#refsum").textContent = `Wikivoyage 的 ${R.pages} 个页面里，有 ${R.listings} 个带 Wikidata 编号的“景点”条目，用来当参照（名单本身从没用过它）。召回率 ${pct(R.recall)}：参照里的景点有这么多进了名单。第一档里 ${pct(R.tier1_precision)} 在参照里，两档合计 ${pct(R.tiered_precision)}。参照不全，所以精确率只是下限。`;
+  $("#refmissed").innerHTML = R.missed.map((m) => `<tr><td><a href="https://www.wikidata.org/wiki/${esc(m.id)}" target="_blank" rel="noopener">${esc(m.name)}</a></td><td class="num">${m.views == null ? "—" : n(m.views)}</td><td class="muted">${esc(m.why)}</td></tr>`).join("");
+}
+$("#dropped").innerHTML = D.dropped.map((r) => `<tr>
+  <td><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a></td><td class="muted">${esc(r.kind)}</td>
+  <td class="num">${n(r.views)}</td><td class="num">${r.langs || "—"}</td><td class="muted">${esc(r.drop)}</td></tr>`).join("");
+
+const F = S.floors;
+$("#foot").innerHTML = `规则：第一档要求月浏览量中位数 ≥ ${n(S.tier1_rule.views)} 且语言数 ≥ ${S.tier1_rule.langs}；第二档只看浏览量，门槛按类型分：景点类和自然类 ${F.sight}，其他 ${F.default}，教堂和桥 ${F.common}，规则没覆盖到的类型 ${n(F.neutral)}。浏览量是 2021-11 到 2026-10 这 60 个月英文维基的中位数（只计用户访问，含改名前的旧标题）。代码在 <code>pipeline/</code>，按 <code>step1</code> 到 <code>step6</code> 依次运行。`;
+</script>

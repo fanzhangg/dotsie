@@ -1,0 +1,62 @@
+[
+ {
+  "verdict": "change",
+  "title": "城市要用边界圈定，不能用“位于”（P131）",
+  "body": "Wikidata 上很多条目的 P131 只写到县一级。城市的候选应该先按州取，再用人口普查局的城市边界（TIGER，公有领域）按坐标圈出来。",
+  "evidence": "西雅图范围内的 1057 个条目里，有 387 个（37%）没把 P131 指向西雅图，包括 Burke Museum、Statue of Lenin、Frye Art Museum 和 Seward Park。"
+ },
+ {
+  "verdict": "change",
+  "title": "关门、拆除、没建成，看维基分类",
+  "body": "Wikidata 常常不写这些。英文维基的分类会写（Demolished、Defunct、Disestablished、Proposed），一次请求能查 50 篇文章。分类里不能用 “closed in”：它会误伤只是停用、但还开放参观的地方。",
+  "evidence": "共剔除 23 个，包括 Alaskan Way Viaduct（2019 年拆除）、Living Computers（2024 年关闭）、888 Second Avenue（只是规划），还有被 Wikidata 标成博物馆的猩猩 Bobo。Georgetown Steam Plant 被 “Energy infrastructure closed in the 1970s” 误伤过，现在已经修正。"
+ },
+ {
+  "verdict": "change",
+  "title": "在城市里，浏览量分不开景点和写字楼",
+  "body": "写字楼的浏览量比花园和小博物馆还高，所以门槛要按类型分：景点类和自然类 150，其他 300，教堂和桥 500，规则没覆盖到的类型 1000。",
+  "evidence": "Wikivoyage 召回率从 45% 升到 61%，第二档精确率从 41% 升到 57%（含小景点挂靠后的结果），第一档精确率保持在 80%。"
+ },
+ {
+  "verdict": "change",
+  "title": "补几个屏蔽类型，但不能屏蔽“作品”",
+  "body": "新屏蔽的类型有视听作品、单只动物、隧道、轨道线和会展中心。“作品”（Q386724）太宽：Wikidata 把建筑也算作作品。",
+  "evidence": "电视剧 The Real World: Seattle 曾在第二档。屏蔽“作品”以后，Gum Wall、Smith Tower 和 Columbia Center 都被误伤。"
+ },
+ {
+  "verdict": "change",
+  "title": "小景点挂到大景点下面",
+  "body": "名单里 85 个景点中，有 17 个是雕塑、喷泉、纪念像。现在 11 个挂到了所在或 200 米内的大景点下面，另外 2 个合成一个 Fremont 街区组。Fremont Troll 和 Statue of Lenin 浏览量够高，保持独立。Wikidata 的“属于”（P361）在这 17 个里只填了 1 个，所以主要靠位置判断。",
+  "evidence": "Olympic Sculpture Park 下面挂了 Eagle、Father and Son、Neukom Vivarium；Black Sun 挂在 Volunteer Park；International Fountain 挂在 Seattle Center；Chris Cornell 雕像挂在 MoPOP。还没挂上的有 Drumheller Fountain 和 A Sound Garden：它们在大学或机构的园区里，而园区本身被屏蔽了，挂不上去。"
+ },
+ {
+  "verdict": "holds",
+  "title": "带日期的 occurrence 才屏蔽，再加一张覆盖表",
+  "body": "没有日期的 occurrence 是常设的东西，不屏蔽。Wikidata 标错、规则又修不好的个例，放进 overrides.json，每月重跑时保留。",
+  "evidence": "Chihuly Garden and Glass 通过覆盖表救回，现在在第二档，每月浏览 1666 次。"
+ },
+ {
+  "verdict": "holds",
+  "title": "墓地不屏蔽，走 1000 的门槛",
+  "body": "普通墓地达不到 1000，有名人墓的能过。",
+  "evidence": "Lake View Cemetery（有李小龙墓）每月浏览 2509 次，进了第二档。"
+ },
+ {
+  "verdict": "open",
+  "title": "写字楼还是太多",
+  "body": "第二档里还有 Rainier Tower 这类写字楼。Columbia Center 和 Smith Tower 有观景台，值得去；其他的没有。需要一个“能不能进去看”的信号，比如有观景台、对公众开放，或者 OSM 上的 tourism=attraction 标签。",
+  "evidence": ""
+ },
+ {
+  "verdict": "open",
+  "title": "仍然漏掉的",
+  "body": "主要是浏览量低于 150 的小公园，以及校园里的景点（UW Quad、Red Square）。Fremont Bridge 每月 447 次，差一点够到桥的 500。Klondike Gold Rush 的西雅图分部在 Wikidata 上没有坐标。Museum of Flight 在城市边界外面，没收进来是对的。",
+  "evidence": ""
+ },
+ {
+  "verdict": "open",
+  "title": "Wikivoyage 只能当下限",
+  "body": "西雅图的 44 个 Wikivoyage 页面里，只有 74 个景点条目带 Wikidata 编号。名单里不少真景点（Kerry Park、Discovery Park）在参照里没有编号，所以精确率被低估了。",
+  "evidence": ""
+ }
+]
