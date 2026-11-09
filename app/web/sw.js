@@ -21,6 +21,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.hostname === TILES) { e.respondWith(caches.match(req.url).then(hit => hit || fetch(req))); return; }
   const mine = url.origin === location.origin && !url.pathname.startsWith('/api/');
+  // unpkg: pages saved before the map's libraries were served from here still ask for them there
   if (mine || url.hostname === 'unpkg.com') e.respondWith(shellFile(e, req, url));
 });
 
