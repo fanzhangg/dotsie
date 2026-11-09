@@ -1,6 +1,7 @@
 /* Place search and routes (by car, on foot, by bike), proxied so the Stadia key stays on the server, and routes are
    cached. Also the map's sights, from OpenStreetMap (see Sights below). Map tiles don't come
    through here: the browser loads them from Stadia directly, authorized by domain. */
+import { QID } from '../web/fields.js';
 
 // category is the source's place category (e.g. "accommodation", "tourism:museum"), for the app's first guess at a stop's type
 export type Place = { name: string; address: string; lat: number; lng: number; category: string };
@@ -223,7 +224,6 @@ export type About = {
   title: string; text: string; url: string;
   image: { src: string; width: number; height: number; credit: string; license: string; page: string } | null;
 } | null;
-export const QID = /^Q[1-9]\d{0,11}$/;
 const ABOUT_NONE_FRESH = 1000 * 60 * 60 * 24 * 7;
 const ABOUT_TEXT = 1200, ABOUT_CREDIT = 100;
 const ABOUT_PHOTO = 960; // px wide: a card's photo on a phone at 2x, from Wikimedia's standard thumbnail sizes

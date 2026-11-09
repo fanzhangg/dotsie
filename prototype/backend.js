@@ -3,6 +3,7 @@
    Trips are saved in localStorage, so they're in this browser only, and a BroadcastChannel carries each change to the
    other open tabs as the server's live events would, so two tabs work like two people on the trip. */
 import { ApiError, params, ROUTE_KEY, uid } from '../app/web/core.js';
+import { QID } from '../app/web/fields.js';
 import { dayOf, stopsOf } from '../app/web/plan.js';
 import { onEvent } from '../app/web/trips.js';
 import { toast } from '../app/web/notices.js';
@@ -111,12 +112,12 @@ async function findPlaceAbout(name, where, signal) {
   const page = pages.sort((a, b) => a.index - b.index).find(p => {
     const t = placeKey(p.title), c = p.coordinates?.[0];
     return (t === n || (t.length >= 8 && n.startsWith(t))) && c && kmBetween({ lat, lng }, { lat: c.lat, lng: c.lon }) <= 50
-      && p.pageprops?.disambiguation === undefined && /^Q[1-9]\d{0,11}$/.test(p.pageprops?.wikibase_item || '');
+      && p.pageprops?.disambiguation === undefined && QID.test(p.pageprops?.wikibase_item || '');
   });
   return page ? findAbout(page.pageprops.wikibase_item, signal) : null;
 }
 async function findAbout(qid, signal) {
-  if (!/^Q[1-9]\d{0,11}$/.test(qid || '')) throw new ApiError(400, 'invalid');
+  if (!QID.test(qid || '')) throw new ApiError(400, 'invalid');
   const get = (host, params) => wikiGet(host, params, signal);
   const item = await get('www.wikidata.org', { action: 'wbgetentities', ids: qid, props: 'sitelinks', sitefilter: 'enwiki' });
   const title = item.entities?.[qid]?.sitelinks?.enwiki?.title;
@@ -337,7 +338,7 @@ async function findSights(tile, signal) {
     const t = el.tags || {}, at = el.center || (el.lat != null ? { lat: el.lat, lon: el.lon } : null), what = sightKind(t);
     if (!t.name || !at || !what) continue;
     out.push({
-      id: `${el.type[0]}${el.id}`, wikidata: /^Q[1-9]\d{0,11}$/.test(t.wikidata || '') ? t.wikidata : undefined, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind,
+      id: `${el.type[0]}${el.id}`, wikidata: QID.test(t.wikidata || '') ? t.wikidata : undefined, name: t.name, lat: +at.lat.toFixed(5), lng: +at.lon.toFixed(5), kind: what.kind,
       rank: what.worth + (t.wikipedia ? 4 : t.wikidata ? 2 : 0) + (el.type === 'node' ? 0 : 1),
       address: [[t['addr:housenumber'], t['addr:street']].filter(Boolean).join(' '), t['addr:city']].filter(Boolean).join(', '),
     });

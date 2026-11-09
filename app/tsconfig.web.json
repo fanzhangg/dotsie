@@ -1,0 +1,18 @@
+{
+  // The app's modules that touch no DOM, checked against the server's types (src/stop.ts) so the two agree on what a
+  // stop is. The rest of web/ isn't checked yet.
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023", "dom"],
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "types": [],
+    "strict": true,
+    "noImplicitAny": false,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+    "skipLibCheck": true
+  },
+  "include": ["web/fields.js", "web/time.js", "web/plan.js", "types/web-globals.d.ts"]
+}

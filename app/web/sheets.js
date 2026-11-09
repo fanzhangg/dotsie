@@ -11,6 +11,7 @@ import { render } from './app.js';
 import { mapCredit } from './map.js';
 import { choicePage, choicePageHTML, optionHTML } from './stopsheet.js';
 import { ask, failToast, toast } from './notices.js';
+import { MAX } from './fields.js';
 
 // ---------- Sheets ----------
 const closeBtn = `<button class="wt-icon-btn" data-action="close-sheet" aria-label="Close">${ICON.close}</button>`;
@@ -52,7 +53,7 @@ function runSheetClose() { const f = onSheetClose; onSheetClose = null; f?.(); }
 
 export function openNewTrip() {
   openSheet(`${modalHead('New trip')}
-    <form><input class="wt-input" name="title" placeholder="Trip to White Sands, NM" autocomplete="off" required maxlength="120" aria-label="Trip name">
+    <form><input class="wt-input" name="title" placeholder="Trip to White Sands, NM" autocomplete="off" required maxlength="${MAX.tripName}" aria-label="Trip name">
     <div class="wt-modal__actions"><button class="wt-btn wt-btn--primary">Create</button></div></form>`, el => {
     const f = el.querySelector('form');
     f.elements.title.focus();
@@ -80,7 +81,7 @@ export function openSettings(trip) {
   openSheet(`${modalHead('Trip settings')}
     <form class="wt-section settings-name">
       <label class="wt-section__title" for="trip-name">Name</label>
-      <input class="wt-input" id="trip-name" name="title" autocomplete="off" required maxlength="120">
+      <input class="wt-input" id="trip-name" name="title" autocomplete="off" required maxlength="${MAX.tripName}">
     </form>
     <section class="wt-section"><h3 class="wt-section__title">People</h3>
       <ul class="wt-people">${trip.members.map(m => `<li class="wt-people__item">${avatarHTML(m)}<span>${esc(m.name)}${m.id === me.id ? ' <span class="wt-people__meta">(you)</span>' : ''}${m.id === trip.owner ? ' <span class="wt-people__meta">· Owner</span>' : ''}</span></li>`).join('')}</ul></section>

@@ -66,7 +66,6 @@ function noteHTML(text) {
 // still fits three stops; the others show a link icon at the start of their notes' line.
 const linkLabel = l => l.label || siteOf(l.url);
 // What someone typed or pasted as a link, as a web address: "booking.com/…" gets https://. '' if it isn't one.
-export const MAX_LINKS = 10;
 export function webUrl(text) {
   const t = text.trim();
   if (!t || /\s/.test(t)) return '';

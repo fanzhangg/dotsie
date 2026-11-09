@@ -1,5 +1,6 @@
 import type { McpProps } from './oauth';
-import { ERR, KINDS, TRAVEL, cleanStop, type Stop, type TripRoom } from './trip';
+import { ERR, KINDS, TRAVEL, cleanStop, type Stop } from './stop';
+import type { TripRoom } from './trip';
 
 /* An MCP server, so an AI assistant can read a trip's stops and add, change or remove them for you. It speaks MCP's
    Streamable HTTP transport without sessions: every POST to /api/mcp is one JSON-RPC message, answered with

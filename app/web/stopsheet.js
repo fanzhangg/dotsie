@@ -4,7 +4,7 @@ import { DAYS, fmtClock, fmtDay, fmtDur, fmtTime, instantOf, nowStamp, pad, plac
 import { cur } from './trips.js';
 import { api } from './backend.js';
 import { ALL, HOTEL_CHECK_IN, HOTEL_CHECK_OUT, KINDS, KIND_HINTS, KIND_SECTIONS, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysBetween, daysOf, guessKind, kindOf, samePlace, stayOf, stayOnNight, stopsOf, wayTo } from './plan.js';
-import { MAX_LINKS, centerFocus, currentDay, selectedStop, siteOf, webUrl } from './timeline.js';
+import { centerFocus, currentDay, selectedStop, siteOf, webUrl } from './timeline.js';
 import { foodURL, legRoute, legsOn } from './routes.js';
 import { addStop, deleteStop, editStop } from './edits.js';
 import { offlineNow } from './offline.js';
@@ -12,6 +12,7 @@ import { render } from './app.js';
 import { drawMap, focusStop, map, markerHTML, moveCamera, reduceMotion } from './map.js';
 import { aboutHTML, aboutSlot, loadAbout, showAbout, sightAt, sightsAlong } from './sights.js';
 import { closeSheet, modalHead, openSheet } from './sheets.js';
+import { MAX, MAX_LINKS } from './fields.js';
 
 // Where you are when you tap Add stop or its +: the stop selected; with a drive shown, the stop it leaves from (so the
 // new one is on that drive). Null for none, or a drive from last night's hotel.
@@ -392,7 +393,7 @@ export function openStopSheet(trip, stop, place = null) {
       ${whenHTML('checkout', 'Check-out', ' wt-stay', '<span class="wt-field__aside" data-nights></span>')}
       <div class="wt-field wt-dur"><span class="wt-field__label" id="dur-label">Duration</span>
         <button type="button" class="wt-picker wt-picker--text" data-dur-open aria-describedby="dur-label"></button></div>
-      <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="2000" placeholder="Confirmation #, tickets, tips…"></textarea></label>
+      <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="${MAX.note}" placeholder="Confirmation #, tickets, tips…"></textarea></label>
       <div class="wt-field"><span class="wt-field__label" id="links-label">Links</span>
         <div class="wt-link-list" role="group" aria-labelledby="links-label"></div>
         <button type="button" class="wt-link-add" data-link-add>${ICON.plus}Add link</button></div>
@@ -403,7 +404,7 @@ export function openStopSheet(trip, stop, place = null) {
     ${choicePageHTML('stop-zones', 'Time zone', '', 'The clock the times are on. Usually the one where the place is, as on a ticket or a booking.')}
     <div class="stop-place" hidden>
       <div class="wt-search-bar">
-        <label class="wt-input wt-input-group wt-search">${ICON.search}<input id="stop-place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="place-results" aria-label="Search a place" placeholder="Search a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="200"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden>${ICON.close}</button></label>
+        <label class="wt-input wt-input-group wt-search">${ICON.search}<input id="stop-place" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="place-results" aria-label="Search a place" placeholder="Search a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="${MAX.name}"><span class="wt-spinner" hidden></span><button type="button" class="wt-search__clear" aria-label="Clear" hidden>${ICON.close}</button></label>
         <button type="button" class="wt-search-bar__cancel" data-place-cancel>Cancel</button>
       </div>
       <div class="wt-results" id="place-results" role="listbox" aria-label="Places"></div>
@@ -450,8 +451,8 @@ export function openStopSheet(trip, stop, place = null) {
     function addLinkRow(link = { url: '', label: '' }) {
       linkList.insertAdjacentHTML('beforeend', `<div class="wt-link-edit">
         <span class="wt-link-edit__fields">
-          <input class="wt-link-edit__label" type="text" maxlength="60" aria-label="Label" placeholder="Label" autocomplete="off" enterkeyhint="next" value="${esc(link.label)}">
-          <input class="wt-link-edit__url" type="text" inputmode="url" maxlength="2000" aria-label="Link" placeholder="Paste a link" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" value="${esc(link.url)}">
+          <input class="wt-link-edit__label" type="text" maxlength="${MAX.label}" aria-label="Label" placeholder="Label" autocomplete="off" enterkeyhint="next" value="${esc(link.label)}">
+          <input class="wt-link-edit__url" type="text" inputmode="url" maxlength="${MAX.url}" aria-label="Link" placeholder="Paste a link" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" value="${esc(link.url)}">
         </span>
         <button type="button" class="wt-icon-btn wt-link-edit__remove" aria-label="Remove link">${ICON.close}</button></div>`);
       const row = linkList.lastElementChild, url = row.querySelector('.wt-link-edit__url'), label = row.querySelector('.wt-link-edit__label');

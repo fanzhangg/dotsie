@@ -1,3 +1,4 @@
+// @ts-check
 /* Clock times ("YYYY-MM-DDTHH:MM", the time where the stop is), time zones, and how they read. No DOM: the tests import this. */
 // ?today=YYYY-MM-DD (and &now=HH:MM) pretend it's a trip day, so today's highlight can be previewed before the trip.
 // (There's no location when the tests import this.)
@@ -55,8 +56,12 @@ export function instantOf(t, zone) {
   if (!instants.has(k)) {
     const [d, hm = '00:00'] = t.split('T'), [y, m, dd] = d.split('-').map(Number), [h, mi] = hm.split(':').map(Number);
     const wall = Date.UTC(y, m - 1, dd, h, mi);
-    let ms = wall - zoneAhead(zone, wall);
-    ms = wall - zoneAhead(zone, ms);
+    // The clock time read with the zone's offset a day before and a day after. One of them is that clock time, or both:
+    // when the clocks go back it happens twice, and the first is taken. In the hour skipped when they go forward neither
+    // is, and the later one is the hour after.
+    const [a, b] = [-864e5, 864e5].map(d => wall - zoneAhead(zone, wall + d));
+    const real = [a, b].filter(t => zoneAhead(zone, t) === wall - t);
+    const ms = real.length ? Math.min(...real) : Math.max(a, b);
     if (instants.size > 5000) instants.clear();
     instants.set(k, ms);
   }
@@ -66,6 +71,7 @@ export const momentOf = s => instantOf(s.time, zoneOf(s));
 // "Now", as a moment. Pretending (?today=, &now=) puts each clock at that time, as nowStamp does.
 export const nowIn = zone => (TODAY || NOW_HM ? instantOf(nowStamp(), zone) : Date.now());
 // A zone's short name at a moment ("MST", "GMT+9"), and its long one ("Mountain Standard Time")
+/** @param {string} zone @param {number} ms @param {'short' | 'long'} [style] */
 export function zoneName(zone, ms, style = 'short') {
   const k = `${zone}|${style}`;
   if (!zoneFmts.has(k)) zoneFmts.set(k, new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: style }));

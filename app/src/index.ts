@@ -2,9 +2,11 @@ import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
-import { findAbout, findPlaceAbout, findRoute, findSights, QID, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
+import { QID } from '../web/fields.js';
+import { findAbout, findPlaceAbout, findRoute, findSights, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider } from './oauth';
-import { ERR, type Preview } from './trip';
+import { ERR } from './stop';
+import type { Preview } from './trip';
 
 export { TripRoom } from './trip';
 export { SightsLookup } from './sights';
