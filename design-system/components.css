@@ -1,4 +1,4 @@
-/* Dotsie design system — components v15.3.1
+/* Dotsie design system — components v15.4.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -691,6 +691,24 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-add-bar.is-morphing > .wt-btn { position: absolute; overflow: hidden; }
 .wt-add-bar > .is-ghost { pointer-events: none; }
 
+/* ---------- Float bar: a page's main action, floating at the bottom of the screen ---------- */
+/* What the page is for (New trip on Home, Save to a trip on a spot's page), always in reach however far it's scrolled,
+   where the trip screen's add bar is: the same pill buttons, a block one across, round ones beside it. The page's column
+   wide (--wt-float-bar-width), over what's read, which fades out into the page's own color (--wt-float-bar-surface)
+   above it, with the safe area below. The page leaves --wt-float-bar-room free at its end, so its last line clears it. */
+.wt-float-bar {
+  position: fixed; z-index: var(--wt-z-float); left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: var(--wt-float-bar-width, var(--wt-size-column));
+  display: flex; justify-content: center; gap: var(--wt-space-2);
+  padding: var(--wt-space-2) var(--wt-float-bar-gutter, var(--wt-space-4)) max(var(--wt-space-3), env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to bottom, transparent, var(--wt-float-bar-surface, var(--wt-surface-raised)) var(--wt-space-3));
+}
+.wt-float-bar .wt-btn { border-radius: var(--wt-radius-pill); }
+.wt-float-bar .wt-btn--block { flex: 1; min-width: 0; }
+/* --hug: from 768px wide, the button as wide as its words (at least 240px), centred and lifted off the page, for a
+   wide page where one across would read as a bar, not a button */
+@media (min-width: 768px) { .wt-float-bar--hug .wt-btn--block { flex: none; width: auto; min-width: 240px; box-shadow: var(--wt-shadow-float); } }
+:root { --wt-float-bar-room: calc(var(--wt-space-8) + var(--wt-size-touch) + env(safe-area-inset-bottom, 0px)); }
+
 /* ---------- Map buttons: round icon buttons floating over the map, such as Whole day ---------- */
 .wt-map-btn { pointer-events: auto; width: var(--wt-size-touch); height: var(--wt-size-touch); background: var(--wt-surface-raised); color: var(--wt-text-primary); box-shadow: var(--wt-shadow-float); }
 .wt-map-btn:active:not(:disabled) { background: var(--wt-surface-hover); }
@@ -905,6 +923,14 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-trip-card__step.is-now :is(.wt-trip-card__step-name, .wt-trip-card__step-time) { color: var(--wt-text-primary); }
 .wt-trip-card__step.is-now .wt-trip-card__step-time { font-weight: 600; }
 .wt-trip-card__step-time { flex: none; margin-left: auto; padding-left: var(--wt-space-2); font-variant-numeric: tabular-nums; }
+
+/* Small (Wishlist and Past on Home, two to a row on a phone): a squarer picture with one photo, the name and dates
+   in a tighter body, and no avatars, which don't fit beside a name this narrow (the names are still said). */
+.wt-trip-card--small :is(.wt-trip-card__map, .wt-trip-card__photos) { aspect-ratio: 3 / 2; }
+.wt-trip-card--small .wt-trip-card__body { padding: var(--wt-space-2) var(--wt-space-3) var(--wt-space-3); }
+.wt-trip-card--small .wt-trip-card__name { font-size: 15px; line-height: 20px; }
+.wt-trip-card--small .wt-trip-card__dates { font-size: 13px; }
+.wt-trip-card--small .wt-trip-card__people { display: none; }
 
 /* ---------- App bar: the app's pages and the account, at the top of Home and Spots ---------- */
 /* One row: the nav on the left, the account on the right. It stays at the top as the page scrolls, frosted over what

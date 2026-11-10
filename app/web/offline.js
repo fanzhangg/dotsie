@@ -33,7 +33,7 @@ export const offlineCopy = id => (savedTrip(id) ? { ...fromSnapshot(savedTrip(id
 // Home's cards for the saved trips, as /api/trips sends them
 export const offlineCards = () => Object.values(offline.trips).sort((a, b) => b.savedAt - a.savedAt).map(({ snap }) => {
   const times = snap.stops.map(s => s.time).sort();
-  return { id: snap.trip.id, name: snap.trip.name, start: times[0] || null, end: times.at(-1) || null, members: snap.members, stops: snap.stops };
+  return { id: snap.trip.id, name: snap.trip.name, start: times[0] || null, end: times.at(-1) || null, members: snap.members, stops: snap.stops, ideas: snap.ideas || [] };
 });
 // No connection, or the trip on screen is its saved copy because the server didn't answer
 export const offlineNow = () => !navigator.onLine || !!cur?.offline;

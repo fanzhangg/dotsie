@@ -70,6 +70,15 @@ function seed() {
           s('airport', 'Midland International Air & Space Port', '9506 Laforce Blvd, Midland, TX', 31.9425, -102.2019, '2026-03-16T15:00', 'Fly home', 'jo'),
         ],
       },
+      // On the wishlist: places saved, and no stops or dates yet
+      'utah-parks': {
+        id: 'utah-parks', name: 'Utah’s parks', members: ['alex', 'jo'], createdBy: 'alex', updatedAt: t - 2,
+        spots: [],
+        ideas: [
+          { id: uid(), kind: 'nature', name: 'Zion National Park', address: 'Springdale, UT', lat: 37.2982, lng: -113.0263, wikidata: null, by: 'alex', updatedAt: t - 4 },
+          { id: uid(), kind: 'nature', name: 'Bryce Canyon National Park', address: 'Bryce Canyon City, UT', lat: 37.5930, lng: -112.1871, wikidata: null, by: 'jo', updatedAt: t - 3 },
+        ],
+      },
     },
   };
 }

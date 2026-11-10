@@ -17,29 +17,36 @@ document.addEventListener('error', e => {
 }, true);
 
 // ---------- Home ----------
-// One card per trip: photos of where it goes, or a sketch of its route, then its name and dates, and who's on it. The
-// trips go under Current (under way today), Upcoming and Past, in that order.
+// New trip floats at the bottom of the screen, as a spot's Save to a trip and the trip screen's add bar do, so it's in
+// reach however far down the trips you are. One card per trip: photos of where it goes, or a sketch of its route, then its name and dates, and who's on it. The
+// trips go under Current (under way today), Upcoming, Wishlist (places saved to it, and no stops yet) and Past, in that
+// order. Wishlist and Past have small cards, two to a row on a phone: they're for looking back and dreaming, not for
+// what's next. A group of one has the card it'd have anywhere else, across the row, rather than half a row and a gap.
 export function homeHTML() {
   const today = nowStamp().slice(0, 10), list = trips || [];
   const over = t => !!t.end && t.end.slice(0, 10) < today;
   const on = t => !!t.start && t.start.slice(0, 10) <= today && !over(t);
-  // Under way and coming up: soonest first, and trips with no dates yet last. What's over: the latest first.
+  const wish = t => !t.stops?.length && !!t.ideas?.length; // no stops means no dates, so never under way or over
+  // Under way and coming up: soonest first, and trips with no dates yet last. What's over: the latest first. The
+  // wishlist: the newest first, as the server lists trips.
   const soonest = (a, b) => (a.start ? 0 : 1) - (b.start ? 0 : 1) || (a.start || '').localeCompare(b.start || '');
   const current = list.filter(on).sort(soonest);
-  const ahead = list.filter(t => !on(t) && !over(t)).sort(soonest);
+  const ahead = list.filter(t => !on(t) && !over(t) && !wish(t)).sort(soonest);
+  const wishlist = list.filter(wish);
   const past = list.filter(over).sort((a, b) => b.end.localeCompare(a.end));
-  const group = (title, ts, done) => `<section class="home-group"><h2 class="home-group__title">${title}</h2>
-    <div class="home-grid">${ts.map(t => tripCardHTML(t, done, today)).join('')}</div></section>`;
+  const group = (title, ts, { done = false, small: few = false } = {}) => { const small = few && ts.length > 1; return `<section class="home-group"><h2 class="home-group__title">${title}</h2>
+    <div class="home-grid${small ? ' home-grid--small' : ''}">${ts.map(t => tripCardHTML(t, done, today, small)).join('')}</div></section>`; };
   return `
     ${appBarHTML('plan', `<button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>`)}
     <main class="home">
-      <div class="home-actions"><button class="wt-btn wt-btn--primary" data-action="new-trip">${ICON.plus}New trip</button></div>
     ${trips && !list.length ? '<p class="wt-empty">No trips yet. Start one with New trip, or open the link a friend sent you.</p>' : ''}
-      ${current.length ? group('Current', current, false) : ''}
-      ${ahead.length ? group('Upcoming', ahead, false) : ''}
-      ${past.length ? group('Past', past, true) : ''}
+      ${current.length ? group('Current', current) : ''}
+      ${ahead.length ? group('Upcoming', ahead) : ''}
+      ${wishlist.length ? group('Wishlist', wishlist, { small: true }) : ''}
+      ${past.length ? group('Past', past, { done: true, small: true }) : ''}
       ${me.isGuest && trips?.length && canSignIn() ? '<button class="wt-btn wt-btn--secondary wt-btn--block home-guest" data-action="account">Sign in to keep your trips</button>' : ''}
-    </main>`;
+    </main>
+    <div class="wt-float-bar wt-float-bar--hug home-new"><button class="wt-btn wt-btn--primary wt-btn--block" data-action="new-trip">${ICON.plus}New trip</button></div>`;
 }
 const HOME_AVATARS = 4; // past this, the rest are a "+N"
 // When a trip is, next to its dates: how soon, or which day of it today is (in primary ink, like the row happening now)
@@ -90,14 +97,17 @@ setInterval(() => {
     if (html) el.outerHTML = html; else el.remove();
   }
 }, 60000);
-function tripCardHTML(t, past, today) {
+// A small card (Wishlist and Past) has one photo, a squarer picture and no avatars (the names are still said). A trip on
+// the wishlist has no dates, so it says how many places are saved to it instead.
+function tripCardHTML(t, past, today, small = false) {
   const people = t.members || [], shown = people.slice(0, people.length > HOME_AVATARS ? HOME_AVATARS - 1 : HOME_AVATARS);
-  const more = people.length - shown.length, when = tripWhen(t, today);
-  return `<a class="wt-trip-card${past ? ' is-past' : ''}${when?.now ? ' is-now' : ''}" href="#/trip/${esc(t.id)}" data-trip="${esc(t.id)}">
-    ${tripPictureHTML(t, past)}
+  const more = people.length - shown.length, when = tripWhen(t, today), saved = t.ideas?.length || 0;
+  const dates = !t.stops?.length && saved ? `${saved} saved place${saved === 1 ? '' : 's'}` : tripDates(t);
+  return `<a class="wt-trip-card${small ? ' wt-trip-card--small' : ''}${past ? ' is-past' : ''}${when?.now ? ' is-now' : ''}" href="#/trip/${esc(t.id)}" data-trip="${esc(t.id)}">
+    ${tripPictureHTML(t, past, small)}
     <span class="wt-trip-card__body">
       <span class="wt-trip-card__text"><span class="wt-trip-card__name">${esc(t.name)}</span>
-        <span class="wt-trip-card__dates">${tripDates(t)}${when ? ` · <span class="wt-trip-card__when">${when.text}</span>` : ''}</span></span>
+        <span class="wt-trip-card__dates">${dates}${when ? ` · <span class="wt-trip-card__when">${when.text}</span>` : ''}</span></span>
       ${people.length ? `<span class="wt-avatar-stack wt-trip-card__people" aria-hidden="true">${shown.map(avatarHTML).join('')}${more ? `<span class="wt-avatar wt-avatar--more">+${more}</span>` : ''}</span>
       <span class="wt-visually-hidden">, with ${esc(people.map(m => m.name).join(', '))}</span>` : ''}
     </span>
@@ -126,11 +136,12 @@ function cardPhotos(t) {
   }
   return shots;
 }
-function tripPictureHTML(t, past) {
-  const shots = offlineNow() ? null : cardPhotos(t);
-  if (!shots?.length) return tripMapHTML(t, past);
+function tripPictureHTML(t, past, small) {
+  let shots = offlineNow() ? null : cardPhotos(t);
+  if (!shots?.length) return tripMapHTML(t, past, small);
+  if (small) shots = shots.slice(0, 1);
   // Commons makes thumbnails in set widths; a narrow photo needs a smaller one than a card-wide one. If that one fails, the 960px.
-  const w = shots.length > 1 ? 500 : 960;
+  const w = shots.length > 1 || small ? 500 : 960;
   return `<span class="wt-trip-card__photos" aria-hidden="true">${shots.map(img => `<img class="wt-trip-card__photo" src="${esc(img.src.replace(/\/960px-([^/]+)$/, `/${w}px-$1`))}" data-full="${esc(img.src)}" alt="" title="${esc(photoCredit(img))}" decoding="async">`).join('')}</span>`;
 }
 // Asks for each card's photos, a card's worth at a time, until there are enough or no more places to ask about, and
@@ -152,7 +163,7 @@ export function loadCardPhotos() {
 }
 function showCardPicture(id) {
   const t = trips?.find(x => x.id === id), card = [...$app.querySelectorAll('.wt-trip-card')].find(c => c.dataset.trip === id);
-  if (t && card) card.firstElementChild.outerHTML = tripPictureHTML(t, card.classList.contains('is-past'));
+  if (t && card) card.firstElementChild.outerHTML = tripPictureHTML(t, card.classList.contains('is-past'), card.classList.contains('wt-trip-card--small'));
 }
 // A photo that won't load: its 960px thumbnail, then, if that fails too, the next place's photo, or the sketch
 function cardPhotoFailed(img) {
@@ -168,11 +179,12 @@ function cardPhotoFailed(img) {
 // day's drives, along the roads where they've been looked up already (Home never looks routes up, so as not to use up
 // the limit), straight otherwise, as transit and flights always are, and a dot for each place in its type's color,
 // with north up. A trip with no stops yet, only Want to go places, has those dots and no drives.
-const SKETCH_W = 320, SKETCH_H = 128, SKETCH_PAD = 16, SKETCH_MIN_SPAN = 0.01; // the sketch's own units (5:2, as its box); degrees
+// The sketch's own units, the shape of its box: 5:2, or 3:2 on a small card; degrees
+const SKETCH = { w: 320, h: 128 }, SKETCH_SMALL = { w: 240, h: 160 }, SKETCH_PAD = 16, SKETCH_MIN_SPAN = 0.01;
 const mercY = lat => -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * 180 / Math.PI; // down the page
-function tripMapHTML(t, past) {
-  const stops = t.stops || [], ideas = (t.ideas || []).filter(i => i.lat != null);
-  if (!stops.length && ideas.length) return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG([], ideas, past)}</span>`;
+function tripMapHTML(t, past, small) {
+  const stops = t.stops || [], ideas = (t.ideas || []).filter(i => i.lat != null), box = small ? SKETCH_SMALL : SKETCH;
+  if (!stops.length && ideas.length) return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG([], ideas, past, box)}</span>`;
   if (!stops.length) return '<span class="wt-trip-card__map wt-trip-card__map--empty">No stops yet</span>';
   const trip = { stops }, legs = [];
   for (const d of daysOf(trip)) {
@@ -180,9 +192,9 @@ function tripMapHTML(t, past) {
     for (let i = 1; i < plan.length; i++) if (!samePlace(plan[i - 1].place, plan[i].place)) legs.push([plan[i - 1].place, plan[i].place, wayTo(plan[i])]);
   }
   const places = stops.filter((s, i) => stops.findIndex(o => samePlace(o, s)) === i);
-  return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG(legs, places, past)}</span>`;
+  return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG(legs, places, past, box)}</span>`;
 }
-function routeSketchSVG(legs, places, past) {
+function routeSketchSVG(legs, places, past, { w: SKETCH_W, h: SKETCH_H }) {
   const lines = legs.map(([a, b, way]) => { const r = routes[legKey(a, b, way)]; return r?.ok && r.coords.length > 1 ? { road: true, coords: r.coords } : { road: false, coords: [[a.lat, a.lng], [b.lat, b.lng]] }; });
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const [lat, lng] of [...places.map(s => [s.lat, s.lng]), ...lines.flatMap(l => l.coords)]) {

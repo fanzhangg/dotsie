@@ -67,7 +67,8 @@ export function render() {
   const r = parseHash();
   document.title = 'Dotsie';
   // Spots are for anyone, signed in or not
-  if (r.page === 'spots' || r.page === 'spot') { if (cur) closeTrip(); teardownTrip(); renderSpots(r); return; }
+  // Saving a spot can change your trips (a new one, or a place on Want to go), so the home list reloads on the way back
+  if (r.page === 'spots' || r.page === 'spot') { if (cur) closeTrip(); teardownTrip(); setTrips(null); renderSpots(r); return; }
   if (!me) { closeTrip(); teardownTrip(); $app.dataset.page = 'signin'; renderSignIn(r); return; }
   if (r.page === 'join') { teardownTrip(); join(r.token); return; }
   if (r.page !== 'trip') {

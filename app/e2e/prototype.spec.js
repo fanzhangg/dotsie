@@ -1,6 +1,6 @@
 // The shared frontend (app/web), run by the prototype on its seeded trips: White Sands, NM (Alex's, Nov 20–22, with
-// Sam) and Big Bend in spring (Jo's, with Alex and Sam). You're Alex unless ?as= says otherwise. Each test starts from
-// a fresh browser, so from the seed.
+// Sam), Big Bend in spring (Jo's, with Alex and Sam) and Utah’s parks (Alex's, with Jo: saved places only, no stops).
+// You're Alex unless ?as= says otherwise. Each test starts from a fresh browser, so from the seed.
 import { expect, question, sheet, test, toast } from './fixtures.js';
 
 const trip = (page, id, as) => page.goto(`${as ? `?as=${as}` : ''}#/trip/${id}`);
@@ -22,6 +22,61 @@ test('home lists your trips', async ({ page }) => {
   await page.goto('#/');
   await expect(cards(page).getByText('White Sands, NM')).toBeVisible();
   await expect(cards(page).getByText('Big Bend in spring')).toBeVisible();
+});
+
+test('home groups the trips: Current, then the Wishlist of trips with saved places only, then Past, each of the last two in small cards two to a row once it has two', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('#/');
+  const group = title => page.locator('.home-group').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+  await expect(page.locator('.home-group__title')).toHaveText(['Current', 'Wishlist', 'Past']);
+  const current = group('Current').locator('.wt-trip-card');
+  await expect(current).toHaveText([/White Sands, NM/]); // the tests' today is Nov 20
+  const wish = group('Wishlist').locator('.wt-trip-card');
+  await expect(wish).toHaveText([/Utah’s parks/]);
+  await expect(wish).toContainText('2 saved places');
+  await expect(wish.locator('.wt-trip-card__stop')).toHaveCount(2);
+  const past = group('Past').locator('.wt-trip-card');
+  await expect(past).toHaveText([/Big Bend in spring/]);
+  // one on its own takes the whole row, as any card does
+  const width = async l => (await l.boundingBox()).width;
+  expect(await width(wish)).toBeCloseTo(await width(current), 0);
+  expect(await width(past)).toBeCloseTo(await width(current), 0);
+  await expect(wish.locator('.wt-trip-card__people')).toBeVisible();
+  // a second trip of saved places only: the wishlist's cards go small, two to a row, with no avatars (the names are
+  // still said); Past, with one, stays as it was
+  await page.goto('#/spots/seattle/sample/pike-place-market');
+  await page.getByRole('button', { name: 'Save to a trip' }).click();
+  await sheet(page).getByRole('button', { name: /^New trip: Seattle/ }).click();
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await sheetGone(page);
+  await page.goto('#/');
+  await expect(wish).toHaveText([/Seattle/, /Utah’s parks/]);
+  const [a, b] = await Promise.all([wish.nth(0).boundingBox(), wish.nth(1).boundingBox()]);
+  expect(a.width).toBeLessThan(await width(current) / 2);
+  expect(b.y).toBeCloseTo(a.y, 0);
+  expect(b.x).toBeGreaterThan(a.x + a.width);
+  await expect(wish.locator('.wt-trip-card__people')).toHaveCount(2);
+  await expect(wish.locator('.wt-trip-card__people').first()).toBeHidden();
+  await expect(wish.nth(1)).toContainText('with Alex, Jo');
+  expect(await width(past)).toBeCloseTo(await width(current), 0);
+  // and they open like any card
+  await wish.nth(1).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Utah’s parks');
+});
+
+test('New trip floats at the bottom of Home, in reach however far down the trips you are, and the last card scrolls clear of it', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 520 });
+  await page.goto('#/');
+  const add = page.getByRole('button', { name: 'New trip' });
+  await expect(add).toBeInViewport();
+  const at = async () => (await add.boundingBox()).y + (await add.boundingBox()).height;
+  expect(await at()).toBeGreaterThan(520 - 40);
+  await page.evaluate(() => scrollTo(0, document.body.scrollHeight));
+  await expect(add).toBeInViewport();
+  const last = page.locator('.wt-trip-card').last();
+  expect((await last.boundingBox()).y + (await last.boundingBox()).height).toBeLessThan((await add.boundingBox()).y);
+  await add.click();
+  await expect(sheet(page)).toBeVisible();
 });
 
 test('a trip opens on today, with its stops in order and the drives between them', async ({ page }) => {
@@ -317,7 +372,7 @@ test('a spot can be saved to several trips, a new one too, and unticking one tak
   await page.getByRole('button', { name: 'Saved to 2 trips. Change' }).click();
   await tripBox(page, 'White Sands, NM').click();
   await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'false');
-  await expect(sheet(page).getByRole('checkbox')).toHaveCount(2);
+  await expect(sheet(page).getByRole('checkbox')).toHaveCount(3); // and Utah’s parks, with no dates
   await expect(sheet(page).getByRole('button', { name: /^New trip/ })).toHaveCount(0);
   await sheet(page).getByRole('button', { name: 'Close' }).click();
   await expect(toast(page)).toContainText('Removed from Want to go');
