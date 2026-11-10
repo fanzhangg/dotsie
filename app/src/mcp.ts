@@ -109,9 +109,10 @@ const stopOut = (s: Stop, names: Map<string, string>) => ({
 });
 // An idea as the assistant sees it: a stop's place and what's said about it, with no time
 const ideaOut = (i: Idea, names: Map<string, string>) => ({
-  id: i.id, name: i.name, address: i.address, lat: i.lat, lng: i.lng, kind: i.kind, note: i.note, links: i.links ?? [], savedBy: names.get(i.by) ?? null, savedAt: new Date(i.updatedAt).toISOString(),
+  id: i.id, name: i.name, address: i.address, lat: i.lat, lng: i.lng, kind: i.kind, savedBy: names.get(i.by) ?? null, savedAt: new Date(i.updatedAt).toISOString(),
 });
-const IDEA_FIELDS = ['name', 'address', 'lat', 'lng', 'kind', 'note', 'links'] as const;
+// An idea is only a place: what's said about it, and its links, go on the stop it becomes
+const IDEA_FIELDS = ['name', 'address', 'lat', 'lng', 'kind'] as const;
 const memberNames = (members: { id: string; name: string }[]) => new Map(members.map(m => [m.id, m.name]));
 
 // A web page about a stop; the app shows it as a button with its label, or its site when it has none
@@ -270,12 +271,12 @@ const TOOLS: Tool[] = [
   {
     name: 'add_idea',
     title: 'Save a place to Want to go',
-    description: 'Save a place to a trip’s Want to go list, with no day or time: for places worth seeing that nobody has planned a day for yet. It needs a name and where it is (lat, lng). Everyone on the trip sees it at once. Returns the idea as saved, with its new id.',
+    description: 'Save a place to a trip’s Want to go list, with no day or time: for places worth seeing that nobody has planned a day for yet. It needs a name and where it is (lat, lng); it’s only the place, with no note or links. Everyone on the trip sees it at once. Returns the idea as saved, with its new id.',
     inputSchema: {
       type: 'object',
       properties: {
         trip_id: { type: 'string', description: 'From list_trips' },
-        ...Object.fromEntries(IDEA_FIELDS.map(k => [k, k === 'note' ? { ...EDITABLE.note, description: 'Why it’s worth going, or anything to remember. Put web pages in links' } : k === 'links' ? { ...EDITABLE.links, description: 'Pages about the place: its own site, a guide to it' } : EDITABLE[k]])),
+        ...Object.fromEntries(IDEA_FIELDS.map(k => [k, EDITABLE[k]])),
       },
       required: ['trip_id', 'name', 'lat', 'lng'],
       additionalProperties: false,

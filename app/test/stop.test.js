@@ -57,18 +57,18 @@ test('a hotel’s ways back keep only the nights that aren’t drives', () => {
   bad({ back: [] }, true);
 });
 
-test('an idea on Want to go needs a name and a place, is checked as a stop is, and has no time', () => {
+test('an idea on Want to go needs a name and a place, is checked as a stop is, and is only the place', () => {
   const place = { name: ' Oliver Lee ', lat: 32.75, lng: -105.91 };
-  assert.deepEqual(cleanIdea({ ...place, time: '2026-11-20T15:00', nights: 2, travel: 'walk', extra: 'dropped' }), {
-    address: '', note: '', kind: '', links: [], wikidata: null, name: 'Oliver Lee', lat: 32.75, lng: -105.91,
+  assert.deepEqual(cleanIdea({ ...place, time: '2026-11-20T15:00', nights: 2, travel: 'walk', note: 'Dog Canyon', links: [{ url: 'https://example.com/a' }], extra: 'dropped' }), {
+    address: '', kind: '', wikidata: null, name: 'Oliver Lee', lat: 32.75, lng: -105.91,
   });
-  assert.deepEqual(cleanIdea({ ...place, kind: 'nature', note: 'Dog Canyon', links: [{ url: 'https://example.com/a' }], wikidata: 'Q123' }), {
-    address: '', note: 'Dog Canyon', kind: 'nature', links: [{ url: 'https://example.com/a', label: '' }], wikidata: 'Q123', name: 'Oliver Lee', lat: 32.75, lng: -105.91,
+  assert.deepEqual(cleanIdea({ ...place, address: 'Dog Canyon Rd', kind: 'nature', wikidata: 'Q123' }), {
+    address: 'Dog Canyon Rd', kind: 'nature', wikidata: 'Q123', name: 'Oliver Lee', lat: 32.75, lng: -105.91,
   });
   const badIdea = input => assert.throws(() => cleanIdea(input), { message: ERR.invalid }, JSON.stringify(input));
   for (const k of ['name', 'lat', 'lng']) badIdea({ ...place, [k]: undefined });
   badIdea({ ...place, name: '  ' });
   badIdea({ ...place, kind: 'castle' });
-  badIdea({ ...place, links: [{ url: 'javascript:alert(1)' }] });
+  badIdea({ ...place, wikidata: 'Q0' });
   badIdea(null);
 });

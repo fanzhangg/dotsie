@@ -1,10 +1,21 @@
-/* Adding, changing and deleting stops, and how you get to one. */
+/* Adding, changing and deleting stops, how you get to one, and a place's state.
+
+   A place on a trip is in one of two states, and changes between them the same way wherever it's shown:
+
+     (none) ── Save ──▶ WANT TO GO ── Add to this day ──▶ PLANNED
+            ◀─ Remove ─  no day,    ◀─ Move to Want to go ─  a day and a time,
+                         no time                             a note and links
+     PLANNED ── Delete ──▶ (none)
+
+   Save and Move to Want to go are the bookmark; a filled bookmark says it's on Want to go, and a tap removes it. Add to
+   this day is the calendar, and happens only on a day: that's where a time comes from. Every change says what happened,
+   with Undo, which puts the place back as it was. */
 import { esc, state, uid } from './core.js';
 import { fmtDur } from './time.js';
 import { me } from './signin.js';
 import { openTripOf, save, writeStop } from './trips.js';
 import { api } from './backend.js';
-import { TRAVEL, backOf, staysOf, travelIcon, travelOf } from './plan.js';
+import { TRAVEL, backOf, findIdea, staysOf, travelIcon, travelOf } from './plan.js';
 import { getRoute } from './routes.js';
 import { render } from './app.js';
 import { refit } from './map.js';
@@ -36,53 +47,76 @@ export function editStop(trip, stop, fields) {
   render();
   writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PATCH', body: changed }));
 }
-export function deleteStop(trip, stop) {
+// `quiet`: no notice, for a change that says so itself (Move to Want to go, an Undo)
+export function deleteStop(trip, stop, { quiet = false } = {}) {
   const t = openTripOf(trip.id);
   if (t) t.stops = t.stops.filter(s => s.id !== stop.id);
+  if (state.sel === stop.id) state.sel = state.selRow = null;
   render();
   save(api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'DELETE' }));
-  // Undo puts the same stop back under its old id
-  toast(`Deleted ${stop.name}`, 'Undo', () => {
-    const { name, address, lat, lng, time, tz = null, duration = null, note, kind, nights, checkout = null, back = {}, links = [], wikidata = null } = stop, travel = travelOf(stop);
-    openTripOf(trip.id)?.stops.push({ ...stop, by: me.id });
-    render();
-    writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, tz, duration, note, kind, nights, checkout, travel, back, links, wikidata } }));
+  if (!quiet) toast(`Deleted ${stop.name}`, 'Undo', () => restoreStop(trip, stop));
+}
+// The same stop back under its old id, as it was
+function restoreStop(trip, stop) {
+  const { name, address, lat, lng, time, tz = null, duration = null, note, kind, nights, checkout = null, back = {}, links = [], wikidata = null } = stop, travel = travelOf(stop);
+  const t = openTripOf(trip.id);
+  if (t && !t.stops.some(s => s.id === stop.id)) t.stops.push({ ...stop, by: me.id });
+  render();
+  writeStop(trip.id, stop.id, api(`/trips/${trip.id}/stops/${stop.id}`, { method: 'PUT', body: { name, address, lat, lng, time, tz, duration, note, kind, nights, checkout, travel, back, links, wikidata } }));
+}
+
+// ---------- A place's state: Want to go and planned ----------
+// Want to go → planned: the place as a new stop on the day (stopsheet.js's addToDay works out when), off the list. Undo
+// takes the stop away and puts the place back on Want to go.
+export function planIdea(trip, idea, data, say) {
+  addStop(trip, data);
+  const stop = openTripOf(trip.id)?.stops.find(s => s.id === state.sel);
+  if (idea) deleteIdea(trip, idea, { quiet: true });
+  toast(say, 'Undo', () => {
+    if (stop) deleteStop(trip, stop, { quiet: true });
+    if (idea) restoreIdea(trip, idea);
+  });
+}
+// Planned → Want to go: off its day, onto the list as a place, and only a place: its time, stay, note and links go
+// (Undo brings it all back). A place on the list already isn't put on it twice.
+export function moveToIdeas(trip, stop) {
+  const had = findIdea(openTripOf(trip.id) || trip, stop);
+  deleteStop(trip, stop, { quiet: true });
+  const idea = had || addIdea(trip, stop, { select: false });
+  toast(`Moved ${stop.name} to Want to go`, 'Undo', () => {
+    if (!had) deleteIdea(trip, idea, { quiet: true });
+    restoreStop(trip, stop);
   });
 }
 
 // ---------- Want to go ----------
-// A place saved for the trip, with no day yet. It's selected, so its pin is named and Add to a day is in reach.
-const ideaBody = ({ name, address = '', lat, lng, note = '', kind = '', links = [], wikidata = null }) => ({ name, address, lat, lng, note, kind, links, wikidata });
-export function addIdea(trip, data, { select = true } = {}) {
+// Save: a place on the trip's list, with no day yet. Selected (`select`), so its pin is named; `say`, the notice, with
+// Undo (left out where the change says so itself).
+const ideaBody = ({ name, address = '', lat, lng, kind = '', wikidata = null }) => ({ name, address, lat, lng, kind, wikidata });
+export function addIdea(trip, data, { select = true, say = false } = {}) {
   const idea = { id: uid(), ...ideaBody(data), by: me.id, updatedAt: Date.now() };
   openTripOf(trip.id)?.ideas.push(idea);
   if (select) { state.leg = null; state.sel = idea.id; state.selRow = null; }
   render();
   save(api(`/trips/${trip.id}/ideas/${idea.id}`, { method: 'PUT', body: ideaBody(idea) }), 'Couldn’t save it to Want to go');
+  if (say) toast(`Saved ${idea.name} to Want to go`, 'Undo', () => deleteIdea(trip, idea, { quiet: true }));
   return idea;
 }
-// Its note and links changed: saved whole, as the list keeps it (its place in the list stays)
-export function editIdea(trip, idea, fields) {
-  const target = openTripOf(trip.id)?.ideas.find(i => i.id === idea.id), next = { ...(target || idea), ...fields };
-  if (target) Object.assign(target, fields, { by: me.id });
+// Back on the list, as it was (saved again, it goes at the end, as the server keeps it)
+function restoreIdea(trip, idea) {
+  const now = openTripOf(trip.id);
+  if (now && !now.ideas.some(i => i.id === idea.id)) now.ideas.push({ ...idea, by: me.id, updatedAt: Date.now() });
   render();
-  save(api(`/trips/${trip.id}/ideas/${idea.id}`, { method: 'PUT', body: ideaBody(next) }));
+  save(api(`/trips/${trip.id}/ideas/${idea.id}`, { method: 'PUT', body: ideaBody(idea) }));
 }
-// Taken off the list: with Undo, which saves it again (at the end of the list, as the server keeps it), or quietly,
-// once it's been added to a day
+// Remove: off the list, with Undo; or quietly, as part of another change that says so (planned, an Undo)
 export function deleteIdea(trip, idea, { quiet = false } = {}) {
   const t = openTripOf(trip.id);
   if (t) t.ideas = t.ideas.filter(i => i.id !== idea.id);
   if (state.sel === idea.id) state.sel = state.selRow = null;
   render();
   save(api(`/trips/${trip.id}/ideas/${idea.id}`, { method: 'DELETE' }));
-  if (quiet) return;
-  toast(`Removed ${idea.name} from Want to go`, 'Undo', () => {
-    const now = openTripOf(trip.id);
-    if (now && !now.ideas.some(i => i.id === idea.id)) now.ideas.push({ ...idea, by: me.id, updatedAt: Date.now() });
-    render();
-    save(api(`/trips/${trip.id}/ideas/${idea.id}`, { method: 'PUT', body: ideaBody(idea) }));
-  });
+  if (!quiet) toast(`Removed ${idea.name} from Want to go`, 'Undo', () => restoreIdea(trip, idea));
 }
 
 // How you get there, from a drive on show: the round button beside Directions opens the ways, one per row, like a stop's

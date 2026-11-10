@@ -119,7 +119,7 @@ function saveSight(s) {
   const trip = cur?.stops ? cur : null;
   if (!trip || state.draft || !needsConnection()) return;
   closeSheet();
-  addIdea(trip, { name: s.name, address: s.address || '', lat: s.lat, lng: s.lng, kind: s.kind, wikidata: s.wikidata || null }, { select: currentDay(trip) === IDEAS });
+  addIdea(trip, { name: s.name, address: s.address || '', lat: s.lat, lng: s.lng, kind: s.kind, wikidata: s.wikidata || null }, { select: currentDay(trip) === IDEAS, say: true });
 }
 
 // The sight at a place, with its Wikidata item, for a stop that has none (found by search, or added by an assistant):
@@ -230,9 +230,9 @@ function openSight(s) {
   const trip = cur?.stops ? cur : null;
   if (!trip || state.draft) return;
   const day = currentDay(trip), onDay = day !== IDEAS && day !== ALL;
-  const button = onDay ? `<button class="wt-btn wt-btn--primary wt-btn--block sight-add" data-add>${ICON.plus}Add to this day</button>`
+  const button = onDay ? `<button class="wt-btn wt-btn--primary wt-btn--block sight-add" data-add>${ICON.calendar}Add to this day</button>`
     : findIdea(trip, s) ? `<button class="wt-btn wt-btn--secondary wt-btn--block sight-add" disabled>${ICON.check}Saved</button>`
-      : `<button class="wt-btn wt-btn--primary wt-btn--block sight-add" data-save aria-label="Save to Want to go">${ICON.star}Save</button>`;
+      : `<button class="wt-btn wt-btn--primary wt-btn--block sight-add" data-save aria-label="Save to Want to go">${ICON.bookmark}Save</button>`;
   openSheet(`${modalHead(esc(s.name))}
     <p class="wt-modal__text sight-type"><i class="wt-sight__marker" style="--wt-kind-color: ${kindColor(s)}">${kindIcon(s, 12)}</i>${KINDS[s.kind].label}</p>
     ${aboutSlot(s.wikidata, false)}

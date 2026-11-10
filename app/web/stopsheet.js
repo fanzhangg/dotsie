@@ -3,11 +3,11 @@ import { $app, $sheets, ICON, WIDE, esc, state } from './core.js';
 import { DAYS, fmtClock, fmtDay, fmtDur, fmtTime, instantOf, nowStamp, pad, placeZone, toDate, toInput, zoneCity, zoneName } from './time.js';
 import { cur } from './trips.js';
 import { api } from './backend.js';
-import { ALL, IDEAS, HOTEL_CHECK_IN, HOTEL_CHECK_OUT, KINDS, KIND_HINTS, KIND_SECTIONS, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysBetween, daysOf, findIdea, guessKind, ideaDays, ideasOf, kindOf, samePlace, stayOf, stayOnNight, stopsOf, wayTo } from './plan.js';
+import { ALL, IDEAS, HOTEL_CHECK_IN, HOTEL_CHECK_OUT, KINDS, KIND_HINTS, KIND_SECTIONS, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysBetween, daysOf, findIdea, guessKind, ideasOf, kindOf, samePlace, stayOf, stayOnNight, stopsOf, wayTo } from './plan.js';
 import { centerFocus, currentDay, selectedStop, siteOf, webUrl } from './timeline.js';
-import { foodURL, legRoute, legsOn, placeURL } from './routes.js';
+import { foodURL, legRoute, legsOn } from './routes.js';
 import { toast } from './notices.js';
-import { addIdea, addStop, deleteIdea, deleteStop, editIdea, editStop } from './edits.js';
+import { addIdea, addStop, deleteIdea, deleteStop, editStop, moveToIdeas, planIdea } from './edits.js';
 import { offlineNow } from './offline.js';
 import { render } from './app.js';
 import { drawMap, focusStop, map, mapCamera, markerHTML, moveCamera, reduceMotion, selectStop, zoomToStop } from './map.js';
@@ -106,73 +106,29 @@ function growingNote(note, shown = () => true) {
 // Search leans toward a place: where the stop is, or where a new one goes (see wayAround). It used to lean toward the
 // middle of all the trip's stops, which on a long road trip is somewhere none of them are.
 const nearParam = p => (p ? `&near=${(+p.lat).toFixed(4)},${(+p.lng).toFixed(4)}` : '');
-// The trip's stop nearest a place (a hotel too): a place from Want to go starts on that stop's day, just after it, as
-// that's most often where it fits. Null for a trip with no stops.
-// `day`: among that day's stops.
-function nearestStop(trip, p, day = null) {
+// The day's stop nearest a place: a place from Want to go, or a sight, goes on the day just after it, as that's most
+// often where it fits. Null for a day with no stops of its own.
+function nearestStop(trip, p, day) {
   const [kx, ky] = kmPerDeg(+p.lat), km = s => Math.hypot((s.lng - p.lng) * kx, (s.lat - p.lat) * ky);
-  return (day ? dayStops(trip, day) : stopsOf(trip)).reduce((a, s) => (!a || km(s) < km(a) ? s : a), null);
+  return dayStops(trip, day).reduce((a, s) => (!a || km(s) < km(a) ? s : a), null);
 }
 
-// ---------- Adding a place to a day: one choice, the day ----------
-// A place on Want to go, or a sight, goes on the day as a stop, at the time it most likely fits: just after the day's
+// ---------- Adding a place to the day on screen ----------
+// Only from a day, where the plan is: Want to go itself is a plain list, with no days or times. A place on it (its
+// hollow pin on the day's map), or a sight, goes on the day as a stop, at the time it most likely fits: just after the day's
 // stop nearest it (halfway to the next), or two hours after the day's last stop, or 9 AM on a day with none; a hotel
 // at check-in. The list follows it to its day (the overview stays) with it selected, and a notice says when, since
-// it wasn't asked: Edit stop changes it. A place from Want to go comes off the list.
+// it wasn't asked: Edit stop changes it, and gives it a note and links. A place from Want to go comes off the list.
 export function addToDay(trip, place, day, idea = null) {
   const kind = kindOf(place), hotel = kind === 'hotel';
   const time = hotel ? `${day}T${HOTEL_CHECK_IN}` : defaultTime(trip, nearestStop(trip, place, day), day);
   const data = {
     name: place.name, address: place.address || '', lat: place.lat, lng: place.lng, time, tz: null, duration: null,
-    note: place.note || '', links: place.links || [], kind, nights: null, checkout: null, wikidata: place.wikidata ?? null,
+    note: '', links: [], kind, nights: null, checkout: null, wikidata: place.wikidata ?? null,
   };
   if (state.day !== ALL) state.day = day;
-  addStop(trip, data);
-  if (idea) deleteIdea(trip, idea, { quiet: true });
+  planIdea(trip, idea, data, `Added to ${fmtDay(day)}, ${hotel ? 'checking in' : 'arriving'} at ${fmtTime(time)}`);
   centerFocus({ force: true, animate: false });
-  toast(`Added to ${fmtDay(day)}, ${hotel ? 'checking in' : 'arriving'} at ${fmtTime(time)}`);
-}
-// Add to a day, from Want to go: the trip's days, the one nearest the place marked, then Another day, the stop sheet
-// for any date (a trip with no days yet goes straight there).
-export function openDayPicker(trip, idea) {
-  const days = daysOf(trip);
-  if (!days.length) return openStopSheet(trip, null, null, { idea });
-  const near = ideaDays(trip).get(idea.id), today = nowStamp().slice(0, 10);
-  const row = (d, label, detail) => `<li><button type="button" class="wt-option" data-day="${d}"><span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span></button></li>`;
-  openSheet(`${modalHead(`Add ${esc(idea.name)} to a day`)}
-    <ul class="wt-options" aria-label="Days">${days.map(d => row(d, d === today ? `Today, ${fmtDay(d).split(', ')[1]}` : fmtDay(d), d === near ? 'Nearest' : '')).join('')}${row('', 'Another day…', '')}</ul>`, el => {
-    for (const b of el.querySelectorAll('[data-day]')) b.onclick = () => {
-      closeSheet();
-      if (b.dataset.day) addToDay(trip, idea, b.dataset.day, idea);
-      else openStopSheet(trip, null, null, { idea });
-    };
-    (el.querySelector(`[data-day="${near}"]`) || el.querySelector('[data-day]')).focus();
-  });
-}
-
-// ---------- A place on Want to go: its note and links, and taking it off the list ----------
-// Its name and where it is head the sheet, with the place in your maps app, to see what it is.
-export function openIdeaSheet(trip, idea) {
-  openSheet(`${modalHead(esc(idea.name))}
-    <p class="wt-modal__text idea-where">${idea.address ? `${esc(idea.address)} · ` : ''}<a href="${esc(placeURL(idea))}" target="_blank" rel="noopener">Open in Maps${ICON.external}</a></p>
-    <form>
-      <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="${MAX.note}" placeholder="Why go, tickets, tips…"></textarea></label>
-      ${LINKS_FIELD}
-      <div class="wt-modal__actions"><button type="button" class="wt-btn wt-btn--danger" data-del>Remove</button><button class="wt-btn wt-btn--primary">Save</button></div>
-    </form>`, el => {
-    const f = el.querySelector('form');
-    f.elements.note.value = idea.note || '';
-    growingNote(f.elements.note);
-    const { readLinks } = linkEditor(el, idea.links || []);
-    f.onsubmit = e => {
-      e.preventDefault();
-      const links = readLinks();
-      if (!links) return;
-      closeSheet();
-      editIdea(trip, idea, { note: f.elements.note.value.trim(), links });
-    };
-    el.querySelector('[data-del]').onclick = () => { closeSheet(); deleteIdea(trip, idea); };
-  });
 }
 
 // Where a stop at `time` goes in the plan: between the place you'd come from and the one you'd go on to (that day's
@@ -498,16 +454,14 @@ const whenHTML = (name, label, cls = '', aside = '', after = '') => `<div class=
 // Type is one row that opens the types on a page of their own; it starts as a guess from the place you pick,
 // until you choose one yourself.
 // A new stop can start from a place picked on the map (`place`: name, address, lat, lng and kind), rather than from search.
-// `idea`: a place on Want to go, added to a day: it starts as the place, with its note and links, just after the stop
-// nearest it, and once it's added it comes off the list. `toIdeas`: the search page alone, for Want to go's Add place:
-// the place picked goes on the list, with no day, and the sheet closes.
-export function openStopSheet(trip, stop, place = null, { idea = null, toIdeas = false } = {}) {
+// `toIdeas`: the search page alone, for Want to go's Save place: the place picked goes on the list, with no day and no
+// time, and the sheet closes.
+export function openStopSheet(trip, stop, place = null, { toIdeas = false } = {}) {
   if ($sheets.innerHTML) closeSheet();
-  const from = idea && { name: idea.name, address: idea.address, lat: idea.lat, lng: idea.lng, kind: kindOf(idea), wikidata: idea.wikidata ?? null, fromIdea: idea.id };
-  const draft = stop ? { ...stop, kind: kindOf(stop) } : { lat: null, lng: null, address: '', name: '', kind: 'place', ...place, ...from };
+  const draft = stop ? { ...stop, kind: kindOf(stop) } : { lat: null, lng: null, address: '', name: '', kind: 'place', ...place };
   let chosen = !!stop, saved = false;
   const camera = mapCamera();
-  const after = stop || toIdeas ? null : idea ? nearestStop(trip, idea) : anchorStop(trip); // before the selection's cleared
+  const after = stop || toIdeas ? null : anchorStop(trip); // before the selection's cleared
   state.leg = null;
   if (state.sel !== stop?.id) state.selRow = null;
   state.sel = stop?.id || null;
@@ -530,6 +484,7 @@ export function openStopSheet(trip, stop, place = null, { idea = null, toIdeas =
         <button type="button" class="wt-picker wt-picker--text" data-dur-open aria-describedby="dur-label"></button></div>
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="${MAX.note}" placeholder="Confirmation #, tickets, tips…"></textarea></label>
       ${LINKS_FIELD}
+      ${stop ? `<button type="button" class="wt-link-add stop-unplan" data-unplan>${ICON.bookmark}Move to Want to go</button>` : ''}
       <div class="wt-modal__actions wt-modal__actions--sticky">${stop ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${stop ? 'Save' : 'Add'}</button></div>
     </form></div>
     ${choicePageHTML('stop-kinds', 'Type', KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>'))}
@@ -567,11 +522,11 @@ export function openStopSheet(trip, stop, place = null, { idea = null, toIdeas =
     // The time is yours once you've touched it; until then a new hotel's starts at check-in time
     let timeTouched = !!stop;
     if (stop) { F.time.value = stop.time; F.note.value = stop.note || ''; }
-    else { F.time.value = defaultTime(trip, after); F.note.value = idea?.note || ''; }
-    const growNote = growingNote(F.note, () => !main.hidden);
+    else F.time.value = defaultTime(trip, after);
+    growingNote(F.note, () => !main.hidden);
 
     // ----- Links (see linkEditor) -----
-    const { list: linkList, addLinkRow, readLinks } = linkEditor(el, (stop || idea)?.links || []);
+    const { readLinks } = linkEditor(el, stop?.links || []);
 
     // ----- Type: the picker row, and its page -----
     const showKind = () => {
@@ -831,20 +786,15 @@ export function openStopSheet(trip, stop, place = null, { idea = null, toIdeas =
         closeSheet();
         const had = findIdea(cur?.id === trip.id && cur.stops ? cur : trip, p);
         if (had) toast(`${had.name} is on Want to go already`);
-        const idea = had || addIdea(trip, { name: p.name, address: p.address || '', lat: p.lat, lng: p.lng, kind: p.kind || '' });
+        const idea = had || addIdea(trip, { name: p.name, address: p.address || '', lat: p.lat, lng: p.lng, kind: p.kind || '' }, { say: true });
         selectStop(idea);
         zoomToStop(idea, 0);
         return;
       }
       Object.assign(draft, { lat: p.lat, lng: p.lng, address: p.address, name: p.name, fromIdea: p.idea || null });
-      // A place from Want to go brings its note and links, if this stop has none yet, and its Wikidata item
-      if (p.idea) {
-        if (!F.note.value.trim() && p.note) { F.note.value = p.note; growNote(); }
-        if (!linkList.children.length) for (const l of p.links || []) addLinkRow(l);
-      }
       // Another place isn't the sight it was
       if (draft.wikidata && (p.lat !== stop?.lat || p.lng !== stop?.lng)) { draft.wikidata = null; el.querySelector('.wt-about')?.remove(); }
-      if (p.idea && p.wikidata) draft.wikidata = p.wikidata;
+      if (p.idea && p.wikidata) draft.wikidata = p.wikidata; // a place from Want to go keeps its Wikidata item
       findItem();
       showPlace();
       status.textContent = `${p.name} picked`;
@@ -904,6 +854,12 @@ export function openStopSheet(trip, stop, place = null, { idea = null, toIdeas =
       closeSheet();
       centerFocus({ force: true, animate: false }); // the saved stop, wherever its time put it, in the middle of the list
     };
+    // Planned → Want to go: off its day, back to a place on the list (see moveToIdeas)
+    f.querySelector('[data-unplan]')?.addEventListener('click', () => {
+      saved = true;
+      closeSheet();
+      moveToIdeas(trip, stop);
+    });
     f.querySelector('[data-del]')?.addEventListener('click', () => {
       saved = true;
       closeSheet();
@@ -919,7 +875,7 @@ export function openStopSheet(trip, stop, place = null, { idea = null, toIdeas =
       if ($app.dataset.trip && cur?.stops) render();
     },
   });
-  if (stop || place || idea) focusStop(draft);
+  if (stop || place) focusStop(draft);
 }
 // Want to go's Add place: the stop sheet's search page, on its own
 export const openIdeaSearch = trip => openStopSheet(trip, null, null, { toIdeas: true });

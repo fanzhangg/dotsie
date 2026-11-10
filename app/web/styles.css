@@ -163,6 +163,7 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
 /* A spot's Save to a trip, under its one line (spots.js), and the trips it offers, each with a map in a grey marker */
 .spot-save { margin: var(--wt-space-2) 0 0; }
 .spot-save__trip { --wt-kind-color: var(--wt-kind-drive); }
-/* A Want to go place's sheet: where it is, and the place in your maps app */
-.idea-where a { color: var(--wt-text-link); text-decoration: none; display: inline-flex; align-items: center; gap: 2px; }
-.idea-where .wt-icon { width: 14px; height: 14px; }
+/* A place's bookmark, filled: it's on Want to go, and a tap takes it off */
+.wt-btn--saved .wt-icon { fill: currentColor; }
+/* Move to Want to go, in a planned stop's sheet: quiet, as Add link is, above Delete and Save */
+.stop-unplan { margin-top: var(--wt-space-2); }

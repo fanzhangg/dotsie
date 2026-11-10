@@ -53,10 +53,8 @@ function seed() {
         ],
         // Want to go: places saved with no day yet
         ideas: [
-          { id: uid(), kind: 'nature', name: 'Oliver Lee Memorial State Park', address: 'Dog Canyon Rd, Alamogordo, NM', lat: 32.7486, lng: -105.9145,
-            note: 'Dog Canyon trail, if we have a morning', links: [], wikidata: null, by: 'sam', updatedAt: t - 2 },
-          { id: uid(), kind: 'attraction', name: 'Three Rivers Petroglyph Site', address: 'County Rd B30, Three Rivers, NM', lat: 33.3456, lng: -105.9864,
-            note: '', links: [{ url: 'https://www.blm.gov/visit/three-rivers-petroglyph-site', label: 'BLM' }], wikidata: null, by: 'alex', updatedAt: t - 1 },
+          { id: uid(), kind: 'nature', name: 'Oliver Lee Memorial State Park', address: 'Dog Canyon Rd, Alamogordo, NM', lat: 32.7486, lng: -105.9145, wikidata: null, by: 'sam', updatedAt: t - 2 },
+          { id: uid(), kind: 'attraction', name: 'Three Rivers Petroglyph Site', address: 'County Rd B30, Three Rivers, NM', lat: 33.3456, lng: -105.9864, wikidata: null, by: 'alex', updatedAt: t - 1 },
         ],
       },
       'big-bend': {
@@ -224,8 +222,9 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
     }
     if (method !== 'PUT') fail(404, 'not_found');
     if (!body?.name?.trim() || !Number.isFinite(body.lat) || !Number.isFinite(body.lng)) fail(400, 'invalid');
-    const { name, address = '', lat, lng, note = '', kind = '', links = [], wikidata = null } = body;
-    const idea = { id: p[3], name: name.trim(), address, lat, lng, note, kind, links, wikidata, by: ME, updatedAt: now };
+    // only the place: a note, links or a time sent with it are dropped, as the server drops them
+    const { name, address = '', lat, lng, kind = '', wikidata = null } = body;
+    const idea = { id: p[3], name: name.trim(), address, lat, lng, kind, wikidata, by: ME, updatedAt: now };
     if (i >= 0) t.ideas[i] = idea; else t.ideas.push(idea);
     touch();
     broadcast(t.id, { type: 'idea.upserted', idea });

@@ -35,8 +35,8 @@ type StopRow = Omit<Stop, 'updatedAt' | 'back' | 'links'> & { updated_at: number
 const parseBack = (back: string): Back => { try { return JSON.parse(back) || {}; } catch { return {}; } };
 const parseLinks = (links: string): Link[] => { try { return JSON.parse(links) || []; } catch { return []; } };
 const toStop = ({ updated_at, back, links, ...r }: StopRow): Stop => ({ ...r, back: parseBack(back), links: parseLinks(links), updatedAt: updated_at });
-type IdeaRow = Omit<Idea, 'updatedAt' | 'links'> & { updated_at: number; saved_at: number; links: string };
-const toIdea = ({ updated_at, saved_at, links, ...r }: IdeaRow): Idea => ({ ...r, links: parseLinks(links), updatedAt: updated_at });
+type IdeaRow = Omit<Idea, 'updatedAt'> & { updated_at: number; saved_at: number };
+const toIdea = ({ updated_at, saved_at, ...r }: IdeaRow): Idea => ({ ...r, updatedAt: updated_at });
 
 export class TripRoom extends DurableObject<Env> {
   private sql = this.ctx.storage.sql;
@@ -157,16 +157,16 @@ export class TripRoom extends DurableObject<Env> {
 
   // ---------- Want to go ----------
   // Places saved for the trip before they have a day. Saved whole, like a new stop (the client picks the id, so a retry
-  // or an Undo is the same write), and edited the same way, keeping its place in the list; adding one to a day is a new
-  // stop, then this deleted. Neither changes the trip's dates, which are the stops'.
+  // or an Undo is the same write; saved again, one keeps its place in the list); adding one to a day is a new stop, then
+  // this deleted. Neither changes the trip's dates, which are the stops'.
   async putIdea(userId: string, ideaId: string, input: unknown) {
     this.check(userId);
     const f = cleanIdea(input);
     this.sql.exec(
-      `insert into ideas (id, name, address, lat, lng, note, kind, links, wikidata, by, updated_at, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       on conflict (id) do update set name = excluded.name, address = excluded.address, lat = excluded.lat, lng = excluded.lng, note = excluded.note,
-         kind = excluded.kind, links = excluded.links, wikidata = excluded.wikidata, by = excluded.by, updated_at = excluded.updated_at`,
-      ideaId, f.name, f.address, f.lat, f.lng, f.note, f.kind, JSON.stringify(f.links), f.wikidata, userId, Date.now(), Date.now());
+      `insert into ideas (id, name, address, lat, lng, kind, wikidata, by, updated_at, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       on conflict (id) do update set name = excluded.name, address = excluded.address, lat = excluded.lat, lng = excluded.lng,
+         kind = excluded.kind, wikidata = excluded.wikidata, by = excluded.by, updated_at = excluded.updated_at`,
+      ideaId, f.name, f.address, f.lat, f.lng, f.kind, f.wikidata, userId, Date.now(), Date.now());
     const idea = toIdea(this.sql.exec<IdeaRow>('select * from ideas where id = ?', ideaId).one());
     await this.touch();
     this.broadcast({ type: 'idea.upserted', idea }, userId);

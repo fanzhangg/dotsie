@@ -121,10 +121,10 @@ A trip's Want to go list: places the people on it would like to see, saved befor
 
 | Route | What it does |
 | --- | --- |
-| `PUT /api/trips/:id/ideas/:ideaId` | Save a place to the list, change one, or restore one (Undo), whole. The client picks the id |
+| `PUT /api/trips/:id/ideas/:ideaId` | Save a place to the list, or restore one (Undo), whole. The client picks the id |
 | `DELETE /api/trips/:id/ideas/:ideaId` | |
 
-An idea is `{ id, name, address, lat, lng, note, kind, links, wikidata, by, updatedAt }`, each field as a stop's: a stop's place and what's said about it, with no time, stay or way there. `name`, `lat` and `lng` are needed; any other field a stop has is dropped. To change one (its note, its links), PUT it whole again: it keeps its place in the list, which is in the order the ideas were first saved. It doesn't change the trip's dates, which come from its stops.
+An idea is `{ id, name, address, lat, lng, kind, wikidata, by, updatedAt }`, each field as a stop's: a stop's place, and nothing else (no note or links, no time, stay or way there). `name`, `lat` and `lng` are needed; any other field a stop has is dropped. Saved again, an idea keeps its place in the list, which is in the order the ideas were first saved. It doesn't change the trip's dates, which come from its stops.
 
 ### Maps
 
@@ -223,7 +223,7 @@ OAuth 2.1, so a client finds everything it needs from the server's address:
 | `edit_stop` | `trip_id`, `stop_id`, and any of `name`, `address`, `lat`, `lng`, `time`, `checkout`, `kind`, `nights`, `note`, `links` | `{ stop }`, as saved. `links` replaces the whole list |
 | `add_link` | `trip_id`, `stop_id`, `url`, optional `label` | `{ stop }`, as saved. Adds the page to the stop's links, keeping the others; a page it has already only gets the new label |
 | `delete_stop` | `trip_id`, `stop_id` | `{ deleted }`: the stop as it was, so `add_stop` can put it back |
-| `add_idea` | `trip_id`, `name`, `lat`, `lng`, and any of `address`, `kind`, `note`, `links` | `{ idea }`, as saved, with its new id: a place on the Want to go list, with no day |
+| `add_idea` | `trip_id`, `name`, `lat`, `lng`, and any of `address`, `kind` | `{ idea }`, as saved, with its new id: a place on the Want to go list, with no day, and only the place |
 | `delete_idea` | `trip_id`, `idea_id` | `{ deleted }`: the idea as it was |
 
 Bump `SERVER.version` in `src/mcp.ts` whenever a tool or its arguments change, so clients have a reason to fetch the tools again, and say what changed at the top of `CHANGES` there: `/developer/changelog` shows it.

@@ -394,7 +394,9 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   font: var(--wt-type-context); color: var(--wt-text-tertiary); white-space: nowrap; transition: color var(--wt-duration-fast);
 }
 .wt-day-tab[aria-selected="true"] { color: var(--wt-text-primary); }
-/* How many places Want to go has, after its name, quieter than it */
+/* Want to go's tab: an icon, with how many places it has after it, quieter than it */
+.wt-day-tab--icon { display: inline-flex; align-items: center; }
+.wt-day-tab--icon .wt-icon { width: 20px; height: 20px; }
 .wt-day-tab__count { margin-left: var(--wt-space-1); color: var(--wt-text-tertiary); font-variant-numeric: tabular-nums; }
 .wt-day-tab:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: -4px; border-radius: var(--wt-radius-md); }
 .wt-day-tabs__bar {

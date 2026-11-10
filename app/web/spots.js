@@ -304,11 +304,11 @@ async function showEntry({ city, source, id }) {
 // trip that has it already says Saved, and can't be picked. Saving says so, with Open, which opens the trip on Want to
 // go, and the button says where it went. Signed out, it asks you to sign in first.
 const savedTo = new Map(); // spot key → the trip it was saved to this visit
+// The place, and only the place, as on any Want to go list
 const spotIdea = g => ({
   name: g.name, address: `${g.destination.name}, ${g.destination.state}`, lat: g.lat, lng: g.lng,
-  kind: guessKind(g.name) === 'place' ? 'attraction' : guessKind(g.name), note: '',
+  kind: guessKind(g.name) === 'place' ? 'attraction' : guessKind(g.name),
   wikidata: g.source === 'wikidata' && QID.test(g.id) ? g.id : null,
-  links: [{ url: `${location.origin}${location.pathname}${spotHash({ city: g.destination, source: g.source, id: g.id })}`, label: 'Dotsie guide' }, ...(g.website ? [{ url: g.website, label: 'Website' }] : [])],
 });
 async function saveSpot(g, btn) {
   if (!me) { toast({ title: 'Sign in to save places to a trip', detail: 'Your trips, and who’s on them, are in your account.' }, 'Sign in', () => { location.hash = '#/'; }); return; }
@@ -343,7 +343,7 @@ async function saveSpot(g, btn) {
   });
 }
 const spotKey = g => `${g.destination.id}/${g.source}/${g.id}`;
-const saveLabel = g => (savedTo.has(spotKey(g)) ? `${ICON.check}Saved to ${esc(savedTo.get(spotKey(g)))}` : `${ICON.star}Save to a trip`);
+const saveLabel = g => (savedTo.has(spotKey(g)) ? `${ICON.check}Saved to ${esc(savedTo.get(spotKey(g)))}` : `${ICON.bookmark}Save to a trip`);
 function showSaved(g) {
   const b = $app.querySelector('[data-spot-save]');
   if (b && s.spot === g) { b.innerHTML = saveLabel(g); b.classList.toggle('wt-btn--primary', !savedTo.has(spotKey(g))); b.classList.toggle('wt-btn--secondary', savedTo.has(spotKey(g))); }

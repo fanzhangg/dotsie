@@ -210,7 +210,7 @@ Four weights, each with a job: **700** the app name (sign-in) only; **600** head
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed)
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed) `bookmark` (Want to go: save a place for later, and the list it's on)
 
 Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
 
@@ -1141,7 +1141,8 @@ A trip's Want to go list: places saved before they have a day.
 
 - New: `.wt-tl-idea`, a row on it: a `.wt-tl-stop` with no rail, since its places are in no order yet. See [Timeline](#timeline-wt-tl).
 - New: `.wt-pin--idea`, a place on it on the map: hollow, its type's color as the ring around a dot of it. And `.wt-pin--faded`, the plan's stops behind those places: small, flat and light, in their colors. See [Map pin](#map-pin-wt-pin).
-- New: `.wt-day-tab__count`, how many places Want to go has, after its tab's name, and `.wt-day-cal__pages`, Want to go and Overview together at the top of the day calendar.
+- New: `.wt-day-tab--icon`, Want to go's tab, an icon (`bookmark`) with `.wt-day-tab__count` after it, how many places it has; and `.wt-day-cal__pages`, Want to go and Overview together at the top of the day calendar.
+- New icon: `bookmark` (icons 4.2.0): Want to go's tab, and Save wherever a place is saved to it.
 
 ### Added in 15.1.0
 
