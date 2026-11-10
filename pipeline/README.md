@@ -67,7 +67,7 @@ travel guide's voice (under two minutes to read), practical facts kept apart, an
 Entries are adapted from the sources each lists and published under CC BY-SA 4.0. They aren't updated on their own:
 run the Spots guides workflow (Actions → Spots guides → Run workflow, with the destination's id) when you want them
 rewritten. Answers whose input didn't change are reused, so a second run costs little; a first run for a city costs
-about $2 (Haiku $0.25, Opus $1.80). The result is at `/developer/guide`, for review before it reaches the app.
+about $2 (Haiku $0.25, Opus $1.80). The result is at `/developer/guide`, for review, and on the app's Spots page (`#/spots`), open to anyone, most viewed first.
 
 On this machine, with `ANTHROPIC_API_KEY` in `pipeline/.env` and the state's store in `data/`:
 

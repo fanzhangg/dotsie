@@ -3,6 +3,7 @@ import { csrf } from 'hono/csrf';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
 import { QID } from '../web/fields.js';
+import { regionsMatching } from '../web/regions.js';
 import { findAbout, findPlaceAbout, findRoute, findSights, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider, oauthSpec } from './oauth';
 import { mcpSpec } from './mcp';
@@ -96,10 +97,11 @@ app.get('/developer/mcp', c => c.json({ url: mcpURL(c.env), ...mcpSpec(), oauth:
 // ---------- Spots data: what outside sources say about places, open to anyone, read-only ----------
 // Loaded per state by the Spots data workflow (pipeline/export_d1.py) and shown at /developer/spots. Every lookup reads
 // D1, so they're limited per IP.
-app.use('/developer/spots/*', async (c, next) => {
+const dataLimit = async (c: Context<AppEnv>, next: () => Promise<void>) => {
   if (await tooMany(c.env.DATA_LIMIT, c.req.header('cf-connecting-ip') ?? 'local')) return rateLimited(c);
   await next();
-});
+};
+app.use('/developer/spots/*', dataLimit);
 const STATE = /^[A-Z]{2}$/;
 const SOURCE = /^(wikidata|nps:[a-z]{2,20})$/;
 const PLACE_ID = /^[A-Za-z0-9-]{1,64}$/;
@@ -157,6 +159,12 @@ const json = <T>(v: string | null, empty: T) => (v ? JSON.parse(v) as T : empty)
 type GuideRow = { source: string; id: string; state: string; name: string; one_liner: string; paragraphs: string; practical: string | null;
   sources: string | null; images: string | null; overlap: number | null; model: string | null; prompt: string | null; created_at: string };
 type Images = { hero: Record<string, unknown> | null; inline: Record<string, unknown>[] };
+// How much a pick is read about: its English Wikipedia views over the last 12 months. An NPS record has no article of
+// its own, so it takes the views of the Wikidata item it shares an identifier with (place_links), the most read if
+// there are several. Needs `g` (spot_guides) and `pl` (its row in places) in the query.
+const VIEWS = `coalesce(pl.views, (select max(w.views) from place_links l join places w on w.source = 'wikidata' and (
+    (l.source_a = g.source and l.id_a = g.id and w.source = l.source_b and w.id = l.id_b)
+    or (l.source_b = g.source and l.id_b = g.id and w.source = l.source_a and w.id = l.id_a))))`;
 // The destinations with picks so far
 app.get('/developer/spots/guides', async c => {
   const { results } = await c.env.DB.prepare(
@@ -181,24 +189,99 @@ app.get('/developer/spots/guides/:destination', async c => {
     counts: json(d.counts, {}), leftOut: json(d.left_out, []),
     picks: results.map(({ one_liner, images, ...p }) => ({ ...p, oneLiner: one_liner, hero: json<Images>(images, { hero: null, inline: [] }).hero })) });
 });
-// One pick's entry in full: paragraphs with their sources, practical facts, photos with their credits
-app.get('/developer/spots/guides/:destination/:source/:id', async c => {
-  const dest = c.req.param('destination'), source = c.req.param('source'), id = c.req.param('id');
+// One pick's entry in full: paragraphs with their sources, practical facts, photos with their credits, and its views
+// (as the spots page sorts by them; see `views` under Spots)
+async function guideEntry(env: Env, dest: string, source: string, id: string) {
   if (!DESTINATION.test(dest) || !SOURCE.test(source) || !PLACE_ID.test(id)) bad();
-  const g = await c.env.DB.prepare(
-    `select g.*, p.rank, p.reason, d.name as destination_name, pl.lat, pl.lng, pl.url, pl.wikipedia, pl.website from spot_guides g
+  const g = await env.DB.prepare(
+    `select g.*, p.rank, p.reason, d.name as destination_name, d.state as destination_state, d.country, pl.lat, pl.lng, pl.url,
+       pl.wikipedia, pl.website, ${VIEWS} as views from spot_guides g
        join spot_picks p on p.source = g.source and p.id = g.id and p.destination = ?1
        join spot_destinations d on d.id = p.destination
        left join places pl on pl.source = g.source and pl.id = g.id
      where g.source = ?2 and g.id = ?3`).bind(dest, source, id)
-    .first<GuideRow & { rank: number; reason: string | null; destination_name: string; lat: number | null; lng: number | null; url: string | null; wikipedia: string | null; website: string | null }>();
+    .first<GuideRow & { rank: number; reason: string | null; destination_name: string; destination_state: string; country: string;
+      lat: number | null; lng: number | null; url: string | null; wikipedia: string | null; website: string | null; views: number | null }>();
   if (!g) throw new Error(ERR.notFound);
-  return c.json({ destination: { id: dest, name: g.destination_name }, source: g.source, id: g.id, state: g.state, name: g.name,
-    rank: g.rank, reason: g.reason, oneLiner: g.one_liner, paragraphs: json(g.paragraphs, []), practical: json(g.practical, []),
-    sources: json(g.sources, []), images: json<Images>(g.images, { hero: null, inline: [] }), overlap: g.overlap,
-    lat: g.lat, lng: g.lng, url: g.url, wikipedia: g.wikipedia, website: g.website,
-    model: g.model, prompt: g.prompt, createdAt: g.created_at, license: 'CC BY-SA 4.0' });
+  return { destination: { id: dest, name: g.destination_name, state: g.destination_state, country: g.country }, source: g.source, id: g.id,
+    state: g.state, name: g.name, rank: g.rank, reason: g.reason, oneLiner: g.one_liner, paragraphs: json(g.paragraphs, []),
+    practical: json(g.practical, []), sources: json(g.sources, []), images: json<Images>(g.images, { hero: null, inline: [] }),
+    overlap: g.overlap, lat: g.lat, lng: g.lng, url: g.url, wikipedia: g.wikipedia, website: g.website, views: g.views,
+    model: g.model, prompt: g.prompt, createdAt: g.created_at, license: 'CC BY-SA 4.0' };
+}
+app.get('/developer/spots/guides/:destination/:source/:id', async c =>
+  c.json(await guideEntry(c.env, c.req.param('destination'), c.req.param('source'), c.req.param('id'))));
+
+// ---------- Spots: the guide's places, for anyone, signed in or not (the app's Spots page, #/spots) ----------
+// The same picks and entries as the guide preview above, across every destination. Read-only. Most viewed first:
+// `views` is the place's English Wikipedia views over the last 12 months (see VIEWS), the one measure of how much people
+// care about a place that every pick has, or nearly; within a city, the guide's own order.
+// Every answer is kept in Cloudflare's cache at the location that asked for it, for as long as the browser keeps it, and
+// answered from there without counting against anyone's limit: a public page's visitors can share an address (a phone
+// network's, a campus's). What isn't cached yet is limited per IP, more loosely than the spots data, as typing a search
+// asks every pause.
+app.use('/spots/*', async (c, next) => {
+  const cache = caches.default, key = new Request(c.req.url);
+  const hit = await cache.match(key);
+  if (hit) return hit;
+  if (await tooMany(c.env.SPOTS_LIMIT, c.req.header('cf-connecting-ip') ?? 'local')) return rateLimited(c);
+  await next();
+  if (c.res.status === 200) c.executionCtx.waitUntil(cache.put(key, c.res.clone()));
 });
+const COUNTRY = /^[A-Z]{2}$/;
+const PAGE = 50;
+const SPOTS_CACHE = { 'Cache-Control': 'public, max-age=300' }; // loaded by hand, now and then: five minutes old is fine
+// The cities with spots, for the page's filters: country, then state, then city
+app.get('/spots/cities', async c => {
+  const { results } = await c.env.DB.prepare(
+    `select d.id, d.name, d.state, d.country, count(*) as spots from spot_destinations d
+       join spot_picks p on p.destination = d.id join spot_guides g on g.source = p.source and g.id = p.id
+     group by d.id order by d.country, d.state, d.name`).all();
+  return c.json(results, 200, SPOTS_CACHE);
+});
+// Spots that match q, in a country, state or city, most viewed first (in a city, the guide's order), `limit` (at most
+// 50) at a time, with how many there are in all, for a pager. A place two cities picked shows once, in the city that ranked it
+// higher (SQLite takes a row's other columns from its min()).
+app.get('/spots/search', async c => {
+  const q = (c.req.query('q') ?? '').trim(), country = c.req.query('country') ?? '', state = c.req.query('state') ?? '';
+  const city = c.req.query('city') ?? '', offset = Number(c.req.query('offset') ?? 0), limit = Number(c.req.query('limit') ?? PAGE);
+  if (!Number.isInteger(limit) || limit < 1 || limit > PAGE || q.length > 100 || (country && !COUNTRY.test(country)) || (state && !STATE.test(state)) || (city && !DESTINATION.test(city))
+    || !Number.isInteger(offset) || offset < 0 || offset > 5000) bad();
+  const where: string[] = [], args: (string | number)[] = [];
+  // q: in its name or one line, or its city's name, or its state's name or code ("washington", "WA")
+  if (q) {
+    const like = `%${q.replace(/[\\%_]/g, m => '\\' + m)}%`, regions = regionsMatching(q);
+    where.push(`(g.name like ? escape '\\' or g.one_liner like ? escape '\\' or d.name like ? escape '\\'${regions.length
+      ? ` or d.country || '-' || d.state in (${regions.map(() => '?').join(',')})` : ''})`);
+    args.push(like, like, like, ...regions);
+  }
+  if (country) { where.push('d.country = ?'); args.push(country); }
+  if (state) { where.push('d.state = ?'); args.push(state); }
+  if (city) { where.push('d.id = ?'); args.push(city); }
+  const { results } = await c.env.DB.prepare(
+    `select g.source, g.id, g.name, g.one_liner, g.images, min(p.rank) as rank, d.id as city, d.name as city_name, d.state, d.country,
+       ${VIEWS} as views, count(*) over () as total from spot_guides g
+       join spot_picks p on p.source = g.source and p.id = g.id
+       join spot_destinations d on d.id = p.destination
+       left join places pl on pl.source = g.source and pl.id = g.id
+     ${where.length ? 'where ' + where.join(' and ') : ''}
+     group by g.source, g.id order by ${city ? 'rank, ' : ''}views desc nulls last, rank, g.name limit ? offset ?`,
+  ).bind(...args, limit, offset).all<{ source: string; id: string; name: string; one_liner: string; images: string | null; rank: number;
+    city: string; city_name: string; state: string; country: string; views: number | null; total: number }>();
+  // Past the last page there's no row to say how many there are: ask
+  const total = results[0]?.total ?? (offset ? (await c.env.DB.prepare(
+    `select count(distinct g.source || ' ' || g.id) as n from spot_guides g join spot_picks p on p.source = g.source and p.id = g.id
+       join spot_destinations d on d.id = p.destination ${where.length ? 'where ' + where.join(' and ') : ''}`).bind(...args).first<number>('n')) ?? 0 : 0);
+  return c.json({
+    results: results.map(r => ({ source: r.source, id: r.id, name: r.name, oneLiner: r.one_liner,
+      hero: json<Images>(r.images, { hero: null, inline: [] }).hero, rank: r.rank, city: { id: r.city, name: r.city_name },
+      state: r.state, country: r.country, views: r.views })),
+    total, more: offset + results.length < total,
+  }, 200, SPOTS_CACHE);
+});
+// One spot's entry, as the guide preview has it
+app.get('/spots/:city/:source/:id', async c =>
+  c.json(await guideEntry(c.env, c.req.param('city'), c.req.param('source'), c.req.param('id')), 200, SPOTS_CACHE));
 
 // Everything below needs a signed-in user (a guest session counts).
 app.use(async (c, next) => {

@@ -1,4 +1,4 @@
-/* Dotsie design system — components v14.0.0
+/* Dotsie design system — components v14.1.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -19,13 +19,13 @@
 :where(.wt-btn, .wt-icon-btn, .wt-avatar-stack, .wt-toast__action, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel, .wt-link-add) {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
 }
-:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-tl-day, .wt-trip-card, .wt-avatar-stack, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
+:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-tl-day, .wt-trip-card, .wt-spot-card, .wt-avatar-stack, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
   outline: 2px solid var(--wt-border-focus);
   outline-offset: 2px;
   border-radius: var(--wt-radius-md);
 }
 :where(.wt-btn, .wt-icon-btn):disabled { opacity: .35; cursor: default; }
-a:where(.wt-btn, .wt-icon-btn, .wt-trip-card) { color: inherit; text-decoration: none; }
+a:where(.wt-btn, .wt-icon-btn, .wt-trip-card, .wt-spot-card, .wt-nav__link, .wt-guide__back) { color: inherit; text-decoration: none; }
 
 /* ---------- Button ---------- */
 .wt-btn {
@@ -137,6 +137,8 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-search__clear .wt-icon { width: 18px; height: 18px; }
 @media (hover: hover) { .wt-search__clear:hover { background: var(--wt-surface-hover); color: var(--wt-text-primary); } }
 .wt-search__clear[hidden], .wt-spinner[hidden] { display: none; }
+/* The clear button is ours, the same in every browser: not the browser's own on a type=search input as well */
+.wt-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
 .wt-spinner {
   flex: none; display: block; width: 18px; height: 18px; margin: 0 11px; border-radius: var(--wt-radius-round);
   border: 2px solid var(--wt-border-default); border-top-color: var(--wt-text-secondary); animation: wt-spin .7s linear infinite;
@@ -891,6 +893,124 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-trip-card__step.is-now :is(.wt-trip-card__step-name, .wt-trip-card__step-time) { color: var(--wt-text-primary); }
 .wt-trip-card__step.is-now .wt-trip-card__step-time { font-weight: 600; }
 .wt-trip-card__step-time { flex: none; margin-left: auto; padding-left: var(--wt-space-2); font-variant-numeric: tabular-nums; }
+
+/* ---------- App bar: the app's pages and the account, at the top of Home and Spots ---------- */
+/* One row: the nav on the left, the account on the right. It stays at the top as the page scrolls, frosted over what
+   passes under it in the page's color (--wt-surface-sheet, or set --wt-app-bar-surface), with a hairline once
+   something has scrolled under it (.is-scrolled, set by script). */
+.wt-app-bar {
+  position: sticky; top: 0; z-index: var(--wt-z-raised);
+  display: flex; align-items: center; gap: var(--wt-space-3); min-height: 64px; padding: env(safe-area-inset-top) var(--wt-space-4) 0;
+  background: color-mix(in oklab, var(--wt-app-bar-surface, var(--wt-surface-sheet)) 82%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px); backdrop-filter: saturate(1.6) blur(16px);
+  transition: box-shadow var(--wt-duration-fast);
+}
+.wt-app-bar.is-scrolled { box-shadow: 0 1px 0 var(--wt-border-default); }
+.wt-app-bar__end { margin-left: auto; display: flex; align-items: center; gap: var(--wt-space-2); }
+
+/* ---------- Nav: the app's pages (Plan, Spots) ---------- */
+/* Pills, each an icon and a word. The page you're on is raised white with a hairline, in primary ink, set apart by its
+   surface as a card is; the others are their icon and word in secondary ink. The first pill's edge is the content's,
+   as the cards' are. */
+.wt-nav { display: flex; align-items: center; gap: var(--wt-space-1); }
+.wt-nav__link {
+  display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px 0 var(--wt-space-3); border-radius: var(--wt-radius-pill);
+  font: var(--wt-type-context); color: var(--wt-text-secondary); white-space: nowrap;
+  transition: color var(--wt-duration-fast), background var(--wt-duration-fast);
+}
+.wt-nav__link .wt-icon { flex: none; width: 18px; height: 18px; }
+.wt-nav__link[aria-current="page"] { color: var(--wt-text-primary); background: var(--wt-surface-raised); box-shadow: var(--wt-shadow-hairline); }
+.wt-nav__link:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+@media (hover: hover) { .wt-nav__link:not([aria-current="page"]):hover { color: var(--wt-text-primary); background: var(--wt-surface-hover); } }
+
+/* ---------- Pager: pages of a long list, on a computer ---------- */
+/* Back, the pages (the first, the last, and the ones around this one, with … between), then forward. This page is
+   raised white in primary ink, like the nav's; the others are their numbers in secondary ink. */
+.wt-pager { display: flex; align-items: center; justify-content: center; gap: var(--wt-space-1); }
+.wt-pager__page, .wt-pager__step {
+  display: inline-grid; place-items: center; min-width: 40px; height: 40px; padding: 0 var(--wt-space-2); border: 0;
+  border-radius: var(--wt-radius-pill); background: none; cursor: pointer;
+  font: var(--wt-type-label); color: var(--wt-text-secondary); font-variant-numeric: tabular-nums;
+  transition: color var(--wt-duration-fast), background var(--wt-duration-fast);
+}
+.wt-pager__page[aria-current="page"] { color: var(--wt-text-primary); background: var(--wt-surface-raised); box-shadow: var(--wt-shadow-hairline); cursor: default; }
+.wt-pager__step:disabled { color: var(--wt-text-past); cursor: default; }
+.wt-pager__gap { min-width: 24px; text-align: center; color: var(--wt-text-tertiary); }
+.wt-pager :is(.wt-pager__page, .wt-pager__step):focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+@media (hover: hover) { .wt-pager :is(.wt-pager__page:not([aria-current="page"]), .wt-pager__step:not(:disabled)):hover { color: var(--wt-text-primary); background: var(--wt-surface-hover); } }
+
+/* ---------- Spot card (Spots) ---------- */
+/* A place worth a trip. On a phone, a row: a square photo on the left, and beside it where it is (small capitals),
+   its name, and the guide's one line on it. From 768px wide, a card in a grid, its photo across the top. Set apart by
+   its surface alone, like a trip card, on --wt-surface-sheet. With no photo, the map's color and a pin hold its place. */
+.wt-spot-card {
+  display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: var(--wt-space-3);
+  padding: var(--wt-space-2); overflow: hidden;
+  border-radius: var(--wt-radius-md); background: var(--wt-surface-raised); transition: background var(--wt-duration-fast);
+}
+.wt-spot-card:hover, .wt-spot-card:active { background: var(--wt-surface-sunken); }
+.wt-spot-card__photo { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--wt-radius-sm); background: var(--wt-surface-map); }
+.wt-spot-card__photo--none { display: grid; place-items: center; color: var(--wt-text-tertiary); }
+.wt-spot-card__body { display: grid; gap: 3px; align-content: center; padding: var(--wt-space-1) var(--wt-space-1) var(--wt-space-1) 0; }
+/* Where it is and how much it's read: small capitals in the third ink, apart from the one line's sentence */
+.wt-spot-card__where {
+  order: -1; font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase;
+  color: var(--wt-text-tertiary); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wt-spot-card__name { font: var(--wt-type-name); color: var(--wt-text-primary); }
+.wt-spot-card__line {
+  font: var(--wt-type-caption); font-size: 14px; line-height: 19px; color: var(--wt-text-secondary);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+@media (min-width: 768px) {
+  .wt-spot-card { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
+  .wt-spot-card__photo { aspect-ratio: 3 / 2; border-radius: 0; }
+  .wt-spot-card__body { gap: var(--wt-space-1); padding: var(--wt-space-3) var(--wt-space-4) var(--wt-space-4); }
+}
+
+/* Loading: grey bars where the text goes, until the spots come, so the page doesn't jump when they do */
+.wt-spot-card--loading { pointer-events: none; }
+.wt-spot-card--loading .wt-spot-card__photo { background: var(--wt-surface-sunken); }
+.wt-spot-card__bar { display: block; height: 12px; border-radius: var(--wt-radius-sm); background: var(--wt-surface-sunken); }
+.wt-spot-card__bar:nth-child(1) { width: 40%; height: 10px; }
+.wt-spot-card__bar:nth-child(2) { width: 70%; height: 14px; }
+.wt-spot-card__bar:nth-child(3) { width: 90%; }
+
+/* ---------- Guide entry (a spot's page) ---------- */
+/* One spot as a guidebook has it: the lead photo, where it is, its name and one line, two or three paragraphs, then
+   the facts to know before you go on a quiet panel, and the sources and photo credits at the foot. Read in one
+   column, at most about 40em wide. */
+.wt-guide { display: grid; gap: var(--wt-space-4); grid-template-columns: minmax(0, 1fr); }
+.wt-guide__back {
+  justify-self: start; display: inline-flex; align-items: center; gap: 2px; height: var(--wt-size-touch);
+  margin-left: calc(-1 * var(--wt-space-2)); padding: 0 var(--wt-space-2) 0 0; border-radius: var(--wt-radius-md);
+  font: var(--wt-type-context); color: var(--wt-text-secondary);
+}
+.wt-guide__back:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: -2px; }
+@media (hover: hover) { .wt-guide__back:hover { color: var(--wt-text-primary); } }
+.wt-guide__figure { margin: 0; display: grid; gap: var(--wt-space-1); }
+.wt-guide__figure img { display: block; width: 100%; height: auto; max-height: 420px; object-fit: cover; border-radius: var(--wt-radius-md); background: var(--wt-surface-map); }
+.wt-guide__figure figcaption { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.wt-guide__credit { color: var(--wt-text-tertiary); }
+.wt-guide__head { display: grid; gap: var(--wt-space-1); }
+.wt-guide__where { margin: 0; font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; color: var(--wt-text-tertiary); }
+.wt-guide__name { margin: 0; font: var(--wt-type-title); color: var(--wt-text-primary); }
+.wt-guide__lede { margin: 0; font: var(--wt-type-name); color: var(--wt-text-secondary); }
+.wt-guide__para { margin: 0; font: var(--wt-type-body); line-height: 1.6; color: var(--wt-text-primary); }
+.wt-guide__facts { display: grid; gap: var(--wt-space-2); padding: var(--wt-space-3); border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); }
+.wt-guide__facts h3 { margin: 0; font: var(--wt-type-heading); color: var(--wt-text-primary); }
+.wt-guide__facts dl { display: grid; gap: 2px var(--wt-space-3); margin: 0; font: var(--wt-type-caption); }
+.wt-guide__facts dd + dt { margin-top: var(--wt-space-2); }
+/* Label over value on a phone; side by side where there's room */
+@media (min-width: 520px) {
+  .wt-guide__facts dl { grid-template-columns: minmax(0, 8rem) minmax(0, 1fr); row-gap: var(--wt-space-2); }
+  .wt-guide__facts dd + dt { margin-top: 0; }
+}
+.wt-guide__facts dt { color: var(--wt-text-secondary); }
+.wt-guide__facts dd { margin: 0; color: var(--wt-text-primary); overflow-wrap: anywhere; }
+.wt-guide__foot { display: grid; gap: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+.wt-guide__foot p { margin: 0; }
+.wt-guide a:not(.wt-btn, .wt-guide__back) { color: var(--wt-text-link); }
 
 /* ---------- Map pin ---------- */
 /* A round dot centered on its place, like a stop on a transit map: the stop's type color, shaded like a marker, in a
