@@ -1,5 +1,6 @@
 """Tests for guides.py that need no network or model: python3 -m unittest test_guides (from pipeline/)."""
-import json, sqlite3, types, unittest, zlib
+import json, os, sqlite3, tempfile, types, unittest, zlib
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 import guides, store
 
@@ -36,7 +37,7 @@ def fixture():
 class Candidates(unittest.TestCase):
     def test_places_inside_with_an_article_or_an_nps_page_one_per_place(self):
         with mock.patch.object(guides, "labels", lambda qids: {"Q33506": "museum", "Q5": "gone"}):
-            places = guides.candidates(fixture(), DEST, SQUARE)
+            places = guides.candidates(fixture(), DEST, [SQUARE])
         self.assertEqual(sorted(places), [("nps:parks", "N2"), ("wikidata", "Q1")])
         museum = places[("wikidata", "Q1")]
         self.assertEqual(museum["types"], ["museum"])            # a deprecated "instance of" doesn't count
@@ -58,12 +59,141 @@ class Asking(unittest.TestCase):
             return types.SimpleNamespace(stop_reason="end_turn", content=[types.SimpleNamespace(type="text", text=json.dumps({"n": len(calls)}))],
                                          usage=types.SimpleNamespace(input_tokens=10, output_tokens=5, cache_read_input_tokens=0, cache_creation_input_tokens=0))
         ask.db, ask.client, ask.lock = db, types.SimpleNamespace(messages=types.SimpleNamespace(create=create)), guides.threading.Lock()
+        ask.batcher, ask.spent = None, {}
         a = lambda content: ask("judge", "v2", "wikidata/Q1", guides.HAIKU, "system", content, {}, "low")
         self.assertEqual(a("one"), {"n": 1})
         self.assertEqual(a("one"), {"n": 1})
         self.assertEqual(a("two"), {"n": 2})
         self.assertEqual(len(calls), 2)
         self.assertEqual(db.execute("SELECT COUNT(*) FROM llm_answers").fetchone()[0], 1)
+
+
+def message(text, stop="end_turn"):
+    return types.SimpleNamespace(stop_reason=stop, content=[types.SimpleNamespace(type="text", text=text)],
+                                 usage=types.SimpleNamespace(input_tokens=1_000_000, output_tokens=0, cache_read_input_tokens=0,
+                                                             cache_creation_input_tokens=0))
+
+
+class FakeBatches:
+    """The Message Batches API as far as the Batcher uses it: each request answered with its custom_id, or as `answers` says."""
+
+    def __init__(self, answers=None, known=()):
+        self.created, self.answers, self.known = [], answers or {}, {b: [] for b in known}
+
+    def create(self, requests):
+        bid = f"msgbatch_{len(self.created)}"
+        self.created.append([r["custom_id"] for r in requests])
+        self.known[bid] = [r["custom_id"] for r in requests]
+        return types.SimpleNamespace(id=bid)
+
+    def retrieve(self, bid):
+        return types.SimpleNamespace(processing_status="ended")
+
+    def results(self, bid):
+        for h in self.known[bid]:
+            m = self.answers.get(h, message(json.dumps({"from": "batch"})))
+            yield types.SimpleNamespace(custom_id=h, result=types.SimpleNamespace(type="succeeded" if m else "errored", message=m))
+
+
+class Batching(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.dir.name, "ZZ.sqlite")
+        self.keep = sqlite3.connect(self.path)
+        self.keep.executescript(store.SCHEMA)
+        self.direct = []
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def asker(self, batcher):
+        ask = guides.Asker.__new__(guides.Asker)
+        ask.db, ask.lock, ask.batcher, ask.spent = sqlite3.connect(self.path, check_same_thread=False), guides.threading.Lock(), batcher, {}
+        ask.direct = lambda params: self.direct.append(params) or message(json.dumps({"from": "direct"}))
+        return ask
+
+    def batcher(self, batches):
+        return guides.Batcher(types.SimpleNamespace(messages=types.SimpleNamespace(batches=batches)), self.path, quiet=1, poll=0)
+
+    def ask_all(self, ask, contents):
+        with ThreadPoolExecutor(len(contents)) as pool:
+            return list(pool.map(lambda c: ask("judge", "v2", f"k/{c}", guides.HAIKU, "sys", c, {}, "low"), contents))
+
+    def test_questions_asked_together_share_a_batch_at_half_price_and_the_same_one_is_sent_once(self):
+        batches = FakeBatches()
+        ask = self.asker(self.batcher(batches))
+        out = self.ask_all(ask, ["a", "b", "c"]) + self.ask_all(ask, ["a"])
+        self.assertEqual(out, [{"from": "batch"}] * 4)
+        self.assertEqual([len(c) for c in batches.created], [3])       # one batch; "a" again is already answered
+        self.assertAlmostEqual(ask.spent["judge"], 3 * 0.10 / 2)       # a million tokens each, at half Haiku's price
+        self.assertEqual(self.keep.execute("SELECT COUNT(*) FROM llm_batches").fetchone()[0], 0)
+
+    def test_an_answer_the_batch_couldnt_give_is_asked_on_its_own(self):
+        h = lambda c: guides.hashlib.sha256(json.dumps([guides.HAIKU, "sys", c], sort_keys=True).encode()).hexdigest()
+        batches = FakeBatches({h("declined"): message("", stop="refusal"), h("failed"): None})
+        out = self.ask_all(self.asker(self.batcher(batches)), ["fine", "declined", "failed"])
+        self.assertEqual(out, [{"from": "batch"}, {"from": "direct"}, {"from": "direct"}])
+        self.assertEqual(len(self.direct), 2)
+
+    def test_a_run_again_takes_the_answers_from_the_batch_an_earlier_run_sent(self):
+        h = guides.hashlib.sha256(json.dumps([guides.HAIKU, "sys", "a"], sort_keys=True).encode()).hexdigest()
+        batches = FakeBatches(known=["msgbatch_earlier"])
+        batches.known["msgbatch_earlier"] = [h]
+        self.keep.execute("CREATE TABLE IF NOT EXISTS llm_batches (input_hash TEXT PRIMARY KEY, batch_id TEXT, created_at TEXT)")
+        self.keep.execute("INSERT INTO llm_batches VALUES (?, 'msgbatch_earlier', 'then')", (h,))
+        self.keep.commit()
+        self.assertEqual(self.ask_all(self.asker(self.batcher(batches)), ["a"]), [{"from": "batch"}])
+        self.assertEqual(batches.created, [])                          # nothing sent again
+
+    def test_batches_stay_under_the_size_limit(self):
+        b = self.batcher(FakeBatches())
+        items = {f"h{i}": ({"x": "y" * 40}, None) for i in range(10)}
+        with mock.patch.object(guides.Batcher, "MAX_BYTES", 100):  # each request is 49 bytes: two a batch
+            self.assertEqual([len(c) for c in b.chunks(list(items), items)], [2, 2, 2, 2, 2])
+
+
+class Judging(unittest.TestCase):
+    def places(self, n):
+        return {("wikidata", f"Q{i}"): {"source": "wikidata", "id": f"Q{i}", "name": f"Place {i}", "lat": 47.5, "lng": -121.5,
+                                        "views": 1000 - i, "langs": 1, "types": [], "description": "", "categories": [], "lead": "", "docs": {}, "nps": []}
+                for i in range(n)}
+
+    def ask(self, asked):
+        def ask(step, prompt, key, model, system, content, schema, effort):
+            asked.append(key)
+            return {"evidence": "", "is_sight": int(key.split("Q")[1]) % 2 == 0, "exists": True, "visitable": "yes", "part_of": None}
+        return ask
+
+    def test_most_read_first_until_the_shortlist_is_full_with_the_same_shortlist_as_asking_all(self):
+        lazy, everything, asked = self.places(30), self.places(30), []
+        with mock.patch.object(guides, "JUDGE_ROUND", 4):
+            guides.judge(self.ask(asked), lazy, need=5)
+            guides.judge(self.ask([]), everything, need=1000)
+        self.assertEqual(len(asked), 12)                               # three rounds of 4: 6 sights, enough for 5
+        self.assertEqual(set(asked[:4]), {f"wikidata/Q{i}" for i in range(4)})  # a round at a time, most read first
+        top = lambda ps: [p["id"] for p in sorted((p for p in ps.values() if p["sight"]), key=guides.rank)[:5]]
+        self.assertEqual(top(lazy), top(everything))
+        self.assertFalse(lazy[("wikidata", "Q20")]["sight"])         # never asked: not a sight here
+
+    def test_answers_from_before_models_were_kept_apart_are_kept_under_their_model(self):
+        db = fixture()
+        db.execute("INSERT INTO llm_answers VALUES ('write', 'wikidata/Q1', 'v3', 'claude-opus-5-5', 'h', '{}', 'now')")
+        guides.keep_older_answers(db)
+        guides.keep_older_answers(db)
+        self.assertEqual(db.execute("SELECT prompt FROM llm_answers").fetchall(), [("v3 claude-opus-5-5",)])
+
+    def test_side_by_side_only_for_picks_more_than_one_model_wrote(self):
+        db = fixture()
+        db.execute("INSERT INTO picks VALUES ('testville', 'wikidata', 'Q1', 1, 'why', 'm')")
+        db.execute("INSERT INTO guides (source, id, name, one_liner, paragraphs) VALUES ('wikidata', 'Q1', 'Test Museum', 'x', '[]')")
+        write = lambda model, line: db.execute("INSERT INTO llm_answers VALUES ('write', 'wikidata/Q1', ?, ?, 'h', ?, 'now')",
+                                               (f"v3 {model}", model, json.dumps({"one_liner": line, "paragraphs": [{"text": "P."}]})))
+        write("claude-opus-5-5", "Opus line.")
+        self.assertEqual(guides.compare(db, "testville"), "")
+        write("claude-sonnet-5-5", "Sonnet line.")
+        text = guides.compare(db, "testville")
+        self.assertIn("#### Test Museum", text)
+        self.assertLess(text.index("claude-opus-5-5**: Opus line."), text.index("claude-sonnet-5-5**: Sonnet line."))
 
 
 class Pictures(unittest.TestCase):
@@ -82,10 +212,59 @@ class Pictures(unittest.TestCase):
         self.assertEqual(guides.media_type(b"\xff\xd8\xff"), "image/jpeg")
 
 
+    def test_a_park_across_a_state_line_from_two_stores_each_place_once_and_not_the_park_itself(self):
+        park = dict(DEST, id="testpark", kind="national park", nps_unit="TEPA", wikidata="Q999")
+        home, other = fixture(), sqlite3.connect(":memory:")
+        other.executescript(store.SCHEMA)
+        other.executemany("INSERT INTO records (source, id, name, lat, lng, url, raw) VALUES (?,?,?,?,?,?,?)", [
+            ("wikidata", "Q1", "Test Museum", 47.5, -121.5, None, item("Q1", "Test Museum")),           # in both stores
+            ("nps:places", "N1", "Test Museum", 47.5, -121.5, "https://www.nps.gov/places/museum.htm", json.dumps({})),  # unlinked here
+            ("wikidata", "Q7", "Falls Across the Line", 47.2, -121.2, None, item("Q7", "Falls Across the Line")),
+        ])
+        home.execute("INSERT INTO records (source, id, name, lat, lng, url, raw) VALUES (?,?,?,?,?,?,?)",
+                     ("nps:parks", "N9", "Test Park Itself", 47.4, -121.4, "https://www.nps.gov/tepa", json.dumps({"parkCode": "tepa"})))
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates([home, other], park, [SQUARE])
+        # the park's NPS record (N9) and the one NPS record both stores have (N1, linked to Q1 at home) don't come again
+        self.assertEqual(sorted(places), [("nps:parks", "N2"), ("wikidata", "Q1"), ("wikidata", "Q100"), ("wikidata", "Q7")])
+        self.assertEqual(places[("wikidata", "Q1")]["views"], 200)  # the home store's copy, with its page views
+
+
 class Boundary(unittest.TestCase):
     def test_inside(self):
-        self.assertTrue(guides.inside(47.5, -121.5, SQUARE))
-        self.assertFalse(guides.inside(48.5, -121.5, SQUARE))
+        self.assertTrue(guides.inside(47.5, -121.5, [SQUARE]))
+        self.assertFalse(guides.inside(48.5, -121.5, [SQUARE]))
+
+    def test_islands_and_a_hole(self):
+        island = [(49.0, -122.0), (49.0, -121.0), (50.0, -121.0), (50.0, -122.0)]   # not closed: the last edge is implied
+        hole = [(47.4, -121.6), (47.4, -121.4), (47.6, -121.4), (47.6, -121.6), (47.4, -121.6)]
+        area = guides.Area([SQUARE, island, hole])
+        self.assertIn((49.5, -121.5), area)
+        self.assertIn((47.2, -121.2), area)
+        self.assertNotIn((47.5, -121.5), area)    # in the hole
+        self.assertNotIn((48.5, -121.5), area)    # between the two
+        self.assertNotIn((None, None), area)
+        self.assertEqual(area.box, (47.0, 50.0, -122.0, -121.0))
+
+    def test_each_kind_of_outline_asked_for_by_its_id_in_lat_lng(self):
+        asked = []
+
+        def http_json(url):
+            asked.append(url)
+            return {"features": [{"geometry": {"rings": [[[-110.0, 44.0], [-110.5, 44.5]]]}},
+                                 {"geometry": {"rings": [[[-111.0, 45.0], [-111.5, 45.5]]]}}]}
+        with mock.patch.object(guides.store, "http_json", http_json):
+            rings = guides.boundary({"id": "yellowstone", "nps_unit": "YELL"})
+            guides.boundary({"id": "king", "census_county": "53033"})
+            guides.boundary({"id": "seattle", "census_place": "5363000"})
+        self.assertEqual(rings, [[(44.0, -110.0), (44.5, -110.5)], [(45.0, -111.0), (45.5, -111.5)]])  # every part
+        self.assertIn("FeatureServer/2/query?where=UNIT_CODE%3D%27YELL%27", asked[0])
+        self.assertIn("State_County/MapServer/1/query?where=GEOID%3D%2753033%27", asked[1])
+        self.assertIn("MapServer/4/query?where=GEOID%3D%275363000%27", asked[2])
+        with self.assertRaises(ValueError):
+            guides.boundary({"id": "x", "nps_unit": "YELL' OR 1=1"})
+        with mock.patch.object(guides.store, "http_json", lambda url: {"features": []}), self.assertRaises(ValueError):
+            guides.boundary({"id": "x", "census_county": "99999"})
 
 
 if __name__ == "__main__":

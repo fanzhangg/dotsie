@@ -1,42 +1,52 @@
 """A destination's picks and their guidebook entries, made from its state's store (store.py) and kept in it.
 
-For a destination in destinations.json (a city for now, by its Census boundary):
-  1. Candidates: places in it with an English Wikipedia article or an NPS page. An NPS record and a Wikidata item
-     the store links (a shared identifier, or the same name within 1 km) are one place.
+For a destination in destinations.json: a city (its Census place), a county (its Census county) or a national park (its
+NPS boundary), whichever it names (destinations.py adds parks and counties):
+  1. Candidates: places in it with an English Wikipedia article or an NPS page, from its state's store and the stores of
+     any other states it reaches into (a park across a state line). An NPS record and a Wikidata item the store links
+     (a shared identifier, or the same name within 1 km) are one place.
   2. Is it a sight (Haiku): a place people go to see or experience, still there, open to visitors, not part of a
-     bigger place nearby. The stable question, asked of every candidate.
+     bigger place nearby. The stable question, asked of the candidates most read first, until there are enough
+     sights for the shortlist.
   3. Shortlist: the sights most read on English Wikipedia over the store's last 12 months, only to narrow the field.
-  4. Pick (Opus): reads the whole shortlist and chooses what a visitor with a few days shouldn't miss, at most `cap`.
-  5. Write (Opus): for each pick, a one-liner and two or three paragraphs in English, in a travel guide's voice, from
+  4. Pick (Sonnet): reads the whole shortlist and chooses what a visitor with a few days shouldn't miss, at most `cap`.
+  5. Write (Sonnet): for each pick, a one-liner and two or three paragraphs in English, in a travel guide's voice, from
      the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages), each paragraph with its
      sources; practical facts kept apart. Wording shared with the sources is measured.
-  6. Pictures (Opus, looking): a lead photo and up to two more from Wikimedia Commons, placed after the paragraph
+  6. Pictures (Haiku, looking): a lead photo and up to two more from Wikimedia Commons, placed after the paragraph
      each illustrates, with author and licence.
 
 The results go in the store's `destinations`, `picks` and `guides` tables, and export_d1.py takes them to D1. Each
 model answer is kept in `llm_answers` with a hash of what it was asked, so a later run asks again only what changed.
-Entries are written under CC BY-SA 4.0, adapted from the sources each lists.
+Entries are written under CC BY-SA 4.0, adapted from the sources each lists. Each step's model is in MODELS, and
+--model write=claude-opus-5-5 asks another; each model's answers are kept apart, so going back to one costs nothing, and
+<id>-compare.md has each entry as every model wrote it.
 
-Run: python3 guides.py --destination seattle   (needs data/<ST>.sqlite and ANTHROPIC_API_KEY)
+Run: python3 guides.py --destination seattle [yellowstone …]   (needs data/<ST>.sqlite for each destination's states,
+     and ANTHROPIC_API_KEY). One destination failing doesn't stop the others; the run then ends with an error.
 """
 import argparse, base64, hashlib, json, os, re, sqlite3, statistics, threading, time, urllib.parse, urllib.request, zlib
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 
 import anthropic
 
 import store
+from destinations import NPS_BOUNDARIES, TIGERWEB
 from export_d1 import labels
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DESTINATIONS = {d["id"]: d for d in json.load(open(os.path.join(HERE, "destinations.json")))}
 SHORTLIST = 70
-HAIKU, OPUS = "claude-haiku-5-5", "claude-opus-5-5"
-PRICE = {HAIKU: (0.10, 0.50), OPUS: (4.00, 20.00)}  # $ per million input and output tokens
+HAIKU, SONNET, OPUS = "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"
+PRICE = {HAIKU: (0.10, 0.50), SONNET: (2.00, 10.00), OPUS: (4.00, 20.00)}  # $ per million input and output tokens
+# Which model each step asks (guides.py --model write=claude-opus-5-5 for another). Seattle with Opus for all but the
+# judging cost $2.34 (write $1.26, pictures $0.72, pick $0.12, judge $0.24): Sonnet is half Opus's price a token, Haiku
+# a fortieth, so these come to about $0.80 a destination
+MODELS = {"judge": HAIKU, "pick": SONNET, "write": SONNET, "pictures": HAIKU}
 NOT_WIKIPEDIA = {"commonswiki", "specieswiki", "metawiki", "mediawikiwiki", "wikidatawiki", "sourceswiki",
                  "wikimaniawiki", "outreachwiki", "incubatorwiki", "foundationwiki"}
 BOT_WIKIS = {"cebwiki", "warwiki", "svwiki", "arzwiki", "azbwiki", "viwiki", "zh_min_nanwiki", "cewiki"}
 NPS_SIGHTS = ("nps:parks", "nps:places", "nps:thingstodo")  # the NPS endpoints that list places to go
-spent = {}
 
 
 def log(*a):
@@ -49,18 +59,17 @@ def obj(props, required=None):
 
 class Asker:
     """Structured answers from Claude, kept in the store by step, key and prompt version, with a hash of the input:
-    asked again only when the input changed."""
+    asked again only when the input changed. With a Batcher, asked in Message Batches at half price; a request a
+    batch can't answer (declined, failed, expired) is asked again on its own, where a declined one can fall back."""
 
-    def __init__(self, db):
-        env = os.path.join(HERE, ".env")
-        if os.path.exists(env):
-            for line in open(env):
-                k, _, v = line.strip().partition("=")
-                if k and v and not k.startswith("#"):
-                    os.environ.setdefault(k, v.strip().strip('"'))
+    def __init__(self, db, batcher=None):
+        load_env()
         self.db, self.client, self.lock = db, anthropic.Anthropic(max_retries=6), threading.Lock()  # asked from several threads
+        self.batcher, self.spent = batcher, {}
+        keep_older_answers(db)
 
     def __call__(self, step, prompt, key, model, system, content, schema, effort, fingerprint=None):
+        prompt = f"{prompt} {model}"  # each model's answer kept apart: switching back costs nothing
         h = hashlib.sha256(json.dumps([model, system, fingerprint or content], sort_keys=True).encode()).hexdigest()
         with self.lock:
             row = self.db.execute("SELECT input_hash, answer FROM llm_answers WHERE step=? AND key=? AND prompt=?", (step, key, prompt)).fetchone()
@@ -69,40 +78,186 @@ class Asker:
         params = dict(model=model, max_tokens=16000, system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
                       messages=[{"role": "user", "content": content}],
                       output_config={"effort": effort, "format": {"type": "json_schema", "schema": schema}})
-        if model == OPUS:  # on a policy decline, the API reruns the request on a fallback model
-            r = self.client.beta.messages.create(betas=["server-side-fallback-2026-07-01"], fallbacks="default", **params)
-        else:
-            r = self.client.messages.create(**params)
+        r = self.batcher.ask(h, params) if self.batcher else None
+        share = 0.5 if r else 1  # a batch's tokens cost half
+        if not r or r.stop_reason != "end_turn":
+            if r:
+                log(f"  {step}/{key}: the batch's answer stopped with {r.stop_reason}; asking on its own")
+            r = self.direct(params)
+            share = 1
         if r.stop_reason != "end_turn":
             raise RuntimeError(f"{step}/{key}: the model stopped with {r.stop_reason}")
         out = json.loads(next(b.text for b in r.content if b.type == "text"))
         tokens_in = r.usage.input_tokens + (r.usage.cache_read_input_tokens or 0) + (r.usage.cache_creation_input_tokens or 0)
         p = PRICE.get(model, PRICE[OPUS])
         with self.lock:
-            spent[step] = spent.get(step, 0) + tokens_in / 1e6 * p[0] + r.usage.output_tokens / 1e6 * p[1]
+            self.spent[step] = self.spent.get(step, 0) + share * (tokens_in / 1e6 * p[0] + r.usage.output_tokens / 1e6 * p[1])
             self.db.execute("INSERT OR REPLACE INTO llm_answers VALUES (?,?,?,?,?,?,?)",
                             (step, key, prompt, model, h, json.dumps(out), store.NOW()))
             self.db.commit()
         return out
 
+    def direct(self, params):
+        if params["model"] in (OPUS, SONNET):  # on a policy decline, the API reruns the request on a fallback model
+            return self.client.beta.messages.create(betas=["server-side-fallback-2026-07-01"], fallbacks="default", **params)
+        return self.client.messages.create(**params)
+
+
+def load_env():
+    env = os.path.join(HERE, ".env")
+    if os.path.exists(env):
+        for line in open(env):
+            k, _, v = line.strip().partition("=")
+            if k and v and not k.startswith("#"):
+                os.environ.setdefault(k, v.strip().strip('"'))
+
+
+class Batcher:
+    """Every destination's requests in a run, sent as Message Batches (half price; most end within the hour, all
+    within a day). A request waits until requests stop coming for `quiet` seconds, so each step's, from every
+    destination running at once, go in one batch; batches stay well under the API's 256 MB (pictures are the bulk).
+
+    Each batch's requests are noted in the store (llm_batches) until their answers are in: a run stopped while a batch
+    was out (the job's time limit) and run again takes the answers from that batch instead of paying for them twice.
+    A request the batch didn't answer is None, for the Asker to ask on its own."""
+
+    MAX_BYTES, MAX_REQUESTS = 100_000_000, 10_000
+
+    def __init__(self, client, db_path, quiet=20, poll=30):
+        self.client, self.quiet, self.poll = client, quiet, poll
+        self.db = sqlite3.connect(db_path, timeout=60, check_same_thread=False)
+        self.db.execute("CREATE TABLE IF NOT EXISTS llm_batches (input_hash TEXT PRIMARY KEY, batch_id TEXT, created_at TEXT)")
+        self.db.commit()
+        self.lock, self.waiting, self.last = threading.Lock(), {}, 0.0
+        threading.Thread(target=self.gather, daemon=True).start()
+
+    def ask(self, h, params):
+        with self.lock:
+            fut = self.waiting.setdefault(h, (params, Future()))[1]  # the same request twice (a city and its county): once
+            self.last = time.time()
+        return fut.result()
+
+    def gather(self):
+        while True:
+            time.sleep(1)
+            with self.lock:
+                if not self.waiting or time.time() - self.last < self.quiet:
+                    continue
+                items, self.waiting = self.waiting, {}
+            threading.Thread(target=self.send, args=(items,), daemon=True).start()
+
+    def send(self, items):
+        try:
+            with self.lock:
+                out = dict(self.db.execute(f"SELECT input_hash, batch_id FROM llm_batches WHERE input_hash IN "
+                                           f"({','.join('?' * len(items))})", list(items)))
+            new = [h for h in items if h not in out]
+            for chunk in self.chunks(new, items):
+                b = self.client.messages.batches.create(requests=[{"custom_id": h, "params": items[h][0]} for h in chunk])
+                log(f"  batch {b.id}: {len(chunk)} requests")
+                with self.lock:
+                    self.db.executemany("INSERT OR REPLACE INTO llm_batches VALUES (?,?,?)", [(h, b.id, store.NOW()) for h in chunk])
+                    self.db.commit()
+                out.update({h: b.id for h in chunk})
+            answers = {}
+            for batch_id in sorted(set(out.values())):
+                answers.update(self.results(batch_id))
+            with self.lock:
+                self.db.executemany("DELETE FROM llm_batches WHERE input_hash=?", [(h,) for h in items])
+                self.db.commit()
+            for h, (_, fut) in items.items():
+                fut.set_result(answers.get(h))
+        except Exception as err:  # each request is then asked on its own
+            log(f"  batch failed ({type(err).__name__}: {str(err)[:200]}); asking on its own")
+            for _, fut in items.values():
+                if not fut.done():
+                    fut.set_result(None)
+
+    def chunks(self, hs, items):
+        chunk, size = [], 0
+        for h in hs:
+            n = len(json.dumps(items[h][0]))
+            if chunk and (size + n > self.MAX_BYTES or len(chunk) == self.MAX_REQUESTS):
+                yield chunk
+                chunk, size = [], 0
+            chunk.append(h)
+            size += n
+        if chunk:
+            yield chunk
+
+    def results(self, batch_id):
+        """A batch's answers by request, once it has ended: the message, or None for one it couldn't answer. A batch
+        that can't be read (one noted by an earlier run, gone since) answers nothing, and only its requests are asked
+        again."""
+        try:
+            while True:
+                b = self.client.messages.batches.retrieve(batch_id)
+                if b.processing_status == "ended":
+                    break
+                time.sleep(self.poll)
+            return {r.custom_id: r.result.message if r.result.type == "succeeded" else None
+                    for r in self.client.messages.batches.results(batch_id)}
+        except anthropic.APIError as err:
+            log(f"  batch {batch_id} couldn't be read ({type(err).__name__}); its requests are asked on their own")
+            return {}
+
+
+def keep_older_answers(db):
+    """Answers kept before each model's were kept apart ("v3" rather than "v3 claude-opus-5-5"), under their model's key."""
+    db.execute("UPDATE OR IGNORE llm_answers SET prompt = prompt || ' ' || model WHERE prompt NOT LIKE '% %'")
+    db.commit()
+
 
 # ---------- The destination's area ----------
 
+AREAS = {  # where each kind of outline comes from (all public domain), and how it's asked for
+    "census_place": (TIGERWEB + "Places_CouSub_ConCity_SubMCD/MapServer/4/query?", "GEOID", re.compile(r"^\d{7}$")),
+    "census_county": (TIGERWEB + "State_County/MapServer/1/query?", "GEOID", re.compile(r"^\d{5}$")),
+    "nps_unit": (NPS_BOUNDARIES, "UNIT_CODE", re.compile(r"^[A-Z]{4}$")),
+}
+
+
 def boundary(dest):
-    """A city's outline as (lat, lng) pairs, from the Census Bureau's TIGERweb (public domain)."""
-    url = ("https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/4/query?"
-           + urllib.parse.urlencode({"where": f"GEOID='{dest['census_place']}'", "outFields": "NAME", "outSR": 4326,
-                                     "f": "json", "geometryPrecision": 5}))
-    ring = max(store.http_json(url)["features"][0]["geometry"]["rings"], key=len)
-    return [(y, x) for x, y in ring]
+    """A destination's outline as rings of (lat, lng) pairs: a city's Census place or a county from the Census Bureau's
+    TIGERweb, or a park's boundary from the NPS Land Resources Division. Every ring of every part, so a park's islands
+    and a city's exclaves count, and a hole is left out (inside() counts crossings over all of them). Simplified to
+    about 20 m: Olympic's coast alone is 287 polygons."""
+    kind = next(k for k in AREAS if k in dest)
+    url, field, valid = AREAS[kind]
+    if not valid.match(dest[kind]):
+        raise ValueError(f"{dest['id']}: {kind} {dest[kind]!r} isn't one")
+    body = store.http_json(url + urllib.parse.urlencode({
+        "where": f"{field}='{dest[kind]}'", "outFields": field, "outSR": 4326, "f": "json", "geometryPrecision": 5,
+        "maxAllowableOffset": 0.0002}))
+    rings = [[(y, x) for x, y in r] for f in (body or {}).get("features", []) for r in f["geometry"]["rings"]]
+    if not rings:
+        raise ValueError(f"{dest['id']}: no outline for {kind} {dest[kind]}")
+    return rings
 
 
-def inside(lat, lng, poly):
+def inside(lat, lng, rings):
+    """Whether a point is inside an outline (boundary()): an odd number of its rings' edges cross a line from it."""
     hit = False
-    for (y1, x1), (y2, x2) in zip(poly, poly[1:]):
-        if (y1 > lat) != (y2 > lat) and lng < (x2 - x1) * (lat - y1) / (y2 - y1) + x1:
-            hit = not hit
+    for ring in rings:
+        for (y1, x1), (y2, x2) in zip(ring, ring[1:] + ring[:1]):
+            if (y1 > lat) != (y2 > lat) and lng < (x2 - x1) * (lat - y1) / (y2 - y1) + x1:
+                hit = not hit
     return hit
+
+
+class Area:
+    """An outline that answers inside() quickly: rings whose box can't hold the point are skipped."""
+
+    def __init__(self, rings):
+        self.rings = [(min(y for y, _ in r), max(y for y, _ in r), min(x for _, x in r), max(x for _, x in r), r) for r in rings]
+        self.box = (min(r[0] for r in self.rings), max(r[1] for r in self.rings),
+                    min(r[2] for r in self.rings), max(r[3] for r in self.rings))
+
+    def __contains__(self, point):
+        lat, lng = point
+        if lat is None or lng is None:
+            return False
+        return inside(lat, lng, [r for y0, y1, x0, x1, r in self.rings if y0 <= lat <= y1 and x0 <= lng <= x1])
 
 
 # ---------- 1. Candidates ----------
@@ -135,14 +290,29 @@ def nps_text(raw):
         "listingDescription", "shortDescription", "description", "bodyText", "longDescription")))))[:6000].strip()
 
 
-def candidates(db, dest, poly):
-    lats, lngs = [p[0] for p in poly], [p[1] for p in poly]
-    box = (min(lats), max(lats), min(lngs), max(lngs))
+def candidates(dbs, dest, rings):
+    """The places inside a destination, from one store or several (a park across a state line): each store's own,
+    then merged. A record two stores have counts once, and so does an NPS record that one store links to a Wikidata
+    item and another, without that item, has on its own."""
+    area, places = Area(rings), {}
+    for db in dbs if isinstance(dbs, list) else [dbs]:
+        for k, p in candidates_in(db, dest, area).items():
+            places.setdefault(k, p)
+    hosted = {(n["source"], n["id"]) for p in places.values() for n in p["nps"] if p["source"] == "wikidata"}
+    places = {k: p for k, p in places.items() if k not in hosted}
+    names = labels({q for p in places.values() for q in p["type_ids"]})
+    for p in places.values():
+        p.setdefault("types", [names.get(q, q) for q in p["type_ids"]])
+    return places
+
+
+def candidates_in(db, dest, area):
+    box = area.box
     places = {}
     for rid, name, lat, lng, raw in db.execute(
             "SELECT id, name, lat, lng, raw FROM records WHERE source='wikidata' AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?",
             (box[0], box[1], box[2], box[3])):
-        if rid == dest["wikidata"] or not inside(lat, lng, poly):  # the destination isn't one of its own sights
+        if rid == dest["wikidata"] or (lat, lng) not in area:  # the destination isn't one of its own sights
             continue
         e = json.loads(raw)
         places[("wikidata", rid)] = {
@@ -155,9 +325,12 @@ def candidates(db, dest, poly):
     for source, rid, name, lat, lng, url, raw in db.execute(
             f"SELECT source, id, name, lat, lng, url, raw FROM records WHERE source IN ({','.join('?' * len(NPS_SIGHTS))}) "
             "AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?", (*NPS_SIGHTS, box[0], box[1], box[2], box[3])):
-        if not url or not inside(lat, lng, poly):
+        if not url or (lat, lng) not in area:
             continue
-        rec = {"source": source, "id": rid, "name": name, "url": url, "text": nps_text(json.loads(raw))}
+        raw = json.loads(raw)
+        if source == "nps:parks" and (raw.get("parkCode") or "").upper() == dest.get("nps_unit"):
+            continue  # the park itself, in its own guide
+        rec = {"source": source, "id": rid, "name": name, "url": url, "text": nps_text(raw)}
         same = [("wikidata", q) for (q,) in db.execute(  # links run either way: website links start from Wikidata
             "SELECT id_b FROM links WHERE source_a=? AND id_a=? AND source_b='wikidata' "
             "UNION SELECT id_a FROM links WHERE source_b=? AND id_b=? AND source_a='wikidata'", (source, rid, source, rid))]
@@ -169,7 +342,6 @@ def candidates(db, dest, poly):
                                      "type_ids": [], "types": [f"NPS {source.split(':')[1]}"], "description": "",
                                      "langs": 0, "p18": [], "nps": [rec]}
     places = {k: p for k, p in places.items() if p["enwiki"] or p["nps"]}
-    names = labels({q for p in places.values() for q in p["type_ids"]})
     months = [m for (m,) in db.execute("SELECT DISTINCT month FROM pageviews WHERE month != 'none' ORDER BY month DESC LIMIT 12")]
     titles = [p["enwiki"] for p in places.values() if p["enwiki"]]
     views, cats = {}, {}
@@ -185,7 +357,6 @@ def candidates(db, dest, poly):
         if ("wikidata", rid) in places:
             docs.setdefault(rid, {})[kind] = {"url": url, "rev": rev, "text": text_of(blob)}
     for p in places.values():
-        p.setdefault("types", [names.get(q, q) for q in p["type_ids"]])
         m = views.get(p["enwiki"] or "", {})
         p["views"] = round(statistics.median([m.get(k, 0) for k in months])) if m and months else 0
         p["categories"] = cats.get(p["enwiki"] or "", [])
@@ -210,7 +381,16 @@ JUDGE_SCHEMA = obj({"evidence": {"type": "string"}, "is_sight": {"type": "boolea
                     "visitable": {"type": "string", "enum": ["yes", "outside", "no"]}, "part_of": {"type": ["string", "null"]}})
 
 
-def judge(ask, places):
+JUDGE_ROUND, JUDGE_ROUND_BATCHED = 40, 200
+
+
+def rank(p):
+    """The order of the shortlist: most read on English Wikipedia, in most languages."""
+    return (-p["views"], -p["langs"], p["name"])
+
+
+def judge(ask, places, need=None):
+    need = need or SHORTLIST
     grid = {}
     for p in places.values():
         grid.setdefault((round(p["lat"], 2), round(p["lng"], 2)), []).append(p)
@@ -229,16 +409,27 @@ def judge(ask, places):
         ])
 
     def one(p):
-        return p, ask("judge", "v2", f"{p['source']}/{p['id']}", HAIKU, JUDGE, describe(p), JUDGE_SCHEMA, "low")
+        return p, ask("judge", "v2", f"{p['source']}/{p['id']}", MODELS["judge"], JUDGE, describe(p), JUDGE_SCHEMA, "low")
 
-    with ThreadPoolExecutor(8) as pool:
-        for p, a in pool.map(one, places.values()):
-            p["judged"] = a
+    # Most read first, a round at a time, until there are enough sights for the shortlist: only those can be
+    # shortlisted, so the rest needn't be asked (Seattle: 1,064 candidates, 43% of them sights). The places never
+    # asked aren't sights, here.
     names = {p["name"] for p in places.values()}
     for p in places.values():
-        a = p["judged"]
-        p["part_of"] = a["part_of"] if a["part_of"] in names and a["part_of"] != p["name"] else None
-        p["sight"] = a["is_sight"] and a["exists"] and a["visitable"] != "no" and not p["part_of"]
+        p.update(judged=None, part_of=None, sight=False)
+    # In batches a round is one wait, so a round is bigger: 200 is enough for Seattle's shortlist at once
+    batched = getattr(ask, "batcher", None) is not None
+    size = JUDGE_ROUND_BATCHED if batched else JUDGE_ROUND
+    order, found = sorted(places.values(), key=rank), 0
+    with ThreadPoolExecutor(size if batched else 8) as pool:
+        for start in range(0, len(order), size):
+            if found >= need:
+                break
+            for p, a in pool.map(one, order[start:start + size]):
+                p["judged"] = a
+                p["part_of"] = a["part_of"] if a["part_of"] in names and a["part_of"] != p["name"] else None
+                p["sight"] = a["is_sight"] and a["exists"] and a["visitable"] != "no" and not p["part_of"]
+                found += p["sight"]
 
 
 # ---------- 4. Pick ----------
@@ -258,7 +449,7 @@ PICK_SCHEMA = obj({"picks": {"type": "array", "items": obj({"id": {"type": "stri
 def pick(ask, dest, shortlist):
     lines = [f"[{p['source']}/{p['id']}] {p['name']} | {', '.join(p['types'][:3])} | about {p['views']:,} Wikipedia views a month, "
              f"{p['langs']} languages\n    {p['lead'][:450]}" for p in shortlist]
-    return ask("pick", "v1", dest["id"], OPUS, PICK.format(name=dest["name"], cap=dest["cap"]),
+    return ask("pick", "v1", dest["id"], MODELS["pick"], PICK.format(name=dest["name"], cap=dest["cap"]),
                "Shortlist:\n\n" + "\n".join(lines), PICK_SCHEMA, "high")
 
 
@@ -308,7 +499,7 @@ def write(ask, dest, p):
     dossier = "\n".join([f"Place: {p['name']} ({dest['name']})", f"Instance of: {', '.join(p['types'])}",
                          f"Coordinates: {p['lat']:.5f}, {p['lng']:.5f}", ""] +
                         [f'<source kind="{k}" url="{u}">\n{t}\n</source>' for u, k, t in sources])
-    a = ask("write", "v3", f"{p['source']}/{p['id']}", OPUS, WRITE, dossier, WRITE_SCHEMA, "medium")
+    a = ask("write", "v3", f"{p['source']}/{p['id']}", MODELS["write"], WRITE, dossier, WRITE_SCHEMA, "medium")
     a = dict(a, sources=[{"url": u, "kind": k} for u, k, _ in sources])
     a["overlap"] = round(overlap(a["one_liner"] + " " + " ".join(x["text"] for x in a["paragraphs"]),
                                  [plain(t) if k == "wikipedia" else t for _, k, t in sources]), 3)
@@ -357,13 +548,17 @@ def image_names(p18, wikitext):
     return out
 
 
+COMMONS = threading.Semaphore(8)  # requests to Wikimedia Commons at once, whatever runs alongside
+
+
 def image_candidates(p, limit=8):
     """Free photos of the place on Wikimedia Commons, 640 px wide or more, each with its author and licence."""
     names, out = image_names(p["p18"], p["wikitext"])[:30], []
     for batch in store.batches(names, 25):
-        q = store.http_json(COMMONS_API + urllib.parse.urlencode({
-            "action": "query", "titles": "|".join("File:" + n for n, _, _ in batch), "prop": "imageinfo",
-            "iiprop": "url|size|mime|extmetadata", "iiurlwidth": 960, "format": "json", "formatversion": 2}))
+        with COMMONS:
+            q = store.http_json(COMMONS_API + urllib.parse.urlencode({
+                "action": "query", "titles": "|".join("File:" + n for n, _, _ in batch), "prop": "imageinfo",
+                "iiprop": "url|size|mime|extmetadata", "iiurlwidth": 960, "format": "json", "formatversion": 2}))
         info = {pg["title"].removeprefix("File:"): pg for pg in (q or {}).get("query", {}).get("pages", [])}
         for n, cap, where in batch:
             ii = (info.get(n, {}).get("imageinfo") or [None])[0]
@@ -387,7 +582,7 @@ def media_type(raw):
 
 def fetch_image(url):
     """A Commons thumbnail (the 960 px one the API named: Wikimedia makes thumbnails only at standard widths)."""
-    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": store.UA}), timeout=60) as r:
+    with COMMONS, urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": store.UA}), timeout=60) as r:
         return r.read()
 
 
@@ -415,7 +610,7 @@ def pictures(ask, p, entry):
                                                f"description: {c['description'] or '(none)'} | date: {c['date'] or '?'}"})
         blocks.append({"type": "image", "source": {"type": "base64", "media_type": media_type(raw), "data": base64.b64encode(raw).decode()}})
     # The answer is kept by the entry and the photos offered (their files), not the pictures' bytes
-    a = ask("pictures", "v1", f"{p['source']}/{p['id']}", OPUS, PICTURES, blocks, PICTURES_SCHEMA, "medium",
+    a = ask("pictures", "v1", f"{p['source']}/{p['id']}", MODELS["pictures"], PICTURES, blocks, PICTURES_SCHEMA, "medium",
             fingerprint=[entry["paragraphs"], [(c["file"], c["caption"]) for c in cands]])
     ids, used = {c["id"]: c for c in cands}, set()
 
@@ -432,21 +627,54 @@ def pictures(ask, p, entry):
 
 # ---------- Run ----------
 
-def run(dest_id, db_path=None):
+def compare(db, dest_id):
+    """Each pick's entry as every model wrote it, side by side, for the picks more than one model has written: to
+    judge a cheaper model against a dearer one on the same places before choosing. Empty when there are none."""
+    out = []
+    for source, rid, name in db.execute("SELECT p.source, p.id, g.name FROM picks p JOIN guides g ON g.source = p.source "
+                                        "AND g.id = p.id WHERE p.destination = ? ORDER BY p.rank", (dest_id,)):
+        rows = db.execute("SELECT model, answer FROM llm_answers WHERE step = 'write' AND key = ? ORDER BY model",
+                          (f"{source}/{rid}",)).fetchall()
+        if len({m for m, _ in rows}) < 2:
+            continue
+        out.append(f"#### {name}")
+        for model, answer in rows:
+            a = json.loads(answer)
+            out += [f"**{model}**: {a['one_liner']}", ""] + [f"> {x['text']}" for x in a["paragraphs"]] + [""]
+    return "\n".join(out)
+
+
+def store_path(state):
+    return os.path.join(HERE, "data", f"{state}.sqlite")
+
+
+def run(dest_id, db_path=None, batcher=None):
+    """One destination's picks and entries, kept in its state's store. The stores of the other states it reaches into
+    (`other_states`) are only read, for their places: a store missing there is said and skipped. With a Batcher, its
+    questions go in batches, alongside the other destinations' running at the same time."""
     dest = DESTINATIONS[dest_id]
-    db = sqlite3.connect(db_path or os.path.join(HERE, "data", f"{dest['state']}.sqlite"), check_same_thread=False)
+    if not os.path.exists(db_path or store_path(dest["state"])):
+        raise FileNotFoundError(f"{dest_id}: no store for {dest['state']} ({db_path or store_path(dest['state'])})")
+    db = sqlite3.connect(db_path or store_path(dest["state"]), timeout=60, check_same_thread=False)  # shared with others
     db.executescript(store.SCHEMA)
-    ask, t0 = Asker(db), time.time()
-    places = candidates(db, dest, boundary(dest))
-    log(f"{dest['name']}: {len(places)} candidates ({sum(1 for p in places.values() if p['nps'])} with an NPS page)")
+    others = []
+    for st in dest.get("other_states", []):
+        if os.path.exists(store_path(st)):
+            others.append(sqlite3.connect(f"file:{store_path(st)}?mode=ro", uri=True))
+        else:
+            log(f"{dest_id}: no store for {st}; its part of {dest['name']} is left out")
+    ask, t0 = Asker(db, batcher), time.time()
+    places = candidates([db] + others, dest, boundary(dest))
+    log(f"{dest_id}: {len(places)} candidates ({sum(1 for p in places.values() if p['nps'])} with an NPS page)")
     judge(ask, places)
     sights = [p for p in places.values() if p["sight"]]
-    log(f"sights: {len(sights)}; parts of a bigger place: {sum(1 for p in places.values() if p['part_of'])}")
-    shortlist = sorted(sights, key=lambda p: (-p["views"], -p["langs"], p["name"]))[:SHORTLIST]
+    judged = sum(1 for p in places.values() if p["judged"])
+    log(f"{dest_id}: judged {judged}: sights {len(sights)}; parts of a bigger place: {sum(1 for p in places.values() if p['part_of'])}")
+    shortlist = sorted(sights, key=rank)[:SHORTLIST]
     chosen = pick(ask, dest, shortlist)
     by_key = {f"{p['source']}/{p['id']}": p for p in shortlist}
     picks = [(c, by_key[c["id"]]) for c in sorted(chosen["picks"], key=lambda c: c["rank"]) if c["id"] in by_key][:dest["cap"]]
-    log(f"picks: {len(picks)}: {', '.join(p['name'] for _, p in picks)}")
+    log(f"{dest_id}: picks: {len(picks)}: {', '.join(p['name'] for _, p in picks)}")
 
     def entry(c_p):
         c, p = c_p
@@ -455,23 +683,24 @@ def run(dest_id, db_path=None):
         e["images"] = pictures(ask, p, e)
         return c, p, e
 
-    with ThreadPoolExecutor(4) as pool:
+    with ThreadPoolExecutor(max(1, len(picks)) if batcher else 4) as pool:  # in batches, every entry's questions at once
         made = list(pool.map(entry, picks))
     now = store.NOW()
     db.execute("DELETE FROM picks WHERE destination=?", (dest_id,))
-    for rank, (c, p, e) in enumerate(made, 1):
-        db.execute("INSERT INTO picks VALUES (?,?,?,?,?,?)", (dest_id, p["source"], p["id"], rank, c["reason"], OPUS))
+    for n, (c, p, e) in enumerate(made, 1):
+        db.execute("INSERT INTO picks VALUES (?,?,?,?,?,?)", (dest_id, p["source"], p["id"], n, c["reason"], MODELS["pick"]))
         db.execute("INSERT OR REPLACE INTO guides VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
             p["source"], p["id"], p["name"], e["one_liner"], json.dumps(e["paragraphs"]), json.dumps(e["practical"]),
-            json.dumps(e["sources"]), json.dumps(e["images"]), e["overlap"], OPUS, "write v3, pictures v1", now))
+            json.dumps(e["sources"]), json.dumps(e["images"]), e["overlap"], MODELS["write"],
+            f"write v3, pictures v1 ({MODELS['pictures']})", now))
     left_out = [{"source": by_key[c["id"]]["source"], "id": by_key[c["id"]]["id"], "name": by_key[c["id"]]["name"], "reason": c["reason"]}
                 for c in chosen["left_out"] if c["id"] in by_key]
-    counts = {"candidates": len(places), "sights": len(sights), "shortlist": len(shortlist), "picks": len(made)}
+    counts = {"candidates": len(places), "judged": judged, "sights": len(sights), "shortlist": len(shortlist), "picks": len(made)}
     db.execute("INSERT OR REPLACE INTO destinations VALUES (?,?,?,?,?,?,?,?)", (
         dest_id, dest["name"], dest["kind"], dest["wikidata"], now, json.dumps(counts), json.dumps(left_out),
-        json.dumps({k: round(v, 3) for k, v in spent.items()})))
+        json.dumps({k: round(v, 3) for k, v in ask.spent.items()})))
     db.commit()
-    summary = {"destination": dest["name"], "counts": counts, "spent_this_run": {k: round(v, 3) for k, v in spent.items()},
+    summary = {"destination": dest["name"], "counts": counts, "spent_this_run": {k: round(v, 3) for k, v in ask.spent.items()},
                "seconds": round(time.time() - t0),
                "picks": [{"rank": i, "name": p["name"], "one_liner": e["one_liner"], "overlap": e["overlap"],
                           "hero": bool(e["images"]["hero"]), "inline": len(e["images"]["inline"])} for i, (_, p, e) in enumerate(made, 1)]}
@@ -481,9 +710,38 @@ def run(dest_id, db_path=None):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--destination", required=True, choices=sorted(DESTINATIONS))
+    ap.add_argument("--destination", required=True, nargs="+", choices=sorted(DESTINATIONS))
     ap.add_argument("--db")
+    ap.add_argument("--batch", action="store_true", help="ask in Message Batches, at half price: slower, up to a day")
+    ap.add_argument("--model", action="append", default=[], metavar="STEP=MODEL",
+                    help=f"another model for a step: {', '.join(f'{k}={v}' for k, v in MODELS.items())} by default")
     a = ap.parse_args()
-    out = run(a.destination, a.db)
-    with open(os.path.join(HERE, "data", f"{a.destination}-guides.json"), "w") as f:
-        json.dump(out, f, indent=1)
+    for m in a.model:
+        step, _, model = m.partition("=")
+        if step not in MODELS or model not in PRICE:
+            raise SystemExit(f"--model {m}: a step ({', '.join(MODELS)}) and a model ({', '.join(PRICE)})")
+        MODELS[step] = model
+    log("models: " + ", ".join(f"{k} {v}" for k, v in MODELS.items()) + (", in batches" if a.batch else ""))
+    batcher = None
+    if a.batch:  # its notes of the batches out go in the first destination's store, to be found by a run again
+        load_env()
+        batcher = Batcher(anthropic.Anthropic(max_retries=6), a.db or store_path(DESTINATIONS[a.destination[0]]["state"]))
+
+    def one(d):
+        try:
+            out = run(d, a.db, batcher)
+        except Exception as err:  # the other destinations still run: the answers so far are kept in the store
+            log(f"{d}: failed ({type(err).__name__}: {str(err)[:300]})")
+            return d
+        with open(os.path.join(HERE, "data", f"{d}-guides.json"), "w") as f:
+            json.dump(out, f, indent=1)
+        side_by_side = compare(sqlite3.connect(a.db or store_path(DESTINATIONS[d]["state"]), timeout=60), d)
+        if side_by_side:
+            with open(os.path.join(HERE, "data", f"{d}-compare.md"), "w") as f:
+                f.write(side_by_side + "\n")
+
+    # In batches, every destination at once, so that each step's questions from all of them share a batch
+    with ThreadPoolExecutor(len(a.destination) if batcher else 1) as pool:
+        failed = [d for d in pool.map(one, a.destination) if d]
+    if failed:
+        raise SystemExit(f"failed: {' '.join(failed)}")

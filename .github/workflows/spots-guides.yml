@@ -1,15 +1,23 @@
-# A destination's picks and their guidebook entries, written by a model from its state's store (issue #90).
-# Run by hand, one destination at a time (pipeline/destinations.json): it reads the store the Spots data workflow keeps
-# in R2, asks Claude (pipeline/guides.py), saves the answers back into the store, and loads the guide into D1 for the
-# preview at /developer/guide. A model answer whose input hasn't changed is reused, so running it again costs little.
+# Destinations' picks and their guidebook entries, written by a model from their states' stores (issue #90): cities,
+# counties and national parks in pipeline/destinations.json (pipeline/destinations.py adds parks and counties).
+# Run by hand. It reads the stores the Spots data workflow keeps in R2, asks Claude (pipeline/guides.py), saves the
+# answers back into each destination's state's store, and loads the guides into D1, where the app's Spots page shows
+# them. A model answer whose input hasn't changed is reused, so running a destination again costs little.
 name: Spots guides
 
 on:
   workflow_dispatch:
     inputs:
-      destination:
-        description: A destination's id in pipeline/destinations.json, such as "seattle"
+      destinations:
+        description: 'Ids from pipeline/destinations.json, or "parks", "counties", "cities", state codes ("WA"), "all"; comma-separated'
         default: seattle
+      batch:
+        description: Ask in Message Batches, at half price (slower; a job that runs out of time picks up its batches when run again)
+        type: boolean
+        default: true
+      models:
+        description: 'Another model for a step, e.g. "write=claude-opus-5-5" (default: judge and pictures Haiku, pick and write Sonnet)'
+        default: ""
 
 # The same group as Spots data: both update the stores in R2.
 concurrency:
@@ -28,52 +36,109 @@ defaults:
     working-directory: pipeline
 
 jobs:
-  guide:
+  # One job per state: a state's destinations write the same store, so they run one after another in it
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    outputs:
+      jobs: ${{ steps.plan.outputs.jobs }}
+      states: ${{ steps.plan.outputs.states }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        env:
+          WANT: ${{ inputs.destinations }}
+        run: |
+          jobs=$(python3 destinations.py plan "$WANT")
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+          echo "states=$(echo "$jobs" | python3 -c 'import json,sys; print(json.dumps([j["state"] for j in json.load(sys.stdin)]))')" >> "$GITHUB_OUTPUT"
+          python3 destinations.py plan "$WANT" --markdown >> "$GITHUB_STEP_SUMMARY"
+
+  guides:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 4 # kind to the Anthropic API's rate limits, Wikimedia Commons and the boundary services
+      matrix:
+        job: ${{ fromJSON(needs.plan.outputs.jobs) }}
     env:
-      DEST: ${{ inputs.destination }}
+      ST: ${{ matrix.job.state }}
+      IDS: ${{ join(matrix.job.ids, ' ') }}
+      STORES: ${{ join(matrix.job.stores, ' ') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install anthropic==2.6.0
-      - name: The destination's state
-        run: |
-          ST=$(python3 -c 'import json,os; d={x["id"]: x for x in json.load(open("destinations.json"))}; print(d[os.environ["DEST"]]["state"])')
-          echo "ST=$ST" >> "$GITHUB_ENV"
-      - name: The state's store
+      # The state's own store holds the guides; the others (a park across a state line) are only read
+      - name: The stores
         run: |
           mkdir -p data
-          aws s3 cp --endpoint-url "$R2" "s3://$BUCKET/stores/$ST.sqlite.gz" "data/$ST.sqlite.gz"
-          gunzip "data/$ST.sqlite.gz"
+          for s in $STORES; do
+            if aws s3 cp --endpoint-url "$R2" "s3://$BUCKET/stores/$s.sqlite.gz" "data/$s.sqlite.gz"; then
+              gunzip "data/$s.sqlite.gz"
+            elif [ "$s" = "$ST" ]; then
+              echo "No store for $ST: run Spots data for it first"; exit 1
+            else
+              echo "No store for $s: the destinations that reach into it go without its places"
+            fi
+          done
+      # Stopped before the job's time limit, so the answers so far are saved below: running it again carries on, and
+      # takes the answers of batches still out (noted in the store) instead of asking again
       - name: Pick and write
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODELS: ${{ inputs.models }}
+          BATCH: ${{ inputs.batch }}
         run: |
-          python3 guides.py --destination "$DEST"
-          { echo "### $DEST"; echo '```json'; cat "data/$DEST-guides.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          status=0
+          models=""; for m in ${MODELS//,/ }; do models="$models --model $m"; done
+          batch=""; [ "$BATCH" = "true" ] && batch="--batch"
+          timeout --signal=INT --kill-after=5m 300m python3 guides.py --destination $IDS $models $batch || status=$?
+          for id in $IDS; do
+            if [ -f "data/$id-guides.json" ]; then
+              { echo "### $id"; echo '```json'; cat "data/$id-guides.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+              # The entries more than one model has written, side by side
+              [ -f "data/$id-compare.md" ] && cat "data/$id-compare.md" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "### $id: failed (see the log)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          exit $status
       # Saved even when a step above failed partway: the answers it got cost money to ask again
       - name: Save the store to R2
-        if: ${{ always() && env.ST != '' && hashFiles(format('pipeline/data/{0}.sqlite', env.ST)) != '' }}
+        if: ${{ always() && hashFiles(format('pipeline/data/{0}.sqlite', matrix.job.state)) != '' }}
         run: |
           gzip -kf "data/$ST.sqlite"
-          aws s3 cp --endpoint-url "$R2" "data/$ST.sqlite.gz" "s3://$BUCKET/stores/$ST.sqlite.gz"
+          ./r2put.sh "data/$ST.sqlite.gz" "stores/$ST.sqlite.gz"
+      # Every guide the state's store has, the ones just made and those from before; loaded by the load job below
+      - name: The state's guides as SQL for D1
+        if: ${{ always() && hashFiles(format('pipeline/data/{0}.sqlite', matrix.job.state)) != '' }}
+        run: |
+          set -o pipefail
+          python3 export_d1.py --state "$ST" --guides | gzip > "data/$ST.guides.sql.gz"
+          ./r2put.sh "data/$ST.guides.sql.gz" "d1/$ST.guides.sql.gz"
+
+  load:
+    needs: [plan, guides]
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
-      - name: Load the state's guides into D1
+      - run: npm ci
+        working-directory: app
+      - name: Load each state's guides into D1
+        working-directory: app
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          python3 export_d1.py --state "$ST" --guides > "data/$ST.guides.sql"
-          cd ../app && npm ci
-          for try in 1 2 3; do
-            npx wrangler d1 execute waythread --remote --file "../pipeline/data/$ST.guides.sql" && exit 0
-            echo "Load $try failed; trying again in 30 s"; sleep 30
-          done
-          exit 1
+          STATES: ${{ needs.plan.outputs.states }}
+        run: ../pipeline/load_d1.sh guides.sql.gz $(echo "$STATES" | python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))')
