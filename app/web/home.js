@@ -1,5 +1,5 @@
 /* Home: a card for each trip, with its dates, people, a sketch of its route and a photo. */
-import { $app, ICON, WORDMARK, avatarHTML, esc } from './core.js';
+import { $app, ICON, appBarHTML, avatarHTML, esc } from './core.js';
 import { DAYS, fmtRange, fmtTime, instantOf, nowIn, nowStamp, toDate, zoneOf } from './time.js';
 import { canSignIn, me } from './signin.js';
 import { trips } from './trips.js';
@@ -30,20 +30,16 @@ export function homeHTML() {
   const past = list.filter(over).sort((a, b) => b.end.localeCompare(a.end));
   const group = (title, ts, done) => `<section class="home-group"><h2 class="home-group__title">${title}</h2>
     <div class="home-grid">${ts.map(t => tripCardHTML(t, done, today)).join('')}</div></section>`;
-  const newTrip = cls => `<button class="wt-btn wt-btn--primary ${cls}" data-action="new-trip">${ICON.plus}New trip</button>`;
   return `
-    <header class="home-head"><h1 class="wt-wordmark">${WORDMARK}</h1>
-      <div class="home-head__actions">${newTrip('home-new')}
-        <button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>
-      </div></header>
+    ${appBarHTML('plan', `<button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>`)}
     <main class="home">
-      ${trips && !list.length ? '<p class="wt-empty">No trips yet. Start one with New trip, or open the link a friend sent you.</p>' : ''}
+      <div class="home-actions"><button class="wt-btn wt-btn--primary" data-action="new-trip">${ICON.plus}New trip</button></div>
+    ${trips && !list.length ? '<p class="wt-empty">No trips yet. Start one with New trip, or open the link a friend sent you.</p>' : ''}
       ${current.length ? group('Current', current, false) : ''}
       ${ahead.length ? group('Upcoming', ahead, false) : ''}
       ${past.length ? group('Past', past, true) : ''}
       ${me.isGuest && trips?.length && canSignIn() ? '<button class="wt-btn wt-btn--secondary wt-btn--block home-guest" data-action="account">Sign in to keep your trips</button>' : ''}
-    </main>
-    <div class="wt-add-bar home-add">${newTrip('wt-btn--block')}</div>`;
+    </main>`;
 }
 const HOME_AVATARS = 4; // past this, the rest are a "+N"
 // When a trip is, next to its dates: how soon, or which day of it today is (in primary ink, like the row happening now)
@@ -56,7 +52,7 @@ function tripWhen(t, today) {
   return { text: d === 1 ? 'Tomorrow' : d < 14 ? `In ${d} days` : d < 60 ? `In ${Math.round(d / 7)} weeks` : `In ${Math.round(d / 30.4)} months` };
 }
 // A trip's dates, always with the year: "Nov 5 – 8, 2026"; one over New Year says both
-function tripDates(t) {
+export function tripDates(t) {
   if (!t.start) return 'No dates yet';
   const end = t.end || t.start, y1 = t.start.slice(0, 4), y2 = end.slice(0, 4);
   return y1 !== y2 ? `${fmtRange(t.start, t.start)}, ${y1} – ${fmtRange(end, end)}, ${y2}` : `${fmtRange(t.start, end)}, ${y1}`;

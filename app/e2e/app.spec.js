@@ -149,6 +149,63 @@ test('anyone can preview a destination’s picks and read a pick’s entry with 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Testville');
 });
 
+// Spots are for anyone: no sign-in needed. e2e/places.sql loads Testville's one pick, Test Lodge
+test('anyone can browse the spots and read a spot’s guide without signing in', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Continue as a guest' })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Spots' }).click();
+  await page.getByRole('searchbox', { name: 'Search spots' }).fill('test lodge');
+  await expect(page.locator('.wt-spot-card')).toHaveCount(1);
+  await expect(page.locator('.wt-spot-card')).toContainText('Testville, ZZ');
+  await page.getByRole('link', { name: /Test Lodge/ }).click();
+  const entry = page.locator('article.wt-guide');
+  await expect(entry.getByRole('heading', { level: 2 })).toHaveText('Test Lodge');
+  await expect(entry.locator('.wt-guide__para')).toHaveCount(2);
+  await expect(entry.locator('.wt-guide__facts')).toContainText('Open from May to September.');
+  await expect(entry.locator('.wt-guide__foot')).toContainText('Its Wikipedia article was read 12k times in the last year.');
+  await expect(entry.locator('.wt-guide__foot')).toContainText('A. Photographer, CC BY-SA 4.0, via Wikimedia Commons');
+  // Adding it to a trip needs an account: sign in, and come back to the spot
+  await page.getByRole('link', { name: 'Sign in to add to a trip' }).click();
+  await guest(page, 'Alex');
+  await expect(entry.getByRole('heading', { level: 2 })).toHaveText('Test Lodge');
+  await page.getByRole('button', { name: 'Add to a trip' }).click();
+  await sheet(page).getByRole('button', { name: 'New trip: Testville' }).click();
+  await expect(toast(page)).toContainText('Added to Testville');
+  await toast(page).getByRole('button', { name: 'Open' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Testville');
+  await expect(stop(page, 'Test Lodge')).toBeVisible();
+});
+
+// e2e/places.sql loads Pagetown's 31 picks
+test('on a computer, spots come in pages of 24; on a phone, 30 then Show more', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/#/spots');
+  await page.getByRole('combobox', { name: 'City' }).selectOption('pagetown');
+  const names = page.locator('.wt-spot-card__name'), pager = page.getByRole('navigation', { name: 'Pages of spots' });
+  await expect(names).toHaveCount(24);
+  await expect(pager.getByRole('button', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page');
+  await expect(pager.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Show more' })).toBeHidden();
+  await pager.getByRole('button', { name: 'Next page' }).click();
+  await expect(names).toHaveCount(7);
+  await expect(names.first()).toHaveText('Page spot 25');
+  await expect(pager.getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page');
+  await expect(pager.getByRole('button', { name: 'Next page' })).toBeDisabled();
+  await expect(page).toHaveURL(/page=2$/);
+  // The search box is in view under the app bar, and Back goes to the page before
+  await expect(page.getByRole('searchbox', { name: 'Search spots' })).toBeInViewport();
+  await page.goBack();
+  await expect(names.first()).toHaveText('Page spot 01');
+  await expect(pager.getByRole('button', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(names).toHaveCount(30);
+  await expect(pager).toBeHidden();
+  await page.getByRole('button', { name: 'Show more' }).click();
+  await expect(names).toHaveCount(31);
+  await expect(page.getByRole('button', { name: 'Show more' })).toBeHidden();
+});
+
 // The developer page documents the MCP server from GET /api/developer/mcp and the API from README.md
 test('the developer page lists the MCP server’s tools as the server gives them, and the app’s API', async ({ page }) => {
   await page.goto('/developer');
