@@ -30,18 +30,16 @@ export function homeHTML() {
   const past = list.filter(over).sort((a, b) => b.end.localeCompare(a.end));
   const group = (title, ts, done) => `<section class="home-group"><h2 class="home-group__title">${title}</h2>
     <div class="home-grid">${ts.map(t => tripCardHTML(t, done, today)).join('')}</div></section>`;
-  const newTrip = cls => `<button class="wt-btn wt-btn--primary ${cls}" data-action="new-trip">${ICON.plus}New trip</button>`;
   return `
-    ${appBarHTML('plan', `${newTrip('home-new')}
-        <button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>`)}
+    ${appBarHTML('plan', `<button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>`)}
     <main class="home">
-      ${trips && !list.length ? '<p class="wt-empty">No trips yet. Start one with New trip, or open the link a friend sent you.</p>' : ''}
+      <div class="home-actions"><button class="wt-btn wt-btn--primary" data-action="new-trip">${ICON.plus}New trip</button></div>
+    ${trips && !list.length ? '<p class="wt-empty">No trips yet. Start one with New trip, or open the link a friend sent you.</p>' : ''}
       ${current.length ? group('Current', current, false) : ''}
       ${ahead.length ? group('Upcoming', ahead, false) : ''}
       ${past.length ? group('Past', past, true) : ''}
       ${me.isGuest && trips?.length && canSignIn() ? '<button class="wt-btn wt-btn--secondary wt-btn--block home-guest" data-action="account">Sign in to keep your trips</button>' : ''}
-    </main>
-    <div class="wt-add-bar home-add">${newTrip('wt-btn--block')}</div>`;
+    </main>`;
 }
 const HOME_AVATARS = 4; // past this, the rest are a "+N"
 // When a trip is, next to its dates: how soon, or which day of it today is (in primary ink, like the row happening now)

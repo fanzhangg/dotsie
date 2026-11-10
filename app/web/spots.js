@@ -37,7 +37,7 @@ const s = { q: '', country: '', state: '', city: '', cities: null, results: [], 
 let timer = 0;
 
 // ---------- The page ----------
-// The app bar, as Home has it: the logo, the nav, and the account (or Sign in). The list, and a spot's entry over it,
+// The app bar, as Home has it: the page's name, the nav, and the account (or Sign in). The list, and a spot's entry over it,
 // are filled in by script and kept while the page is open, so going back to the list finds it as it was.
 const headHTML = () => appBarHTML('spots', me
   ? `<button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>`

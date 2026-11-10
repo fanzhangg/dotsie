@@ -238,7 +238,6 @@ The logo is **:D**, the emoticon, typed upright: a colon of two stops and a capi
 - **On one color**, both dots take the D's ink.
 - **Files:** [`logo.svg`](logo.svg) is the mark on a clear background and follows the light or dark theme. The app's icons (`favicon.svg`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`, in `app/web` and `prototype`) are the mark on white, inside the middle 80% so a phone can crop them to any shape.
 - **The name** is the wordmark ([`.wt-wordmark`](#wordmark-wt-wordmark)): Dotsie, with the logo's orange stop for the i's dot. The colon is the icon's alone: before a word it reads as a typo.
-- **In the app,** the mark heads Home and Spots, in the [app bar](#app-bar-wt-app-bar-logo-wt-logo-and-nav-wt-nav) (`.wt-logo`, drawn inline so it follows the theme's tokens).
 
 ## Components
 
@@ -855,27 +854,23 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - `__now`, at the foot of a card that `.is-now`, under a hairline: what the trip is at now and what's next. One `__step` each, like a row of the timeline: the stop's `.wt-marker--sm`, `__step-name` (one line, cut off with an ellipsis), and `__step-time` on the right, which says "Now" for the first and when it is for the next ("12:30 PM", "Tomorrow, 11:00 AM", "Tonight"). The time column already says which is which, so there's no Now or Next label. `.is-now` on the first puts it in primary ink, its time in semibold; the next stays secondary. Leave out a step there's nothing for.
 - `.is-past`: the trip is over. Its route turns `--wt-route-done`; give its dots `--wt-kind-past`, as past pins have. Its photos lose most of their color.
 
-### App bar `.wt-app-bar`, logo `.wt-logo` and nav `.wt-nav`
+### App bar `.wt-app-bar` and nav `.wt-nav`
 
 ```html
 <header class="wt-app-bar">
-  <a class="wt-logo" href="#/" aria-label="Dotsie">
-    <svg viewBox="14 14 72 72" aria-hidden="true"><circle class="wt-logo__top" …/><circle class="wt-logo__bottom" …/><path class="wt-logo__d" d="…"/></svg>
-  </a>
+  <h1 class="wt-visually-hidden">Plan</h1>
   <nav class="wt-nav" aria-label="Pages">
-    <a class="wt-nav__link" href="#/" aria-current="page">Plan</a>
-    <a class="wt-nav__link" href="#/spots">Spots</a>
+    <a class="wt-nav__link" href="#/" aria-current="page">${mapIcon}Plan</a>
+    <a class="wt-nav__link" href="#/spots">${pinIcon}Spots</a>
   </nav>
-  <h1 class="wt-visually-hidden">Your trips</h1>
-  <div class="wt-app-bar__end">${newTripButton}${accountButton}</div>
+  <div class="wt-app-bar__end">${accountButton}</div>
 </header>
 ```
 
-The top of Home and Spots, in one row: the logo, the app's pages, and on the right what's yours (New trip, the account).
+The top of Home and Spots, in one row: the app's pages on the left, the account on the right. Actions on the page (New trip) go in the page, not here.
 
-- **The bar** stays at the top as the page scrolls (`position: sticky`), 64px high (80px on a computer), frosted over what passes under it in the page's color (`--wt-surface-sheet`, or set `--wt-app-bar-surface`). Add `.is-scrolled` once the page has scrolled, for a hairline under it. The page's name is a hidden `h1`: the nav already shows it.
-- **`.wt-logo`** is the mark, :D, 36px, drawn inline so it follows the theme: `__d` in `--wt-text-primary`, `__top` and `__bottom` in the brand's stops. It's the link home.
-- **`.wt-nav`** is the app's pages, as pills. The page you're on has `aria-current="page"`: raised white (`--wt-surface-raised`) with `--wt-shadow-hairline`, in primary ink, set apart by its surface as a card is. The others are their words in secondary ink, a grey pill when pointed at. `--wt-type-context`, 36px high. A few short words, never icons; for pages, not filters. Sign-in shows it under the wordmark.
+- **The bar** stays at the top as the page scrolls (`position: sticky`), 64px high (80px from 768px wide), frosted over what passes under it in the page's color (`--wt-surface-sheet`, or set `--wt-app-bar-surface`). Add `.is-scrolled` once the page has scrolled, for a hairline under it. The page's name is a hidden `h1`: the nav already shows it.
+- **`.wt-nav`** is the app's pages, as pills of an icon (18px) and a word, in `--wt-type-context`. The page you're on (`aria-current="page"`) is raised white with `--wt-shadow-hairline`, in primary ink, set apart by its surface as a card is; the others are in secondary ink, a grey pill when pointed at. Plan is `map`, Spots is `pin`. For pages, not filters. Sign-in shows it under the wordmark.
 
 ### Pager `.wt-pager`
 
@@ -1115,11 +1110,11 @@ Say what can go here, in the user's words. No illustrations.
 
 The app has a second page, Spots, for anyone, and Home and Spots share an app bar.
 
-- New: `.wt-app-bar` with `__end` and `.is-scrolled`, `.wt-logo` with `__d`, `__top` and `__bottom`, and `.wt-nav` with `__link` (`aria-current="page"`). See [App bar](#app-bar-wt-app-bar-logo-wt-logo-and-nav-wt-nav).
+- New: `.wt-app-bar` with `__end` and `.is-scrolled`, and `.wt-nav` with `__link` (an icon and a word; `aria-current="page"`). See [App bar](#app-bar-wt-app-bar-and-nav-wt-nav).
 - New: `.wt-pager`, with `__page`, `__step` and `__gap`. See [Pager](#pager-wt-pager).
 - New: `.wt-spot-card`, with `__photo` (`--none`), `__body`, `__name`, `__line` and `__where`. See [Spot card](#spot-card-wt-spot-card).
 - New: `.wt-guide`, with `__back`, `__figure`, `__credit`, `__head`, `__where`, `__name`, `__lede`, `__para`, `__facts` and `__foot`. See [Guide entry](#guide-entry-wt-guide).
-- The wordmark is now on sign-in only; Home has the logo, in the app bar.
+- The wordmark is now on sign-in only.
 
 ### Changed in 14.0.0
 

@@ -7,18 +7,14 @@ export const $app = document.getElementById('app');
 export const $sheets = document.getElementById('sheets');
 // The app's name as its wordmark, with a stop for the i's dot (see Wordmark in the design system); read as plain text
 export const WORDMARK = '<span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span>';
-// The logo, :D, as the app bar's home link: the D in the theme's ink, the colon the brand's two stops (see Logo in the
-// design system; logo.svg is the same drawing)
-export const LOGO = '<svg viewBox="14 14 72 72" aria-hidden="true" focusable="false"><circle class="wt-logo__top" cx="25.03" cy="35.5" r="7.5"/><circle class="wt-logo__bottom" cx="25.03" cy="64.5" r="7.5"/><path class="wt-logo__d" d="M58.11 75C73.31 75 82.47 65.6 82.47 49.97C82.47 34.4 73.31 25 58.28 25H40.53V75ZM50.76 66.17V33.83H57.67C67.24 33.83 72.27 38.79 72.27 49.97C72.27 61.21 67.24 66.17 57.61 66.17Z"/></svg>';
-// The app's pages: Plan (Home, the trips) and Spots
-const PAGES = [['plan', '#/', 'Plan', 'Your trips'], ['spots', '#/spots', 'Spots', 'Spots']];
-export const navHTML = page => `<nav class="wt-nav" aria-label="Pages">${PAGES
-  .map(([id, href, label]) => `<a class="wt-nav__link" href="${href}"${id === page ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>`;
-// The top of Home and Spots, in one row: the logo, the pages, then `end` (New trip, the account) on the right. The page's
+// The app's pages: Plan (Home, the trips) and Spots, each with its icon
+const PAGES = [['plan', '#/', 'Plan', 'map'], ['spots', '#/spots', 'Spots', 'pin']];
+export const navHTML = page => `<nav class="wt-nav" aria-label="Pages">${PAGES.map(([id, href, label, icon]) =>
+  `<a class="wt-nav__link" href="${href}"${id === page ? ' aria-current="page"' : ''}>${DotsieIcons.svg(icon, 18)}${label}</a>`).join('')}</nav>`;
+// The top of Home and Spots, in one row: the pages, then `end` (the account, or Sign in) on the right. The page's
 // name is its heading, for screen readers: the nav shows it.
 export const appBarHTML = (page, end) => `<header class="wt-app-bar">
-  <a class="wt-logo" href="#/" aria-label="Dotsie">${LOGO}</a>${navHTML(page)}
-  <h1 class="wt-visually-hidden">${PAGES.find(p => p[0] === page)[3]}</h1>
+  <h1 class="wt-visually-hidden">${PAGES.find(p => p[0] === page)[2]}</h1>${navHTML(page)}
   <div class="wt-app-bar__end">${end}</div></header>`;
 // The app bar's hairline, once something has scrolled under it
 addEventListener('scroll', () => document.querySelector('.wt-app-bar')?.classList.toggle('is-scrolled', scrollY > 0), { passive: true });

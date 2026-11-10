@@ -25,7 +25,7 @@
   border-radius: var(--wt-radius-md);
 }
 :where(.wt-btn, .wt-icon-btn):disabled { opacity: .35; cursor: default; }
-a:where(.wt-btn, .wt-icon-btn, .wt-trip-card, .wt-spot-card, .wt-nav__link, .wt-guide__back, .wt-logo) { color: inherit; text-decoration: none; }
+a:where(.wt-btn, .wt-icon-btn, .wt-trip-card, .wt-spot-card, .wt-nav__link, .wt-guide__back) { color: inherit; text-decoration: none; }
 
 /* ---------- Button ---------- */
 .wt-btn {
@@ -892,14 +892,13 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-trip-card__step.is-now .wt-trip-card__step-time { font-weight: 600; }
 .wt-trip-card__step-time { flex: none; margin-left: auto; padding-left: var(--wt-space-2); font-variant-numeric: tabular-nums; }
 
-/* ---------- App bar: the logo, the app's pages and the account, in one row at the top of Home and Spots ---------- */
-/* Stays at the top as the page scrolls, frosted over what passes under it, as the trip's header card is over the map.
-   A hairline shows under it only once something has scrolled under it (.is-scrolled, set by script). It's the color
-   of the page under it: --wt-surface-sheet, or set --wt-app-bar-surface. */
+/* ---------- App bar: the app's pages and the account, at the top of Home and Spots ---------- */
+/* One row: the nav on the left, the account on the right. It stays at the top as the page scrolls, frosted over what
+   passes under it in the page's color (--wt-surface-sheet, or set --wt-app-bar-surface), with a hairline once
+   something has scrolled under it (.is-scrolled, set by script). */
 .wt-app-bar {
   position: sticky; top: 0; z-index: var(--wt-z-raised);
-  display: flex; align-items: center; gap: var(--wt-space-4); min-height: 64px;
-  padding: env(safe-area-inset-top) var(--wt-space-4) 0;
+  display: flex; align-items: center; gap: var(--wt-space-3); min-height: 64px; padding: env(safe-area-inset-top) var(--wt-space-4) 0;
   background: color-mix(in oklab, var(--wt-app-bar-surface, var(--wt-surface-sheet)) 82%, transparent);
   -webkit-backdrop-filter: saturate(1.6) blur(16px); backdrop-filter: saturate(1.6) blur(16px);
   transition: box-shadow var(--wt-duration-fast);
@@ -907,23 +906,17 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-app-bar.is-scrolled { box-shadow: 0 1px 0 var(--wt-border-default); }
 .wt-app-bar__end { margin-left: auto; display: flex; align-items: center; gap: var(--wt-space-2); }
 
-/* ---------- Logo: :D, the mark, drawn in the theme's ink and the brand's two stops ---------- */
-.wt-logo { flex: none; display: block; width: 36px; height: 36px; border-radius: var(--wt-radius-md); }
-.wt-logo svg { display: block; width: 100%; height: 100%; }
-.wt-logo__d { fill: var(--wt-text-primary); }
-.wt-logo__top { fill: var(--wt-brand-dot-top); }
-.wt-logo__bottom { fill: var(--wt-brand-dot-bottom); }
-a.wt-logo:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
-
-/* ---------- Nav: the app's pages (Plan, Spots), next to the logo ---------- */
-/* Pills: the page you're on is raised white, in primary ink, set apart by its surface and a hairline; the others are
-   only their words, in secondary ink. Quiet, like the day tabs: it says where you are, it isn't what you read. */
+/* ---------- Nav: the app's pages (Plan, Spots) ---------- */
+/* Pills, each an icon and a word. The page you're on is raised white with a hairline, in primary ink, set apart by its
+   surface as a card is; the others are their icon and word in secondary ink. The first pill's edge is the content's,
+   as the cards' are. */
 .wt-nav { display: flex; align-items: center; gap: var(--wt-space-1); }
 .wt-nav__link {
-  display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: var(--wt-radius-pill);
+  display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px 0 var(--wt-space-3); border-radius: var(--wt-radius-pill);
   font: var(--wt-type-context); color: var(--wt-text-secondary); white-space: nowrap;
   transition: color var(--wt-duration-fast), background var(--wt-duration-fast);
 }
+.wt-nav__link .wt-icon { flex: none; width: 18px; height: 18px; }
 .wt-nav__link[aria-current="page"] { color: var(--wt-text-primary); background: var(--wt-surface-raised); box-shadow: var(--wt-shadow-hairline); }
 .wt-nav__link:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
 @media (hover: hover) { .wt-nav__link:not([aria-current="page"]):hover { color: var(--wt-text-primary); background: var(--wt-surface-hover); } }

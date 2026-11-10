@@ -316,7 +316,7 @@
    * Four weights, each with a job, so emphasis stays rare: 700 the app name only; 600 headings and the one
    * primary action; 500 names, the strongest text in a list; 400 everything else. Below the names, hierarchy
    * comes from size and ink (--wt-text-secondary, --wt-text-tertiary), not from more weight. */
-  --wt-type-display: 700 28px/34px var(--wt-font-sans);   /* app name on Home */
+  --wt-type-display: 700 28px/34px var(--wt-font-sans);   /* the app name, on sign-in */
   --wt-type-title: 600 18px/24px var(--wt-font-sans);     /* modal titles */
   --wt-type-context: 500 15px/20px var(--wt-font-sans);   /* where you are: the trip's name, the day. Below the stop names */
   --wt-type-heading: 600 15px/20px var(--wt-font-sans);   /* section headings */
