@@ -119,6 +119,7 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
   if (route === '/places') return searchPlaces(q.get('q'), q.get('near'), signal);
   if (route === '/sights') return findSights(q.get('tile'), signal);
   if (route === '/about') return q.has('id') ? findAbout(q.get('id'), signal) : findPlaceAbout(q.get('name'), q.get('at'), signal);
+  if (route.startsWith('/spots/')) return spots(route.split('/').slice(2).map(decodeURIComponent), q);
   // Read-modify-write against the latest copy, so edits from other tabs aren't clobbered
   const d = loadDB(), p = route.split('/').filter(Boolean), now = Date.now();
   const fail = (status, code) => { throw new ApiError(status, code); };
@@ -254,6 +255,85 @@ export function settingsNoteHTML(trip) {
   return `<div class="proto-note"><b>Prototype:</b> try co-editing: open this trip
     ${others.map(u => `<a href="${base}?as=${u.id}#/join/${token}" target="_blank">as ${u.name}</a>`).join(' or ')} in another tab.
     ${first ? `Trip days highlight what's happening now: <a href="${base}?today=${dayOf(first)}&now=14:10#/trip/${trip.id}">preview day 1 at 2:10 PM</a>.` : ''}</div>`;
+}
+
+// ---------- Spots: a few sample places in place of the guide's (the app's come from the spots data, pipeline/guides.py) ----------
+// Written for the prototype, and the views are made up, roughly in proportion; each sorts and filters as the app's
+// /api/spots does. Their photos are the lead photos of their Wikipedia articles, found by name and place as Home's
+// cards find a stop's (see findPlaceAbout), once a visit; with none (offline, or in the tests), the card shows a pin.
+const SPOT_CITIES = [
+  { id: 'seattle', name: 'Seattle', state: 'WA', country: 'US' },
+  { id: 'alamogordo', name: 'Alamogordo', state: 'NM', country: 'US' },
+  { id: 'vancouver', name: 'Vancouver', state: 'BC', country: 'CA' },
+];
+const wiki = title => `https://en.wikipedia.org/wiki/${title}`;
+const spot = (city, id, rank, name, lat, lng, views, oneLiner, paragraphs, practical = [], website = null) =>
+  ({ city, source: 'sample', id, rank, name, lat, lng, views, oneLiner, website, practical,
+    paragraphs: paragraphs.map(text => ({ text, sources: [wiki(name.replace(/ /g, '_'))] })), sources: [{ url: wiki(name.replace(/ /g, '_')), kind: 'wikipedia' }] });
+const SPOTS = [
+  spot('seattle', 'space-needle', 1, 'Space Needle', 47.6205, -122.3493, 1900000,
+    'The 1962 World’s Fair tower, with the city, the Sound and Mount Rainier at your feet.',
+    ['Built for the 1962 World’s Fair, the Space Needle rises 605 feet over Seattle Center. A lift takes you up to the observation level in under a minute.',
+      'Up top, the views take in downtown, Elliott Bay and, on a clear day, Mount Rainier. The level below has a glass floor that turns.'],
+    [{ label: 'Getting there', value: 'Seattle Center, a short ride on the Monorail from Westlake Center.' }], 'https://www.spaceneedle.com/'),
+  spot('seattle', 'pike-place-market', 2, 'Pike Place Market', 47.6097, -122.3422, 1400000,
+    'Fish, flowers and farm stalls over the waterfront, since 1907.',
+    ['Pike Place Market opened in 1907, and is one of the oldest public farmers’ markets in the US still running. Its stalls sell produce, flowers, crafts and seafood.',
+      'Come early to see it wake up, then take the stairs at the back down to the waterfront.']),
+  spot('seattle', 'chihuly-garden-and-glass', 3, 'Chihuly Garden and Glass', 47.6206, -122.3504, 420000,
+    'Dale Chihuly’s glass, in galleries, a glasshouse and a garden under the Space Needle.',
+    ['Opened in 2012 beside the Space Needle, the museum shows the work of Dale Chihuly, a glass artist from nearby Tacoma.',
+      'The Glasshouse, a tall hall of glass, holds one of his largest hanging pieces; outside, glass grows among the plants.']),
+  spot('seattle', 'discovery-park', 4, 'Discovery Park', 47.6573, -122.4057, 160000,
+    'Seattle’s biggest park: meadows, forest and beaches on a headland over Puget Sound.',
+    ['Discovery Park covers 534 acres of the Magnolia headland, on what was Fort Lawton.',
+      'A loop trail runs through forest and meadow, and a path drops to the beach and the West Point Lighthouse.']),
+  spot('alamogordo', 'white-sands', 1, 'White Sands National Park', 32.7872, -106.3257, 900000,
+    'Waves of white gypsum, the largest field of such dunes on Earth.',
+    ['White Sands holds the world’s largest gypsum dunefield: about 275 square miles of white sand in the Tularosa Basin. It became a national park in 2019.',
+      'Dunes Drive runs eight miles into the dunes, with boardwalks and trails along the way. Bring a sled: the slopes are made for it.'],
+    [{ label: 'Bring', value: 'Water, sun protection and a sled (the visitor center sells them).' }]),
+  spot('alamogordo', 'museum-of-space-history', 2, 'New Mexico Museum of Space History', 32.9214, -105.9213, 60000,
+    'A golden cube on the hillside, home to the International Space Hall of Fame.',
+    ['The museum looks out over Alamogordo from a five-story cube of golden glass, and holds the International Space Hall of Fame.',
+      'Rockets stand in the park outside, and the exhibits tell of the rocket and space research done around White Sands.']),
+  spot('vancouver', 'stanley-park', 1, 'Stanley Park', 49.3043, -123.1443, 700000,
+    'A forest at the edge of downtown, ringed by the seawall.',
+    ['Stanley Park covers about 400 hectares at the tip of the downtown peninsula, most of it forest.',
+      'The seawall around it is about 9 km of path for walking and cycling, past beaches, totem poles and views of the North Shore mountains.']),
+];
+const heroes = new Map(); // spot id → Promise of its photo, or null
+const heroOf = p => {
+  if (!heroes.has(p.id)) {
+    heroes.set(p.id, Promise.race([
+      findPlaceAbout(p.name, `${p.lat},${p.lng}`).then(a => a?.image ? { thumb: a.image.src, width: a.image.width, height: a.image.height,
+        author: a.image.credit, licence: a.image.license, page: a.image.page, caption: a.title } : null),
+      new Promise(r => setTimeout(r, 5000, null)),
+    ]).catch(() => null));
+  }
+  return heroes.get(p.id);
+};
+const cityOf = p => SPOT_CITIES.find(c => c.id === p.city);
+async function spots([a, b, ...rest], q) {
+  if (a === 'cities') return SPOT_CITIES.map(c => ({ ...c, spots: SPOTS.filter(p => p.city === c.id).length }));
+  if (a === 'search') {
+    const text = (q.get('q') || '').trim().toLowerCase(), offset = Number(q.get('offset') || 0), limit = Number(q.get('limit') || 50);
+    const hits = SPOTS.filter(p => {
+      const c = cityOf(p);
+      return (!text || p.name.toLowerCase().includes(text) || p.oneLiner.toLowerCase().includes(text))
+        && (!q.get('country') || c.country === q.get('country')) && (!q.get('state') || c.state === q.get('state')) && (!q.get('city') || c.id === q.get('city'));
+    }).sort((x, y) => y.views - x.views || x.rank - y.rank || x.name.localeCompare(y.name));
+    const page = hits.slice(offset, offset + limit);
+    const photos = await Promise.all(page.map(heroOf));
+    return { results: page.map((p, i) => { const c = cityOf(p); return { source: p.source, id: p.id, name: p.name, oneLiner: p.oneLiner, hero: photos[i],
+      rank: p.rank, city: { id: c.id, name: c.name }, state: c.state, country: c.country, views: p.views }; }), total: hits.length, more: hits.length > offset + limit };
+  }
+  const p = SPOTS.find(x => x.city === a && x.source === b && x.id === rest.join('/'));
+  if (!p) throw new ApiError(404, 'not_found');
+  const c = cityOf(p);
+  return { destination: { ...c }, source: p.source, id: p.id, state: c.state, name: p.name, rank: p.rank, reason: null, oneLiner: p.oneLiner,
+    paragraphs: p.paragraphs, practical: p.practical, sources: p.sources, images: { hero: await heroOf(p), inline: [] }, overlap: null,
+    lat: p.lat, lng: p.lng, url: null, wikipedia: p.name, website: p.website, views: p.views, model: null, prompt: null, createdAt: null, license: 'CC BY-SA 4.0' };
 }
 
 // ---------- Live edits: the other open tabs' changes come over the BroadcastChannel (see api), as the server's events would ----------

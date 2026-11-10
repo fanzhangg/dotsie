@@ -5,7 +5,7 @@
    keeps a WebSocket so co-editors' changes land live. Look, components and icons come from design-system/.
    The prototype (../../prototype) runs these same modules with its own backend.js in place of this one.
 
-   This file is the entry: the page for the address (#/, #/trip/…, #/join/…), and the app's taps and keys.
+   This file is the entry: the page for the address (#/, #/trip/…, #/join/…, #/spots/…), and the app's taps and keys.
    core      shared helpers, and the trip screen's state
    fields    what a stop is made of (the server checks the same)
    time      clock times, time zones and how they read
@@ -16,6 +16,7 @@
    routes    looking up drives, a day's legs, maps apps
    offline   a trip saved on this device
    home      the trip cards
+   spots     the guide's places, for anyone
    map       the trip's map, its camera and pins
    timeline  the day's list and the day bar
    sheet     the plan's sheet: its height and dragging
@@ -28,6 +29,7 @@ import { $app, $sheets, esc, state } from './core.js';
 import { boot, me, renderSignIn, signInSocial } from './signin.js';
 import { closeTrip, cur, join, loadTrips, openTrip, setTrips, tripLoad, trips } from './trips.js';
 import { homeHTML, loadCardPhotos } from './home.js';
+import { renderSpots } from './spots.js';
 import { signOut } from './backend.js';
 import { applySnap, centerFocus, closeDayCal, currentDay, grabLabel, isWide, pickDay, renderAddBar, renderDayBar, renderList, setSnap, snaps, stepDay, toggleDayCal } from './timeline.js';
 import { legsOn } from './routes.js';
@@ -44,6 +46,8 @@ export function parseHash() {
   const p = location.hash.replace(/^#\/?/, '').split('/');
   if (p[0] === 'trip' && p[1]) return { page: 'trip', id: decodeURIComponent(p[1]) };
   if (p[0] === 'join' && p[1]) return { page: 'join', token: p[1] };
+  // #/spots, or one spot: #/spots/<city>/<source>/<id>
+  if (p[0] === 'spots') return p[3] ? { page: 'spot', city: decodeURIComponent(p[1]), source: decodeURIComponent(p[2]), id: decodeURIComponent(p.slice(3).join('/')) } : { page: 'spots' };
   return { page: 'home' };
 }
 // setTimeout rather than rAF: rAF is paused in background tabs, and co-editors' changes should land there too
@@ -61,6 +65,8 @@ const TRIP_ERRORS = {
 export function render() {
   const r = parseHash();
   document.title = 'Dotsie';
+  // Spots are for anyone, signed in or not
+  if (r.page === 'spots' || r.page === 'spot') { if (cur) closeTrip(); teardownTrip(); renderSpots(r); return; }
   if (!me) { closeTrip(); teardownTrip(); $app.dataset.page = 'signin'; renderSignIn(r); return; }
   if (r.page === 'join') { teardownTrip(); join(r.token); return; }
   if (r.page !== 'trip') {

@@ -1,5 +1,5 @@
 /* Who's signed in: starting the app, signing in and out, and the sign-in screens. */
-import { $app, ICON, WORDMARK, esc, failMsg, params } from './core.js';
+import { $app, ICON, WORDMARK, esc, failMsg, navHTML, params } from './core.js';
 import { closeTrip, setTrips } from './trips.js';
 import { api } from './backend.js';
 import { anySaved, forgetOffline, keepShell, offline, registerOffline, rememberSession } from './offline.js';
@@ -65,12 +65,13 @@ function socialErrorMessage() {
 /* One choice per screen. Start: Google, email, or guest. The email step asks only for the address,
    then goes where it leads: the password for an existing account, "use Google" for a Google account,
    or a new account. A guest gives only a name. The same steps run in the Account sheet when a guest
-   saves their trips (without the guest option, and without asking their name again). */
+   saves their trips (without the guest option, and without asking their name again). Plain sign-in has the nav under
+   the app's name, so Spots is a tap away without an account. */
 let invite = { token: null, name: null };
 export function renderSignIn(r) {
   const joining = r.page === 'join', connecting = !joining && !!nextURL();
   $app.innerHTML = `
-    <header class="home-head"><h1 class="signin-title${joining || connecting ? '' : ' wt-wordmark'}">${joining ? esc(invite.token === r.token && invite.name ? `Join ${invite.name}` : 'Join the trip') : connecting ? 'Connect your assistant' : WORDMARK}</h1></header>
+    <header class="home-head"><h1 class="signin-title${joining || connecting ? '' : ' wt-wordmark'}">${joining ? esc(invite.token === r.token && invite.name ? `Join ${invite.name}` : 'Join the trip') : connecting ? 'Connect your assistant' : WORDMARK}</h1></header>${joining || connecting ? '' : `<div class="signin-nav">${navHTML('plan')}</div>`}
     <main class="signin"></main>`;
   // Connecting an assistant needs an account: a guest's trips are only reachable from this browser
   authFlow($app.querySelector('.signin'), { joining, connecting, guest: !connecting });

@@ -1,5 +1,5 @@
 /* Home: a card for each trip, with its dates, people, a sketch of its route and a photo. */
-import { $app, ICON, WORDMARK, avatarHTML, esc } from './core.js';
+import { $app, ICON, appBarHTML, avatarHTML, esc } from './core.js';
 import { DAYS, fmtRange, fmtTime, instantOf, nowIn, nowStamp, toDate, zoneOf } from './time.js';
 import { canSignIn, me } from './signin.js';
 import { trips } from './trips.js';
@@ -32,10 +32,8 @@ export function homeHTML() {
     <div class="home-grid">${ts.map(t => tripCardHTML(t, done, today)).join('')}</div></section>`;
   const newTrip = cls => `<button class="wt-btn wt-btn--primary ${cls}" data-action="new-trip">${ICON.plus}New trip</button>`;
   return `
-    <header class="home-head"><h1 class="wt-wordmark">${WORDMARK}</h1>
-      <div class="home-head__actions">${newTrip('home-new')}
-        <button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>
-      </div></header>
+    ${appBarHTML('plan', `${newTrip('home-new')}
+        <button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>`)}
     <main class="home">
       ${trips && !list.length ? '<p class="wt-empty">No trips yet. Start one with New trip, or open the link a friend sent you.</p>' : ''}
       ${current.length ? group('Current', current, false) : ''}

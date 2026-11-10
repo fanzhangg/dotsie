@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 14.0.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 14.1.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -39,7 +39,7 @@ Each principle comes with a rule you can check:
 
   Nothing else is colored. A highlight is grey, never tinted.
 - Use one way to show emphasis at a time. A card is set apart by its surface, not by surface and shadow and border together.
-- Weight is for the few things that lead. Stop names are medium (500) and the strongest text on the trip screen: the trip's name and the day above them are smaller and grey (`--wt-type-context`). Modal titles are semibold (600); only the app name on Home is bold. Everything else is regular, and steps down by size and ink (`--wt-text-secondary`, then `--wt-text-tertiary`, and `--wt-text-past` for what's over), never by adding weight.
+- Weight is for the few things that lead. Stop names are medium (500) and the strongest text on the trip screen: the trip's name and the day above them are smaller and grey (`--wt-type-context`). Modal titles are semibold (600); only the app name on sign-in is bold. Everything else is regular, and steps down by size and ink (`--wt-text-secondary`, then `--wt-text-tertiary`, and `--wt-text-past` for what's over), never by adding weight.
 - Show state with what's already there. A late drive is the same row in red; a past row turns light grey. Don't add a badge.
 
 ## Getting started
@@ -153,11 +153,11 @@ Below those come the lines (`150` borders, `250` the rail, `300` the grab handle
 
 The system font throughout, so the app feels native on every phone. Each token is a full `font` shorthand. Use it as `font: var(--wt-type-name);`.
 
-Four weights, each with a job: **700** the app name only; **600** headings and the one primary button; **500** names, the strongest text in a list, and other buttons; **400** everything else. A screen with lots of semibold tires the eye and makes nothing stand out, so below the names, hierarchy comes from size and ink, not weight. `<b>` and `<strong>` inside `wt-base` are 600, never 700.
+Four weights, each with a job: **700** the app name (sign-in) only; **600** headings and the one primary button; **500** names, the strongest text in a list, and other buttons; **400** everything else. A screen with lots of semibold tires the eye and makes nothing stand out, so below the names, hierarchy comes from size and ink, not weight. `<b>` and `<strong>` inside `wt-base` are 600, never 700.
 
 | Token | Size / line | Weight | Use for |
 | --- | --- | --- | --- |
-| `--wt-type-display` | 28 / 34 | 700 | The app name on Home. Pair it with `--wt-tracking-display`. |
+| `--wt-type-display` | 28 / 34 | 700 | The app name on sign-in. Pair it with `--wt-tracking-display`. |
 | `--wt-type-title` | 18 / 24 | 600 | Modal titles. |
 | `--wt-type-context` | 15 / 20 | 500 | Where you are: the trip's name, in `--wt-text-secondary`, and the day tabs, in `--wt-text-tertiary` (the open one primary). Smaller and lighter than a stop's name, so the plan leads. |
 | `--wt-type-heading` | 15 / 20 | 600 | Section titles in trip settings and Account (`.wt-section__title`). |
@@ -238,6 +238,7 @@ The logo is **:D**, the emoticon, typed upright: a colon of two stops and a capi
 - **On one color**, both dots take the D's ink.
 - **Files:** [`logo.svg`](logo.svg) is the mark on a clear background and follows the light or dark theme. The app's icons (`favicon.svg`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`, in `app/web` and `prototype`) are the mark on white, inside the middle 80% so a phone can crop them to any shape.
 - **The name** is the wordmark ([`.wt-wordmark`](#wordmark-wt-wordmark)): Dotsie, with the logo's orange stop for the i's dot. The colon is the icon's alone: before a word it reads as a typo.
+- **In the app,** the mark heads Home and Spots, in the [app bar](#app-bar-wt-app-bar-logo-wt-logo-and-nav-wt-nav) (`.wt-logo`, drawn inline so it follows the theme's tokens).
 
 ## Components
 
@@ -854,6 +855,92 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - `__now`, at the foot of a card that `.is-now`, under a hairline: what the trip is at now and what's next. One `__step` each, like a row of the timeline: the stop's `.wt-marker--sm`, `__step-name` (one line, cut off with an ellipsis), and `__step-time` on the right, which says "Now" for the first and when it is for the next ("12:30 PM", "Tomorrow, 11:00 AM", "Tonight"). The time column already says which is which, so there's no Now or Next label. `.is-now` on the first puts it in primary ink, its time in semibold; the next stays secondary. Leave out a step there's nothing for.
 - `.is-past`: the trip is over. Its route turns `--wt-route-done`; give its dots `--wt-kind-past`, as past pins have. Its photos lose most of their color.
 
+### App bar `.wt-app-bar`, logo `.wt-logo` and nav `.wt-nav`
+
+```html
+<header class="wt-app-bar">
+  <a class="wt-logo" href="#/" aria-label="Dotsie">
+    <svg viewBox="14 14 72 72" aria-hidden="true"><circle class="wt-logo__top" …/><circle class="wt-logo__bottom" …/><path class="wt-logo__d" d="…"/></svg>
+  </a>
+  <nav class="wt-nav" aria-label="Pages">
+    <a class="wt-nav__link" href="#/" aria-current="page">Plan</a>
+    <a class="wt-nav__link" href="#/spots">Spots</a>
+  </nav>
+  <h1 class="wt-visually-hidden">Your trips</h1>
+  <div class="wt-app-bar__end">${newTripButton}${accountButton}</div>
+</header>
+```
+
+The top of Home and Spots, in one row: the logo, the app's pages, and on the right what's yours (New trip, the account).
+
+- **The bar** stays at the top as the page scrolls (`position: sticky`), 64px high (80px on a computer), frosted over what passes under it in the page's color (`--wt-surface-sheet`, or set `--wt-app-bar-surface`). Add `.is-scrolled` once the page has scrolled, for a hairline under it. The page's name is a hidden `h1`: the nav already shows it.
+- **`.wt-logo`** is the mark, :D, 36px, drawn inline so it follows the theme: `__d` in `--wt-text-primary`, `__top` and `__bottom` in the brand's stops. It's the link home.
+- **`.wt-nav`** is the app's pages, as pills. The page you're on has `aria-current="page"`: raised white (`--wt-surface-raised`) with `--wt-shadow-hairline`, in primary ink, set apart by its surface as a card is. The others are their words in secondary ink, a grey pill when pointed at. `--wt-type-context`, 36px high. A few short words, never icons; for pages, not filters. Sign-in shows it under the wordmark.
+
+### Pager `.wt-pager`
+
+```html
+<nav class="wt-pager" aria-label="Pages of spots">
+  <button class="wt-pager__step" data-page="0" aria-label="Previous page" disabled>${backIcon}</button>
+  <button class="wt-pager__page" aria-label="Page 1" aria-current="page">1</button>
+  <button class="wt-pager__page" aria-label="Page 2">2</button>
+  <span class="wt-pager__gap" aria-hidden="true">…</span>
+  <button class="wt-pager__page" aria-label="Page 9">9</button>
+  <button class="wt-pager__step" aria-label="Next page">${forwardIcon}</button>
+</nav>
+```
+
+Pages of a long grid, on a computer. On a phone, use Show more under a list instead: a list you scroll through should grow where you are.
+
+- Up to seven pages, all of them; past that, the first, the last, and this one with its neighbours, with `__gap` between.
+- This page is a white pill (`aria-current="page"`), like the nav's; the others are their numbers in secondary ink. A `__step` that goes nowhere is `disabled`, in `--wt-text-past`.
+
+### Spot card `.wt-spot-card`
+
+```html
+<a class="wt-spot-card" href="#/spots/seattle/wikidata/Q1">
+  <img class="wt-spot-card__photo" src="…" alt="" title="Photo: Jane Doe · CC BY-SA 4.0">
+  <!-- no photo, or it won't load: -->
+  <span class="wt-spot-card__photo wt-spot-card__photo--none" aria-hidden="true">${pinIcon}</span>
+  <span class="wt-spot-card__body">
+    <span class="wt-spot-card__name">Space Needle</span>
+    <span class="wt-spot-card__line">The 1962 World’s Fair tower, with the city at your feet.</span>
+    <span class="wt-spot-card__where">Seattle, WA · <span title="English Wikipedia views in the last 12 months">1.9M views</span></span>
+  </span>
+</a>
+```
+
+A place worth a trip, in a list of them, on `--wt-surface-sheet`, set apart by its surface alone like a [trip card](#trip-card-wt-trip-card).
+
+- **On a phone, a row:** `__photo` is a 96px square on the left, and the text beside it. **From 768px wide, a card** in a grid, `__photo` across the top at 3:2.
+- With no photo, `__photo--none` holds its place with a pin on `--wt-surface-map`, so the rows line up. Say who took a photo and its license in its `title`.
+- `__where` (the city and state, and how much it's read) shows first, though it comes last in the markup, so a screen reader starts with the name: small capitals (`--wt-type-overline`) in tertiary ink. Then `__name` in `--wt-type-name`, then `__line`, the guide's one line, a sentence in secondary ink, at most two lines. Capitals and a sentence look nothing alike, so the eye goes from the name to the line.
+
+### Guide entry `.wt-guide`
+
+```html
+<a class="wt-guide__back" href="#/spots">${backIcon}All spots</a>
+<article class="wt-guide">
+  <figure class="wt-guide__figure"><img src="…" alt="The dunes at sunset"><figcaption>The dunes at sunset <span class="wt-guide__credit">Jane Doe, CC BY-SA 4.0, via Wikimedia Commons</span></figcaption></figure>
+  <header class="wt-guide__head">
+    <p class="wt-guide__where">Alamogordo, New Mexico</p>
+    <h2 class="wt-guide__name">White Sands National Park</h2>
+    <p class="wt-guide__lede">Waves of white gypsum, the largest field of such dunes on Earth.</p>
+  </header>
+  <p class="wt-guide__para">…</p>
+  <section class="wt-guide__facts"><h3>Before you go</h3><dl><dt>Bring</dt><dd>Water and a sled.</dd></dl></section>
+  <footer class="wt-guide__foot"><p>Written by AI from <a href="…">Wikipedia</a>, and published under CC BY-SA 4.0.</p></footer>
+</article>
+```
+
+One spot as a guidebook has it, in one column about 40em wide at most.
+
+- `__back` goes back to the list, in `--wt-type-context` with the back icon, like a sub-page's back button.
+- `__where` is an overline (small capitals, tertiary); `__name` a title (`--wt-type-title`), never display type, which is the app name's; `__lede` in `--wt-type-name`, secondary.
+- `__para` is running text with room between lines (1.6). A `__figure` can follow the paragraph it shows.
+- `__facts` are the practical facts, on a sunken panel, as a list of label and value.
+- `__foot` says what it was written from, its license, and each photo's author and license, in tertiary caption. Links in the entry are `--wt-text-link`.
+
 ### Map pin `.wt-pin`
 
 ```html
@@ -932,7 +1019,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 </h1>
 ```
 
-The app's name, with a stop for the i's dot, where the app names itself: Home's title and the sign-in page. Set it in whatever bold type that place uses (the display type on Home); the dot is sized from the type and follows it.
+The app's name, with a stop for the i's dot, where the app names itself: the sign-in page. Set it in whatever bold type that place uses (the display type on sign-in); the dot is sized from the type and follows it.
 
 - **The i** is a dotless ı (`.wt-wordmark__i`) with the logo's orange stop (`--wt-brand-dot-i`) for its dot, a little bigger than a letter's, where Inter Bold puts its own.
 - **No colon.** The :D colon is the icon's; before a word it reads as a typo.
@@ -1023,6 +1110,16 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 14.1.0
+
+The app has a second page, Spots, for anyone, and Home and Spots share an app bar.
+
+- New: `.wt-app-bar` with `__end` and `.is-scrolled`, `.wt-logo` with `__d`, `__top` and `__bottom`, and `.wt-nav` with `__link` (`aria-current="page"`). See [App bar](#app-bar-wt-app-bar-logo-wt-logo-and-nav-wt-nav).
+- New: `.wt-pager`, with `__page`, `__step` and `__gap`. See [Pager](#pager-wt-pager).
+- New: `.wt-spot-card`, with `__photo` (`--none`), `__body`, `__name`, `__line` and `__where`. See [Spot card](#spot-card-wt-spot-card).
+- New: `.wt-guide`, with `__back`, `__figure`, `__credit`, `__head`, `__where`, `__name`, `__lede`, `__para`, `__facts` and `__foot`. See [Guide entry](#guide-entry-wt-guide).
+- The wordmark is now on sign-in only; Home has the logo, in the app bar.
 
 ### Changed in 14.0.0
 

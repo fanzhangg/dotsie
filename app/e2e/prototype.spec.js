@@ -153,3 +153,62 @@ test('Home loads the map’s library while it’s idle, so a trip’s map doesn�
   await expect(page.locator('#map .wt-pin').first()).toBeVisible();
   expect(again).toBe(false);
 });
+
+// Spots: the prototype's sample places (see spots in prototype/backend.js), most viewed first
+const spotNames = page => page.locator('.wt-spot-card__name');
+test('the nav goes between Plan and Spots, and Spots lists the guide’s places, most viewed first', async ({ page }) => {
+  await page.goto('#/');
+  const nav = page.getByRole('navigation', { name: 'Pages' });
+  await expect(nav.getByRole('link', { name: 'Plan' })).toHaveAttribute('aria-current', 'page');
+  await nav.getByRole('link', { name: 'Spots' }).click();
+  await expect(page).toHaveTitle('Spots · Dotsie');
+  await expect(nav.getByRole('link', { name: 'Spots' })).toHaveAttribute('aria-current', 'page');
+  await expect(spotNames(page)).toHaveText(['Space Needle', 'Pike Place Market', 'White Sands National Park', 'Stanley Park',
+    'Chihuly Garden and Glass', 'Discovery Park', 'New Mexico Museum of Space History']);
+  await expect(page.getByRole('link', { name: /^Space Needle/ })).toContainText('Seattle, WA · 1.9M views');
+  await expect(page.getByRole('button', { name: 'Show more' })).toBeHidden();
+  await nav.getByRole('link', { name: 'Plan' }).click();
+  await expect(cards(page).getByText('White Sands, NM')).toBeVisible();
+});
+
+test('spots can be searched and narrowed to a country, a state and a city', async ({ page }) => {
+  await page.goto('#/spots');
+  await expect(spotNames(page)).toHaveCount(7);
+  await page.getByRole('searchbox', { name: 'Search spots' }).fill('glass');
+  await expect(spotNames(page)).toHaveText(['Chihuly Garden and Glass']);
+  await page.getByRole('searchbox', { name: 'Search spots' }).fill('nowhere at all');
+  await expect(page.getByText('No spots match “nowhere at all”.')).toBeVisible();
+  await page.getByRole('searchbox', { name: 'Search spots' }).fill('');
+
+  await page.getByRole('combobox', { name: 'Country' }).selectOption('US');
+  await expect(spotNames(page)).toHaveCount(6);
+  await page.getByRole('combobox', { name: 'State' }).selectOption('NM');
+  await expect(spotNames(page)).toHaveText(['White Sands National Park', 'New Mexico Museum of Space History']);
+  // The cities follow the state; picking a city sets its state
+  await expect(page.getByRole('combobox', { name: 'City' }).locator('option')).toHaveText(['All cities', 'Alamogordo']);
+  await page.getByRole('combobox', { name: 'State' }).selectOption('');
+  await page.getByRole('combobox', { name: 'City' }).selectOption('seattle');
+  await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('WA');
+  await expect(spotNames(page)).toHaveText(['Space Needle', 'Pike Place Market', 'Chihuly Garden and Glass', 'Discovery Park']);
+  // Another country drops a state and city it doesn't have
+  await page.getByRole('combobox', { name: 'Country' }).selectOption('CA');
+  await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('');
+  await expect(spotNames(page)).toHaveText(['Stanley Park']);
+});
+
+test('a spot opens its guide entry, and All spots goes back to the list as it was', async ({ page }) => {
+  await page.goto('#/spots');
+  await page.getByRole('combobox', { name: 'State' }).selectOption('NM');
+  await page.getByRole('link', { name: /White Sands National Park/ }).click();
+  await expect(page).toHaveTitle('White Sands National Park · Spots · Dotsie');
+  const entry = page.locator('article.wt-guide');
+  await expect(entry.getByRole('heading', { level: 2 })).toHaveText('White Sands National Park');
+  await expect(entry.getByText('Alamogordo, New Mexico')).toBeVisible();
+  await expect(entry.locator('.wt-guide__para')).toHaveCount(2);
+  await expect(entry.locator('.wt-guide__facts')).toContainText('Water, sun protection and a sled');
+  await expect(entry.getByRole('link', { name: 'Open in Maps' })).toHaveAttribute('href', /White%20Sands%20National%20Park/);
+  await expect(entry.locator('.wt-guide__foot')).toContainText('Written by AI from Wikipedia, and published under CC BY-SA 4.0.');
+  await page.getByRole('link', { name: 'All spots' }).click();
+  await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('NM');
+  await expect(spotNames(page)).toHaveText(['White Sands National Park', 'New Mexico Museum of Space History']);
+});
