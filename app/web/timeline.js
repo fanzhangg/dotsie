@@ -2,24 +2,25 @@
 import { $app, ICON, WIDE, esc, state, token } from './core.js';
 import { DAYS, MONTHS, fmtDay, fmtDur, instantOf, nowIn, nowStamp, toDate, zoneOf } from './time.js';
 import { cur } from './trips.js';
-import { ALL, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysOf, kindColor, kindOf, pagesOf, samePlace, stayOf, staysOf, travelIcon } from './plan.js';
+import { ALL, IDEAS, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysOf, ideaDays, ideasOf, kindColor, kindOf, pagesOf, samePlace, stayOf, staysOf, travelIcon } from './plan.js';
 import { dayLegs, directionsURL, legsOn, placeURL } from './routes.js';
 import { offlineNow } from './offline.js';
 import { render, scheduleRender } from './app.js';
 import { camFree, dayFramed, drawMap, lateMin, map, markerHTML, refit, setDayShown, timeHTML, updateFitBtn, zoneShown } from './map.js';
 import { drag, headBottom, holdScroll, listContentHeight, listTop, motion, moveSheet, setBottom, setListTop, setSheetHeight, stopMotion } from './sheet.js';
 
-// Today, when it's one of the trip's days, with what's happening now highlighted; else the overview.
-// If the day's stops are gone (deleted, moved), the next day that has some.
+// Today, when it's one of the trip's days, with what's happening now highlighted; else the overview; and a trip with no
+// days yet, Want to go, where planning starts. If the day's stops are gone (deleted, moved), the next day that has some.
+let openOn = null; // the page the next trip opened starts on, when something asked (Spots, after saving a place to it)
+export const openTripOn = page => { openOn = page; };
 export function currentDay(trip) {
-  const days = daysOf(trip);
-  if (!days.length) return null;
-  const today = nowStamp().slice(0, 10);
-  if (!state.day) state.day = days.includes(today) ? today : ALL;
-  if (state.day !== ALL && !days.includes(state.day)) state.day = days.find(d => d > state.day) || days.at(-1);
+  const days = daysOf(trip), today = nowStamp().slice(0, 10);
+  if (!state.day) state.day = openOn || (days.includes(today) ? today : days.length ? ALL : IDEAS);
+  openOn = null;
+  if (state.day !== ALL && state.day !== IDEAS && !days.includes(state.day)) state.day = days.find(d => d > state.day) || days.at(-1) || ALL;
   return state.day;
 }
-export const itemsOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayItems(trip, d)) : dayItems(trip, day));
+export const itemsOn = (trip, day) => (day === IDEAS ? [] : day === ALL ? daysOf(trip).flatMap(d => dayItems(trip, d)) : dayItems(trip, day));
 
 // ---------- Timeline: rail · stop · time. Each stop's marker is its pin on the map: same icon, same color. ----------
 // A drive reads as a sentence ("1 hr 49 min drive"), with a small car on the rail, and says when it won't make it.
@@ -111,6 +112,33 @@ function fromItem(day, entry) {
 }
 // The selected stop, if it's still in the trip (a co-editor may have deleted it).
 export const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === state.sel)) || null;
+// The selected place on Want to go
+export const selectedIdea = trip => (state.sel && ideasOf(trip).find(i => i.id === state.sel)) || null;
+
+// ---------- Want to go: the places saved for the trip, with no day yet ----------
+// A row each: its marker and its name, and nothing else. A place on it is only a place: a note and links are for the
+// stop it becomes. No address (the map shows where, as for a stop), no time, and no rail between them, since they're in
+// no order yet. Tapping one selects it, as a stop: its pin grows, and the bar below offers Open in Maps.
+function ideaRow(i, sel) {
+  return `<div class="wt-tl-stop wt-tl-idea${sel ? ' is-selected' : ''}" data-action="select-idea" data-id="${esc(i.id)}" data-row="${esc(i.id)}" tabindex="0" role="button" aria-pressed="${sel}" style="--wt-kind-color: ${kindColor(i)}">
+      <span class="wt-tl-rail">${markerHTML(i, 'wt-tl-marker')}</span>
+      <span class="wt-tl-name">${esc(i.name)}</span>
+      <span class="wt-tl-time"></span>
+    </div>`;
+}
+// Grouped by the day each is nearest, under that day's name as on the overview (tap it to open the day), so it's clear
+// where each would go; those near none of them last, under Farther away. A trip with no stops yet has no days to group by.
+function ideasHTML(trip) {
+  const ideas = ideasOf(trip);
+  if (!ideas.length) return '<p class="wt-empty">Places you’d like to go, before you know when.</p>';
+  const row = i => ideaRow(i, i.id === state.sel);
+  if (!trip.stops.length) return ideas.map(row).join('');
+  const by = ideaDays(trip);
+  return [...daysOf(trip), null].map(d => [d, ideas.filter(i => by.get(i.id) === d)]).filter(([, g]) => g.length)
+    .map(([d, g]) => (d ? `<button class="wt-tl-day" data-action="pick-day" data-day="${d}" aria-label="Near ${dayName(d)}. Open this day">
+      <span class="wt-tl-day__name">Near ${dayName(d)}</span><span class="wt-tl-day__open" aria-hidden="true">View day</span></button>`
+      : '<div class="wt-tl-day" role="heading" aria-level="3"><span class="wt-tl-day__name">Farther away</span></div>') + g.map(row).join('')).join('');
+}
 // Below the list, always in reach: Add stop; with a stop selected, Open in Maps (the place in the maps app, to see what it is)
 // and a round Edit stop; with a drive's route shown, Directions to the drive's end in the maps app, the way you're going,
 // and a round button with that way's icon to change it (a flight has no directions: Open in Maps shows where it lands).
@@ -118,6 +146,21 @@ export const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === 
 // Offline, adding and editing are greyed out (aria-disabled), and a tap says why (see needsConnection).
 function addBarHTML(trip) {
   const s = selectedStop(trip), off = offlineNow() ? ' aria-disabled="true"' : '';
+  // A place on Want to go, selected: the bar is a stop's, [main] (round) (+), and the round button is always its state,
+  // the filled bookmark (a tap takes it off the list, with Undo; see edits.js). The main one, on a day (its hollow pin
+  // on the map), is Add to this day, which gives it a time there; on Want to go, a plain list with no days or times,
+  // and the overview, Open in Maps, to see whether it's worth going. Nothing selected, Want to go's own is Save place.
+  const day = currentDay(trip), i = selectedIdea(trip), onDay = day !== IDEAS && day !== ALL;
+  const savePlus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add-idea"${off} aria-label="Save place" title="Save place">${ICON.plus}</button>`;
+  const stopPlus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add"${off} aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
+  if (i) {
+    const saved = `<button class="wt-btn wt-btn--secondary wt-btn--icon wt-btn--saved" data-key="edit" data-action="remove-idea" data-id="${esc(i.id)}"${off} aria-pressed="true" aria-label="Saved to Want to go. Remove it" title="Remove from Want to go">${ICON.bookmark}</button>`;
+    return (onDay
+      ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="main" data-action="idea-to-day" data-id="${esc(i.id)}" data-day="${day}"${off}>${ICON.calendar}Add to this day</button>`
+      : `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${esc(placeURL(i))}" target="_blank" rel="noopener" aria-label="Open ${esc(i.name)} in your maps app">${ICON.map}Open in Maps</a>`)
+      + saved + (day === IDEAS ? savePlus : stopPlus);
+  }
+  if (day === IDEAS) return `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="add" data-action="add-idea"${off}>${ICON.plus}Save place</button>`;
   const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
   const plus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add"${off} aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
   if (leg) {
@@ -228,7 +271,8 @@ export function overviewItems(trip) {
 const dayHeadHTML = (d, past) => `<button class="wt-tl-day${past ? ' is-past' : ''}" data-action="pick-day" data-day="${d}" aria-label="${dayName(d)}. Open this day">
     <span class="wt-tl-day__name">${dayName(d)}</span><span class="wt-tl-day__open" aria-hidden="true">View day</span></button>`;
 export function listHTML(trip, day) {
-  if (!day) return '<p class="wt-empty">Add a flight, a hotel, or a place to see.</p>';
+  if (day === IDEAS) return ideasHTML(trip);
+  if (!daysOf(trip).length) return '<p class="wt-empty">Add a flight, a hotel, or a place to see.</p>';
   const items = day === ALL ? overviewItems(trip) : dayItems(trip, day);
   if (!items.length) return '<p class="wt-empty">Nothing planned this day yet.</p>';
   // Only one row is selected: the one tapped, or, from a pin, the stop's first row (a hotel can start and end the day)
@@ -270,9 +314,10 @@ setInterval(() => { if ($app.dataset.trip) scheduleRender(); }, 60000);
 // fits, and keeps the open day in the middle; the calendar at its end jumps to any day of the trip.
 // (It used to be ‹ day › with a list of days in a modal sheet: one day showed, and the rest were two taps away.)
 // "Today, Nov 21" on today, so it's easy to find your way back to it; otherwise "Sat, Nov 21".
-const dayName = d => (d === ALL ? 'Overview' : d === nowStamp().slice(0, 10) ? `Today, ${fmtDay(d).split(', ')[1]}` : fmtDay(d));
+const dayName = d => (d === IDEAS ? 'Want to go' : d === ALL ? 'Overview' : d === nowStamp().slice(0, 10) ? `Today, ${fmtDay(d).split(', ')[1]}` : fmtDay(d));
 // A tab says as little: "Today", "Sat 21", or the month on the 1st ("Dec 1").
 function tabLabel(d) {
+  if (d === IDEAS) return 'Want to go';
   if (d === ALL) return 'Overview';
   if (d === nowStamp().slice(0, 10)) return 'Today';
   const t = toDate(d);
@@ -280,20 +325,24 @@ function tabLabel(d) {
 }
 // The tabs and the calendar button. The open tab and whether the calendar is open are set on them in renderDayBar,
 // so the row isn't rebuilt when only the day changes: its scroll and its bar move from where they are.
-const dayTabsHTML = trip => `<div class="wt-day-tabs" role="tablist" aria-label="Days">${pagesOf(trip).map(d =>
-  `<button class="wt-day-tab" role="tab" data-action="pick-day" data-day="${d}" aria-label="${dayName(d)}">${tabLabel(d)}</button>`).join('')}<span class="wt-day-tabs__bar" aria-hidden="true"></span></div>
-  <button class="wt-icon-btn wt-day-bar__cal" data-action="day-cal" aria-label="Jump to a day" title="Jump to a day">${ICON.calendar}</button>`;
+// Want to go is an icon, the bookmark that saves a place everywhere, with how many places are on it, still to be given a
+// day: what's left to plan, at a glance from any day. Its name is for screen readers and its tooltip.
+const tabCount = (trip, d) => (d === IDEAS && ideasOf(trip).length ? ideasOf(trip).length : 0);
+const dayTabsHTML = trip => `<div class="wt-day-tabs" role="tablist" aria-label="Days">${pagesOf(trip).map(d => { const n = tabCount(trip, d);
+  return `<button class="wt-day-tab${d === IDEAS ? ' wt-day-tab--icon' : ''}" role="tab" data-action="pick-day" data-day="${d}" aria-label="${dayName(d)}${n ? `, ${n} ${n === 1 ? 'place' : 'places'}` : ''}"${d === IDEAS ? ' title="Want to go"' : ''}>${d === IDEAS ? ICON.bookmark : tabLabel(d)}${n ? `<span class="wt-day-tab__count">${n}</span>` : ''}</button>`; }).join('')}<span class="wt-day-tabs__bar" aria-hidden="true"></span></div>
+  ${daysOf(trip).length ? `<button class="wt-icon-btn wt-day-bar__cal" data-action="day-cal" aria-label="Jump to a day" title="Jump to a day">${ICON.calendar}</button>` : ''}`;
 let dayCalOpen = false;
 export const isDayCalOpen = () => dayCalOpen;
 export function renderDayBar(trip) {
   const bar = $app.querySelector('.wt-day-bar'), cal = $app.querySelector('.wt-day-cal'), d = currentDay(trip);
+  if (!daysOf(trip).length) dayCalOpen = false;
   bar.hidden = !d;
   if (!d) { bar.innerHTML = bar.wtHTML = ''; dayCalOpen = false; }
   else {
     const html = dayTabsHTML(trip);
     if (bar.wtHTML !== html) { bar.innerHTML = html; bar.wtHTML = html; bar.wtDay = null; }
     for (const t of bar.querySelectorAll('.wt-day-tab')) t.setAttribute('aria-selected', String(t.dataset.day === d));
-    bar.querySelector('.wt-day-bar__cal').setAttribute('aria-expanded', String(dayCalOpen));
+    bar.querySelector('.wt-day-bar__cal')?.setAttribute('aria-expanded', String(dayCalOpen));
     // a new day: its tab slides to the middle of the row (at once the first time); the bar under it moves with it
     const moved = bar.wtDay !== d, animate = moved && bar.wtDay != null;
     bar.wtDay = d;
@@ -359,7 +408,7 @@ function dayCalHTML(trip) {
   }
   return `<div class="wt-day-cal__head">
       <span class="wt-cal__month">${monthName(first)}</span>
-      <button type="button" class="wt-day-cal__overview" data-action="pick-day" data-day="${ALL}" aria-pressed="${open === ALL}">Overview</button>
+      <span class="wt-day-cal__pages"><button type="button" class="wt-day-cal__overview" data-action="pick-day" data-day="${IDEAS}" aria-pressed="${open === IDEAS}">Want to go</button><button type="button" class="wt-day-cal__overview" data-action="pick-day" data-day="${ALL}" aria-pressed="${open === ALL}">Overview</button></span>
     </div>
     <div class="wt-cal__grid" role="group" aria-label="The trip's days">
       ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(w => `<span class="wt-cal__wd" aria-hidden="true">${w}</span>`).join('')}${cells}
@@ -418,7 +467,8 @@ export function snaps() {
 }
 const GRAB_LABEL = { half: 'Show the whole day', full: 'Show more of the map' };
 const GRAB_LABEL_ALL = { half: 'Show the whole trip', full: 'Show more of the map' };
-export const grabLabel = () => (state.day === ALL ? GRAB_LABEL_ALL : GRAB_LABEL)[state.snap];
+const GRAB_LABEL_IDEAS = { half: 'Show the whole list', full: 'Show more of the map' };
+export const grabLabel = () => (state.day === IDEAS ? GRAB_LABEL_IDEAS : state.day === ALL ? GRAB_LABEL_ALL : GRAB_LABEL)[state.snap];
 // `animate`: slide to the new height (a new snap); otherwise it's placed there at once (a first render, a resize).
 export function applySnap(animate = false) {
   const trip = $app.querySelector('.trip'), sheet = trip?.querySelector('.wt-sheet');

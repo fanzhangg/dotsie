@@ -2,7 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { MAX_LINKS } from '../web/fields.js';
 import { copyStatements } from './copy';
 import { migrate } from './schema';
-import { cleanStop, ERR, type Back, type Link, type Stop, type StopFields, type Travel } from './stop';
+import { cleanIdea, cleanStop, ERR, type Back, type Idea, type Link, type Stop, type StopFields, type Travel } from './stop';
 
 /* One TripRoom per trip (addressed by idFromName(tripId)). It owns the trip's stops and members in
    its own SQLite, applies writes one at a time, and pushes every change to the trip's open WebSockets.
@@ -15,6 +15,8 @@ export type Member = { id: string; name: string; image: string | null; identity:
 export type TripEvent =
   | { type: 'stop.upserted'; stop: Stop }
   | { type: 'stop.removed'; id: string; name: string }
+  | { type: 'idea.upserted'; idea: Idea }
+  | { type: 'idea.removed'; id: string; name: string }
   | { type: 'member.joined'; member: Member }
   | { type: 'member.updated'; member: Member }
   | { type: 'member.left'; id: string; name: string }
@@ -25,13 +27,16 @@ const IDENTITIES = 6;
 // The home card's route sketch needs only where the stops are and how you get to each (and back to a hotel), and its
 // photos each stop's Wikidata item; a trip longer than this is cut off there.
 const PREVIEW_STOPS = 300;
-export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights' | 'travel' | 'back' | 'wikidata'>[] };
+// Want to go's places, by name and where, so a spot can say which trips have it already
+export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights' | 'travel' | 'back' | 'wikidata'>[]; ideas: Pick<Idea, 'id' | 'name' | 'lat' | 'lng'>[] };
 
 // folder is a column from when stops could be grouped in folders: older trips still have it, and it's left out
 type StopRow = Omit<Stop, 'updatedAt' | 'back' | 'links'> & { updated_at: number; back: string; links: string };
 const parseBack = (back: string): Back => { try { return JSON.parse(back) || {}; } catch { return {}; } };
 const parseLinks = (links: string): Link[] => { try { return JSON.parse(links) || []; } catch { return []; } };
 const toStop = ({ updated_at, back, links, ...r }: StopRow): Stop => ({ ...r, back: parseBack(back), links: parseLinks(links), updatedAt: updated_at });
+type IdeaRow = Omit<Idea, 'updatedAt'> & { updated_at: number; saved_at: number };
+const toIdea = ({ updated_at, saved_at, ...r }: IdeaRow): Idea => ({ ...r, updatedAt: updated_at });
 
 export class TripRoom extends DurableObject<Env> {
   private sql = this.ctx.storage.sql;
@@ -71,6 +76,7 @@ export class TripRoom extends DurableObject<Env> {
       trip: { id: trip.id, name: trip.name, owner: trip.created_by },
       members: this.sql.exec<Member>('select id, name, image, identity from members order by joined_at').toArray(),
       stops: this.stops(),
+      ideas: this.ideas(),
     };
   }
 
@@ -149,6 +155,35 @@ export class TripRoom extends DurableObject<Env> {
     return toStop(row);
   }
 
+  // ---------- Want to go ----------
+  // Places saved for the trip before they have a day. Saved whole, like a new stop (the client picks the id, so a retry
+  // or an Undo is the same write; saved again, one keeps its place in the list); adding one to a day is a new stop, then
+  // this deleted. Neither changes the trip's dates, which are the stops'.
+  async putIdea(userId: string, ideaId: string, input: unknown) {
+    this.check(userId);
+    const f = cleanIdea(input);
+    this.sql.exec(
+      `insert into ideas (id, name, address, lat, lng, kind, wikidata, by, updated_at, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       on conflict (id) do update set name = excluded.name, address = excluded.address, lat = excluded.lat, lng = excluded.lng,
+         kind = excluded.kind, wikidata = excluded.wikidata, by = excluded.by, updated_at = excluded.updated_at`,
+      ideaId, f.name, f.address, f.lat, f.lng, f.kind, f.wikidata, userId, Date.now(), Date.now());
+    const idea = toIdea(this.sql.exec<IdeaRow>('select * from ideas where id = ?', ideaId).one());
+    await this.touch();
+    this.broadcast({ type: 'idea.upserted', idea }, userId);
+    return idea;
+  }
+
+  // Returns the idea as it was (null if it was already gone)
+  async deleteIdea(userId: string, ideaId: string) {
+    this.check(userId);
+    const row = this.sql.exec<IdeaRow>('select * from ideas where id = ?', ideaId).toArray()[0];
+    if (!row) return null;
+    this.sql.exec('delete from ideas where id = ?', ideaId);
+    await this.touch();
+    this.broadcast({ type: 'idea.removed', id: ideaId, name: row.name }, userId);
+    return toIdea(row);
+  }
+
   // ---------- People ----------
   invite(userId: string) {
     return this.check(userId).invite;
@@ -196,6 +231,7 @@ export class TripRoom extends DurableObject<Env> {
     if (this.isMember(to.id)) this.sql.exec('delete from members where id = ?', fromId);
     else this.sql.exec('update members set id = ?, name = ?, image = ? where id = ?', to.id, to.name, to.image, fromId);
     this.sql.exec('update stops set by = ? where by = ?', to.id, fromId);
+    this.sql.exec('update ideas set by = ? where by = ?', to.id, fromId);
     if (trip.created_by === fromId) this.sql.exec('update trip set created_by = ?', to.id);
     await this.publish();
   }
@@ -253,6 +289,14 @@ export class TripRoom extends DurableObject<Env> {
   private stops() {
     return this.sql.exec<StopRow>('select * from stops order by time, id').toArray().map(toStop);
   }
+  private ideas() {
+    return this.sql.exec<IdeaRow>('select * from ideas order by saved_at, id').toArray().map(toIdea);
+  }
+  // An edit to the Want to go list: the trip was edited (Home lists the latest first), but its dates are the same
+  private async touch() {
+    this.sql.exec('update trip set edited_at = ?', Date.now());
+    await this.publish();
+  }
   private addMember(user: Omit<Member, 'identity'>): Member {
     // The first identity nobody on the trip has yet; past six, they repeat
     const used = new Set(this.sql.exec<{ identity: number }>('select identity from members').toArray().map(r => r.identity));
@@ -307,6 +351,7 @@ export class TripRoom extends DurableObject<Env> {
       members: this.sql.exec<Member>('select id, name, image, identity from members order by joined_at').toArray(),
       stops: this.sql.exec<Omit<Preview['stops'][number], 'back'> & { back: string }>('select id, name, lat, lng, time, kind, nights, travel, back, wikidata from stops order by time, id limit ?', PREVIEW_STOPS)
         .toArray().map(s => ({ ...s, back: parseBack(s.back) })),
+      ideas: this.sql.exec<Preview['ideas'][number]>('select id, name, lat, lng from ideas order by saved_at, id limit ?', PREVIEW_STOPS).toArray(),
     };
   }
   private broadcast(event: TripEvent, by?: string) {

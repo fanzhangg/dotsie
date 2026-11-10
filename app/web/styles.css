@@ -147,7 +147,7 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
 /* The selected sight's bigger marker, and a hovered sight's name (see .wt-sight), come in front of the other sights. */
 .wt-sight-marker:has(.wt-sight.is-selected), .wt-sight-marker:has(.wt-sight:hover) { z-index: 9 !important; } /* still behind the pins (PIN_Z in map.js) */
 /* A sight's card (openSight in app.js): like a stop's sheet on a phone, it takes the list's place at the bottom. Its type
-   sits beside the sight's own marker, then what Wikipedia says (.wt-about), then Add to trip. */
+   sits beside the sight's own marker, then what Wikipedia says (.wt-about), then its one button (Add to this day, or Save). */
 .trip.has-card .wt-sheet { visibility: hidden; }
 .trip.has-card .trip-fit { display: none; }
 .sight-type { display: flex; align-items: center; gap: var(--wt-space-2); }
@@ -160,3 +160,10 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
 .wt-map-marker { width: 0; height: 0; }
 .wt-map-marker:focus-visible { outline: none; }
 .wt-map-marker:focus-visible > .wt-pin { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+/* A spot's Save to a trip, under its one line (spots.js), and the trips it offers, each with a map in a grey marker */
+.spot-save { margin: var(--wt-space-2) 0 0; }
+.spot-save__trip { --wt-kind-color: var(--wt-kind-drive); }
+/* A place's bookmark, filled: it's on Want to go, and a tap takes it off */
+.wt-btn--saved .wt-icon { fill: currentColor; }
+/* Move to Want to go, in a planned stop's sheet: quiet, as Add link is, above Delete and Save */
+.stop-unplan { margin-top: var(--wt-space-2); }

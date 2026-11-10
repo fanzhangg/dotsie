@@ -1,7 +1,7 @@
 // The server's check on every stop written. Node runs the TypeScript as it is (type stripping).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cleanStop, ERR } from '../src/stop.ts';
+import { cleanIdea, cleanStop, ERR } from '../src/stop.ts';
 
 const base = { name: 'White Sands', lat: 32.78, lng: -106.17, time: '2026-11-20T15:00' };
 const bad = (input, partial = false) => assert.throws(() => cleanStop(input, partial), { message: ERR.invalid }, JSON.stringify(input));
@@ -55,4 +55,20 @@ test('a hotel’s ways back keep only the nights that aren’t drives', () => {
   bad({ back: { tomorrow: 'walk' } }, true);
   bad({ back: { '2026-11-20': 'swim' } }, true);
   bad({ back: [] }, true);
+});
+
+test('an idea on Want to go needs a name and a place, is checked as a stop is, and is only the place', () => {
+  const place = { name: ' Oliver Lee ', lat: 32.75, lng: -105.91 };
+  assert.deepEqual(cleanIdea({ ...place, time: '2026-11-20T15:00', nights: 2, travel: 'walk', note: 'Dog Canyon', links: [{ url: 'https://example.com/a' }], extra: 'dropped' }), {
+    address: '', kind: '', wikidata: null, name: 'Oliver Lee', lat: 32.75, lng: -105.91,
+  });
+  assert.deepEqual(cleanIdea({ ...place, address: 'Dog Canyon Rd', kind: 'nature', wikidata: 'Q123' }), {
+    address: 'Dog Canyon Rd', kind: 'nature', wikidata: 'Q123', name: 'Oliver Lee', lat: 32.75, lng: -105.91,
+  });
+  const badIdea = input => assert.throws(() => cleanIdea(input), { message: ERR.invalid }, JSON.stringify(input));
+  for (const k of ['name', 'lat', 'lng']) badIdea({ ...place, [k]: undefined });
+  badIdea({ ...place, name: '  ' });
+  badIdea({ ...place, kind: 'castle' });
+  badIdea({ ...place, wikidata: 'Q0' });
+  badIdea(null);
 });

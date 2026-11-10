@@ -1,4 +1,4 @@
-/* Dotsie design system — icons v4.1.0
+/* Dotsie design system — icons v4.2.0
  *
  * Line icons on a 24px grid, 2px stroke, round caps and joins, drawn in currentColor.
  * Usage: DotsieIcons.svg('car')            -> default size and stroke
@@ -27,6 +27,7 @@
     fit: 'M4 9V6a2 2 0 012-2h3M15 4h3a2 2 0 012 2v3M20 15v3a2 2 0 01-2 2h-3M9 20H6a2 2 0 01-2-2v-3',
     alert: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 7.5v5M12 16.5h.01',   // something went wrong
     // Offline: saving a trip on this device, saved, and no connection
+    bookmark: 'M7 3.5h10a1 1 0 011 1V20.5l-6-4-6 4V4.5a1 1 0 011-1z',   // Want to go: save a place for later, and the list it's on
     download: 'M12 4v10.5M7.5 10L12 14.5 16.5 10M5 19.5h14',
     saved: 'M5 19.5h14M7.5 10.5l3 3 6-6.5',
     'cloud-off': 'M3.5 3.5l17 17M9.5 5.6A6 6 0 0117.8 10.1a4 4 0 012.5 6.6M16.5 18H7a4.5 4.5 0 01-2.2-8.4',

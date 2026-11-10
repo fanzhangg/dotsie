@@ -26,6 +26,7 @@ test('a new trip gets the tables as they are now', () => {
   assert.deepEqual(r.cols('stops'), STOP_COLUMNS);
   assert.deepEqual(r.cols('trip'), ['id', 'name', 'created_by', 'invite', 'deleted_at', 'rev', 'edited_at']);
   assert.deepEqual(r.cols('members'), ['id', 'name', 'image', 'identity', 'joined_at']);
+  assert.deepEqual(r.cols('ideas'), ['id', 'name', 'address', 'lat', 'lng', 'kind', 'wikidata', 'by', 'updated_at', 'saved_at']);
   assert.equal(r.version(), SCHEMA.length);
   // the stop the app writes (putStop in trip.ts) fits
   r.db.prepare(`insert into stops (id, name, address, lat, lng, time, tz, duration, note, kind, nights, checkout, travel, back, links, wikidata, by, updated_at)
@@ -54,6 +55,7 @@ test('a trip stored when stops had folders keeps its stops, gains what came sinc
   assert.deepEqual({ ...r.db.prepare('select name, note, kind, nights, travel, back, links, updated_at from stops').get() },
     { name: 'Lodge', note: 'Drop bags', kind: 'hotel', nights: 2, travel: 'drive', back: '{}', links: '[]', updated_at: 5 });
   assert.deepEqual({ ...r.db.prepare('select name, rev, edited_at from trip').get() }, { name: 'Old trip', rev: 0, edited_at: null });
+  assert.equal(r.db.prepare('select count(*) as n from ideas').get().n, 0, 'an empty Want to go list');
 });
 
 test('a trip that’s up to date is left as it is', () => {

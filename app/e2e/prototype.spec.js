@@ -141,6 +141,132 @@ test('after an update that adds a file, a saved trip’s app still opens offline
 });
 
 
+// Want to go: the trip's places with no day yet. White Sands has Oliver Lee Memorial State Park (near its first day) and
+// Three Rivers Petroglyph Site (near its second) on it.
+const wish = page => plan(page).locator('.wt-tl-idea');
+const wantToGo = page => days(page).getByRole('tab', { name: /^Want to go/ });
+test('Want to go groups its places by the day each is nearest, and says how many there are', async ({ page }) => {
+  await trip(page, 'white-sands');
+  await expect(wantToGo(page)).toHaveAccessibleName('Want to go, 2 places');
+  await wantToGo(page).click();
+  await expect(plan(page).locator('.wt-tl-day, .wt-tl-idea')).toHaveText([/Near Today, Nov 20/, /Oliver Lee Memorial State Park/, /Near Sat, Nov 21/, /Three Rivers Petroglyph Site/]);
+  await plan(page).getByRole('button', { name: 'Near Sat, Nov 21. Open this day' }).click();
+  await expect(days(page).getByRole('tab', { selected: true })).toHaveAccessibleName('Sat, Nov 21');
+});
+
+test('a Want to go place gets a time only on a day: Add to this day puts it after the stop nearest it, and it comes off the list', async ({ page }) => {
+  await trip(page, 'white-sands');
+  // today's map has it, near the hotel, as a hollow pin
+  await page.locator('#map .wt-pin--idea').filter({ visible: true }).and(page.getByRole('img', { name: /^Oliver Lee/ })).click();
+  await plan(page).getByRole('button', { name: 'Add to this day' }).click();
+  // after the hotel at 1:00 PM, halfway to the Visitor Center at 3:00 PM
+  await expect(toast(page)).toContainText('Added to Fri, Nov 20, arriving at 2:00 PM');
+  await expect(stop(page, 'Oliver Lee Memorial State Park')).toContainText('2:00');
+  await expect(stop(page, 'Oliver Lee Memorial State Park')).toHaveAttribute('aria-pressed', 'true');
+  await expect(wantToGo(page)).toHaveAccessibleName('Want to go, 1 place');
+  await page.reload();
+  await wantToGo(page).click();
+  await expect(wish(page)).toHaveText([/Three Rivers Petroglyph Site/]);
+});
+
+test('a planned stop moves back to Want to go from its sheet, as only its place, and Undo puts it back on its day', async ({ page }) => {
+  await trip(page, 'white-sands');
+  await stop(page, 'White Sands Visitor Center').click();
+  await page.getByRole('button', { name: 'Edit stop' }).click();
+  await sheet(page).getByRole('button', { name: 'Move to Want to go' }).click();
+  await expect(toast(page)).toContainText('Moved White Sands Visitor Center to Want to go');
+  await expect(stop(page, 'White Sands Visitor Center')).toHaveCount(0);
+  await expect(wantToGo(page)).toHaveAccessibleName('Want to go, 3 places');
+  await toast(page).getByRole('button', { name: 'Undo' }).click();
+  await expect(stop(page, 'White Sands Visitor Center')).toContainText('Buy a sled');
+  await expect(wantToGo(page)).toHaveAccessibleName('Want to go, 2 places');
+  // and again, kept: on the list, only the place, near the day it left
+  await stop(page, 'White Sands Visitor Center').click();
+  await page.getByRole('button', { name: 'Edit stop' }).click();
+  await sheet(page).getByRole('button', { name: 'Move to Want to go' }).click();
+  await wantToGo(page).click();
+  await expect(plan(page).locator('.wt-tl-day, .wt-tl-idea')).toHaveText([/Near Today, Nov 20/, /Oliver Lee/, /^\s*White Sands Visitor Center\s*$/, /Near Sat, Nov 21/, /Three Rivers/]);
+});
+
+test('Want to go is an icon with a count; its places are only places, with nothing to add to them', async ({ page }) => {
+  await trip(page, 'white-sands');
+  await expect(wantToGo(page)).toHaveText('2');
+  await expect(wantToGo(page).locator('svg')).toHaveCount(1);
+  await wantToGo(page).click();
+  await expect(wish(page)).toHaveText([/^\s*Oliver Lee Memorial State Park\s*$/, /^\s*Three Rivers Petroglyph Site\s*$/]);
+});
+
+test('Want to go is a plain list: a place selected has Open in Maps and its bookmark, which takes it off, with Undo, for everyone', async ({ page, context }) => {
+  await trip(page, 'white-sands');
+  const sam = await context.newPage();
+  await trip(sam, 'white-sands', 'sam');
+  await wantToGo(sam).click();
+  await wantToGo(page).click();
+  await stop(page, 'Three Rivers Petroglyph Site').click();
+  await expect(plan(page).getByRole('link', { name: 'Open Three Rivers Petroglyph Site in your maps app' })).toBeVisible();
+  await expect(plan(page).locator('.wt-add-bar').getByRole('button', { name: /day/ })).toHaveCount(0); // no days or times here
+  await plan(page).getByRole('button', { name: 'Saved to Want to go. Remove it' }).click();
+  await expect(wish(page)).toHaveCount(1);
+  await expect(wish(sam)).toHaveCount(1);
+  await expect(toast(sam)).toContainText('Alex removed Three Rivers Petroglyph Site from Want to go');
+  await toast(page).getByRole('button', { name: 'Undo' }).click();
+  await expect(wish(page)).toHaveText([/Oliver Lee/, /Three Rivers/]);
+  await expect(wish(sam)).toHaveText([/Oliver Lee/, /Three Rivers/]);
+});
+
+test('Add stop suggests the Want to go places first, and one picked there comes off the list', async ({ page }) => {
+  await trip(page, 'white-sands');
+  await plan(page).getByRole('button', { name: 'Add stop' }).click();
+  const results = sheet(page).getByRole('listbox', { name: 'Places' });
+  await expect(results.getByText('Want to go')).toBeVisible();
+  await expect(results.getByRole('option')).toHaveText([/Oliver Lee Memorial State Park/, /Three Rivers Petroglyph Site/]);
+  await results.getByRole('option', { name: /Three Rivers/ }).click();
+  await sheet(page).getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(stop(page, 'Three Rivers Petroglyph Site')).toBeVisible();
+  await wantToGo(page).click();
+  await expect(wish(page)).toHaveText([/Oliver Lee Memorial State Park/]);
+});
+
+test('a new trip opens on Want to go, where planning starts', async ({ page }) => {
+  await page.goto('#/');
+  await page.getByRole('button', { name: 'New trip' }).locator('visible=true').first().click();
+  await sheet(page).getByRole('textbox', { name: 'Trip name' }).fill('Seattle weekend');
+  await sheet(page).getByRole('button', { name: 'Create' }).click();
+  await expect(days(page).getByRole('tab', { selected: true })).toHaveAccessibleName('Want to go');
+  await expect(plan(page)).toContainText('Places you’d like to go, before you know when.');
+  await expect(plan(page).getByRole('button', { name: 'Save place' })).toBeVisible();
+  await days(page).getByRole('tab', { name: 'Overview' }).click();
+  await expect(plan(page).getByRole('button', { name: 'Add stop' })).toBeVisible();
+});
+
+test('a spot is saved to a trip’s Want to go, Open goes to it there, and the trip then says it has it', async ({ page }) => {
+  await page.goto('#/spots/alamogordo/sample/white-sands');
+  await page.getByRole('button', { name: 'Save to a trip' }).click();
+  await sheet(page).getByRole('button', { name: /^White Sands, NM/ }).click();
+  await expect(toast(page)).toContainText('Saved to White Sands, NM');
+  await expect(page.getByRole('button', { name: 'Saved to White Sands, NM' })).toBeVisible();
+  await page.getByRole('button', { name: 'Saved to White Sands, NM' }).click();
+  await expect(sheet(page).getByRole('button', { name: /^White Sands, NM/ })).toBeDisabled();
+  await expect(sheet(page).getByRole('button', { name: /^White Sands, NM/ })).toContainText('Saved');
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await toast(page).getByRole('button', { name: 'Open' }).click().catch(() => {}); // the notice may have gone
+  await trip(page, 'white-sands');
+  await wantToGo(page).click();
+  // the national park is near the first day, with the visitor center
+  await expect(wish(page)).toHaveText([/Oliver Lee/, /White Sands National Park/, /Three Rivers/]);
+});
+
+test('Open, after saving a spot, opens the trip on Want to go', async ({ page }) => {
+  await page.goto('#/spots/seattle/sample/space-needle');
+  await page.getByRole('button', { name: 'Save to a trip' }).click();
+  await sheet(page).getByRole('button', { name: /^New trip: Seattle/ }).click();
+  await expect(toast(page)).toContainText('Saved to a new trip, Seattle');
+  await toast(page).getByRole('button', { name: 'Open' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Seattle');
+  await expect(days(page).getByRole('tab', { selected: true })).toHaveAccessibleName('Want to go, 1 place');
+  await expect(wish(page)).toHaveText([/Space Needle/]);
+});
+
 test('Home loads the map’s library while it’s idle, so a trip’s map doesn’t wait for it', async ({ page }) => {
   const isLib = u => u.endsWith('/vendor/maplibre/maplibre-gl.js');
   const lib = page.waitForResponse(r => isLib(r.url()));

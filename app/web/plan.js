@@ -5,7 +5,8 @@ import { STOP_KINDS, TRAVEL_MODES } from './fields.js';
 import { momentOf, toDate, toInput } from './time.js';
 
 /** @typedef {import('../src/stop').Stop} Stop A stop as the server sends it */
-/** @typedef {{ stops: Stop[] }} Trip A trip as the app holds it (fromSnapshot in trips.js); only its stops matter here */
+/** @typedef {import('../src/stop').Idea} Idea A place on the trip's Want to go list, as the server sends it */
+/** @typedef {{ stops: Stop[], ideas?: Idea[] }} Trip A trip as the app holds it (fromSnapshot in trips.js); only its stops and ideas matter here */
 /** @typedef {{ key: string, place: Stop, role: 'wake' | 'checkout' | 'from' | 'stop' | 'night', day?: string, at?: string }} Entry
     A place in a day's plan, and why it's there */
 
@@ -48,8 +49,44 @@ export function daysOf(trip) {
 }
 // The overview: every day of the trip on one page, before the first day. The day bar steps through the pages.
 export const ALL = 'all';
-/** @param {Trip} trip */
-export const pagesOf = trip => { const days = daysOf(trip); return days.length ? [ALL, ...days] : []; };
+// Want to go: the places saved for the trip that have no day yet, on a page of their own before the overview, since
+// that's where planning starts: first where you'd like to go, then when.
+export const IDEAS = 'ideas';
+/** @param {Trip} trip @returns {string[]} Want to go, the overview, then every day (none yet: the overview is empty) */
+export const pagesOf = trip => [IDEAS, ALL, ...daysOf(trip)];
+/** @param {Trip} trip @returns {Idea[]} in the order they were saved */
+export const ideasOf = trip => trip.ideas || [];
+// km between two places: flat, which is close enough for "near"
+/** @param {{ lat: number, lng: number }} a @param {{ lat: number, lng: number }} b */
+export const kmBetween = (a, b) => Math.hypot((b.lng - a.lng) * 111.32 * Math.cos(a.lat * Math.PI / 180), (b.lat - a.lat) * 110.57);
+// A place is near a day when one of the day's places (its stops, and the hotel at either end) is this close
+export const NEAR_KM = 50;
+// The day each place on Want to go is nearest, by the day's places, or null when none is within NEAR_KM: the list
+// groups them by it, and each day's map shows its own. The earlier day, where two are as near (a hotel's days).
+/** @param {Trip} trip @returns {Map<string, string | null>} idea id → day */
+export function ideaDays(trip) {
+  const days = daysOf(trip).map(d => ({ d, places: dayPlan(trip, d).filter(e => e.role !== 'from').map(e => e.place) }));
+  return new Map(ideasOf(trip).map(i => {
+    /** @type {string | null} */
+    let best = null, min = Infinity;
+    for (const { d, places } of days) for (const p of places) { const k = kmBetween(i, p); if (k < min) { min = k; best = d; } }
+    return /** @type {[string, string | null]} */ ([i.id, min <= NEAR_KM ? best : null]);
+  }));
+}
+// The Want to go places a page shows on its map: a day's own, the overview's every day's, and on Want to go all of them
+/** @param {Trip} trip @param {string} day */
+export function ideasOn(trip, day) {
+  if (day === IDEAS) return ideasOf(trip);
+  const by = ideaDays(trip);
+  return ideasOf(trip).filter(i => (day === ALL ? by.get(i.id) != null : by.get(i.id) === day));
+}
+// The place on Want to go that's this one, if it's there already: the same spot, or the same name close by (search and
+// a sight can put one place a little apart)
+/** @param {{ ideas?: { name: string, lat: number, lng: number }[] }} trip @param {{ name: string, lat: number, lng: number }} p */
+export function findIdea(trip, p) {
+  const name = p.name.trim().toLowerCase();
+  return (trip.ideas || []).find(i => kmBetween(i, p) < 0.05 || (i.name.trim().toLowerCase() === name && kmBetween(i, p) < 2)) || null;
+}
 /** @param {Trip} trip @param {string} day */
 export const dayStops = (trip, day) => stopsOf(trip).filter(s => dayOf(s) === day);
 
@@ -82,7 +119,9 @@ export function dayPlan(trip, day) {
 // A page's places, drives and rows: one day's, or on the overview every day's, in order. Leg and row keys are
 // unique across the trip, so the overview's map works like a day's.
 /** @param {Trip} trip @param {string} day */
-export const planOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayPlan(trip, d)) : dayPlan(trip, day));
+// Want to go has no plan: its places have no day.
+/** @param {Trip} trip @param {string} day */
+export const planOn = (trip, day) => (day === IDEAS ? [] : day === ALL ? daysOf(trip).flatMap(d => dayPlan(trip, d)) : dayPlan(trip, day));
 
 // ---------- Stop types: an icon and a color each (--wt-kind-<key>), shared by the list marker and the map pin ----------
 // The colors skip blue (routes) and red (a drive that doesn't fit). The types, in this order, are fields.js's, which the

@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 15.1.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 15.2.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -210,7 +210,7 @@ Four weights, each with a job: **700** the app name (sign-in) only; **600** head
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed)
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed) `bookmark` (Want to go: save a place for later, and the list it's on)
 
 Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
 
@@ -456,6 +456,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - Give the row `role="button"` and `aria-pressed` while its route is shown.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
+- **A place on Want to go** (`.wt-tl-idea`, with `.wt-tl-stop`): a trip's places with no day yet, as stop rows with their address and note for notes, an empty `.wt-tl-time`, and no rail between them, since they're in no order but the one they were saved in.
 - **Day heading** (`.wt-tl-day`): the **Overview** puts every day in one timeline, each day's stops under its name. See [Overview](#overview-wt-tl-day).
 - **States:**
 
@@ -986,6 +987,8 @@ One spot as a guidebook has it: a page to read, on `--wt-surface-raised`, with n
   - Never show a count: on this map a number means a row, so a "3" would read as the third.
 - **Nothing else.** No name label and no time tag: the list has them. The `aria-label` gives the number, the name and the type, so color is never the only signal; a merged pin's gives all its numbers and names its stops.
 - Variants: `--selected` (32px, with `--wt-shadow-pin-selected`: the selected stop, and both ends of a route on show) and `--muted` (20px and grey, `--wt-kind-past`: on today, a stop that's over; the day before's last stop, where a day with no hotel starts; or, while a route is shown, a stop it doesn't start or end at). A merged pin is muted only when all its stops are. The pins still in color are the ones that matter now.
+- **A place on Want to go** (`--idea`, with `.wt-pin__dot`): a trip's place with no day yet. Hollow: `--wt-pin-fill` with its type's color as the 2px ring and the dot, 20px, with no number, since it isn't in the plan's order. It reads as somewhere you might go, where a solid pin is somewhere you're going. Selected, it's 28px with a 3px ring, still hollow. Ideas merge with each other where they crowd, never with stops.
+- **Faded** (`--faded`, with `.wt-pin__dot`): the plan's stops behind Want to go's places, so you can see which days a place is near. 16px, flat, in a light version of their color (`--wt-pin-faded-mix`), as the pins beside a selected one step back. Not grey: grey means over.
 - **A tap target of 36px**, centered on the pin (`::after`).
 - **Put the pins in a `.wt-pins` element** (in the app, the map, which holds its markers). While one of them is `--selected`, the rest step back: still solid, flat, in a lighter version of their color (`--wt-pin-faded-mix` of it over `--wt-pin-fill`; deeper in dark mode), with the number in their own color, so the selected pin stands out among pins of every type. Not see-through, so the route and the map don't show through them (they used to fade to 55% opacity, which muddied them). They keep their colors rather than turn grey, since grey means over; a pin that's over stays as it is.
 - The map shows only the open day, or the whole trip on the overview. Framing a day or a route leaves half a selected pin clear at the edges.
@@ -1131,6 +1134,15 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 15.2.0
+
+A trip's Want to go list: places saved before they have a day.
+
+- New: `.wt-tl-idea`, a row on it: a `.wt-tl-stop` with no rail, since its places are in no order yet. See [Timeline](#timeline-wt-tl).
+- New: `.wt-pin--idea`, a place on it on the map: hollow, its type's color as the ring around a dot of it. And `.wt-pin--faded`, the plan's stops behind those places: small, flat and light, in their colors. See [Map pin](#map-pin-wt-pin).
+- New: `.wt-day-tab--icon`, Want to go's tab, an icon (`bookmark`) with `.wt-day-tab__count` after it, how many places it has; and `.wt-day-cal__pages`, Want to go and Overview together at the top of the day calendar.
+- New icon: `bookmark` (icons 4.2.0): Want to go's tab, and Save wherever a place is saved to it.
 
 ### Added in 15.1.0
 

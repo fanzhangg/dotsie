@@ -2,7 +2,7 @@
 import { ROUTE_KEY } from './core.js';
 import { toDate, toInput } from './time.js';
 import { api } from './backend.js';
-import { ALL, TRAVEL, dayPlan, daysOf, samePlace, wayTo } from './plan.js';
+import { ALL, IDEAS, TRAVEL, dayPlan, daysOf, samePlace, wayTo } from './plan.js';
 import { routeWatch } from './edits.js';
 import { scheduleRender } from './app.js';
 
@@ -21,7 +21,7 @@ export function dayLegs(trip, day) {
   }
   return legs;
 }
-export const legsOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayLegs(trip, d)) : dayLegs(trip, day));
+export const legsOn = (trip, day) => (day === IDEAS ? [] : day === ALL ? daysOf(trip).flatMap(d => dayLegs(trip, d)) : dayLegs(trip, day));
 
 // ---------- Routes: only the line and the time it takes; navigation is handed to the maps app ----------
 export const routes = (() => { try { return JSON.parse(localStorage.getItem(ROUTE_KEY)) || {}; } catch { return {}; } })();

@@ -3,13 +3,14 @@ import { $app, $sheets, ICON, WIDE, esc, state } from './core.js';
 import { DAYS, fmtClock, fmtDay, fmtDur, fmtTime, instantOf, nowStamp, pad, placeZone, toDate, toInput, zoneCity, zoneName } from './time.js';
 import { cur } from './trips.js';
 import { api } from './backend.js';
-import { ALL, HOTEL_CHECK_IN, HOTEL_CHECK_OUT, KINDS, KIND_HINTS, KIND_SECTIONS, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysBetween, daysOf, guessKind, kindOf, samePlace, stayOf, stayOnNight, stopsOf, wayTo } from './plan.js';
+import { ALL, IDEAS, HOTEL_CHECK_IN, HOTEL_CHECK_OUT, KINDS, KIND_HINTS, KIND_SECTIONS, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysBetween, daysOf, findIdea, guessKind, ideasOf, kindOf, samePlace, stayOf, stayOnNight, stopsOf, wayTo } from './plan.js';
 import { centerFocus, currentDay, selectedStop, siteOf, webUrl } from './timeline.js';
 import { foodURL, legRoute, legsOn } from './routes.js';
-import { addStop, deleteStop, editStop } from './edits.js';
+import { toast } from './notices.js';
+import { addIdea, addStop, deleteIdea, deleteStop, editStop, moveToIdeas, planIdea } from './edits.js';
 import { offlineNow } from './offline.js';
 import { render } from './app.js';
-import { drawMap, focusStop, map, mapCamera, markerHTML, moveCamera, reduceMotion } from './map.js';
+import { drawMap, focusStop, map, mapCamera, markerHTML, moveCamera, reduceMotion, selectStop, zoomToStop } from './map.js';
 import { aboutHTML, aboutSlot, loadAbout, showAbout, sightAt, sightsAlong } from './sights.js';
 import { closeSheet, modalHead, openSheet } from './sheets.js';
 import { MAX, MAX_LINKS } from './fields.js';
@@ -26,23 +27,109 @@ function anchorStop(trip) {
 // hours later when it's the day's last.
 // Else two hours after the day's last stop; 9 AM on a day with none yet (a hotel day), or 9 AM tomorrow for an empty trip.
 // From the overview, the trip's last day: a stop added there most often extends the trip.
-function defaultTime(trip, after = null) {
+// `onDay`: on that day rather than the one on screen.
+function defaultTime(trip, after = null, onDay = null) {
   if (after) {
     const t = toDate(after.time), next = dayStops(trip, dayOf(after)).find(s => s.time > after.time);
     if (!next) { t.setHours(Math.min(t.getHours() + 2, 22), 0, 0, 0); return toInput(t > toDate(after.time) ? t : new Date(toDate(after.time).getTime() + 60000)); }
     const mid = new Date(Math.floor((t.getTime() + toDate(next.time).getTime()) / 2 / 300000) * 300000);
     return toInput(mid > t ? mid : new Date(t.getTime() + 60000));
   }
-  const day = currentDay(trip) === ALL ? daysOf(trip).at(-1) : currentDay(trip), s = dayStops(trip, day);
+  const day = onDay || ([ALL, IDEAS].includes(currentDay(trip)) ? daysOf(trip).at(-1) : currentDay(trip)), s = dayStops(trip, day);
   let d;
   if (s.length) { d = toDate(s.at(-1).time); d.setHours(Math.min(d.getHours() + 2, 22), 0, 0, 0); }
   else if (day) { d = toDate(day); d.setHours(9, 0, 0, 0); }
   else { d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
   return toInput(d);
 }
+// ----- Links: a row each, its label over its address, and Add link under them. A label left empty shows the page's
+// site, which its placeholder says once there's an address. Rows left empty are dropped on save. In a form with
+// .wt-link-list and [data-link-add] (a stop's sheet, a Want to go place's). readLinks gives the links as saved, or null
+// (with the field that's wrong showing why) when one isn't a web page. -----
+function linkEditor(el, links) {
+  const list = el.querySelector('.wt-link-list'), add = el.querySelector('[data-link-add]');
+  const showAdd = () => { add.hidden = list.children.length >= MAX_LINKS; };
+  function addLinkRow(link = { url: '', label: '' }) {
+    list.insertAdjacentHTML('beforeend', `<div class="wt-link-edit">
+      <span class="wt-link-edit__fields">
+        <input class="wt-link-edit__label" type="text" maxlength="${MAX.label}" aria-label="Label" placeholder="Label" autocomplete="off" enterkeyhint="next" value="${esc(link.label)}">
+        <input class="wt-link-edit__url" type="text" inputmode="url" maxlength="${MAX.url}" aria-label="Link" placeholder="Paste a link" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" value="${esc(link.url)}">
+      </span>
+      <button type="button" class="wt-icon-btn wt-link-edit__remove" aria-label="Remove link">${ICON.close}</button></div>`);
+    const row = list.lastElementChild, url = row.querySelector('.wt-link-edit__url'), label = row.querySelector('.wt-link-edit__label');
+    const hint = () => { label.placeholder = siteOf(webUrl(url.value)) || 'Label'; };
+    url.addEventListener('input', () => { url.setCustomValidity(''); hint(); });
+    row.querySelector('.wt-link-edit__remove').onclick = () => {
+      const next = row.nextElementSibling?.querySelector('input') || add;
+      row.remove();
+      showAdd();
+      (add.hidden ? list.querySelector('input') : next)?.focus();
+    };
+    hint();
+    showAdd();
+    return row;
+  }
+  for (const l of links) addLinkRow(l);
+  add.onclick = () => addLinkRow().querySelector('.wt-link-edit__url').focus();
+  function readLinks() {
+    const out = [];
+    for (const row of list.children) {
+      const url = row.querySelector('.wt-link-edit__url'), label = row.querySelector('.wt-link-edit__label').value.trim();
+      if (!url.value.trim() && !label) continue;
+      const href = webUrl(url.value);
+      if (!href) {
+        url.setCustomValidity(url.value.trim() ? 'This isn’t a web address.' : 'Paste a link, or remove this one.');
+        url.reportValidity();
+        return null;
+      }
+      out.push({ url: href, label });
+    }
+    return out;
+  }
+  return { list, addLinkRow, readLinks };
+}
+const LINKS_FIELD = `<div class="wt-field"><span class="wt-field__label" id="links-label">Links</span>
+        <div class="wt-link-list" role="group" aria-labelledby="links-label"></div>
+        <button type="button" class="wt-link-add" data-link-add>${ICON.plus}Add link</button></div>`;
+// A note that grows with what's in it, rather than scrolling in a small box inside the scrolling sheet
+function growingNote(note, shown = () => true) {
+  const grow = () => {
+    if (!shown()) return;
+    note.style.height = '';
+    note.style.height = `${note.scrollHeight + note.offsetHeight - note.clientHeight}px`;
+  };
+  note.addEventListener('input', grow);
+  requestAnimationFrame(grow);
+  return grow;
+}
+
 // Search leans toward a place: where the stop is, or where a new one goes (see wayAround). It used to lean toward the
 // middle of all the trip's stops, which on a long road trip is somewhere none of them are.
 const nearParam = p => (p ? `&near=${(+p.lat).toFixed(4)},${(+p.lng).toFixed(4)}` : '');
+// The day's stop nearest a place: a place from Want to go, or a sight, goes on the day just after it, as that's most
+// often where it fits. Null for a day with no stops of its own.
+function nearestStop(trip, p, day) {
+  const [kx, ky] = kmPerDeg(+p.lat), km = s => Math.hypot((s.lng - p.lng) * kx, (s.lat - p.lat) * ky);
+  return dayStops(trip, day).reduce((a, s) => (!a || km(s) < km(a) ? s : a), null);
+}
+
+// ---------- Adding a place to the day on screen ----------
+// Only from a day, where the plan is: Want to go itself is a plain list, with no days or times. A place on it (its
+// hollow pin on the day's map), or a sight, goes on the day as a stop, at the time it most likely fits: just after the day's
+// stop nearest it (halfway to the next), or two hours after the day's last stop, or 9 AM on a day with none; a hotel
+// at check-in. The list follows it to its day (the overview stays) with it selected, and a notice says when, since
+// it wasn't asked: Edit stop changes it, and gives it a note and links. A place from Want to go comes off the list.
+export function addToDay(trip, place, day, idea = null) {
+  const kind = kindOf(place), hotel = kind === 'hotel';
+  const time = hotel ? `${day}T${HOTEL_CHECK_IN}` : defaultTime(trip, nearestStop(trip, place, day), day);
+  const data = {
+    name: place.name, address: place.address || '', lat: place.lat, lng: place.lng, time, tz: null, duration: null,
+    note: '', links: [], kind, nights: null, checkout: null, wikidata: place.wikidata ?? null,
+  };
+  if (state.day !== ALL) state.day = day;
+  planIdea(trip, idea, data, `Added to ${fmtDay(day)}, ${hotel ? 'checking in' : 'arriving'} at ${fmtTime(time)}`);
+  centerFocus({ force: true, animate: false });
+}
 
 // Where a stop at `time` goes in the plan: between the place you'd come from and the one you'd go on to (that day's
 // stops, last night's hotel and tonight's; else the trip's stops before and after), leaving out `skip`, the stop being
@@ -367,12 +454,14 @@ const whenHTML = (name, label, cls = '', aside = '', after = '') => `<div class=
 // Type is one row that opens the types on a page of their own; it starts as a guess from the place you pick,
 // until you choose one yourself.
 // A new stop can start from a place picked on the map (`place`: name, address, lat, lng and kind), rather than from search.
-export function openStopSheet(trip, stop, place = null) {
+// `toIdeas`: the search page alone, for Want to go's Save place: the place picked goes on the list, with no day and no
+// time, and the sheet closes.
+export function openStopSheet(trip, stop, place = null, { toIdeas = false } = {}) {
   if ($sheets.innerHTML) closeSheet();
   const draft = stop ? { ...stop, kind: kindOf(stop) } : { lat: null, lng: null, address: '', name: '', kind: 'place', ...place };
   let chosen = !!stop, saved = false;
   const camera = mapCamera();
-  const after = stop ? null : anchorStop(trip); // before the selection's cleared
+  const after = stop || toIdeas ? null : anchorStop(trip); // before the selection's cleared
   state.leg = null;
   if (state.sel !== stop?.id) state.selRow = null;
   state.sel = stop?.id || null;
@@ -394,9 +483,8 @@ export function openStopSheet(trip, stop, place = null) {
       <div class="wt-field wt-dur"><span class="wt-field__label" id="dur-label">Duration</span>
         <button type="button" class="wt-picker wt-picker--text" data-dur-open aria-describedby="dur-label"></button></div>
       <label class="wt-field"><span class="wt-field__label">Note</span><textarea class="wt-input" name="note" rows="2" maxlength="${MAX.note}" placeholder="Confirmation #, tickets, tips…"></textarea></label>
-      <div class="wt-field"><span class="wt-field__label" id="links-label">Links</span>
-        <div class="wt-link-list" role="group" aria-labelledby="links-label"></div>
-        <button type="button" class="wt-link-add" data-link-add>${ICON.plus}Add link</button></div>
+      ${LINKS_FIELD}
+      ${stop ? `<button type="button" class="wt-link-add stop-unplan" data-unplan>${ICON.bookmark}Move to Want to go</button>` : ''}
       <div class="wt-modal__actions wt-modal__actions--sticky">${stop ? '<button type="button" class="wt-btn wt-btn--danger" data-del>Delete</button>' : ''}<button class="wt-btn wt-btn--primary">${stop ? 'Save' : 'Add'}</button></div>
     </form></div>
     ${choicePageHTML('stop-kinds', 'Type', KIND_SECTIONS.map(g => g.map(option).join('')).join('<li class="wt-options__sep" role="presentation"></li>'))}
@@ -435,57 +523,10 @@ export function openStopSheet(trip, stop, place = null) {
     let timeTouched = !!stop;
     if (stop) { F.time.value = stop.time; F.note.value = stop.note || ''; }
     else F.time.value = defaultTime(trip, after);
-    // The note grows with what's in it, rather than scrolling in a small box inside the scrolling sheet
-    const growNote = () => {
-      if (main.hidden) return;
-      F.note.style.height = '';
-      F.note.style.height = `${F.note.scrollHeight + F.note.offsetHeight - F.note.clientHeight}px`;
-    };
-    F.note.addEventListener('input', growNote);
-    requestAnimationFrame(growNote);
+    growingNote(F.note, () => !main.hidden);
 
-    // ----- Links: a row each, its label over its address, and Add link under them. A label left empty shows the
-    // page's site, which its placeholder says once there's an address. Rows left empty are dropped on save. -----
-    const linkList = el.querySelector('.wt-link-list'), linkAdd = el.querySelector('[data-link-add]');
-    const showLinkAdd = () => { linkAdd.hidden = linkList.children.length >= MAX_LINKS; };
-    function addLinkRow(link = { url: '', label: '' }) {
-      linkList.insertAdjacentHTML('beforeend', `<div class="wt-link-edit">
-        <span class="wt-link-edit__fields">
-          <input class="wt-link-edit__label" type="text" maxlength="${MAX.label}" aria-label="Label" placeholder="Label" autocomplete="off" enterkeyhint="next" value="${esc(link.label)}">
-          <input class="wt-link-edit__url" type="text" inputmode="url" maxlength="${MAX.url}" aria-label="Link" placeholder="Paste a link" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" value="${esc(link.url)}">
-        </span>
-        <button type="button" class="wt-icon-btn wt-link-edit__remove" aria-label="Remove link">${ICON.close}</button></div>`);
-      const row = linkList.lastElementChild, url = row.querySelector('.wt-link-edit__url'), label = row.querySelector('.wt-link-edit__label');
-      const hint = () => { label.placeholder = siteOf(webUrl(url.value)) || 'Label'; };
-      url.addEventListener('input', () => { url.setCustomValidity(''); hint(); });
-      row.querySelector('.wt-link-edit__remove').onclick = () => {
-        const next = row.nextElementSibling?.querySelector('input') || linkAdd;
-        row.remove();
-        showLinkAdd();
-        (linkAdd.hidden ? linkList.querySelector('input') : next)?.focus();
-      };
-      hint();
-      showLinkAdd();
-      return row;
-    }
-    for (const l of stop?.links || []) addLinkRow(l);
-    linkAdd.onclick = () => addLinkRow().querySelector('.wt-link-edit__url').focus();
-    // The links as saved, or null (with the field that's wrong showing why) when one isn't a web page
-    function readLinks() {
-      const links = [];
-      for (const row of linkList.children) {
-        const url = row.querySelector('.wt-link-edit__url'), label = row.querySelector('.wt-link-edit__label').value.trim();
-        if (!url.value.trim() && !label) continue;
-        const href = webUrl(url.value);
-        if (!href) {
-          url.setCustomValidity(url.value.trim() ? 'This isn’t a web address.' : 'Paste a link, or remove this one.');
-          url.reportValidity();
-          return null;
-        }
-        links.push({ url: href, label });
-      }
-      return links;
-    }
+    // ----- Links (see linkEditor) -----
+    const { readLinks } = linkEditor(el, stop?.links || []);
 
     // ----- Type: the picker row, and its page -----
     const showKind = () => {
@@ -619,7 +660,7 @@ export function openStopSheet(trip, stop, place = null) {
     let way = null, along = { list: [], waiting: false }, alongTimer, alongUntil = 0;
     function loadAlong() {
       clearTimeout(alongTimer);
-      if (placePage.hidden) return;
+      if (placePage.hidden || toIdeas) { if (toIdeas) paint(); return; }
       way = wayAround(trip, F.time.value || defaultTime(trip, after), stop?.id);
       along = way ? sightsAlong(trip, way) : { list: [], waiting: false };
       if (input.value.trim().length < 3) paint();
@@ -672,22 +713,29 @@ export function openStopSheet(trip, stop, place = null) {
     // runs, so the list doesn't flash), or a message that says what happened and what to try. Those on the way come
     // first, in the order search gave them, then the rest. Before anything's typed, the best known sights on the way,
     // under a heading that says which way; none of them is picked by Return until you move to it.
+    // A new stop's suggestions start with the trip's Want to go places, nearest the way first (those on it say so).
+    const wished = () => (stop || toIdeas ? [] : ideasOf(cur?.id === trip.id && cur.stops ? cur : trip)
+      .map(i => ({ ...i, kind: kindOf(i), detail: i.address || KINDS[kindOf(i)].label, idea: i.id, off: way ? kmOff(i, way.line) : 0 }))
+      .map(i => ({ ...i, on: !!way && i.off <= ON_THE_WAY_KM })).sort((a, b) => a.off - b.off));
     function paint() {
       const q = input.value.trim(), typed = q.length >= 3;
+      const wish = typed ? [] : wished();
       const results = typed
         ? found.list.map(p => ({ ...p, kind: guessKind(p.name, p.category), on: !!way && kmOff(p, way.line) <= ON_THE_WAY_KM })).sort((a, b) => b.on - a.on)
-        : along.list.map(s => ({ ...s, detail: s.address || KINDS[s.kind].label }));
+        : [...wish, ...along.list.map(s => ({ ...s, detail: s.address || KINDS[s.kind].label }))];
       let msg = '';
       if (typed && phase === 'error') msg = failText;
       else if (typed && phase === 'done' && !results.length) msg = `<b>No places match “${esc(q)}”</b>Try adding the town, or check the spelling.`;
-      const head = !typed && results.length ? (way.to ? `On the way to ${way.to.name}` : `Near ${way.from.name}`) : '';
+      // headings before the Want to go places and before the sights, each where its places start
+      const heads = typed ? [] : [wish.length && [0, 'Want to go'], results.length > wish.length && [wish.length, way.to ? `On the way to ${way.to.name}` : `Near ${way.from.name}`]].filter(Boolean);
+      const head = heads.map(h => h[1]).join(', then ');
       const prev = opts[active];
       opts = results;
-      list.innerHTML = (head ? `<div class="wt-results__head" role="presentation">${esc(head)}</div>` : '')
-        + opts.map((p, i) => optionHTML(p, i, typed ? q : '')).join('') + (msg ? `<div class="wt-results__msg" role="presentation">${msg}</div>` : '');
+      const headHTML = i => heads.filter(h => h[0] === i).map(h => `<div class="wt-results__head" role="presentation">${esc(h[1])}</div>`).join('');
+      list.innerHTML = opts.map((p, i) => headHTML(i) + optionHTML(p, i, typed ? q : '')).join('') + (msg ? `<div class="wt-results__msg" role="presentation">${msg}</div>` : '');
       input.setAttribute('aria-expanded', String(!!opts.length));
       // Under them, before anything's typed: where to eat around there, in the maps app
-      food.hidden = typed || !way || offlineNow();
+      food.hidden = typed || !way || toIdeas || offlineNow();
       if (!food.hidden) food.href = foodURL(way.from);
       // Return picks the top match, or the one moved to with the arrows, which stays put as results arrive
       const kept = prev ? opts.findIndex(p => placeKey(p) === placeKey(prev) && p.name === prev.name) : -1;
@@ -718,7 +766,7 @@ export function openStopSheet(trip, stop, place = null) {
       ctrl?.abort();
       ctrl = new AbortController();
       try {
-        const list = await api(`/places?q=${encodeURIComponent(q)}${nearParam(stop || way?.from)}`, { signal: ctrl.signal });
+        const list = await api(`/places?q=${encodeURIComponent(q)}${nearParam(stop || way?.from || (toIdeas && mapCamera()?.center))}`, { signal: ctrl.signal });
         cache.set(q.toLowerCase(), list);
         found = { q, list };
         phase = 'done';
@@ -732,9 +780,21 @@ export function openStopSheet(trip, stop, place = null) {
       if (input.value.trim() === q && !placePage.hidden) paint();
     }
     function pick(p) {
-      Object.assign(draft, { lat: p.lat, lng: p.lng, address: p.address, name: p.name });
+      // Add place on Want to go: it goes on the list, and the map comes to it
+      if (toIdeas) {
+        saved = true;
+        closeSheet();
+        const had = findIdea(cur?.id === trip.id && cur.stops ? cur : trip, p);
+        if (had) toast(`${had.name} is on Want to go already`);
+        const idea = had || addIdea(trip, { name: p.name, address: p.address || '', lat: p.lat, lng: p.lng, kind: p.kind || '' }, { say: true });
+        selectStop(idea);
+        zoomToStop(idea, 0);
+        return;
+      }
+      Object.assign(draft, { lat: p.lat, lng: p.lng, address: p.address, name: p.name, fromIdea: p.idea || null });
       // Another place isn't the sight it was
       if (draft.wikidata && (p.lat !== stop?.lat || p.lng !== stop?.lng)) { draft.wikidata = null; el.querySelector('.wt-about')?.remove(); }
+      if (p.idea && p.wikidata) draft.wikidata = p.wikidata; // a place from Want to go keeps its Wikidata item
       findItem();
       showPlace();
       status.textContent = `${p.name} picked`;
@@ -788,9 +848,18 @@ export function openStopSheet(trip, stop, place = null) {
       saved = true;
       state.draft = null; // so the list and map show the saved stop, not the draft
       if (stop) editStop(trip, stop, data); else addStop(trip, data);
+      // A place from Want to go, now on a day, comes off the list (unless another place was picked instead)
+      const wish = draft.fromIdea && ideasOf(cur?.id === trip.id && cur.stops ? cur : trip).find(i => i.id === draft.fromIdea);
+      if (wish && samePlace(wish, data)) deleteIdea(trip, wish, { quiet: true });
       closeSheet();
       centerFocus({ force: true, animate: false }); // the saved stop, wherever its time put it, in the middle of the list
     };
+    // Planned → Want to go: off its day, back to a place on the list (see moveToIdeas)
+    f.querySelector('[data-unplan]')?.addEventListener('click', () => {
+      saved = true;
+      closeSheet();
+      moveToIdeas(trip, stop);
+    });
     f.querySelector('[data-del]')?.addEventListener('click', () => {
       saved = true;
       closeSheet();
@@ -808,3 +877,5 @@ export function openStopSheet(trip, stop, place = null) {
   });
   if (stop || place) focusStop(draft);
 }
+// Want to go's Add place: the stop sheet's search page, on its own
+export const openIdeaSearch = trip => openStopSheet(trip, null, null, { toIdeas: true });

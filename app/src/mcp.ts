@@ -1,5 +1,5 @@
 import type { McpProps } from './oauth';
-import { ERR, KINDS, TRAVEL, cleanStop, type Stop } from './stop';
+import { ERR, KINDS, TRAVEL, cleanStop, type Idea, type Stop } from './stop';
 import type { TripRoom } from './trip';
 
 /* An MCP server, so an AI assistant can read a trip's stops and add, change or remove them for you. It speaks MCP's
@@ -19,8 +19,9 @@ type Tool = {
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 // Bump the version whenever a tool or its arguments change: a client may keep its copy of the tools until it does.
 // Say what changed at the top of CHANGES, which /developer/changelog shows.
-const SERVER = { name: 'dotsie', title: 'Dotsie', version: '2.1.0' };
+const SERVER = { name: 'dotsie', title: 'Dotsie', version: '2.2.0' };
 const CHANGES = [
+  { version: '2.2.0', date: '2026-11-10', changes: ['A trip’s Want to go list: places saved before they have a day. `list_stops` returns it as `ideas`; `add_idea` and `delete_idea` change it.'] },
   { version: '2.1.0', date: '2026-11-10', changes: ['`address`, `lat`, `lng` and `list_stops`’ `day` say what they are.', 'A stop’s `tz` and `duration`, added on Nov 8 without a new version, are part of this one.'] },
   { version: '2.0.0', date: '2026-11-07', changes: ['Folders are gone: `add_folder`, `rename_folder`, and a stop’s `folder` field. Crowded pins merge on the map instead.'] },
   { version: '1.1.0', date: '2026-11-06', changes: ['Stops have `links`, shown as buttons under them: `add_link` adds one, and `add_stop` and `edit_stop` take the whole list.', 'Stops have `travel`, how you get to them, and a hotel has `back`, each night’s way back to it.', 'Folders: `add_folder`, `rename_folder`, and a stop’s `folder` field.', 'A mistake in a call says which field is wrong and what it should be.'] },
@@ -28,6 +29,7 @@ const CHANGES = [
 ];
 const INSTRUCTIONS = `Dotsie plans road trips. A trip is a list of stops, each with a time ("YYYY-MM-DDTHH:MM"): the clock time where the stop is, in the place's own time zone, as on a ticket or a booking. A flight that leaves Los Angeles at 10:00 and lands in New York at 18:30 is two stops at those times.
 Call list_trips to find a trip and list_stops to see its plan; add_stop, edit_stop and delete_stop change it. Changes show at once for everyone on the trip.
+A trip also has a Want to go list: places the people on it would like to see, with no day yet (list_stops returns them as ideas). When you suggest places and nobody has said when to go, save them with add_idea rather than making up times; the people on the trip add them to a day in the app. Once a stop is added for an idea's place, delete the idea.
 A stop's links are buttons under it in the app, one tap from the plan. Whenever you find or are given a web page for a stop, add it with add_link instead of writing the URL in the note: a booking or reservation, a flight (the airline's booking or its flight status), tickets, the place's own site, a guide to it. Label each in a few words ("UA 123", "Hotel booking", "Tickets"). A flight's links go on the airport you fly from, where you'll need them; with no stop there, on the one you land at.`;
 
 const ID = /^[A-Za-z0-9_-]{6,40}$/;
@@ -105,6 +107,12 @@ const stopOut = (s: Stop, names: Map<string, string>) => ({
   id: s.id, name: s.name, address: s.address, lat: s.lat, lng: s.lng, time: s.time, tz: s.tz ?? null, duration: s.duration ?? null, checkout: s.checkout,
   kind: s.kind, nights: s.nights, travel: s.travel ?? 'drive', back: s.back ?? {}, note: s.note, links: s.links ?? [], updatedBy: names.get(s.by) ?? null, updatedAt: new Date(s.updatedAt).toISOString(),
 });
+// An idea as the assistant sees it: a stop's place and what's said about it, with no time
+const ideaOut = (i: Idea, names: Map<string, string>) => ({
+  id: i.id, name: i.name, address: i.address, lat: i.lat, lng: i.lng, kind: i.kind, savedBy: names.get(i.by) ?? null, savedAt: new Date(i.updatedAt).toISOString(),
+});
+// An idea is only a place: what's said about it, and its links, go on the stop it becomes
+const IDEA_FIELDS = ['name', 'address', 'lat', 'lng', 'kind'] as const;
 const memberNames = (members: { id: string; name: string }[]) => new Map(members.map(m => [m.id, m.name]));
 
 // A web page about a stop; the app shows it as a button with its label, or its site when it has none
@@ -158,7 +166,7 @@ const TOOLS: Tool[] = [
   {
     name: 'list_stops',
     title: 'List stops',
-    description: 'A trip’s plan: its stops in time order. Give day to see just that day’s stops.',
+    description: 'A trip’s plan: its stops in time order, and its Want to go list (ideas: places saved with no day yet). Give day to see just that day’s stops, with no ideas.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -174,7 +182,7 @@ const TOOLS: Tool[] = [
       const snap = await room(env, trip_id).snapshot(user.id);
       const names = memberNames(snap.members);
       const stops = snap.stops.filter(s => !day || s.time.startsWith(day as string)).map(s => stopOut(s, names));
-      return { trip: snap.trip, stops };
+      return { trip: snap.trip, stops, ...(!day && { ideas: snap.ideas.map(i => ideaOut(i, names)) }) };
     },
   },
   {
@@ -258,6 +266,50 @@ const TOOLS: Tool[] = [
       const stop = await r.deleteStop(user.id, id);
       if (!stop) throw new Error(ERR.notFound);
       return { deleted: stopOut(stop, names) };
+    },
+  },
+  {
+    name: 'add_idea',
+    title: 'Save a place to Want to go',
+    description: 'Save a place to a trip’s Want to go list, with no day or time: for places worth seeing that nobody has planned a day for yet. It needs a name and where it is (lat, lng); it’s only the place, with no note or links. Everyone on the trip sees it at once. Returns the idea as saved, with its new id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        trip_id: { type: 'string', description: 'From list_trips' },
+        ...Object.fromEntries(IDEA_FIELDS.map(k => [k, EDITABLE[k]])),
+      },
+      required: ['trip_id', 'name', 'lat', 'lng'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    async run(env, user, { trip_id, ...fields }) {
+      const missing = ['name', 'lat', 'lng'].filter(k => fields[k] === undefined);
+      if (missing.length) throw new ToolError(`An idea needs ${missing.join(', ')}.`);
+      const idea = await room(env, trip_id).putIdea(user.id, newId(), fieldsOf(Object.fromEntries(IDEA_FIELDS.filter(k => fields[k] !== undefined).map(k => [k, fields[k]]))));
+      return { idea: ideaOut(idea, new Map([[user.id, user.name]])) };
+    },
+  },
+  {
+    name: 'delete_idea',
+    title: 'Remove a place from Want to go',
+    description: 'Remove a place from a trip’s Want to go list, for everyone on it: when it won’t be visited, or once a stop has been added for it. Returns the idea as it was.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        trip_id: { type: 'string', description: 'From list_trips' },
+        idea_id: { type: 'string', description: 'From list_stops’ ideas' },
+      },
+      required: ['trip_id', 'idea_id'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    async run(env, user, { trip_id, idea_id }) {
+      if (typeof idea_id !== 'string' || !ID.test(idea_id)) throw new ToolError('idea_id isn’t an idea id. Call list_stops for one.');
+      const r = room(env, trip_id);
+      const names = memberNames((await r.snapshot(user.id)).members);
+      const idea = await r.deleteIdea(user.id, idea_id);
+      if (!idea) throw new ToolError('No such idea. Call list_stops for ids.');
+      return { deleted: ideaOut(idea, names) };
     },
   },
 ];

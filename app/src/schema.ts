@@ -47,6 +47,13 @@ export const SCHEMA: ((sql: Sql) => void)[] = [
     if (stops.has('folder')) sql.exec('alter table stops drop column folder');
     if (stops.has('done')) sql.exec('alter table stops drop column done');
   },
+  // 3. The Want to go list: places saved for the trip before they're given a day (2026-11-10). A stop's place, and
+  //    nothing else. saved_at keeps the list in the order its places were first saved.
+  sql => {
+    sql.exec(`create table if not exists ideas (
+      id text primary key, name text not null, address text not null, lat real not null, lng real not null,
+      kind text not null, wikidata text, by text not null, updated_at integer not null, saved_at integer not null)`);
+  },
 ];
 
 // Bring a trip's tables up to date. `transaction` runs a change as one transaction (the TripRoom's transactionSync).

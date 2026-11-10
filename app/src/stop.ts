@@ -123,3 +123,21 @@ export function cleanStop(input: unknown, partial: boolean): Partial<StopFields>
   if (!partial) out = { address: '', note: '', tz: null, duration: null, kind: '', nights: null, checkout: null, travel: 'drive', back: {}, links: [], wikidata: null, ...out };
   return out;
 }
+
+// An idea: a place on the trip's Want to go list, not given a day yet. It's a stop's place, and nothing else: no note or
+// links (those are for a stop), no time, stay or way there. They come when it's added to a day, as a stop. `by` is who
+// saved it.
+export type Idea = Pick<Stop, 'id' | 'name' | 'address' | 'lat' | 'lng' | 'kind' | 'wikidata' | 'by' | 'updatedAt'>;
+export type IdeaFields = Omit<Idea, 'id' | 'by' | 'updatedAt'>;
+const IDEA_KEYS = ['name', 'address', 'lat', 'lng', 'kind', 'wikidata'] as const;
+
+// Checks a whole idea (it's only ever written whole): its fields are checked as a stop's are; any other key (a time, a
+// note, links) is dropped.
+export function cleanIdea(input: unknown): IdeaFields {
+  if (!input || typeof input !== 'object') throw new Error(ERR.invalid);
+  const i = input as Record<string, unknown>;
+  const picked = Object.fromEntries(IDEA_KEYS.filter(k => i[k] !== undefined).map(k => [k, i[k]]));
+  const f = cleanStop(picked, true);
+  if (f.name === undefined || f.lat === undefined || f.lng === undefined) throw new Error(ERR.invalid);
+  return { address: '', kind: '', wikidata: null, ...f } as IdeaFields;
+}

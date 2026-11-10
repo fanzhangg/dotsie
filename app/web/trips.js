@@ -10,7 +10,7 @@ export let trips = null, cur = null;
 export const setTrips = v => { trips = v; };
 export const setCur = v => { cur = v; };
 const memberOf = id => cur?.members?.find(m => m.id === id);
-export const fromSnapshot = s => ({ id: s.trip.id, name: s.trip.name, owner: s.trip.owner, members: s.members, stops: s.stops });
+export const fromSnapshot = s => ({ id: s.trip.id, name: s.trip.name, owner: s.trip.owner, members: s.members, stops: s.stops, ideas: s.ideas || [] });
 
 // Writes show at once and save in the background. If one fails, reload the trip so the screen
 // matches what's saved.
@@ -114,6 +114,21 @@ export function onEvent(m) {
       cur.stops = cur.stops.filter(s => s.id !== m.id);
       if (!mine) note(`${who} removed ${m.name}`);
       break;
+    // Want to go: written whole, so the latest copy wins
+    case 'idea.upserted': {
+      const i = cur.ideas.findIndex(x => x.id === m.idea.id);
+      if (i >= 0 && cur.ideas[i].updatedAt === m.idea.updatedAt) return;
+      if (i < 0) cur.ideas.push(m.idea); else cur.ideas[i] = m.idea;
+      if (!mine) note(`${who} saved ${m.idea.name} to Want to go`);
+      break;
+    }
+    case 'idea.removed': {
+      if (!cur.ideas.some(x => x.id === m.id)) return;
+      cur.ideas = cur.ideas.filter(x => x.id !== m.id);
+      // taken off the list as it's added to a day: the new stop says what happened
+      if (!mine && !cur.stops.some(s => s.name === m.name)) note(`${who} removed ${m.name} from Want to go`);
+      break;
+    }
     case 'member.joined':
       if (!memberOf(m.member.id)) cur.members.push(m.member);
       if (!mine) note(`${m.member.name} joined`);

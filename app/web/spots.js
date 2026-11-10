@@ -4,11 +4,18 @@
    #/spots/<city>/<source>/<id> is one spot's guide entry, a page of its own with no app bar, its sources and other
    pages about it listed at the end. The entries are written by a model from the sources each lists
    (pipeline/guides.py) and published under CC BY-SA 4.0. */
-import { $app, ICON, appBarHTML, avatarHTML, esc, failHint } from './core.js';
+import { $app, ICON, appBarHTML, avatarHTML, esc, failHint, uid } from './core.js';
 import { api } from './backend.js';
 import { me } from './signin.js';
 import { MAPS_APPS, mapsApp, placeURL } from './routes.js';
 import { regionName } from './regions.js';
+import { IDEAS, findIdea, guessKind } from './plan.js';
+import { QID } from './fields.js';
+import { nowStamp } from './time.js';
+import { tripDates } from './home.js';
+import { openTripOn } from './timeline.js';
+import { closeSheet, modalHead, openSheet } from './sheets.js';
+import { failToast, toast } from './notices.js';
 
 const countryName = (() => {
   let names = null;
@@ -288,8 +295,63 @@ async function showEntry({ city, source, id }) {
   }
   if (s.key !== key) return;
   s.title = document.title = `${g.name} · Spots · Dotsie`;
+  s.spot = g;
   el.innerHTML = entryHTML(g);
 }
+
+// ---------- Save to a trip: the spot goes on a trip's Want to go list, with no day yet ----------
+// The trips still to come (or under way, or with no dates), soonest first, then a new one named for the spot's city. A
+// trip that has it already says Saved, and can't be picked. Saving says so, with Open, which opens the trip on Want to
+// go, and the button says where it went. Signed out, it asks you to sign in first.
+const savedTo = new Map(); // spot key → the trip it was saved to this visit
+// The place, and only the place, as on any Want to go list
+const spotIdea = g => ({
+  name: g.name, address: `${g.destination.name}, ${g.destination.state}`, lat: g.lat, lng: g.lng,
+  kind: guessKind(g.name) === 'place' ? 'attraction' : guessKind(g.name),
+  wikidata: g.source === 'wikidata' && QID.test(g.id) ? g.id : null,
+});
+async function saveSpot(g, btn) {
+  if (!me) { toast({ title: 'Sign in to save places to a trip', detail: 'Your trips, and who’s on them, are in your account.' }, 'Sign in', () => { location.hash = '#/'; }); return; }
+  btn.disabled = true;
+  let list;
+  try { list = await api('/trips'); } catch (err) { if (err.status !== 401) failToast(err, 'Couldn’t load your trips'); return; } finally { btn.disabled = false; }
+  const today = nowStamp().slice(0, 10), city = g.destination.name;
+  const trips = list.filter(t => !t.end || t.end.slice(0, 10) >= today)
+    .sort((a, b) => (a.start ? 0 : 1) - (b.start ? 0 : 1) || (a.start || '').localeCompare(b.start || ''));
+  const row = (value, label, detail, marker) => `<li><button type="button" class="wt-option" data-trip="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span></button></li>`;
+  const has = t => !!findIdea(t, g);
+  openSheet(`${modalHead('Save to a trip')}
+    <p class="wt-modal__text">It goes on the trip’s Want to go list, for everyone on it, until someone gives it a day.</p>
+    <ul class="wt-options" aria-label="Trips">${trips.map(t => row(t.id, t.name, has(t) ? 'Saved' : tripDates(t), `<i class="wt-marker spot-save__trip">${has(t) ? ICON.check : ICON.map}</i>`)).join('')}${row('', `New trip: ${city}`, 'Rename it in its settings', `<i class="wt-marker spot-save__trip">${ICON.plus}</i>`)}</ul>`, el => {
+    for (const t of trips) if (has(t)) el.querySelector(`[data-trip="${CSS.escape(t.id)}"]`).disabled = true;
+    for (const b of el.querySelectorAll('[data-trip]:not(:disabled)')) b.onclick = async () => {
+      const was = [...el.querySelectorAll('[data-trip]:not(:disabled)')];
+      for (const x of was) x.disabled = true;
+      try {
+        let id = b.dataset.trip, name = trips.find(t => t.id === id)?.name;
+        if (!id) ({ trip: { id, name } } = await api('/trips', { method: 'POST', body: { name: city } }));
+        await api(`/trips/${id}/ideas/${uid()}`, { method: 'PUT', body: spotIdea(g) });
+        closeSheet();
+        savedTo.set(spotKey(g), name);
+        showSaved(g);
+        toast(b.dataset.trip ? `Saved to ${name}` : `Saved to a new trip, ${name}`, 'Open', () => { openTripOn(IDEAS); location.hash = `#/trip/${id}`; });
+      } catch (err) {
+        for (const x of was) x.disabled = false;
+        if (err.status !== 401) failToast(err, 'Couldn’t save it to the trip');
+      }
+    };
+  });
+}
+const spotKey = g => `${g.destination.id}/${g.source}/${g.id}`;
+const saveLabel = g => (savedTo.has(spotKey(g)) ? `${ICON.check}Saved to ${esc(savedTo.get(spotKey(g)))}` : `${ICON.bookmark}Save to a trip`);
+function showSaved(g) {
+  const b = $app.querySelector('[data-spot-save]');
+  if (b && s.spot === g) { b.innerHTML = saveLabel(g); b.classList.toggle('wt-btn--primary', !savedTo.has(spotKey(g))); b.classList.toggle('wt-btn--secondary', savedTo.has(spotKey(g))); }
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest?.('[data-spot-save]');
+  if (b && s.spot && $app.dataset.page === 'spot') saveSpot(s.spot, b);
+});
 // The lead photo across the top, with the way back over its corner; with none, the way back on its own
 const topHTML = hero => `<div class="wt-guide__top${hero?.thumb ? ' wt-guide__top--photo' : ''}">
     <a class="wt-guide__back" href="#/spots${s.query ? `?${s.query}` : ''}" aria-label="All spots">${ICON.back}</a>
@@ -320,6 +382,7 @@ function entryHTML(g) {
       <p class="wt-guide__where">${esc(`${g.destination.name}, ${regionName(g.destination.country, g.destination.state)}`)}</p>
       <h1 class="wt-guide__name">${esc(g.name)}</h1>
       <p class="wt-guide__lede">${esc(g.oneLiner)}</p>
+      ${g.lat != null ? `<p class="spot-save"><button type="button" class="wt-btn ${savedTo.has(spotKey(g)) ? 'wt-btn--secondary' : 'wt-btn--primary'}" data-spot-save>${saveLabel(g)}</button></p>` : ''}
     </header>
     <div class="wt-guide__body">${(g.paragraphs ?? []).map((p, i) => `<p>${esc(p.text)}</p>${after(i + 1)}`).join('')}</div>
     ${g.practical?.length ? `<section class="wt-guide__section"><h2>Before you go</h2>

@@ -83,9 +83,9 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 
 | Route | What it does |
 | --- | --- |
-| `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights, travel, back }`, for the card's route sketch (at most 300) |
+| `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops, ideas }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights, travel, back }`, for the card's route sketch (at most 300); `ideas`, its Want to go places, only `{ id, name, lat, lng }` |
 | `POST /api/trips` `{ name }` | Create; returns the trip snapshot |
-| `GET /api/trips/:id` | `{ trip, members, stops }`; `trip.owner` is the id of whoever made it |
+| `GET /api/trips/:id` | `{ trip, members, stops, ideas }`; `trip.owner` is the id of whoever made it, and `ideas` is the trip's Want to go list (see below) |
 | `PATCH /api/trips/:id` `{ name }` | Rename |
 | `DELETE /api/trips/:id` · `POST /api/trips/:id/restore` | Soft delete and undo. Owner only (403 `not_owner`) |
 | `POST /api/trips/:id/leave` | Leave the trip; your stops stay. Everyone but the owner (the owner gets 400 `invalid`) |
@@ -99,7 +99,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `PUT /api/trips/:id/stops/:stopId` | Create a stop, or restore one (Undo). The client picks the id |
 | `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ kind: 'hotel', nights: 2, checkout: '11:00' }`. `links` is the whole list, `[{ url, label }]`: up to 10 http(s) pages, `label` up to 60 characters (`''` shows the page's site) |
 | `DELETE /api/trips/:id/stops/:stopId` | |
-| `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
+| `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `idea.upserted`, `idea.removed`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
 
 A stop is `{ id, name, address, lat, lng, time, tz, duration, note, kind, nights, checkout, travel, back, links, wikidata, by, updatedAt }`.
 
@@ -114,6 +114,17 @@ A stop is `{ id, name, address, lat, lng, time, tz, duration, note, kind, nights
 - `by` is the id of whoever changed it last, and `updatedAt` when, in milliseconds since 1970.
 
 Older clients may still send `done`: it's checked and dropped.
+
+### Want to go
+
+A trip's Want to go list: places the people on it would like to see, saved before they have a day. Adding one to a day is a new stop (`PUT …/stops/:stopId`), then the idea deleted.
+
+| Route | What it does |
+| --- | --- |
+| `PUT /api/trips/:id/ideas/:ideaId` | Save a place to the list, or restore one (Undo), whole. The client picks the id |
+| `DELETE /api/trips/:id/ideas/:ideaId` | |
+
+An idea is `{ id, name, address, lat, lng, kind, wikidata, by, updatedAt }`, each field as a stop's: a stop's place, and nothing else (no note or links, no time, stay or way there). `name`, `lat` and `lng` are needed; any other field a stop has is dropped. Saved again, an idea keeps its place in the list, which is in the order the ideas were first saved. It doesn't change the trip's dates, which come from its stops.
 
 ### Maps
 
@@ -189,6 +200,7 @@ Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member` 
 ### Good to know
 
 - **Coordinates:** there's no place search yet, so `add_stop` needs the place's `lat` and `lng`. Look them up first.
+- **Want to go:** places suggested with no day or time go on the trip's Want to go list with `add_idea`, rather than as stops with made-up times. People add them to a day in the app.
 - **Links** go in `links`, or one at a time with `add_link`, not in the note. They're taken however a model sends them: a JSON string, bare addresses, one link on its own, `title` for `label`, an address without `https://`.
 - **Mistakes:** a wrong argument, an id that isn't there, or a trip you're not on comes back as a tool result with `isError`, saying which field is wrong and what it should be, so the assistant can try again.
 - **Limits:** 60 calls a minute per person. Over that, `/api/mcp` answers 429 `rate_limited`.
@@ -206,17 +218,19 @@ OAuth 2.1, so a client finds everything it needs from the server's address:
 | Tool | Arguments | Returns |
 | --- | --- | --- |
 | `list_trips` | none | `{ trips: [{ id, name, start, end }] }`, newest edit first |
-| `list_stops` | `trip_id`, optional `day` (`YYYY-MM-DD`) | `{ trip, stops }`, in time order |
+| `list_stops` | `trip_id`, optional `day` (`YYYY-MM-DD`) | `{ trip, stops, ideas }`: the stops in time order, and the Want to go list. With `day`, that day's stops, and no `ideas` |
 | `add_stop` | `trip_id`, `name`, `lat`, `lng`, `time`, and any of `address`, `checkout`, `kind`, `nights`, `note`, `links` | `{ stop }`, as saved, with its new id |
 | `edit_stop` | `trip_id`, `stop_id`, and any of `name`, `address`, `lat`, `lng`, `time`, `checkout`, `kind`, `nights`, `note`, `links` | `{ stop }`, as saved. `links` replaces the whole list |
 | `add_link` | `trip_id`, `stop_id`, `url`, optional `label` | `{ stop }`, as saved. Adds the page to the stop's links, keeping the others; a page it has already only gets the new label |
 | `delete_stop` | `trip_id`, `stop_id` | `{ deleted }`: the stop as it was, so `add_stop` can put it back |
+| `add_idea` | `trip_id`, `name`, `lat`, `lng`, and any of `address`, `kind` | `{ idea }`, as saved, with its new id: a place on the Want to go list, with no day, and only the place |
+| `delete_idea` | `trip_id`, `idea_id` | `{ deleted }`: the idea as it was |
 
 Bump `SERVER.version` in `src/mcp.ts` whenever a tool or its arguments change, so clients have a reason to fetch the tools again, and say what changed at the top of `CHANGES` there: `/developer/changelog` shows it.
 
 Claude reaches the server from Anthropic's cloud, so a connector needs the deployed app; `wrangler dev` works with Claude Code on the same machine. Locally, use `http://localhost:8787` (what `BETTER_AUTH_URL` says), not `127.0.0.1`, since the OAuth issuer and resource are that address.
 
-A stop here is the API's stop, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time. Changes go through `TripRoom`'s `putStop`, `patchStop`, `addLink` and `deleteStop`, like the app's: the same checks, and everyone with the trip open sees them live.
+A stop here is the API's stop, with `by` swapped for `updatedBy` (a name) and `updatedAt` as an ISO time; an idea has `savedBy` and `savedAt`. Changes go through `TripRoom`'s `putStop`, `patchStop`, `addLink`, `deleteStop`, `putIdea` and `deleteIdea`, like the app's: the same checks, and everyone with the trip open sees them live.
 
 How it's built:
 
