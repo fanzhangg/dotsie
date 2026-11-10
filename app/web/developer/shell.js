@@ -9,7 +9,7 @@
 (() => {
   const MENU = [
     { items: [['/developer', 'Overview']] },
-    { title: 'MCP server', items: [['/developer/mcp', 'Connect an assistant'], ['/developer/tools', 'Tools'], ['/developer/sign-in', 'Sign-in']] },
+    { title: 'MCP server', items: [['/developer/mcp', 'Connect an assistant'], ['/developer/tools', 'Tools'], ['/developer/sign-in', 'Sign-in'], ['/developer/changelog', 'Changelog']] },
     { title: 'App', items: [['/developer/api', 'App API']] },
     { title: 'Data', items: [['/developer/spots', 'Spots data'], ['/developer/guide', 'Guide preview']] },
   ];

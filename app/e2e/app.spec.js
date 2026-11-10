@@ -207,7 +207,7 @@ test('on a computer, spots come in pages of 24; on a phone, 30 then Show more', 
 test('the developer pages: a menu of pages, the MCP server’s tools as the server gives them, and the app’s API', async ({ page }) => {
   await page.goto('/developer');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Developers');
-  const { url, tools } = await (await page.request.get('/api/developer/mcp')).json();
+  const { url, tools, server } = await (await page.request.get('/api/developer/mcp')).json();
   await expect(page.locator('#mcp-url')).toHaveText(url);
 
   const menu = page.getByRole('navigation', { name: 'Developers' });
@@ -220,11 +220,18 @@ test('the developer pages: a menu of pages, the MCP server’s tools as the serv
   await expect(menu).toBeHidden();
   await expect(page.locator('#tool-list h2')).toHaveText(tools.map(t => new RegExp(`^${t.name} `)));
   await expect(page.locator('section', { has: page.locator('#tool-add_stop') })).toContainText('trip_id');
+  // edit_stop takes add_stop's fields: named once, not listed again
+  await expect(page.locator('section', { has: page.locator('#tool-edit_stop') })).toContainText('Any of name, address, lat, lng');
 
   // The pages in the menu's order, one after another
   await page.getByRole('link', { name: /^Next/ }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign-in');
   await expect(page.locator('#oauth')).toContainText('/.well-known/oauth-authorization-server');
+  await expect(page.locator('#signin-docs ol li')).toHaveCount(4); // the steps, from README.md
+  await page.getByRole('link', { name: /^Next/ }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Changelog');
+  await expect(page.locator('#changes h2').first()).toContainText(server.version);
+  await page.getByRole('link', { name: /^Previous/ }).click();
   await page.getByRole('link', { name: /^Previous/ }).click();
   await page.getByRole('link', { name: /^Previous/ }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Connect an assistant');

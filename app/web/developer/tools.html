@@ -17,8 +17,73 @@
     <header class="dev__head">
       <p class="dev__crumb">MCP server</p>
       <h1 class="dev__title">Tools</h1>
-      <p class="dev__lede">As the server lists them (<code>tools/list</code>). Each returns JSON as structured content and as text; a mistake in the arguments comes back as a tool result with <code>isError</code>, saying which field is wrong.</p>
+      <p class="dev__lede">What an assistant can call: tools that read people’s trips, and tools that change their stops. Each returns JSON, as structured content and as text.</p>
     </header>
+    <section class="dev__section" aria-labelledby="example">
+      <h2 class="dev__h2" id="example" data-toc="Example">An example call</h2>
+      <div class="dev__prose">
+        <p>Adding a hotel for two nights. The assistant’s MCP client sends this for it, with the access token from <a href="/developer/sign-in">sign-in</a>:</p>
+        <pre id="example-request"><code>POST /api/mcp
+Authorization: Bearer &lt;access token&gt;
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "add_stop",
+    "arguments": {
+      "trip_id": "k3v9qz7p2m4x",
+      "name": "Zion Lodge",
+      "lat": 37.2506,
+      "lng": -112.9571,
+      "time": "2026-05-14T16:00",
+      "kind": "hotel",
+      "nights": 2
+    }
+  }
+}</code></pre>
+        <p>The stop comes back as saved, with its new id:</p>
+        <pre id="example-response"><code>{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "structuredContent": {
+      "stop": {
+        "id": "3f9a1c0b7e2d4a65",
+        "name": "Zion Lodge",
+        "address": "",
+        "lat": 37.2506,
+        "lng": -112.9571,
+        "time": "2026-05-14T16:00",
+        "tz": null,
+        "duration": null,
+        "checkout": null,
+        "kind": "hotel",
+        "nights": 2,
+        "travel": "drive",
+        "back": {},
+        "note": "",
+        "links": [],
+        "updatedBy": "Sam",
+        "updatedAt": "2026-11-10T18:22:05.000Z"
+      }
+    },
+    "content": [{ "type": "text", "text": "{\"stop\":{\"id\":\"3f9a1c0b7e2d4a65\", …}}" }]
+  }
+}</code></pre>
+        <p>A wrong argument comes back as a result too, with <code>isError</code>, saying which one and what it should be, so the assistant can try again:</p>
+        <pre><code>{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "content": [{ "type": "text", "text": "time isn’t valid: When you arrive, \"YYYY-MM-DDTHH:MM\", in the clock time where the stop is …" }],
+    "isError": true
+  }
+}</code></pre>
+      </div>
+    </section>
     <div class="dev__tools" id="tool-list"></div>
     <p class="dev__foot" id="loading">Loading…</p>
   </main>

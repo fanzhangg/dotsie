@@ -16,7 +16,7 @@
   <main class="dev">
     <header class="dev__head">
       <h1 class="dev__title">Developers</h1>
-      <p class="dev__lede">Dotsie plans road trips that everyone on a trip can edit. An AI assistant can read and change people’s trips through the MCP server, with their permission. Here are the server, the app’s own API, and the places data Dotsie collects.</p>
+      <p class="dev__lede">Dotsie plans road trips that everyone on a trip can edit. An AI assistant can read and change people’s trips through its MCP server, with their permission.</p>
     </header>
 
     <section class="dev__quick" aria-labelledby="quick-title">
@@ -25,14 +25,24 @@
       <p class="dev__hint">Add it to Claude as a custom connector, or to any MCP client: it signs in with OAuth, so the address is all it needs. <a href="/developer/mcp">How to connect</a></p>
     </section>
 
-    <div class="dev__cards">
-      <a class="dev__card" href="/developer/mcp"><span class="dev__overline">MCP server</span><span class="dev__card-title">Connect an assistant</span><span class="dev__card-text">Add Dotsie to Claude, Claude Code or another MCP client, and what the server tells an assistant.</span></a>
-      <a class="dev__card" href="/developer/tools"><span class="dev__overline">MCP server</span><span class="dev__card-title">Tools</span><span class="dev__card-text">What an assistant can do: list trips and stops, and add, edit and delete stops. Each tool’s arguments.</span></a>
-      <a class="dev__card" href="/developer/sign-in"><span class="dev__overline">MCP server</span><span class="dev__card-title">Sign-in</span><span class="dev__card-text">OAuth 2.1, found from the discovery documents. People allow an assistant, and it acts as them.</span></a>
-      <a class="dev__card" href="/developer/api"><span class="dev__overline">App</span><span class="dev__card-title">App API</span><span class="dev__card-text">The routes the Dotsie app itself uses: trips, stops, maps and spots, and its live events.</span></a>
-      <a class="dev__card" href="/developer/spots"><span class="dev__overline">Data</span><span class="dev__card-title">Search the spots data</span><span class="dev__card-text">What Wikidata and the National Park Service say about places in the US, collected each month, state by state.</span></a>
-      <a class="dev__card" href="/developer/guide"><span class="dev__overline">Data</span><span class="dev__card-title">Preview the guide</span><span class="dev__card-text">The guidebook entries a model writes from the spots data, under CC BY-SA 4.0, for review before they reach the app.</span></a>
-    </div>
+    <section class="dev__section">
+      <h2 class="dev__h2">MCP server</h2>
+      <div class="dev__cards">
+        <a class="dev__card" href="/developer/mcp"><span class="dev__card-title">Connect an assistant</span><span class="dev__card-text">Add Dotsie to Claude, Claude Code or another MCP client, and what to know before you build on it.</span></a>
+        <a class="dev__card" href="/developer/tools"><span class="dev__card-title">Tools</span><span class="dev__card-text">List trips and stops, and add, edit and delete stops: each tool’s arguments, and an example call.</span></a>
+        <a class="dev__card" href="/developer/sign-in"><span class="dev__card-title">Sign-in</span><span class="dev__card-text">OAuth 2.1, step by step: people allow an assistant, and it acts as them.</span></a>
+        <a class="dev__card" href="/developer/changelog"><span class="dev__card-title">Changelog</span><span class="dev__card-text">What each version of the server changed.</span></a>
+      </div>
+    </section>
+
+    <section class="dev__section">
+      <h2 class="dev__h2">App and data</h2>
+      <div class="dev__cards">
+        <a class="dev__card" href="/developer/api"><span class="dev__card-title">App API</span><span class="dev__card-text">The routes the Dotsie app itself uses: trips, stops, maps and spots, its live events, and its limits.</span></a>
+        <a class="dev__card" href="/developer/spots"><span class="dev__card-title">Search the spots data</span><span class="dev__card-text">What Wikidata and the National Park Service say about places in the US, collected each month, state by state.</span></a>
+        <a class="dev__card" href="/developer/guide"><span class="dev__card-title">Preview the guide</span><span class="dev__card-text">The guidebook entries a model writes from that data, as the app’s Spots page shows them, with why each is a pick and how close it keeps to its sources.</span></a>
+      </div>
+    </section>
   </main>
   <script src="/design-system/icons.js"></script>
   <script src="/developer/shell.js"></script>

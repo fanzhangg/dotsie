@@ -22,7 +22,8 @@ const message = (title, text) => `<p class="wt-results__msg"><b>${esc(title)}</b
 const head = (crumbs, title, intro) => `<header class="dev__head">
     <p class="dev__crumb">${crumbs.map(([href, text]) => href ? `<a href="${esc(href)}">${esc(text)}</a>` : esc(text)).join(' / ')}</p>
     <h1 class="dev__title">${esc(title)}</h1>${intro ? `<p class="dev__lede">${intro}</p>` : ''}</header>`;
-const REVIEW = 'Written by a model from the sources each entry lists, for review: not in the app yet.';
+const REVIEW = 'Written by a model from the sources each entry lists. The app’s Spots page shows them; here each comes with what it takes to review it.';
+const plural = (n, word) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
 
 // A Commons photo, with its credit: author, licence, and a link to its page there
 const credit = img => `${esc(img.author || 'Unknown author')}, ${esc(img.licence || 'see Commons')}, via ${link(img.page, 'Wikimedia Commons')}`;
@@ -37,7 +38,7 @@ async function showDestinations() {
   $('#guide').innerHTML = head([[null, 'Data']], 'Guide preview', esc(REVIEW)) + (dests.length
     ? `<div class="dev__results">${dests.map(d => `<a class="wt-option" href="#${esc(d.id)}">
         <span class="wt-option__text"><span class="wt-option__label">${esc(d.name)}</span>
-        <span class="wt-option__detail">${esc([d.kind, d.state, `${d.picks} picks`, day(d.builtAt)].filter(Boolean).join(' · '))}</span></span></a>`).join('')}</div>`
+        <span class="wt-option__detail">${esc([d.kind, d.state, plural(d.picks, 'pick'), day(d.builtAt)].filter(Boolean).join(' · '))}</span></span></a>`).join('')}</div>`
     : message('No destinations yet', 'The guides workflow hasn’t written one yet.'));
 }
 
@@ -48,7 +49,7 @@ async function showPicks(dest) {
   const c = d.counts ?? {};
   const how = c.candidates ? `Chosen from ${c.candidates.toLocaleString('en-US')} places with a Wikipedia article or an NPS page: ${c.sights} judged sights, the ${c.shortlist} most read of them shortlisted. ` : '';
   $('#guide').innerHTML = head([[null, 'Data'], ['#', 'Guide preview']], d.name,
-    `${esc(d.picks.length)} places worth a special trip. ${esc(how)}${esc(REVIEW)} Built ${esc(day(d.builtAt))}.`) +
+    `${esc(plural(d.picks.length, 'place'))} worth a special trip. ${esc(how)}${esc(REVIEW)} Built ${esc(day(d.builtAt))}.`) +
     `<ol class="guide__picks">${d.picks.map(p => `<li><a class="guide__pick" href="#${esc(d.id)}/${esc(p.source)}/${esc(p.id)}">
         ${p.hero ? `<img src="${esc(p.hero.thumb)}" alt="" loading="lazy">` : '<span class="guide__nophoto"></span>'}
         <span class="guide__pick-text"><span class="guide__rank">${p.rank}</span> <span class="wt-option__label">${esc(p.name)}</span>

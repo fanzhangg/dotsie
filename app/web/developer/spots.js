@@ -23,11 +23,11 @@ const message = (title, text) => `<p class="wt-results__msg"><b>${esc(title)}</b
 
 // ---------- The states loaded so far ----------
 api('states').then(states => {
-  for (const s of states) $('#state').insertAdjacentHTML('beforeend', `<option value="${esc(s.state)}">${esc(s.state)}</option>`);
+  // Each state in the filter with how many records it has; above, how much there is in all and when it was last loaded
+  for (const s of states) $('#state').insertAdjacentHTML('beforeend', `<option value="${esc(s.state)}">${esc(s.state)} · ${esc(count(s.records))}</option>`);
   const total = states.reduce((n, s) => n + s.records, 0);
-  if (states.length) {
-    $('#loaded').textContent += ` Loaded so far: ${states.map(s => `${s.state} (${count(s.records)}, ${day(s.loadedAt)})`).join(', ')}; ${total.toLocaleString('en-US')} records.`;
-  }
+  const last = states.reduce((t, s) => s.loadedAt > t ? s.loadedAt : t, '');
+  if (states.length) $('#loaded').textContent = `${total.toLocaleString('en-US')} record${total === 1 ? '' : 's'} from ${states.length} state${states.length === 1 ? '' : 's'}, last loaded ${day(last)}.`;
 }).catch(() => {});
 
 // ---------- Search ----------
