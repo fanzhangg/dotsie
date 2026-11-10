@@ -315,6 +315,24 @@ test('the developer pages: a menu of pages, the MCP server’s tools as the serv
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
 });
 
+// How the spots data is made: written by hand, reached from Overview and the menu, its steps marked code or a model
+test('how the spots data is made: from Overview, with each step marked code or a model', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/developer');
+  await page.getByRole('link', { name: /^How the spots data is made/ }).click();
+  await expect(page).toHaveURL(/\/developer\/pipeline$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('How the spots data is made');
+  const menu = page.getByRole('navigation', { name: 'Developers' });
+  await expect(menu.getByRole('link', { name: 'How it’s made' })).toHaveAttribute('aria-current', 'page');
+  const guide = page.locator('.pipe__steps').nth(1);
+  await expect(guide.locator('.pipe__step--model .pipe__name')).toHaveText([/Is it a sight\? Haiku/, /Pick Sonnet/, /Write Sonnet/, /Pictures Haiku/]);
+  const contents = page.getByRole('complementary', { name: 'On this page' });
+  await contents.getByRole('link', { name: 'What the model never does' }).click();
+  await expect(page.getByRole('heading', { level: 2, name: 'What the model never does' })).toBeInViewport();
+  await page.getByRole('link', { name: /^Next/ }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
+});
+
 // On a wide screen the menu stays on the left, and the page's own headings are on the right
 test('a developer page on a wide screen: the menu beside it, and its headings to jump to', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
