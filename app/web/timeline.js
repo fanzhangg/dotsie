@@ -146,15 +146,15 @@ function ideasHTML(trip) {
 // Offline, adding and editing are greyed out (aria-disabled), and a tap says why (see needsConnection).
 function addBarHTML(trip) {
   const s = selectedStop(trip), off = offlineNow() ? ' aria-disabled="true"' : '';
-  // A place on Want to go, selected: the bar is a stop's, [main] (round) (+), and the round button is always its state,
-  // the filled bookmark (a tap takes it off the list, with Undo; see edits.js). The main one, on a day (its hollow pin
+  // A place on Want to go, selected: the bar is a stop's, [main] (round) (+), and the round button is always Remove, the
+  // trash (a tap takes it off the list, with Undo; see edits.js). The main one, on a day (its hollow pin
   // on the map), is Add to this day, which gives it a time there; on Want to go, a plain list with no days or times,
   // and the overview, Open in Maps, to see whether it's worth going. Nothing selected, Want to go's own is Save place.
   const day = currentDay(trip), i = selectedIdea(trip), onDay = day !== IDEAS && day !== ALL;
   const savePlus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add-idea"${off} aria-label="Save place" title="Save place">${ICON.plus}</button>`;
   const stopPlus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add"${off} aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
   if (i) {
-    const saved = `<button class="wt-btn wt-btn--secondary wt-btn--icon wt-btn--saved" data-key="edit" data-action="remove-idea" data-id="${esc(i.id)}"${off} aria-pressed="true" aria-label="Saved to Want to go. Remove it" title="Remove from Want to go">${ICON.bookmark}</button>`;
+    const saved = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="remove-idea" data-id="${esc(i.id)}"${off} aria-label="Remove from Want to go" title="Remove from Want to go">${ICON.trash}</button>`;
     return (onDay
       ? `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="main" data-action="idea-to-day" data-id="${esc(i.id)}" data-day="${day}"${off}>${ICON.calendar}Add to this day</button>`
       : `<a class="wt-btn wt-btn--primary wt-btn--block" data-key="main" href="${esc(placeURL(i))}" target="_blank" rel="noopener" aria-label="Open ${esc(i.name)} in your maps app">${ICON.map}Open in Maps</a>`)

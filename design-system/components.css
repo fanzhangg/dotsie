@@ -1,4 +1,4 @@
-/* Dotsie design system — components v15.2.0
+/* Dotsie design system — components v15.3.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -19,13 +19,13 @@
 :where(.wt-btn, .wt-icon-btn, .wt-avatar-stack, .wt-toast__action, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel, .wt-link-add) {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
 }
-:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-tl-day, .wt-trip-card, .wt-spot-card, .wt-avatar-stack, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
+:where(.wt-btn, .wt-icon-btn, .wt-tl-drive, .wt-tl-day, .wt-trip-card, .wt-spot-card__link, .wt-avatar-stack, .wt-sheet__grab, .wt-picker, .wt-option, .wt-search__clear, .wt-search-bar__cancel):focus-visible {
   outline: 2px solid var(--wt-border-focus);
   outline-offset: 2px;
   border-radius: var(--wt-radius-md);
 }
 :where(.wt-btn, .wt-icon-btn):disabled { opacity: .35; cursor: default; }
-a:where(.wt-btn, .wt-icon-btn, .wt-trip-card, .wt-spot-card, .wt-nav__link, .wt-guide__back, .wt-guide__link) { color: inherit; text-decoration: none; }
+a:where(.wt-btn, .wt-icon-btn, .wt-trip-card, .wt-spot-card__link, .wt-nav__link, .wt-guide__back, .wt-guide__link) { color: inherit; text-decoration: none; }
 
 /* ---------- Button ---------- */
 .wt-btn {
@@ -973,13 +973,19 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 /* ---------- Spot card (Spots) ---------- */
 /* A place worth a trip. On a phone, a row: a square photo on the left, and beside it where it is (small capitals),
    its name, and the guide's one line on it. From 768px wide, a card in a grid, its photo across the top. Set apart by
-   its surface alone, like a trip card, on --wt-surface-sheet. With no photo, the map's color and a pin hold its place. */
-.wt-spot-card {
-  display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: var(--wt-space-3);
-  padding: var(--wt-space-2); overflow: hidden;
-  border-radius: var(--wt-radius-md); background: var(--wt-surface-raised); transition: background var(--wt-duration-fast);
+   its surface alone, like a trip card, on --wt-surface-sheet. With no photo, the map's color and a pin hold its place.
+   The card holds its link (__link: the photo and the text) and, in its top right corner, its bookmark (__save), which
+   saves it without leaving the list: filled (aria-pressed) once it's saved. */
+.wt-spot-card { position: relative; overflow: hidden; border-radius: var(--wt-radius-md); background: var(--wt-surface-raised); transition: background var(--wt-duration-fast); }
+.wt-spot-card__link, .wt-spot-card--loading {
+  display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: var(--wt-space-3); padding: var(--wt-space-2);
 }
-.wt-spot-card:hover, .wt-spot-card:active { background: var(--wt-surface-sunken); }
+.wt-spot-card__link { border-radius: inherit; }
+.wt-spot-card:has(> .wt-spot-card__link:is(:hover, :active)) { background: var(--wt-surface-sunken); }
+.wt-spot-card.has-save .wt-spot-card__body { padding-right: 40px; }
+.wt-spot-card__save { position: absolute; top: var(--wt-space-1); right: var(--wt-space-1); color: var(--wt-text-secondary); }
+.wt-spot-card__save[aria-pressed="true"] { color: var(--wt-text-primary); }
+.wt-spot-card__save[aria-pressed="true"] .wt-icon { fill: currentColor; }
 .wt-spot-card__photo { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--wt-radius-sm); background: var(--wt-surface-map); }
 .wt-spot-card__photo--none { display: grid; place-items: center; color: var(--wt-text-tertiary); }
 .wt-spot-card__body { display: grid; gap: 3px; align-content: center; padding: var(--wt-space-1) var(--wt-space-1) var(--wt-space-1) 0; }
@@ -994,9 +1000,15 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
 }
 @media (min-width: 768px) {
-  .wt-spot-card { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
+  .wt-spot-card__link, .wt-spot-card--loading { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
   .wt-spot-card__photo { aspect-ratio: 3 / 2; border-radius: 0; }
-  .wt-spot-card__body { gap: var(--wt-space-1); padding: var(--wt-space-3) var(--wt-space-4) var(--wt-space-4); }
+  .wt-spot-card__body, .wt-spot-card.has-save .wt-spot-card__body { gap: var(--wt-space-1); padding: var(--wt-space-3) var(--wt-space-4) var(--wt-space-4); }
+  /* over the photo's corner, frosted, as a guide's way back is */
+  .wt-spot-card__save {
+    top: var(--wt-space-2); right: var(--wt-space-2); color: var(--wt-text-primary);
+    background: color-mix(in oklab, var(--wt-surface-raised) 80%, transparent); box-shadow: var(--wt-shadow-float);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  }
 }
 
 /* Loading: grey bars where the text goes, until the spots come, so the page doesn't jump when they do */

@@ -267,7 +267,7 @@ app.get('/spots/search', async c => {
   if (state) { where.push('d.state = ?'); args.push(state); }
   if (city) { where.push('d.id = ?'); args.push(city); }
   const { results } = await c.env.DB.prepare(
-    `select g.source, g.id, g.name, g.one_liner, g.images, min(p.rank) as rank, d.id as city, d.name as city_name, d.state, d.country,
+    `select g.source, g.id, g.name, g.one_liner, g.images, min(p.rank) as rank, d.id as city, d.name as city_name, d.state, d.country, pl.lat, pl.lng,
        ${VIEWS} as views, count(*) over () as total from spot_guides g
        join spot_picks p on p.source = g.source and p.id = g.id
        join spot_destinations d on d.id = p.destination
@@ -275,7 +275,7 @@ app.get('/spots/search', async c => {
      ${where.length ? 'where ' + where.join(' and ') : ''}
      group by g.source, g.id order by ${city ? 'rank, ' : ''}views desc nulls last, rank, g.name limit ? offset ?`,
   ).bind(...args, limit, offset).all<{ source: string; id: string; name: string; one_liner: string; images: string | null; rank: number;
-    city: string; city_name: string; state: string; country: string; views: number | null; total: number }>();
+    city: string; city_name: string; state: string; country: string; lat: number | null; lng: number | null; views: number | null; total: number }>();
   // Past the last page there's no row to say how many there are: ask
   const total = results[0]?.total ?? (offset ? (await c.env.DB.prepare(
     `select count(distinct g.source || ' ' || g.id) as n from spot_guides g join spot_picks p on p.source = g.source and p.id = g.id
@@ -283,7 +283,7 @@ app.get('/spots/search', async c => {
   return c.json({
     results: results.map(r => ({ source: r.source, id: r.id, name: r.name, oneLiner: r.one_liner,
       hero: json<Images>(r.images, { hero: null, inline: [] }).hero, rank: r.rank, city: { id: r.city, name: r.city_name },
-      state: r.state, country: r.country, views: r.views })),
+      state: r.state, country: r.country, lat: r.lat, lng: r.lng, views: r.views })),
     total, more: offset + results.length < total,
   }, 200, SPOTS_CACHE);
 });

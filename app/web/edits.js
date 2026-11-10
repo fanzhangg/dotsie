@@ -7,8 +7,8 @@
                          no time                             a note and links
      PLANNED ── Delete ──▶ (none)
 
-   Save and Move to Want to go are the bookmark; a filled bookmark says it's on Want to go, and a tap removes it. Add to
-   this day is the calendar, and happens only on a day: that's where a time comes from. Every change says what happened,
+   Save and Move to Want to go are the bookmark (filled once a place is saved); Remove is the trash, Delete is in a
+   stop's sheet. Add to this day is the calendar, and happens only on a day: that's where a time comes from. Every change says what happened,
    with Undo, which puts the place back as it was. */
 import { esc, state, uid } from './core.js';
 import { fmtDur } from './time.js';

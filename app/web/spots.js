@@ -44,6 +44,7 @@ const headHTML = () => appBarHTML('spots', me
 export function renderSpots(r) {
   if (!$app.querySelector('.spots')) mount();
   else $app.querySelector('.wt-app-bar').outerHTML = headHTML(); // signed in or out since
+  if (!me) myTrips = null;
   // A spot is a page of its own, to read: no app bar, one column (see #app[data-page="spot"] in styles.css)
   $app.dataset.page = r.page === 'spot' ? 'spot' : 'spots';
   $app.querySelector('.wt-app-bar').hidden = r.page === 'spot';
@@ -114,7 +115,7 @@ function mount() {
     search(s.page).then(() => list.scrollIntoView({ block: 'start' }));
   });
   list.addEventListener('click', e => {
-    if (e.target.closest('.wt-spot-card')) s.fromList = true;
+    if (e.target.closest('.wt-spot-card__link')) s.fromList = true;
     if (e.target.closest('[data-retry]')) search(s.page);
   });
   $app.querySelector('.spots-entry').addEventListener('click', e => {
@@ -124,6 +125,7 @@ function mount() {
   s.query = s.key = null; // asked again: renderSpots reads the address, and shows the spot afresh
   if (!s.cities) loadCities(); else renderFilters();
   if (s.results.length) showResults(); // as it was, while it's asked again
+  markSaved();
 }
 // The search and the filters stay at the top of the list as it scrolls, just under the app bar, whatever height the
 // bar is (the phone's safe area adds to it), or at the very top while a phone's bar is tucked away: see .spots-band
@@ -265,11 +267,13 @@ function cardHTML(p) {
   const photo = p.hero?.thumb
     ? `<img class="wt-spot-card__photo" src="${esc(p.hero.thumb)}" alt="" loading="lazy" decoding="async" title="Photo: ${esc(p.hero.author || 'Unknown author')} · ${esc(p.hero.licence || '')}">`
     : `<span class="wt-spot-card__photo wt-spot-card__photo--none" aria-hidden="true">${ICON.pin}</span>`;
-  return `<a class="wt-spot-card" href="${spotHash(p)}">
+  // the card is the link to its page; its bookmark, in its corner, saves it to trips without leaving the list
+  const pl = cardPlace(p);
+  return `<div class="wt-spot-card${canSave(pl) ? ' has-save' : ''}"><a class="wt-spot-card__link" href="${spotHash(p)}">
     ${photo}
     <span class="wt-spot-card__body"><span class="wt-spot-card__name">${esc(p.name)}</span>
       <span class="wt-spot-card__line">${esc(p.oneLiner)}</span>
-      <span class="wt-spot-card__where">${esc(`${p.city.name}, ${p.state}`)}</span></span></a>`;
+      <span class="wt-spot-card__where">${esc(`${p.city.name}, ${p.state}`)}</span></span></a>${canSave(pl) ? bookmarkHTML(pl) : ''}</div>`;
 }
 // A photo that won't load (offline, blocked) gives way: to the card's pin, or to the text
 document.addEventListener('error', e => {
@@ -299,59 +303,104 @@ async function showEntry({ city, source, id }) {
   el.innerHTML = entryHTML(g);
 }
 
-// ---------- Save to a trip: the spot goes on a trip's Want to go list, with no day yet ----------
-// The trips still to come (or under way, or with no dates), soonest first, then a new one named for the spot's city. A
-// trip that has it already says Saved, and can't be picked. Saving says so, with Open, which opens the trip on Want to
-// go, and the button says where it went. Signed out, it asks you to sign in first.
-const savedTo = new Map(); // spot key → the trip it was saved to this visit
-// The place, and only the place, as on any Want to go list
-const spotIdea = g => ({
-  name: g.name, address: `${g.destination.name}, ${g.destination.state}`, lat: g.lat, lng: g.lng,
-  kind: guessKind(g.name) === 'place' ? 'attraction' : guessKind(g.name),
-  wikidata: g.source === 'wikidata' && QID.test(g.id) ? g.id : null,
+// ---------- Save to trips: a spot goes on the Want to go list of as many trips as you like ----------
+// From its card in the list (a bookmark on it) or its page (the button floating at the bottom, as Plan's does). A sheet
+// of your trips still to come (or under way, or with no dates), soonest first, each a checkbox: ticking one saves the
+// spot to it, at once, and unticking takes it off again; then a new trip named for the spot's city. Closing it says
+// where it went, with Open for one trip. A saved spot's bookmark is filled, and its page's button says where.
+// Signed out, it asks you to sign in first.
+let myTrips = null; // your trips, as Home's cards have them (with each one's Want to go places), once asked this visit
+async function loadMyTrips() {
+  const today = nowStamp().slice(0, 10);
+  const list = await api('/trips');
+  myTrips = list.filter(t => !t.end || t.end.slice(0, 10) >= today)
+    .sort((a, b) => (a.start ? 0 : 1) - (b.start ? 0 : 1) || (a.start || '').localeCompare(b.start || ''));
+  return myTrips;
+}
+// A spot as a place, from its card or its page: the place and only the place, as on any Want to go list
+const cardPlace = p => ({ key: `${p.city.id}/${p.source}/${p.id}`, name: p.name, city: p.city.name, address: `${p.city.name}, ${p.state}`, lat: p.lat, lng: p.lng, source: p.source, id: p.id });
+const pagePlace = g => ({ key: `${g.destination.id}/${g.source}/${g.id}`, name: g.name, city: g.destination.name, address: `${g.destination.name}, ${g.destination.state}`, lat: g.lat, lng: g.lng, source: g.source, id: g.id });
+const ideaOf = pl => ({
+  name: pl.name, address: pl.address, lat: pl.lat, lng: pl.lng, kind: guessKind(pl.name) === 'place' ? 'attraction' : guessKind(pl.name),
+  wikidata: pl.source === 'wikidata' && QID.test(pl.id) ? pl.id : null,
 });
-async function saveSpot(g, btn) {
+const savedIn = pl => (myTrips || []).filter(t => findIdea(t, pl));
+const canSave = pl => pl.lat != null && pl.lng != null;
+
+async function saveSpot(pl, btn) {
   if (!me) { toast({ title: 'Sign in to save places to a trip', detail: 'Your trips, and who’s on them, are in your account.' }, 'Sign in', () => { location.hash = '#/'; }); return; }
   btn.disabled = true;
-  let list;
-  try { list = await api('/trips'); } catch (err) { if (err.status !== 401) failToast(err, 'Couldn’t load your trips'); return; } finally { btn.disabled = false; }
-  const today = nowStamp().slice(0, 10), city = g.destination.name;
-  const trips = list.filter(t => !t.end || t.end.slice(0, 10) >= today)
-    .sort((a, b) => (a.start ? 0 : 1) - (b.start ? 0 : 1) || (a.start || '').localeCompare(b.start || ''));
-  const row = (value, label, detail, marker) => `<li><button type="button" class="wt-option" data-trip="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span></button></li>`;
-  const has = t => !!findIdea(t, g);
-  openSheet(`${modalHead('Save to a trip')}
-    <p class="wt-modal__text">It goes on the trip’s Want to go list, for everyone on it, until someone gives it a day.</p>
-    <ul class="wt-options" aria-label="Trips">${trips.map(t => row(t.id, t.name, has(t) ? 'Saved' : tripDates(t), `<i class="wt-marker spot-save__trip">${has(t) ? ICON.check : ICON.map}</i>`)).join('')}${row('', `New trip: ${city}`, 'Rename it in its settings', `<i class="wt-marker spot-save__trip">${ICON.plus}</i>`)}</ul>`, el => {
-    for (const t of trips) if (has(t)) el.querySelector(`[data-trip="${CSS.escape(t.id)}"]`).disabled = true;
-    for (const b of el.querySelectorAll('[data-trip]:not(:disabled)')) b.onclick = async () => {
-      const was = [...el.querySelectorAll('[data-trip]:not(:disabled)')];
-      for (const x of was) x.disabled = true;
+  try { await loadMyTrips(); } catch (err) { if (err.status !== 401) failToast(err, 'Couldn’t load your trips'); return; } finally { btn.disabled = false; }
+  const before = new Set(savedIn(pl).map(t => t.id));
+  const row = t => { const on = !!findIdea(t, pl); return `<li><button type="button" class="wt-option" role="checkbox" aria-checked="${on}" data-trip="${esc(t.id)}"><i class="wt-marker spot-save__trip">${ICON.map}</i><span class="wt-option__text"><span class="wt-option__label">${esc(t.name)}</span><span class="wt-option__detail">${esc(tripDates(t))}</span></span>${ICON.check}</button></li>`; };
+  const listHTML = () => `${myTrips.map(row).join('')}<li><button type="button" class="wt-option" data-new><i class="wt-marker spot-save__trip">${ICON.plus}</i><span class="wt-option__text"><span class="wt-option__label">New trip: ${esc(pl.city)}</span><span class="wt-option__detail">Rename it in its settings</span></span></button></li>`;
+  openSheet(`${modalHead(`Save ${esc(pl.name)}`)}
+    <p class="wt-modal__text">Each trip it’s on has it on its Want to go list, for everyone on it, until someone gives it a day.</p>
+    <ul class="wt-options" aria-label="Trips">${listHTML()}</ul>`, el => {
+    const ul = el.querySelector('.wt-options');
+    ul.addEventListener('click', async e => {
+      const b = e.target.closest('.wt-option');
+      if (!b || b.disabled) return;
+      b.disabled = true;
+      let t = myTrips.find(x => x.id === b.dataset.trip);
       try {
-        let id = b.dataset.trip, name = trips.find(t => t.id === id)?.name;
-        if (!id) ({ trip: { id, name } } = await api('/trips', { method: 'POST', body: { name: city } }));
-        await api(`/trips/${id}/ideas/${uid()}`, { method: 'PUT', body: spotIdea(g) });
-        closeSheet();
-        savedTo.set(spotKey(g), name);
-        showSaved(g);
-        toast(b.dataset.trip ? `Saved to ${name}` : `Saved to a new trip, ${name}`, 'Open', () => { openTripOn(IDEAS); location.hash = `#/trip/${id}`; });
+        if (b.hasAttribute('data-new')) {
+          const { trip } = await api('/trips', { method: 'POST', body: { name: pl.city } });
+          t = { id: trip.id, name: trip.name, start: null, end: null, ideas: [] };
+          myTrips.push(t);
+        }
+        const had = findIdea(t, pl);
+        if (had) {
+          await api(`/trips/${t.id}/ideas/${had.id}`, { method: 'DELETE' });
+          t.ideas = t.ideas.filter(i => i !== had);
+        } else {
+          const id = uid();
+          await api(`/trips/${t.id}/ideas/${id}`, { method: 'PUT', body: ideaOf(pl) });
+          (t.ideas ||= []).push({ id, name: pl.name, lat: pl.lat, lng: pl.lng });
+        }
       } catch (err) {
-        for (const x of was) x.disabled = false;
-        if (err.status !== 401) failToast(err, 'Couldn’t save it to the trip');
+        if (err.status !== 401) failToast(err, 'Couldn’t change the trip');
       }
-    };
+      ul.innerHTML = listHTML();
+      (t && ul.querySelector(`[data-trip="${CSS.escape(t.id)}"]`))?.focus();
+      showSaved();
+    });
+  }, {
+    onClose: () => {
+      const now = savedIn(pl), added = now.filter(t => !before.has(t.id)), gone = [...before].filter(id => !now.some(t => t.id === id));
+      if (added.length === 1) toast(`Saved to ${added[0].name}`, 'Open', () => { openTripOn(IDEAS); location.hash = `#/trip/${added[0].id}`; });
+      else if (added.length) toast(`Saved to ${added.length} trips`);
+      else if (gone.length) toast(gone.length === 1 ? `Removed from ${myTrips.find(t => t.id === gone[0])?.name}` : `Removed from ${gone.length} trips`);
+    },
   });
 }
-const spotKey = g => `${g.destination.id}/${g.source}/${g.id}`;
-const saveLabel = g => (savedTo.has(spotKey(g)) ? `${ICON.check}Saved to ${esc(savedTo.get(spotKey(g)))}` : `${ICON.bookmark}Save to a trip`);
-function showSaved(g) {
-  const b = $app.querySelector('[data-spot-save]');
-  if (b && s.spot === g) { b.innerHTML = saveLabel(g); b.classList.toggle('wt-btn--primary', !savedTo.has(spotKey(g))); b.classList.toggle('wt-btn--secondary', savedTo.has(spotKey(g))); }
+// The bookmark on a card, and the page's button: filled once the spot is on a trip, and the button says which
+function bookmarkHTML(pl) {
+  const on = savedIn(pl), label = on.length ? `Saved to ${on.length === 1 ? on[0].name : `${on.length} trips`}. Change` : `Save ${pl.name} to a trip`;
+  return `<button type="button" class="wt-icon-btn wt-spot-card__save" data-spot-save="${esc(pl.key)}" aria-pressed="${on.length > 0}" aria-label="${esc(label)}" title="${on.length ? 'Saved' : 'Save to a trip'}">${ICON.bookmark}</button>`;
+}
+const saveLabel = pl => { const on = savedIn(pl); return on.length ? `${ICON.bookmark}Saved to ${esc(on.length === 1 ? on[0].name : `${on.length} trips`)}` : `${ICON.bookmark}Save to a trip`; };
+function showSaved() {
+  for (const b of $app.querySelectorAll('.wt-spot-card__save')) {
+    const p = s.results.find(r => cardPlace(r).key === b.dataset.spotSave);
+    if (p) b.outerHTML = bookmarkHTML(cardPlace(p));
+  }
+  const b = $app.querySelector('.spot-save .wt-btn');
+  if (b && s.spot) { const on = savedIn(pagePlace(s.spot)).length > 0; b.innerHTML = saveLabel(pagePlace(s.spot)); b.classList.toggle('is-saved', on); }
 }
 document.addEventListener('click', e => {
   const b = e.target.closest?.('[data-spot-save]');
-  if (b && s.spot && $app.dataset.page === 'spot') saveSpot(s.spot, b);
+  if (!b || !$app.querySelector('.spots')) return;
+  e.preventDefault();
+  if ($app.dataset.page === 'spot' && s.spot) return saveSpot(pagePlace(s.spot), b);
+  const p = s.results.find(r => cardPlace(r).key === b.dataset.spotSave);
+  if (p) saveSpot(cardPlace(p), b);
 });
+// Signed in, which spots are on your trips already, for their bookmarks: asked once a visit, when Spots opens
+async function markSaved() {
+  if (!me || myTrips) return;
+  try { await loadMyTrips(); showSaved(); } catch {}
+}
 // The lead photo across the top, with the way back over its corner; with none, the way back on its own
 const topHTML = hero => `<div class="wt-guide__top${hero?.thumb ? ' wt-guide__top--photo' : ''}">
     <a class="wt-guide__back" href="#/spots${s.query ? `?${s.query}` : ''}" aria-label="All spots">${ICON.back}</a>
@@ -376,13 +425,15 @@ function entryHTML(g) {
   const after = n => inline.filter(i => i.after_paragraph === n && i.thumb).map(figure).join('');
   const photos = [g.images?.hero, ...inline].filter(i => i?.thumb);
   const links = linksOf(g);
-  return `<article class="wt-guide">
+  const pl = pagePlace(g);
+  // Save to a trip floats at the bottom of the page, as Plan's main button does, so it's in reach however far you've read
+  const save = canSave(pl) ? `<div class="spot-save"><button type="button" class="wt-btn wt-btn--primary wt-btn--block${savedIn(pl).length ? ' is-saved' : ''}" data-spot-save>${saveLabel(pl)}</button></div>` : '';
+  return `<article class="wt-guide${save ? ' has-save' : ''}">
     ${topHTML(g.images?.hero)}
     <header class="wt-guide__head">
       <p class="wt-guide__where">${esc(`${g.destination.name}, ${regionName(g.destination.country, g.destination.state)}`)}</p>
       <h1 class="wt-guide__name">${esc(g.name)}</h1>
       <p class="wt-guide__lede">${esc(g.oneLiner)}</p>
-      ${g.lat != null ? `<p class="spot-save"><button type="button" class="wt-btn ${savedTo.has(spotKey(g)) ? 'wt-btn--secondary' : 'wt-btn--primary'}" data-spot-save>${saveLabel(g)}</button></p>` : ''}
     </header>
     <div class="wt-guide__body">${(g.paragraphs ?? []).map((p, i) => `<p>${esc(p.text)}</p>${after(i + 1)}`).join('')}</div>
     ${g.practical?.length ? `<section class="wt-guide__section"><h2>Before you go</h2>
@@ -394,5 +445,6 @@ function entryHTML(g) {
       <p>Written by AI from the sources above, and published under <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.${g.views != null ? ` Its Wikipedia article was read ${views(g.views)} times in the last year.` : ''}</p>
       ${photos.length ? `<p>Photos: ${photos.map(credit).join('; ')}.</p>` : ''}
     </footer>
+    ${save}
   </article>`;
 }
