@@ -327,8 +327,10 @@ def candidates_in(db, dest, area):
             "SELECT id, name, lat, lng, raw FROM records WHERE source='wikidata' AND (lat BETWEEN ? AND ? AND lng BETWEEN ? AND ? "
             f"OR id = ? OR id IN ({','.join('?' * len(within))}))", (box[0], box[1], box[2], box[3], dest["wikidata"], *within)):
         itself = rid == dest["wikidata"]
-        if (itself and not whole) or (not itself and rid not in within and (lat, lng) not in area):
-            continue
+        if (itself and not whole) or (not itself and (lat is None or (rid not in within and (lat, lng) not in area))):
+            continue  # an item with no point can't be put on the map, or near anything; the park itself can, below
+        if itself and lat is None:
+            lat, lng = (box[0] + box[1]) / 2, (box[2] + box[3]) / 2
         e = json.loads(raw)
         places[("wikidata", rid)] = {"itself": itself, 
             "source": "wikidata", "id": rid, "name": name, "lat": lat, "lng": lng, "enwiki": e["sitelinks"].get("enwiki"),
@@ -361,6 +363,8 @@ def candidates_in(db, dest, area):
                 "SELECT source, id, name, lat, lng, url, raw FROM records WHERE source = 'nps:parks' AND id IN "
                 "(SELECT id FROM ids WHERE source = 'nps:parks' AND scheme = 'P4083' AND upper(value) = ?)", (dest.get("nps_unit"),)):
             rec = {"source": source, "id": rid, "name": name, "url": url, "text": nps_text(json.loads(raw))}
+            if lat is None:
+                lat, lng = (box[0] + box[1]) / 2, (box[2] + box[3]) / 2
             if ("wikidata", dest["wikidata"]) in places:
                 places[("wikidata", dest["wikidata"])]["nps"].append(rec)
             else:
