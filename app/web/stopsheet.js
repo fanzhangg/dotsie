@@ -3,7 +3,7 @@ import { $app, $sheets, ICON, WIDE, esc, state } from './core.js';
 import { DAYS, fmtClock, fmtDay, fmtDur, fmtTime, instantOf, nowStamp, pad, placeZone, toDate, toInput, zoneCity, zoneName } from './time.js';
 import { cur } from './trips.js';
 import { api } from './backend.js';
-import { ALL, IDEAS, HOTEL_CHECK_IN, HOTEL_CHECK_OUT, KINDS, KIND_HINTS, KIND_SECTIONS, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysBetween, daysOf, findIdea, guessKind, ideasOf, kindOf, samePlace, stayOf, stayOnNight, stopsOf, wayTo } from './plan.js';
+import { ALL, IDEAS, HOTEL_CHECK_IN, HOTEL_CHECK_OUT, KINDS, KIND_HINTS, KIND_SECTIONS, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysBetween, daysOf, findIdea, guessKind, ideaDays, ideasOf, kindOf, samePlace, stayOf, stayOnNight, stopsOf, wayTo } from './plan.js';
 import { centerFocus, currentDay, selectedStop, siteOf, webUrl } from './timeline.js';
 import { foodURL, legRoute, legsOn } from './routes.js';
 import { toast } from './notices.js';
@@ -113,9 +113,9 @@ function nearestStop(trip, p, day) {
   return dayStops(trip, day).reduce((a, s) => (!a || km(s) < km(a) ? s : a), null);
 }
 
-// ---------- Adding a place to the day on screen ----------
-// Only from a day, where the plan is: Want to go itself is a plain list, with no days or times. A place on it (its
-// hollow pin on the day's map), or a sight, goes on the day as a stop, at the time it most likely fits: just after the day's
+// ---------- Adding a place to a day ----------
+// The day on screen, or one picked from Want to go or the overview (see openAddToDay). A place on Want to go (its
+// hollow pin on the day's map, or its row on the list), or a sight, goes on the day as a stop, at the time it most likely fits: just after the day's
 // stop nearest it (halfway to the next), or two hours after the day's last stop, or 9 AM on a day with none; a hotel
 // at check-in. The list follows it to its day (the overview stays) with it selected, and a notice says when, since
 // it wasn't asked: Edit stop changes it, and gives it a note and links. A place from Want to go comes off the list.
@@ -129,6 +129,31 @@ export function addToDay(trip, place, day, idea = null) {
   if (state.day !== ALL) state.day = day;
   planIdea(trip, idea, data, `Added to ${fmtDay(day)}, ${hotel ? 'checking in' : 'arriving'} at ${fmtTime(time)}`);
   centerFocus({ force: true, animate: false });
+}
+// Want to go and the overview have no day of their own, so their Add to a day asks which: the trip's days, in order,
+// the one the place is nearest saying so, each going on as Add to this day does; then Another day, which opens Add stop
+// with the place in it, to pick a date and time off the trip's days. A trip with no days yet (a new one, with only
+// places saved) has nothing to pick from, so it goes straight there. Either way the place comes off Want to go.
+// (Want to go once had no way onto a day but from the day itself: a trip of saved places only could never be planned.)
+export function openAddToDay(trip, idea) {
+  const place = { name: idea.name, address: idea.address || '', lat: idea.lat, lng: idea.lng, kind: kindOf(idea), wikidata: idea.wikidata ?? null, fromIdea: idea.id };
+  const days = daysOf(trip);
+  if (!days.length) { openStopSheet(trip, null, place); return; }
+  const near = ideaDays(trip).get(idea.id);
+  const row = d => {
+    const n = dayStops(trip, d).length, what = n ? `${n} ${n === 1 ? 'stop' : 'stops'}` : 'Nothing planned yet';
+    return `<li><button type="button" class="wt-option" data-day="${d}"><i class="wt-marker plan-day__marker">${ICON.calendar}</i><span class="wt-option__text"><span class="wt-option__label">${fmtDay(d)}</span><span class="wt-option__detail">${d === near ? `Nearest · ${what}` : what}</span></span></button></li>`;
+  };
+  openSheet(`${modalHead(`Add ${esc(idea.name)} to a day`)}
+    <p class="wt-modal__text">It goes on the day at the time it most likely fits, and comes off Want to go. Edit stop changes the time.</p>
+    <ul class="wt-options" aria-label="Days">${days.map(row).join('')}
+      <li><button type="button" class="wt-option" data-other><i class="wt-marker plan-day__marker">${ICON.plus}</i><span class="wt-option__text"><span class="wt-option__label">Another day</span><span class="wt-option__detail">Pick a date and time</span></span></button></li></ul>`, el => {
+    el.querySelector('.wt-options').addEventListener('click', e => {
+      const b = e.target.closest('.wt-option');
+      if (b?.dataset.day) { closeSheet(); addToDay(trip, idea, b.dataset.day, idea); }
+      else if (b?.hasAttribute('data-other')) openStopSheet(trip, null, place);
+    });
+  });
 }
 
 // Where a stop at `time` goes in the plan: between the place you'd come from and the one you'd go on to (that day's

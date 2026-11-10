@@ -8,7 +8,8 @@
      PLANNED ── Delete ──▶ (none)
 
    Save and Move to Want to go are the bookmark (filled once a place is saved); Remove is the trash, Delete is in a
-   stop's sheet. Add to this day is the calendar, and happens only on a day: that's where a time comes from. Every change says what happened,
+   stop's sheet. Add to this day is the calendar, on a day, which is where a time comes from; on Want to go and the overview, Add to a day
+   asks which day first (stopsheet.js's openAddToDay). Every change says what happened,
    with Undo, which puts the place back as it was. */
 import { esc, state, uid } from './core.js';
 import { fmtDur } from './time.js';

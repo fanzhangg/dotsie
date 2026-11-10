@@ -82,11 +82,13 @@ export function ideasOn(trip, day) {
 }
 // The place on Want to go that's this one, if it's there already: the same spot, or the same name close by (search and
 // a sight can put one place a little apart)
+/** @param {{ name: string, lat: number, lng: number }} a @param {{ name: string, lat: number, lng: number }} b */
+const isPlace = (a, b) => kmBetween(a, b) < 0.05 || (a.name.trim().toLowerCase() === b.name.trim().toLowerCase() && kmBetween(a, b) < 2);
 /** @param {{ ideas?: { name: string, lat: number, lng: number }[] }} trip @param {{ name: string, lat: number, lng: number }} p */
-export function findIdea(trip, p) {
-  const name = p.name.trim().toLowerCase();
-  return (trip.ideas || []).find(i => kmBetween(i, p) < 0.05 || (i.name.trim().toLowerCase() === name && kmBetween(i, p) < 2)) || null;
-}
+export const findIdea = (trip, p) => (trip.ideas || []).find(i => isPlace(i, p)) || null;
+// The trip's first stop at this place, the same way: a place planned on a day is on the trip as much as one on Want to go
+/** @param {{ stops?: { name: string, lat: number, lng: number, time: string }[] }} trip @param {{ name: string, lat: number, lng: number }} p */
+export const findStop = (trip, p) => (trip.stops || []).filter(s => isPlace(s, p)).sort((a, b) => a.time.localeCompare(b.time))[0] || null;
 /** @param {Trip} trip @param {string} day */
 export const dayStops = (trip, day) => stopsOf(trip).filter(s => dayOf(s) === day);
 
