@@ -68,6 +68,19 @@ class Asking(unittest.TestCase):
         self.assertEqual(db.execute("SELECT COUNT(*) FROM llm_answers").fetchone()[0], 1)
 
 
+class _Ctx:
+    """A response as urlopen returns it, for `with`."""
+
+    def __init__(self, r):
+        self.r = r
+
+    def __enter__(self):
+        return self.r
+
+    def __exit__(self, *a):
+        return False
+
+
 def message(text, stop="end_turn"):
     return types.SimpleNamespace(stop_reason=stop, content=[types.SimpleNamespace(type="text", text=text)],
                                  usage=types.SimpleNamespace(input_tokens=1_000_000, output_tokens=0, cache_read_input_tokens=0,
@@ -205,6 +218,25 @@ class Pictures(unittest.TestCase):
         text = "{{Infobox\n| image = Front.jpg\n}}\nIntro [[File:Front.jpg|thumb|Again]]\n== Inside ==\n[[File:Hall.png|thumb|The hall]]\n[[File:Plan.pdf|thumb|plan]]"
         self.assertEqual(guides.image_names(["Aerial.jpg"], text), [
             ("Aerial.jpg", "", "Wikidata image"), ("Front.jpg", "", "infobox"), ("Hall.png", "The hall", "Inside")])
+
+    def test_a_photo_turned_away_is_asked_for_again_after_the_wait_it_names(self):
+        calls, waits = [], []
+
+        def urlopen(req, timeout):
+            calls.append(req.full_url)
+            if len(calls) < 3:
+                raise guides.urllib.error.HTTPError(req.full_url, 429, "Too many", {"Retry-After": "7"}, None)
+            return types.SimpleNamespace(read=lambda: b"img", __enter__=lambda s: s, __exit__=lambda s, *a: None)
+        with mock.patch.object(guides.urllib.request, "urlopen", lambda req, timeout: _Ctx(urlopen(req, timeout))), \
+                mock.patch.object(guides.time, "sleep", waits.append):
+            self.assertEqual(guides.fetch_image("https://upload.wikimedia.org/x.jpg"), b"img")
+        self.assertEqual((len(calls), waits), (3, [7, 7]))
+
+    def test_a_photo_that_isnt_there_isnt_asked_for_again(self):
+        def urlopen(req, timeout):
+            raise guides.urllib.error.HTTPError(req.full_url, 404, "Not found", {}, None)
+        with mock.patch.object(guides.urllib.request, "urlopen", urlopen), self.assertRaises(guides.urllib.error.HTTPError):
+            guides.fetch_image("https://upload.wikimedia.org/x.jpg")
 
     def test_media_type_from_the_bytes(self):
         self.assertEqual(guides.media_type(b"\x89PNG\r\n\x1a\nxxxx"), "image/png")
