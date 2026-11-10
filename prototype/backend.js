@@ -355,7 +355,7 @@ async function spots([a, b, ...rest], q) {
     const page = hits.slice(offset, offset + limit);
     const photos = await Promise.all(page.map(heroOf));
     return { results: page.map((p, i) => { const c = cityOf(p); return { source: p.source, id: p.id, name: p.name, oneLiner: p.oneLiner, hero: photos[i],
-      rank: p.rank, city: { id: c.id, name: c.name }, state: c.state, country: c.country, views: p.views }; }), total: hits.length, more: hits.length > offset + limit };
+      rank: p.rank, city: { id: c.id, name: c.name }, state: c.state, country: c.country, lat: p.lat, lng: p.lng, views: p.views }; }), total: hits.length, more: hits.length > offset + limit };
   }
   const p = SPOTS.find(x => x.city === a && x.source === b && x.id === rest.join('/'));
   if (!p) throw new ApiError(404, 'not_found');

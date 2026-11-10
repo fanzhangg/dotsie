@@ -205,7 +205,7 @@ test('Want to go is a plain list: a place selected has Open in Maps and its book
   await stop(page, 'Three Rivers Petroglyph Site').click();
   await expect(plan(page).getByRole('link', { name: 'Open Three Rivers Petroglyph Site in your maps app' })).toBeVisible();
   await expect(plan(page).locator('.wt-add-bar').getByRole('button', { name: /day/ })).toHaveCount(0); // no days or times here
-  await plan(page).getByRole('button', { name: 'Saved to Want to go. Remove it' }).click();
+  await plan(page).getByRole('button', { name: 'Remove from Want to go' }).click();
   await expect(wish(page)).toHaveCount(1);
   await expect(wish(sam)).toHaveCount(1);
   await expect(toast(sam)).toContainText('Alex removed Three Rivers Petroglyph Site from Want to go');
@@ -239,32 +239,60 @@ test('a new trip opens on Want to go, where planning starts', async ({ page }) =
   await expect(plan(page).getByRole('button', { name: 'Add stop' })).toBeVisible();
 });
 
-test('a spot is saved to a trip’s Want to go, Open goes to it there, and the trip then says it has it', async ({ page }) => {
+// Saving spots: the sheet of trips is checkboxes, so a spot can be on several, and saving is undone by unticking
+const tripBox = (page, name) => sheet(page).getByRole('checkbox', { name: new RegExp(`^${name}`) });
+test('a spot’s page has Save to a trip floating at the bottom; Open, once saved, opens the trip on Want to go', async ({ page }) => {
   await page.goto('#/spots/alamogordo/sample/white-sands');
-  await page.getByRole('button', { name: 'Save to a trip' }).click();
-  await sheet(page).getByRole('button', { name: /^White Sands, NM/ }).click();
+  const save = page.getByRole('button', { name: 'Save to a trip' });
+  await expect(save).toBeInViewport();
+  await page.evaluate(() => scrollTo(0, 0));
+  await expect(save).toBeInViewport();
+  await save.click();
+  await tripBox(page, 'White Sands, NM').click();
+  await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'true');
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
   await expect(toast(page)).toContainText('Saved to White Sands, NM');
   await expect(page.getByRole('button', { name: 'Saved to White Sands, NM' })).toBeVisible();
-  await page.getByRole('button', { name: 'Saved to White Sands, NM' }).click();
-  await expect(sheet(page).getByRole('button', { name: /^White Sands, NM/ })).toBeDisabled();
-  await expect(sheet(page).getByRole('button', { name: /^White Sands, NM/ })).toContainText('Saved');
-  await sheet(page).getByRole('button', { name: 'Close' }).click();
-  await toast(page).getByRole('button', { name: 'Open' }).click().catch(() => {}); // the notice may have gone
-  await trip(page, 'white-sands');
-  await wantToGo(page).click();
+  await toast(page).getByRole('button', { name: 'Open' }).click();
+  await expect(days(page).getByRole('tab', { selected: true })).toHaveAccessibleName('Want to go, 3 places');
   // the national park is near the first day, with the visitor center
   await expect(wish(page)).toHaveText([/Oliver Lee/, /White Sands National Park/, /Three Rivers/]);
 });
 
-test('Open, after saving a spot, opens the trip on Want to go', async ({ page }) => {
+test('a spot can be saved to several trips, a new one too, and unticking one takes it off again', async ({ page }) => {
   await page.goto('#/spots/seattle/sample/space-needle');
   await page.getByRole('button', { name: 'Save to a trip' }).click();
+  await tripBox(page, 'White Sands, NM').click();
   await sheet(page).getByRole('button', { name: /^New trip: Seattle/ }).click();
-  await expect(toast(page)).toContainText('Saved to a new trip, Seattle');
-  await toast(page).getByRole('button', { name: 'Open' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Seattle');
-  await expect(days(page).getByRole('tab', { selected: true })).toHaveAccessibleName('Want to go, 1 place');
-  await expect(wish(page)).toHaveText([/Space Needle/]);
+  await expect(tripBox(page, 'Seattle')).toHaveAttribute('aria-checked', 'true');
+  await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'true');
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await expect(toast(page)).toContainText('Saved to 2 trips');
+  await expect(page.getByRole('button', { name: 'Saved to 2 trips' })).toBeVisible();
+  // off White Sands again: the sheet shows where it is, and a tick takes it off
+  await page.getByRole('button', { name: 'Saved to 2 trips' }).click();
+  await tripBox(page, 'White Sands, NM').click();
+  await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'false');
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await expect(toast(page)).toContainText('Removed from White Sands, NM');
+  await expect(page.getByRole('button', { name: 'Saved to Seattle' })).toBeVisible();
+  await trip(page, 'white-sands');
+  await expect(days(page).getByRole('tab', { name: /^Want to go/ })).toHaveAccessibleName('Want to go, 2 places');
+});
+
+test('each spot’s card has a bookmark that saves it without leaving the list, filled once it’s saved', async ({ page }) => {
+  await page.goto('#/spots');
+  const bookmark = page.getByRole('button', { name: 'Save Pike Place Market to a trip' });
+  await expect(bookmark).toHaveAttribute('aria-pressed', 'false');
+  await bookmark.click();
+  await tripBox(page, 'White Sands, NM').click();
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await expect(page).toHaveURL(/#\/spots$/);
+  await expect(page.getByRole('button', { name: 'Saved to White Sands, NM. Change' })).toHaveAttribute('aria-pressed', 'true');
+  // and after a reload, from the trips themselves
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Saved to White Sands, NM. Change' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Save Space Needle to a trip' })).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('Home loads the map’s library while it’s idle, so a trip’s map doesn’t wait for it', async ({ page }) => {

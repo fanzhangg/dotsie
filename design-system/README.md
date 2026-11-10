@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 15.2.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 15.3.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -210,7 +210,7 @@ Four weights, each with a job: **700** the app name (sign-in) only; **600** head
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed) `bookmark` (Want to go: save a place for later, and the list it's on)
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed) `bookmark` (Want to go: save a place for later, and the list it's on) `trash` (take a place off Want to go)
 
 Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
 
@@ -1134,6 +1134,11 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 15.3.0
+
+- `.wt-spot-card` is a `div` that holds the link (new `__link`: the photo and `__body`, which used to be the card's own children, with its layout) and, in its top right corner, `__save`, a bookmark that saves the spot to trips without leaving the list: filled with `aria-pressed="true"`. Give the card `has-save` when it has one, so the text leaves it room. `--loading` cards keep their children. Focus and hover are the link's.
+- New icon: `trash` again (icons 4.3.0), on the button that takes a place off Want to go.
 
 ### Added in 15.2.0
 

@@ -152,7 +152,7 @@ test('Want to go shows its places as hollow pins with no numbers, the trip’s s
   await oliver.click();
   await expect(row(page, 'Oliver Lee Memorial State Park')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#map .wt-pin--selected')).toHaveAccessibleName(/Oliver Lee Memorial State Park/);
-  await expect(plan(page).getByRole('button', { name: 'Saved to Want to go. Remove it' })).toBeVisible();
+  await expect(plan(page).getByRole('button', { name: 'Remove from Want to go' })).toBeVisible();
 });
 
 test('a day’s map shows the Want to go places nearest it, and one tapped there is added to that day', async ({ page }) => {
