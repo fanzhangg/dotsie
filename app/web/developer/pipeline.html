@@ -67,10 +67,30 @@
         </table>
       </figure>
       <ul class="dev__prose">
-        <li><strong>Why a model.</strong> Rules couldn’t say what’s a sight: blocking creative works, to drop a TV series, also dropped the Gum Wall, and a bridge that fell in 1940 ranked at the top on its page views. A model reads what the article says, as a person would.</li>
         <li><strong>It judges what a place is, not how popular it is.</strong> The judge never sees page views; those are counted, and only rank the shortlist.</li>
         <li><strong>Its answer is checked by code.</strong> Each answer is JSON in a fixed shape, facts first, then the verdict, and code decides from it: a “part of” only counts if it names a place really nearby.</li>
         <li><strong>Only as many questions as needed.</strong> The places nobody reads about are all asked; then the most read, 40 at a time, until there are enough sights for the shortlist.</li>
+      </ul>
+    </section>
+
+    <section class="dev__section" aria-labelledby="rules">
+      <h2 class="dev__h2" id="rules">Rules or a model</h2>
+      <p class="dev__intro">The first pilots, on Seattle and Washington, chose with rules: Wikidata types to keep and to block, a page-view floor per type, Wikipedia categories for what’s gone, and a table of exceptions. 56 of 68 checks passed, and each fix broke something else.</p>
+      <div class="dev__table pipe__compare">
+        <table>
+          <thead><tr><th></th><th>Rules</th><th>A model</th></tr></thead>
+          <tbody>
+            <tr><td>Sight or not</td><td>Type lists missed what they didn’t name: blocking creative works, to drop a TV series, dropped the Gum Wall too, and tier 1 had the Pacific Northwest and an urban legend</td><td>Reads the description and the article, as a person would, with one question for every kind of place</td></tr>
+            <tr><td>Still there</td><td>The 1940 Tacoma Narrows Bridge, which fell that year, had no demolition date and ranked at the top; a “closed” category caught a plant still open to visitors</td><td>Says from the article whether it’s still there</td></tr>
+            <tr><td>Part of a bigger place</td><td>A distance and a list of host types</td><td>Names the bigger place; code checks it’s really nearby</td></tr>
+            <tr><td>Signs and trailheads</td><td>Most of the Park Service’s 1,842 places in Washington are panels, signs and junctions</td><td>Leaves them out, and judges the trail or view they serve</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="dev__prose">
+        <li><strong>Rules still do what they’re good at.</strong> They cost nothing and give the same answer every time, so code keeps what’s a fact: the outline, the page views, the shortlist’s order.</li>
+        <li><strong>A model’s bar drifts, so it isn’t asked to rate.</strong> Asked for star ratings one place at a time, Haiku agreed with Opus only 50–86% of the time, and the ratings crept up as the model read more; on a plain “is it a sight?” they agreed 90%. So each place gets the yes-or-no question, and “worth a special trip” is decided only by comparing the whole shortlist, with a cap.</li>
+        <li><strong>Its answers don’t change on their own.</strong> Each is kept, so a second run gives the same answer unless what the model is shown has changed.</li>
       </ul>
     </section>
 

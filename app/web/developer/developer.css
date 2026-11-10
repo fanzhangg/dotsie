@@ -197,3 +197,6 @@ h2[id] { scroll-margin-top: calc(var(--dev-bar, 0px) + var(--wt-space-4)); }
 .pipe__bar { display: inline-block; height: 12px; width: calc((100% - 7rem) * var(--f)); min-width: 3px; border-radius: 0 4px 4px 0; background: var(--wt-text-tertiary); }
 .pipe__bar--model { background: var(--wt-text-primary); }
 .pipe__value { margin-left: var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-primary); font-variant-numeric: tabular-nums; }
+.pipe__compare table { table-layout: fixed; }
+.pipe__compare th:first-child { width: 22%; }
+.pipe__compare td:first-child { white-space: normal; color: var(--wt-text-secondary); }
