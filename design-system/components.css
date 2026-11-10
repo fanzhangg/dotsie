@@ -1,4 +1,4 @@
-/* Dotsie design system — components v15.0.0
+/* Dotsie design system — components v15.1.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -907,6 +907,12 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 }
 .wt-app-bar.is-scrolled { box-shadow: 0 1px 0 var(--wt-border-default); }
 .wt-app-bar[hidden] { display: none; }
+/* On a phone, it tucks away while the page scrolls down, and comes back as soon as it scrolls up (.is-tucked, set by
+   script), so the page has the screen; on a computer there's room for it to stay */
+@media (max-width: 767.98px) {
+  .wt-app-bar { transition: box-shadow var(--wt-duration-fast), transform var(--wt-duration-base) var(--wt-ease-out); }
+  .wt-app-bar.is-tucked { transform: translateY(-100%); }
+}
 .wt-app-bar__end { margin-left: auto; display: flex; align-items: center; gap: var(--wt-space-2); }
 
 /* ---------- Nav: the app's pages (Plan, Spots) ---------- */
@@ -923,6 +929,23 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-nav__link[aria-current="page"] { color: var(--wt-text-primary); background: var(--wt-surface-raised); box-shadow: var(--wt-shadow-hairline); }
 .wt-nav__link:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
 @media (hover: hover) { .wt-nav__link:not([aria-current="page"]):hover { color: var(--wt-text-primary); background: var(--wt-surface-hover); } }
+
+/* ---------- Filter: one choice of a list's, as a chip ---------- */
+/* Its name ("State") while it's every one, or what it's set to ("Washington") on the grey of a highlighted row, with
+   a chevron. The select is over the whole chip, unseen, so a tap opens the phone's own picker, and its 16px type
+   keeps an iPhone from zooming in. */
+.wt-filter {
+  position: relative; flex: none; display: inline-flex; align-items: center; gap: var(--wt-space-1); max-width: 100%; height: 36px;
+  padding: 0 10px 0 14px; border: 1px solid var(--wt-border-default); border-radius: var(--wt-radius-pill); background: var(--wt-surface-raised);
+  font: var(--wt-type-label); color: var(--wt-text-secondary); white-space: nowrap; transition: color var(--wt-duration-fast), background var(--wt-duration-fast);
+}
+.wt-filter[hidden] { display: none; }
+.wt-filter__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wt-filter .wt-icon { flex: none; width: 16px; height: 16px; color: var(--wt-text-tertiary); }
+.wt-filter select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; font-size: 16px; -webkit-appearance: none; appearance: none; }
+.wt-filter.is-set { color: var(--wt-text-primary); background: var(--wt-surface-current); border-color: transparent; }
+.wt-filter:focus-within { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+@media (hover: hover) { .wt-filter:hover { color: var(--wt-text-primary); } }
 
 /* ---------- Pager: pages of a long list, on a computer ---------- */
 /* Back, the pages (the first, the last, and the ones around this one, with … between), then forward. This page is

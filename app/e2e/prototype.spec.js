@@ -218,19 +218,29 @@ test('the search finds a city’s and a state’s spots by their names, and clea
   await expect(spotNames(page)).toHaveCount(7);
 });
 
-test('the search stays at the top as the spots scroll; on a computer, the filters too', async ({ page }) => {
+test('the search and the filters stay at the top as the spots scroll; on a phone the app bar tucks away going down', async ({ page }) => {
   await page.goto('#/spots');
   await expect(spotNames(page)).toHaveCount(7);
-  await page.mouse.wheel(0, 2000);
-  await expect(page.getByRole('searchbox', { name: 'Search spots' })).toBeInViewport();
-  await expect(page.getByRole('combobox', { name: 'State' })).not.toBeInViewport(); // a phone keeps the screen for the spots
+  const bar = page.locator('.wt-app-bar'), search = page.getByRole('searchbox', { name: 'Search spots' });
+  // A filter shows what it's set to
+  await page.getByRole('combobox', { name: 'State' }).selectOption('WA');
+  await expect(page.locator('.wt-filter.is-set .wt-filter__value')).toHaveText('Washington');
+  await page.getByRole('combobox', { name: 'State' }).selectOption('');
+  await expect(page.locator('[data-filter="state"] .wt-filter__value')).toHaveText('State');
+  await expect(spotNames(page)).toHaveCount(7);
+  await page.mouse.wheel(0, 400);
+  await expect(bar).not.toBeInViewport();
+  await expect(search).toBeInViewport();
+  await expect(page.getByRole('combobox', { name: 'State' })).toBeInViewport();
+  await page.mouse.wheel(0, -60);
+  await expect(bar).toBeInViewport();
+  // On a computer, the bar stays
   await page.setViewportSize({ width: 1280, height: 600 });
   await page.mouse.wheel(0, 2000);
-  await expect(page.getByRole('searchbox', { name: 'Search spots' })).toBeInViewport();
-  await expect(page.getByRole('combobox', { name: 'State' })).toBeInViewport();
-  // Just under the app bar, not under it
-  const bar = await page.locator('.wt-app-bar').boundingBox(), search = await page.getByRole('searchbox', { name: 'Search spots' }).boundingBox();
-  expect(search.y).toBeGreaterThanOrEqual(bar.y + bar.height);
+  await expect(bar).toBeInViewport();
+  await expect(search).toBeInViewport();
+  const b = await bar.boundingBox(), s = await search.boundingBox();
+  expect(s.y).toBeGreaterThanOrEqual(b.y + b.height); // just under it, not under it
 });
 
 test('a spot opens its guide entry, a page of its own with its sources and links at the end, and back goes to the list as it was', async ({ page }) => {

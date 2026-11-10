@@ -178,7 +178,7 @@
 <body class="wt-base">
 
 <header class="demo-header">
-  <div class="demo-brand"><b class="wt-wordmark"><span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span></b><span>Design system · v15.0.0</span></div>
+  <div class="demo-brand"><b class="wt-wordmark"><span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span></b><span>Design system · v15.1.0</span></div>
   <div class="demo-theme" role="group" aria-label="Theme">
     <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
     <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
@@ -1027,7 +1027,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
     </section>
 
     <section id="misc">
-      <h2>App bar, trip card, spot card, pager and empty state</h2>
+      <h2>App bar, trip card, spot card, filters, pager and empty state</h2>
       <p class="intro">Home lists trips with photos of their places, or else their route, the name and dates, and who's on it: enough to pick one. Empty states say what can go there, in the traveller's words.</p>
       <div class="demo">
         <div class="demo__live demo__live--column demo__live--narrow" data-snippet>
@@ -1038,6 +1038,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
             <a class="wt-trip-card is-past" href="#misc"><span class="wt-trip-card__map" aria-hidden="true"><svg viewBox="0 0 320 128" preserveAspectRatio="xMidYMid meet"><path class="wt-trip-card__casing is-estimate" d="M196 16L139 66L160 101L156 102L171 103L160 101L196 16"/><path class="wt-trip-card__route is-estimate" d="M196 16L139 66L160 101L156 102L171 103L160 101L196 16"/><path class="wt-trip-card__ring" d="M196 16h0M139 66h0M160 101h0M156 102h0M171 103h0"/><path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-past)" d="M196 16h0"/><path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-past)" d="M139 66h0"/><path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-past)" d="M160 101h0"/><path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-past)" d="M156 102h0"/><path class="wt-trip-card__stop" style="--wt-kind-color: var(--wt-kind-past)" d="M171 103h0"/></svg></span><span class="wt-trip-card__body"><span class="wt-trip-card__text"><span class="wt-trip-card__name">Big Bend in spring</span><span class="wt-trip-card__dates">Mar 13 – 16, 2026</span></span><span class="wt-avatar-stack wt-trip-card__people" aria-hidden="true"><span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-1)">A</span><span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-3)">J</span><span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-2)">S</span><span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-4)">K</span><span class="wt-avatar wt-avatar--more">+2</span></span><span class="wt-visually-hidden">, with Alex, Jo, Sam, Kim, Lee, Max</span></span></a>
             <a class="wt-trip-card" href="#misc"><span class="wt-trip-card__map wt-trip-card__map--empty">No stops yet</span><span class="wt-trip-card__body"><span class="wt-trip-card__text"><span class="wt-trip-card__name">Lisbon long weekend</span><span class="wt-trip-card__dates">No dates yet</span></span><span class="wt-avatar-stack wt-trip-card__people" aria-hidden="true"><span class="wt-avatar" style="--wt-avatar-color: var(--wt-identity-1)">A</span></span><span class="wt-visually-hidden">, with Alex</span></span></a>
             <a class="wt-spot-card" href="#misc"><span class="wt-spot-card__photo wt-spot-card__photo--none" aria-hidden="true"><i data-icon="pin"></i></span><span class="wt-spot-card__body"><span class="wt-spot-card__name">White Sands National Park</span><span class="wt-spot-card__line">Waves of white gypsum, the largest field of such dunes on Earth.</span><span class="wt-spot-card__where">Alamogordo, NM</span></span></a>
+            <div style="display:flex; gap: var(--wt-space-2)"><label class="wt-filter"><span class="wt-filter__value">State</span><i data-icon="chevron-down"></i><select aria-label="State (demo)"><option value="">All states</option></select></label><label class="wt-filter is-set"><span class="wt-filter__value">Seattle</span><i data-icon="chevron-down"></i><select aria-label="City (demo)"><option value="seattle" selected>Seattle</option></select></label></div>
             <nav class="wt-pager" aria-label="Pages (demo)"><button type="button" class="wt-pager__step" aria-label="Previous page"><i data-icon="back"></i></button><button type="button" class="wt-pager__page" aria-label="Page 1">1</button><span class="wt-pager__gap" aria-hidden="true">…</span><button type="button" class="wt-pager__page" aria-label="Page 4">4</button><button type="button" class="wt-pager__page" aria-label="Page 5" aria-current="page">5</button><button type="button" class="wt-pager__page" aria-label="Page 6">6</button><span class="wt-pager__gap" aria-hidden="true">…</span><button type="button" class="wt-pager__page" aria-label="Page 9">9</button><button type="button" class="wt-pager__step" aria-label="Next page"><i data-icon="forward"></i></button></nav>
             <p class="wt-empty">Add a flight, a hotel, or a place to see.</p>
           </div>
@@ -1153,7 +1154,7 @@ L.polyline(coords, { color: token(color), weight: active ? 7 : 4.5 });</code></p
       </ul>
     </section>
 
-    <footer class="demo-foot">Dotsie design system v15.0.0 · tokens.css · components.css · icons.js · logo.svg</footer>
+    <footer class="demo-foot">Dotsie design system v15.1.0 · tokens.css · components.css · icons.js · logo.svg</footer>
   </main>
 </div>
 
