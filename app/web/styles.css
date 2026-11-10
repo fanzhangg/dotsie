@@ -40,7 +40,7 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
   font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase;
 }
 .home-grid { display: grid; gap: var(--wt-space-3); }
-/* Wishlist and Past: small cards, two to a row */
+/* Wishlist and Past, with two or more: small cards, two to a row */
 .home-grid--small { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 /* New trip floats at the bottom (.wt-float-bar), on the page's grey; the page leaves it room at its end */
 #app[data-page="home"] .home { padding-bottom: var(--wt-float-bar-room); }

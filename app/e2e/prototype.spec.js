@@ -24,27 +24,43 @@ test('home lists your trips', async ({ page }) => {
   await expect(cards(page).getByText('Big Bend in spring')).toBeVisible();
 });
 
-test('home groups the trips: Current, then the Wishlist of trips with saved places only, then Past, the last two in small cards two to a row', async ({ page }) => {
+test('home groups the trips: Current, then the Wishlist of trips with saved places only, then Past, each of the last two in small cards two to a row once it has two', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('#/');
   const group = title => page.locator('.home-group').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
   await expect(page.locator('.home-group__title')).toHaveText(['Current', 'Wishlist', 'Past']);
-  await expect(group('Current').locator('.wt-trip-card')).toHaveText([/White Sands, NM/]); // the tests' today is Nov 20
+  const current = group('Current').locator('.wt-trip-card');
+  await expect(current).toHaveText([/White Sands, NM/]); // the tests' today is Nov 20
   const wish = group('Wishlist').locator('.wt-trip-card');
   await expect(wish).toHaveText([/Utah’s parks/]);
   await expect(wish).toContainText('2 saved places');
   await expect(wish.locator('.wt-trip-card__stop')).toHaveCount(2);
-  await expect(group('Past').locator('.wt-trip-card')).toHaveText([/Big Bend in spring/]);
-  // small: two to a row, with no avatars (the names are still said)
-  const [current, small, past] = await Promise.all([
-    group('Current').locator('.wt-trip-card').boundingBox(), wish.boundingBox(), group('Past').locator('.wt-trip-card').boundingBox(),
-  ]);
-  expect(small.width).toBeLessThan(current.width / 2);
-  expect(past.width).toBeCloseTo(small.width, 0);
-  await expect(wish.locator('.wt-trip-card__people')).toBeHidden();
-  await expect(wish).toContainText('with Alex, Jo');
-  // and it opens like any card
-  await wish.click();
+  const past = group('Past').locator('.wt-trip-card');
+  await expect(past).toHaveText([/Big Bend in spring/]);
+  // one on its own takes the whole row, as any card does
+  const width = async l => (await l.boundingBox()).width;
+  expect(await width(wish)).toBeCloseTo(await width(current), 0);
+  expect(await width(past)).toBeCloseTo(await width(current), 0);
+  await expect(wish.locator('.wt-trip-card__people')).toBeVisible();
+  // a second trip of saved places only: the wishlist's cards go small, two to a row, with no avatars (the names are
+  // still said); Past, with one, stays as it was
+  await page.goto('#/spots/seattle/sample/pike-place-market');
+  await page.getByRole('button', { name: 'Save to a trip' }).click();
+  await sheet(page).getByRole('button', { name: /^New trip: Seattle/ }).click();
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await sheetGone(page);
+  await page.goto('#/');
+  await expect(wish).toHaveText([/Seattle/, /Utah’s parks/]);
+  const [a, b] = await Promise.all([wish.nth(0).boundingBox(), wish.nth(1).boundingBox()]);
+  expect(a.width).toBeLessThan(await width(current) / 2);
+  expect(b.y).toBeCloseTo(a.y, 0);
+  expect(b.x).toBeGreaterThan(a.x + a.width);
+  await expect(wish.locator('.wt-trip-card__people')).toHaveCount(2);
+  await expect(wish.locator('.wt-trip-card__people').first()).toBeHidden();
+  await expect(wish.nth(1)).toContainText('with Alex, Jo');
+  expect(await width(past)).toBeCloseTo(await width(current), 0);
+  // and they open like any card
+  await wish.nth(1).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Utah’s parks');
 });
 

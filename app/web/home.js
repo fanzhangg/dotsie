@@ -21,7 +21,7 @@ document.addEventListener('error', e => {
 // reach however far down the trips you are. One card per trip: photos of where it goes, or a sketch of its route, then its name and dates, and who's on it. The
 // trips go under Current (under way today), Upcoming, Wishlist (places saved to it, and no stops yet) and Past, in that
 // order. Wishlist and Past have small cards, two to a row on a phone: they're for looking back and dreaming, not for
-// what's next.
+// what's next. A group of one has the card it'd have anywhere else, across the row, rather than half a row and a gap.
 export function homeHTML() {
   const today = nowStamp().slice(0, 10), list = trips || [];
   const over = t => !!t.end && t.end.slice(0, 10) < today;
@@ -34,8 +34,8 @@ export function homeHTML() {
   const ahead = list.filter(t => !on(t) && !over(t) && !wish(t)).sort(soonest);
   const wishlist = list.filter(wish);
   const past = list.filter(over).sort((a, b) => b.end.localeCompare(a.end));
-  const group = (title, ts, { done = false, small = false } = {}) => `<section class="home-group"><h2 class="home-group__title">${title}</h2>
-    <div class="home-grid${small ? ' home-grid--small' : ''}">${ts.map(t => tripCardHTML(t, done, today, small)).join('')}</div></section>`;
+  const group = (title, ts, { done = false, small: few = false } = {}) => { const small = few && ts.length > 1; return `<section class="home-group"><h2 class="home-group__title">${title}</h2>
+    <div class="home-grid${small ? ' home-grid--small' : ''}">${ts.map(t => tripCardHTML(t, done, today, small)).join('')}</div></section>`; };
   return `
     ${appBarHTML('plan', `<button class="wt-icon-btn" data-action="account" aria-label="Account">${avatarHTML({ name: me.name, image: me.image, identity: 1 })}</button>`)}
     <main class="home">
