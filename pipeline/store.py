@@ -15,6 +15,9 @@ Tables:
   categories  English Wikipedia categories per article
   documents   texts fetched for a record: its English Wikipedia article's wikitext, its official website's first page
   properties  Wikidata property labels, to read the raw claims
+  destinations, picks, guides, llm_answers
+              what guides.py makes from the rest: each destination's picks, their guidebook entries, and the model
+              answers behind them (so a later run asks again only what changed)
 
 Run: python3 store.py --state WA [--limit N] [--pageviews DIR] [steps...]
   steps: wikidata wikipedia websites nps pageviews links (default: all, in that order)
@@ -46,6 +49,16 @@ CREATE TABLE IF NOT EXISTS documents (
   source TEXT, id TEXT, kind TEXT, url TEXT, title TEXT, license TEXT, rev TEXT, fetched_at TEXT, status TEXT,
   sha256 TEXT, chars INTEGER, text BLOB, PRIMARY KEY (source, id, kind));
 CREATE TABLE IF NOT EXISTS properties (pid TEXT PRIMARY KEY, label TEXT, datatype TEXT);
+-- Written by guides.py: a destination's picks and their guidebook entries, and every model answer they came from
+CREATE TABLE IF NOT EXISTS llm_answers (
+  step TEXT, key TEXT, prompt TEXT, model TEXT, input_hash TEXT, answer TEXT, created_at TEXT, PRIMARY KEY (step, key, prompt));
+CREATE TABLE IF NOT EXISTS destinations (
+  id TEXT PRIMARY KEY, name TEXT, kind TEXT, wikidata TEXT, built_at TEXT, counts TEXT, left_out TEXT, cost TEXT);
+CREATE TABLE IF NOT EXISTS picks (
+  destination TEXT, source TEXT, id TEXT, rank INTEGER, reason TEXT, by TEXT, PRIMARY KEY (destination, source, id));
+CREATE TABLE IF NOT EXISTS guides (
+  source TEXT, id TEXT, name TEXT, one_liner TEXT, paragraphs TEXT, practical TEXT, sources TEXT, images TEXT, overlap REAL,
+  model TEXT, prompt TEXT, created_at TEXT, PRIMARY KEY (source, id));
 """
 
 
