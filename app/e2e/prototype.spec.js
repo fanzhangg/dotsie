@@ -218,32 +218,26 @@ test('the search finds a city’s and a state’s spots by their names, and clea
   await expect(spotNames(page)).toHaveCount(7);
 });
 
-test('a spot can be added to a trip, after the trip’s last stop', async ({ page }) => {
-  await page.goto('#/spots/alamogordo/sample/white-sands');
-  await page.getByRole('button', { name: 'Add to a trip' }).click();
-  await expect(sheet(page).getByRole('button')).toContainText(['White Sands, NM', 'Big Bend in spring', 'New trip: Alamogordo']);
-  await sheet(page).getByRole('button', { name: /^White Sands, NM/ }).click();
-  await expect(toast(page)).toContainText('Added to White Sands, NM');
-  await toast(page).getByRole('button', { name: 'Open' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('White Sands, NM');
-  // Two hours after the trip's last stop: the flight home at 11:00 AM on Sun, Nov 22
-  await days(page).getByRole('tab', { name: 'Sun, Nov 22' }).click();
-  await expect(stop(page, 'White Sands National Park')).toContainText('1:00');
-});
-
-test('a spot opens its guide entry, and All spots goes back to the list as it was', async ({ page }) => {
+test('a spot opens its guide entry, a page of its own with its sources and links at the end, and back goes to the list as it was', async ({ page }) => {
   await page.goto('#/spots');
   await page.getByRole('combobox', { name: 'State' }).selectOption('NM');
   await page.getByRole('link', { name: /White Sands National Park/ }).click();
   await expect(page).toHaveTitle('White Sands National Park · Spots · Dotsie');
+  // No app bar: the page is the guide
+  await expect(page.getByRole('navigation', { name: 'Pages' })).toBeHidden();
   const entry = page.locator('article.wt-guide');
-  await expect(entry.getByRole('heading', { level: 2 })).toHaveText('White Sands National Park');
+  await expect(entry.getByRole('heading', { level: 1 })).toHaveText('White Sands National Park');
   await expect(entry.getByText('Alamogordo, New Mexico')).toBeVisible();
-  await expect(entry.locator('.wt-guide__para')).toHaveCount(2);
+  await expect(entry.locator('.wt-guide__body p')).toHaveCount(2);
   await expect(entry.locator('.wt-guide__facts')).toContainText('Water, sun protection and a sled');
-  await expect(entry.getByRole('link', { name: 'Open in Maps' })).toHaveAttribute('href', /White%20Sands%20National%20Park/);
-  await expect(entry.locator('.wt-guide__foot')).toContainText('Written by AI from Wikipedia, and published under CC BY-SA 4.0.');
+  // Sources and links: the Wikipedia article and the maps app, once each
+  const links = entry.locator('.wt-guide__link');
+  await expect(links).toHaveCount(2);
+  await expect(links.first()).toHaveAttribute('href', 'https://en.wikipedia.org/wiki/White_Sands_National_Park');
+  await expect(entry.getByRole('link', { name: /^Google Maps/ })).toHaveAttribute('href', /White%20Sands%20National%20Park/);
+  await expect(entry.locator('.wt-guide__foot')).toContainText('Written by AI from the sources above, and published under CC BY-SA 4.0.');
   await page.getByRole('link', { name: 'All spots' }).click();
+  await expect(page.getByRole('navigation', { name: 'Pages' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('NM');
   await expect(spotNames(page)).toHaveText(['White Sands National Park', 'New Mexico Museum of Space History']);
 });

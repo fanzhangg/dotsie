@@ -1,4 +1,4 @@
-/* Dotsie design system — tokens v2.1.0
+/* Dotsie design system — tokens v2.2.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -318,6 +318,7 @@
    * comes from size and ink (--wt-text-secondary, --wt-text-tertiary), not from more weight. */
   --wt-type-display: 700 28px/34px var(--wt-font-sans);   /* the app name, on sign-in */
   --wt-type-title: 600 18px/24px var(--wt-font-sans);     /* modal titles */
+  --wt-type-headline: 600 26px/32px var(--wt-font-sans);  /* a spot's name, at the top of its guide */
   --wt-type-context: 500 15px/20px var(--wt-font-sans);   /* where you are: the trip's name, the day. Below the stop names */
   --wt-type-heading: 600 15px/20px var(--wt-font-sans);   /* section headings */
   --wt-type-name: 500 16px/21px var(--wt-font-sans);      /* stop and trip names */

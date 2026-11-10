@@ -1,18 +1,14 @@
 /* Spots: the guide's places, open to anyone, signed in or not. #/spots lists them, most viewed first (in the guide's
    own order once a city is picked), with a search and filters for country, state and city, kept in the address
    (#/spots?q=…&state=WA&city=seattle&page=2) so it can be reloaded, sent and gone back through.
-   #/spots/<city>/<source>/<id> is one spot's guide entry, from which it can be added to a trip. The entries are
-   written by a model from the sources each lists (pipeline/guides.py) and published under CC BY-SA 4.0. */
-import { $app, AFTER_SIGN_IN, ICON, appBarHTML, avatarHTML, esc, failHint, uid } from './core.js';
+   #/spots/<city>/<source>/<id> is one spot's guide entry, a page of its own with no app bar, its sources and other
+   pages about it listed at the end. The entries are written by a model from the sources each lists
+   (pipeline/guides.py) and published under CC BY-SA 4.0. */
+import { $app, ICON, appBarHTML, avatarHTML, esc, failHint } from './core.js';
 import { api } from './backend.js';
 import { me } from './signin.js';
-import { setTrips } from './trips.js';
-import { placeURL } from './routes.js';
+import { MAPS_APPS, mapsApp, placeURL } from './routes.js';
 import { regionName } from './regions.js';
-import { toDate, toInput } from './time.js';
-import { tripDates } from './home.js';
-import { closeSheet, modalHead, openSheet } from './sheets.js';
-import { failToast, toast } from './notices.js';
 
 const countryName = (() => {
   let names = null;
@@ -21,15 +17,14 @@ const countryName = (() => {
 })();
 // "2.1M", "48k", "950": how many times its Wikipedia article was read in the last 12 months
 const views = n => n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M` : n >= 1e4 ? `${Math.round(n / 1e3)}k` : n.toLocaleString('en-US');
-const credit = img => `${esc(img.author || 'Unknown author')}, ${esc(img.licence || 'see Commons')}, via <a href="${esc(img.page)}" target="_blank" rel="noopener">Wikimedia Commons</a>`;
-// "A, B and C"
-const and = list => list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`;
-const SOURCE_KIND = { wikipedia: 'Wikipedia', 'official website': 'the official website', 'National Park Service': 'the National Park Service' };
+const credit = img => `${img.caption ? `${esc(img.caption)}: ` : ''}${esc(img.author || 'Unknown author')}, ${esc(img.licence || 'see Commons')}, via <a href="${esc(img.page)}" target="_blank" rel="noopener">Wikimedia Commons</a>`;
+const SOURCE_KIND = { wikipedia: 'Wikipedia', 'official website': 'Official website', 'National Park Service': 'National Park Service' };
+const host = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
 
 // What's asked and what's shown, kept while you go to a spot and back, or to Plan and back. `query` is the address's
 // part after ?, as this state writes it: a different one (Back, Forward, a link) is asked again.
 const s = { q: '', country: '', state: '', city: '', page: 1, query: null, cities: null, results: [], more: false, total: 0, loaded: false,
-  asked: 0, key: null, scroll: 0, fromList: false, title: 'Spots · Dotsie', entry: null };
+  asked: 0, key: null, scroll: 0, fromList: false, title: 'Spots · Dotsie' };
 let timer = 0;
 
 // ---------- The page ----------
@@ -40,9 +35,11 @@ const headHTML = () => appBarHTML('spots', me
   : '<a class="wt-btn wt-btn--secondary" href="#/">Sign in</a>');
 
 export function renderSpots(r) {
-  $app.dataset.page = 'spots';
   if (!$app.querySelector('.spots')) mount();
   else $app.querySelector('.wt-app-bar').outerHTML = headHTML(); // signed in or out since
+  // A spot is a page of its own, to read: no app bar, one column (see #app[data-page="spot"] in styles.css)
+  $app.dataset.page = r.page === 'spot' ? 'spot' : 'spots';
+  $app.querySelector('.wt-app-bar').hidden = r.page === 'spot';
   const list = $app.querySelector('.spots-list'), entry = $app.querySelector('.spots-entry');
   document.title = r.page === 'spot' ? s.title : 'Spots · Dotsie';
   if (r.page === 'spot') {
@@ -118,8 +115,6 @@ function mount() {
   $app.querySelector('.spots-entry').addEventListener('click', e => {
     // Back to the list you came from, as it was; from a link someone sent, to the list
     if (e.target.closest('.wt-guide__back') && s.fromList) { e.preventDefault(); s.fromList = false; history.back(); }
-    if (e.target.closest('[data-add-to-trip]')) addToTrip(s.entry);
-    if (e.target.closest('[data-sign-in-to-add]')) { try { sessionStorage.setItem(AFTER_SIGN_IN, location.hash); } catch {} }
   });
   s.query = s.key = null; // asked again: renderSpots reads the address, and shows the spot afresh
   if (!s.cities) loadCities(); else renderFilters();
@@ -257,117 +252,72 @@ function cardHTML(p) {
       <span class="wt-spot-card__line">${esc(p.oneLiner)}</span>
       <span class="wt-spot-card__where">${esc(`${p.city.name}, ${p.state}`)}</span></span></a>`;
 }
-// A photo that won't load (offline, blocked) gives way to the card's pin
+// A photo that won't load (offline, blocked) gives way: to the card's pin, or to the text
 document.addEventListener('error', e => {
   const img = e.target;
   if (img.classList?.contains('wt-spot-card__photo')) img.outerHTML = `<span class="wt-spot-card__photo wt-spot-card__photo--none" aria-hidden="true">${ICON.pin}</span>`;
   else if (img.closest?.('.wt-guide__figure')) img.closest('.wt-guide__figure').remove();
+  else if (img.classList?.contains('wt-guide__hero')) { img.parentElement.classList.remove('wt-guide__top--photo'); img.remove(); }
 }, true);
 
 // ---------- One spot ----------
 async function showEntry({ city, source, id }) {
   const key = `${city}/${source}/${id}`, el = $app.querySelector('.spots-entry');
-  if (s.key === key) { if (el.querySelector('.wt-guide')) el.querySelector('.spots-actions').outerHTML = actionsHTML(s.entry); return; }
+  if (s.key === key) return;
   s.key = key;
-  s.entry = null;
   s.title = document.title = 'Spots · Dotsie';
-  el.innerHTML = `${backHTML()}<span class="wt-spinner"></span>`;
+  el.innerHTML = `<article class="wt-guide">${topHTML(null)}<span class="wt-spinner"></span></article>`;
   scrollTo(0, 0);
   let g;
   try { g = await api(`/spots/${encodeURIComponent(city)}/${encodeURIComponent(source)}/${encodeURIComponent(id)}`); } catch (err) {
     if (s.key !== key) return;
-    el.innerHTML = `${backHTML()}<p class="wt-empty">${esc(err.code === 'not_found' ? 'This spot isn’t in the guide any more.' : `Couldn’t load this spot. ${failHint(err)}`)}</p>`;
+    el.innerHTML = `<article class="wt-guide">${topHTML(null)}<p class="wt-empty">${esc(err.code === 'not_found' ? 'This spot isn’t in the guide any more.' : `Couldn’t load this spot. ${failHint(err)}`)}</p></article>`;
     return;
   }
   if (s.key !== key) return;
-  s.entry = g;
   s.title = document.title = `${g.name} · Spots · Dotsie`;
-  el.innerHTML = backHTML() + entryHTML(g);
+  el.innerHTML = entryHTML(g);
 }
-const backHTML = () => `<a class="wt-guide__back" href="#/spots${s.query ? `?${s.query}` : ''}">${ICON.back}All spots</a>`;
-// Add it to a trip (signed in), or sign in first and come back here; then the maps app, and its website
-function actionsHTML(g) {
-  const maps = g.lat != null ? placeURL({ name: g.name, address: `${g.destination.name}, ${g.destination.state}`, lat: g.lat, lng: g.lng }) : null;
-  return `<div class="spots-actions">
-    ${g.lat == null ? '' : me ? `<button type="button" class="wt-btn wt-btn--primary" data-add-to-trip>${ICON.plus}Add to a trip</button>`
-      : `<a class="wt-btn wt-btn--primary" href="#/" data-sign-in-to-add>${ICON.plus}Sign in to add to a trip</a>`}
-    ${maps ? `<a class="wt-btn wt-btn--secondary" href="${esc(maps)}" target="_blank" rel="noopener">${ICON.map}Open in Maps</a>` : ''}
-    ${g.website ? `<a class="wt-btn wt-btn--secondary" href="${esc(g.website)}" target="_blank" rel="noopener">${ICON.external}Website</a>` : ''}</div>`;
+// The lead photo across the top, with the way back over its corner; with none, the way back on its own
+const topHTML = hero => `<div class="wt-guide__top${hero?.thumb ? ' wt-guide__top--photo' : ''}">
+    <a class="wt-guide__back" href="#/spots${s.query ? `?${s.query}` : ''}" aria-label="All spots">${ICON.back}</a>
+    ${hero?.thumb ? `<img class="wt-guide__hero" src="${esc(hero.thumb)}" alt="${esc(hero.caption || '')}" decoding="async">` : ''}</div>`;
+// Every page the entry was written from, and the others about the place, once each: its Wikipedia article, its official
+// website, the maps app, its record at its source, then any other source
+function linksOf(g) {
+  const out = [], seen = new Set();
+  const add = (url, label, detail) => { if (url && !seen.has(url)) { seen.add(url); out.push({ url, label, detail }); } };
+  if (g.wikipedia) add(`https://en.wikipedia.org/wiki/${encodeURIComponent(g.wikipedia.replace(/ /g, '_'))}`, 'Wikipedia', g.wikipedia);
+  for (const x of g.sources ?? []) if (x.kind === 'wikipedia') add(x.url, 'Wikipedia', decodeURIComponent(x.url.split('/wiki/')[1] ?? '').replace(/_/g, ' ') || host(x.url));
+  if (g.website) add(g.website, 'Official website', host(g.website));
+  for (const x of g.sources ?? []) if (x.kind === 'official website') add(x.url, 'Official website', host(x.url));
+  if (g.lat != null) add(placeURL({ name: g.name, address: `${g.destination.name}, ${g.destination.state}`, lat: g.lat, lng: g.lng }), MAPS_APPS[mapsApp], 'Directions, hours and reviews');
+  if (g.url) add(g.url, g.source === 'wikidata' ? 'Wikidata' : 'National Park Service', g.source === 'wikidata' ? g.id : host(g.url));
+  for (const x of g.sources ?? []) add(x.url, SOURCE_KIND[x.kind] ?? x.kind, host(x.url));
+  return out;
 }
 function entryHTML(g) {
-  const figure = img => img?.thumb ? `<figure class="wt-guide__figure">
-      <img src="${esc(img.thumb)}" alt="${esc(img.caption || '')}"${img.width ? ` width="${+img.width}" height="${+img.height}"` : ''} loading="lazy" decoding="async">
-      <figcaption>${img.caption ? `${esc(img.caption)} ` : ''}<span class="wt-guide__credit">${credit(img)}</span></figcaption></figure>` : '';
   const inline = g.images?.inline ?? [];
-  const after = n => inline.filter(i => i.after_paragraph === n).map(figure).join('');
+  const figure = img => `<figure class="wt-guide__figure"><img src="${esc(img.thumb)}" alt="${esc(img.caption || '')}"${img.width ? ` width="${+img.width}" height="${+img.height}"` : ''} loading="lazy" decoding="async">${img.caption ? `<figcaption>${esc(img.caption)}</figcaption>` : ''}</figure>`;
+  const after = n => inline.filter(i => i.after_paragraph === n && i.thumb).map(figure).join('');
   const photos = [g.images?.hero, ...inline].filter(i => i?.thumb);
-  const at = `${g.destination.name}, ${regionName(g.destination.country, g.destination.state)}`;
-  const sources = (g.sources ?? []).map(x => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(SOURCE_KIND[x.kind] ?? x.kind)}</a>`);
+  const links = linksOf(g);
   return `<article class="wt-guide">
-    ${figure(g.images?.hero)}
+    ${topHTML(g.images?.hero)}
     <header class="wt-guide__head">
-      <p class="wt-guide__where">${esc(at)}</p>
-      <h2 class="wt-guide__name">${esc(g.name)}</h2>
+      <p class="wt-guide__where">${esc(`${g.destination.name}, ${regionName(g.destination.country, g.destination.state)}`)}</p>
+      <h1 class="wt-guide__name">${esc(g.name)}</h1>
       <p class="wt-guide__lede">${esc(g.oneLiner)}</p>
     </header>
-    ${(g.paragraphs ?? []).map((p, i) => `<p class="wt-guide__para">${esc(p.text)}</p>${after(i + 1)}`).join('')}
-    ${g.practical?.length ? `<section class="wt-guide__facts"><h3>Before you go</h3>
-      <dl>${g.practical.map(f => `<dt>${esc(f.label)}</dt><dd>${esc(f.value)}</dd>`).join('')}</dl></section>` : ''}
-    ${actionsHTML(g)}
+    <div class="wt-guide__body">${(g.paragraphs ?? []).map((p, i) => `<p>${esc(p.text)}</p>${after(i + 1)}`).join('')}</div>
+    ${g.practical?.length ? `<section class="wt-guide__section"><h2>Before you go</h2>
+      <dl class="wt-guide__facts">${g.practical.map(f => `<div><dt>${esc(f.label)}</dt><dd>${esc(f.value)}</dd></div>`).join('')}</dl></section>` : ''}
+    ${links.length ? `<section class="wt-guide__section"><h2>Sources and links</h2>
+      <ul class="wt-guide__links">${links.map(l => `<li><a class="wt-guide__link" href="${esc(l.url)}" target="_blank" rel="noopener">
+        <span class="wt-guide__link-text"><span class="wt-guide__link-label">${esc(l.label)}</span><span class="wt-guide__link-detail">${esc(l.detail)}</span></span>${ICON.external}</a></li>`).join('')}</ul></section>` : ''}
     <footer class="wt-guide__foot">
-      <p>Written by AI from ${sources.length ? and(sources) : 'its sources'}, and published under <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.${g.views != null ? ` Its Wikipedia article was read ${views(g.views)} times in the last year.` : ''}</p>
+      <p>Written by AI from the sources above, and published under <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.${g.views != null ? ` Its Wikipedia article was read ${views(g.views)} times in the last year.` : ''}</p>
       ${photos.length ? `<p>Photos: ${photos.map(credit).join('; ')}.</p>` : ''}
     </footer>
   </article>`;
-}
-
-// ---------- Adding a spot to a trip ----------
-// Your trips, to pick one, and a new trip named after the spot's city. The stop goes two hours after the trip's last
-// stop (by 10 PM, or else 9 AM the day after), or 9 AM tomorrow in a trip with none, as an attraction, with its
-// Wikidata item (so its stop sheet has its photo and lines) and a link back to its guide.
-function addToTrip(g) {
-  if (!g) return;
-  openSheet(`${modalHead('Add to a trip')}<div class="spots-trips"><span class="wt-spinner"></span></div>`, async el => {
-    const box = el.querySelector('.spots-trips');
-    let list;
-    try { list = await api('/trips'); } catch (err) {
-      box.innerHTML = `<p class="wt-results__msg"><b>Couldn’t load your trips</b>${esc(failHint(err))}</p>`;
-      return;
-    }
-    const item = (value, label, detail, icon = '') => `<li><button type="button" class="wt-option" data-trip="${esc(value)}">${icon}
-      <span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span></button></li>`;
-    box.innerHTML = `<ul class="wt-options" aria-label="Your trips">${list.map(t => item(t.id, t.name, tripDates(t))).join('')}
-      ${item('', `New trip: ${g.destination.name}`, '', ICON.plus)}</ul>`;
-    box.addEventListener('click', async e => {
-      const b = e.target.closest('[data-trip]');
-      if (!b || box.dataset.busy) return;
-      box.dataset.busy = '1';
-      b.disabled = true;
-      try {
-        const trip = b.dataset.trip ? list.find(t => t.id === b.dataset.trip)
-          : (await api('/trips', { method: 'POST', body: { name: g.destination.name } })).trip;
-        await api(`/trips/${trip.id}/stops/${uid()}`, { method: 'PUT', body: stopFor(g, trip.stops ?? []) });
-        setTrips(null); // Home's cards ask again
-        closeSheet();
-        toast(`Added to ${trip.name}`, 'Open', () => { location.hash = `#/trip/${trip.id}`; });
-      } catch (err) {
-        delete box.dataset.busy;
-        b.disabled = false;
-        if (err.status !== 401) failToast(err, 'Couldn’t add it to the trip');
-      }
-    });
-  });
-}
-function stopFor(g, stops) {
-  const last = stops.map(x => x.time).filter(Boolean).sort().at(-1);
-  let d;
-  if (last) {
-    d = toDate(last);
-    const day = d.getDate();
-    d.setHours(d.getHours() + 2, 0, 0, 0);
-    if (d.getDate() !== day || d.getHours() > 22) { d = toDate(last); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
-  } else { d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
-  const guide = `${location.origin}${location.pathname}#/spots/${encodeURIComponent(g.destination.id)}/${encodeURIComponent(g.source)}/${encodeURIComponent(g.id)}`;
-  return { name: g.name, address: `${g.destination.name}, ${g.destination.state}`, lat: g.lat, lng: g.lng, time: toInput(d), note: '',
-    kind: 'attraction', wikidata: g.source === 'wikidata' ? g.id : null, links: [{ url: guide, label: 'Guide' }] };
 }

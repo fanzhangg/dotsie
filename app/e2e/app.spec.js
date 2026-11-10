@@ -154,21 +154,17 @@ test('anyone can browse the spots and read a spot’s guide without signing in',
   await expect(page.locator('.wt-spot-card')).toContainText('Testville, ZZ');
   await page.getByRole('link', { name: /Test Lodge/ }).click();
   const entry = page.locator('article.wt-guide');
-  await expect(entry.getByRole('heading', { level: 2 })).toHaveText('Test Lodge');
-  await expect(entry.locator('.wt-guide__para')).toHaveCount(2);
+  await expect(entry.getByRole('heading', { level: 1 })).toHaveText('Test Lodge');
+  await expect(entry.locator('.wt-guide__body p')).toHaveCount(2);
   await expect(entry.locator('.wt-guide__facts')).toContainText('Open from May to September.');
+  // Every page it was written from, and the others about it, at the end
+  await expect(entry.locator('.wt-guide__link-label')).toHaveText(['Wikipedia', 'Official website', 'Google Maps', 'Wikidata', 'National Park Service']);
+  await expect(entry.getByRole('link', { name: /^Wikidata/ })).toHaveAttribute('href', 'https://www.wikidata.org/wiki/Q1');
   await expect(entry.locator('.wt-guide__foot')).toContainText('Its Wikipedia article was read 12k times in the last year.');
   await expect(entry.locator('.wt-guide__foot')).toContainText('A. Photographer, CC BY-SA 4.0, via Wikimedia Commons');
-  // Adding it to a trip needs an account: sign in, and come back to the spot
-  await page.getByRole('link', { name: 'Sign in to add to a trip' }).click();
-  await guest(page, 'Alex');
-  await expect(entry.getByRole('heading', { level: 2 })).toHaveText('Test Lodge');
-  await page.getByRole('button', { name: 'Add to a trip' }).click();
-  await sheet(page).getByRole('button', { name: 'New trip: Testville' }).click();
-  await expect(toast(page)).toContainText('Added to Testville');
-  await toast(page).getByRole('button', { name: 'Open' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Testville');
-  await expect(stop(page, 'Test Lodge')).toBeVisible();
+  await page.getByRole('link', { name: 'All spots' }).click();
+  await page.getByRole('link', { name: 'Sign in' }).click();
+  await expect(page.getByRole('button', { name: 'Continue as a guest' })).toBeVisible();
 });
 
 // e2e/places.sql loads Pagetown's 31 picks

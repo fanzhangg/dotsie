@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 14.1.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 15.0.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -159,6 +159,7 @@ Four weights, each with a job: **700** the app name (sign-in) only; **600** head
 | --- | --- | --- | --- |
 | `--wt-type-display` | 28 / 34 | 700 | The app name on sign-in. Pair it with `--wt-tracking-display`. |
 | `--wt-type-title` | 18 / 24 | 600 | Modal titles. |
+| `--wt-type-headline` | 26 / 32 | 600 | A spot's name, at the top of its guide (`.wt-guide__name`). |
 | `--wt-type-context` | 15 / 20 | 500 | Where you are: the trip's name, in `--wt-text-secondary`, and the day tabs, in `--wt-text-tertiary` (the open one primary). Smaller and lighter than a stop's name, so the plan leads. |
 | `--wt-type-heading` | 15 / 20 | 600 | Section titles in trip settings and Account (`.wt-section__title`). |
 | `--wt-type-name` | 16 / 21 | 500 | Stop and trip names: the strongest text in a list. |
@@ -915,27 +916,35 @@ A place worth a trip, in a list of them, on `--wt-surface-sheet`, set apart by i
 ### Guide entry `.wt-guide`
 
 ```html
-<a class="wt-guide__back" href="#/spots">${backIcon}All spots</a>
 <article class="wt-guide">
-  <figure class="wt-guide__figure"><img src="…" alt="The dunes at sunset"><figcaption>The dunes at sunset <span class="wt-guide__credit">Jane Doe, CC BY-SA 4.0, via Wikimedia Commons</span></figcaption></figure>
+  <div class="wt-guide__top wt-guide__top--photo">
+    <a class="wt-guide__back" href="#/spots" aria-label="All spots">${backIcon}</a>
+    <img class="wt-guide__hero" src="…" alt="The dunes at sunset">
+  </div>
   <header class="wt-guide__head">
     <p class="wt-guide__where">Alamogordo, New Mexico</p>
-    <h2 class="wt-guide__name">White Sands National Park</h2>
+    <h1 class="wt-guide__name">White Sands National Park</h1>
     <p class="wt-guide__lede">Waves of white gypsum, the largest field of such dunes on Earth.</p>
   </header>
-  <p class="wt-guide__para">…</p>
-  <section class="wt-guide__facts"><h3>Before you go</h3><dl><dt>Bring</dt><dd>Water and a sled.</dd></dl></section>
-  <footer class="wt-guide__foot"><p>Written by AI from <a href="…">Wikipedia</a>, and published under CC BY-SA 4.0.</p></footer>
+  <div class="wt-guide__body"><p>…</p><figure class="wt-guide__figure"><img …><figcaption>The boardwalk</figcaption></figure><p>…</p></div>
+  <section class="wt-guide__section"><h2>Before you go</h2>
+    <dl class="wt-guide__facts"><div><dt>Bring</dt><dd>Water and a sled.</dd></div></dl></section>
+  <section class="wt-guide__section"><h2>Sources and links</h2>
+    <ul class="wt-guide__links"><li><a class="wt-guide__link" href="…">
+      <span class="wt-guide__link-text"><span class="wt-guide__link-label">Wikipedia</span><span class="wt-guide__link-detail">White Sands National Park</span></span>${externalIcon}</a></li></ul></section>
+  <footer class="wt-guide__foot"><p>Written by AI from the sources above, and published under CC BY-SA 4.0.</p><p>Photos: …</p></footer>
 </article>
 ```
 
-One spot as a guidebook has it, in one column about 40em wide at most.
+One spot as a guidebook has it: a page to read, on `--wt-surface-raised`, with nothing else on the page (no app bar), in a column about 40em wide at most.
 
-- `__back` goes back to the list, in `--wt-type-context` with the back icon, like a sub-page's back button.
-- `__where` is an overline (small capitals, tertiary); `__name` a title (`--wt-type-title`), never display type, which is the app name's; `__lede` in `--wt-type-name`, secondary.
-- `__para` is running text with room between lines (1.6). A `__figure` can follow the paragraph it shows.
-- `__facts` are the practical facts, on a sunken panel, as a list: the label over its value on a phone, side by side from 520px wide.
-- `__foot` says what it was written from, its license, and each photo's author and license, in tertiary caption. Links in the entry are `--wt-text-link`.
+- `__top` holds the way back. With `--photo`, `__hero` runs across it (4:3 on a phone, 16:9 from 768px wide; let it reach the column's edges), and `__back` is a round button frosted over its top left corner, with `--wt-shadow-float`. Without a photo, `__back` is the same round button on `--wt-surface-sunken`, on its own above the name.
+- `__head`: `__where` an overline (small capitals, tertiary), `__name` in `--wt-type-headline`, `__lede` the one line in secondary ink, a little larger than body.
+- `__body` is the text: paragraphs at 16px with room between lines (1.65), and a `__figure` after the paragraph it shows, with its caption under it. Credits go in `__foot`, not under the photos.
+- `__section`s follow, each a heading (`--wt-type-heading`) and rows between hairlines, set apart by space, not panels:
+  - `__facts`: one row per fact, its label (caption, secondary) over it.
+  - `__links`: every page it was written from, and the others about the place, once each. Each `__link` is a row at least 56px high: `__link-label`, what it is (Wikipedia, Official website, Google Maps), over `__link-detail`, where it goes (the article's title, the site's host), and the external icon on the right in tertiary ink.
+- `__foot`: what it was written from and its license, and every photo's caption, author and license, in tertiary caption. Its links are `--wt-text-link`.
 
 ### Map pin `.wt-pin`
 
@@ -1106,6 +1115,14 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Changed in 15.0.0
+
+The guide entry is a page to read, with its sources and links at the end, and no buttons in it.
+
+- `.wt-guide`: new `__top` (`--photo`), `__hero`, `__body`, `__section`, `__links`, `__link`, `__link-text`, `__link-label` and `__link-detail`. `__back` is a round icon button (was a text link with an icon), frosted over the photo. `__name` is `--wt-type-headline` and an `h1`. `__facts` is a list of rows (a `div` per fact) between hairlines, inside a `__section` (was a sunken panel with its own heading).
+- Removed: `.wt-guide__credit` (credits go in `__foot`), `__para` (paragraphs are `p` in `__body`), `__facts h3` and `.wt-guide a` (only `__foot`'s links are link-colored).
+- New token: `--wt-type-headline` (600 26/32), a spot's name (tokens 2.2.0).
 
 ### Added in 14.1.0
 
