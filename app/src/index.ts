@@ -112,20 +112,27 @@ app.get('/developer/spots/states', async c => {
   const { results } = await c.env.DB.prepare('select state, loaded_at as loadedAt, built_at as builtAt, records from place_loads order by state').all();
   return c.json(results);
 });
-// Places whose name contains q (all, when q is empty), most read on Wikipedia first, 50 at a time. source "nps" is every NPS endpoint.
+// Places with a word starting with each word of q ("mount rai" finds Mount Rainier; all, when q is empty), most read on
+// Wikipedia first, 50 at a time, through the names' full-text index (migrations/0007_places_search.sql), so a search
+// reads the places that match, not the whole table. source "nps" is every NPS endpoint.
+const nameMatch = (q: string) => (q.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).slice(0, 8)
+  .map(w => `"${w}"${w.length > 1 ? '*' : ''}`).join(' ');
 app.get('/developer/spots/search', async c => {
   const q = (c.req.query('q') ?? '').trim(), state = c.req.query('state') ?? '', source = c.req.query('source') ?? '';
   const offset = Number(c.req.query('offset') ?? 0);
   if (q.length > 100 || (state && !STATE.test(state)) || (source && source !== 'nps' && !SOURCE.test(source))
     || !Number.isInteger(offset) || offset < 0 || offset > 5000) bad();
+  const match = nameMatch(q);
+  if (q && !match) return c.json({ results: [], more: false }); // only punctuation: no word to look for
   const where: string[] = [], args: (string | number)[] = [];
-  if (q) { where.push(`name like ? escape '\\'`); args.push(`%${q.replace(/[\\%_]/g, m => '\\' + m)}%`); }
-  if (state) { where.push('state = ?'); args.push(state); }
-  if (source === 'nps') where.push(`source like 'nps:%'`);
-  else if (source) { where.push('source = ?'); args.push(source); }
+  if (match) { where.push('places_fts match ?'); args.push(match); }
+  if (state) { where.push('p.state = ?'); args.push(state); }
+  if (source === 'nps') where.push(`p.source >= 'nps:' and p.source < 'nps;'`); // a range, so places_by_source serves it
+  else if (source) { where.push('p.source = ?'); args.push(source); }
   const { results } = await c.env.DB.prepare(
-    `select source, id, state, name, description, lat, lng, types, views from places
-     ${where.length ? 'where ' + where.join(' and ') : ''} order by views desc nulls last, name limit 51 offset ?`,
+    `select p.source, p.id, p.state, p.name, p.description, p.lat, p.lng, p.types, p.views
+     from ${match ? 'places_fts join places p on p.n = places_fts.rowid' : 'places p'}
+     ${where.length ? 'where ' + where.join(' and ') : ''} order by p.views desc nulls last, p.name limit 51 offset ?`,
   ).bind(...args, offset).all<PlaceRow>();
   return c.json({ results: results.slice(0, 50).map(place), more: results.length > 50 });
 });
@@ -133,7 +140,7 @@ app.get('/developer/spots/search', async c => {
 app.get('/developer/spots/place/:source/:id', async c => {
   const source = c.req.param('source'), id = c.req.param('id');
   if (!SOURCE.test(source) || !PLACE_ID.test(id)) bad();
-  const row = await c.env.DB.prepare('select * from places where source = ? and id = ?').bind(source, id)
+  const row = await c.env.DB.prepare('select source, id, state, name, description, lat, lng, types, url, wikipedia, website, views, ids from places where source = ? and id = ?').bind(source, id)
     .first<PlaceRow & { url: string | null; wikipedia: string | null; website: string | null; ids: string | null }>();
   if (!row) throw new Error(ERR.notFound);
   const ids = JSON.parse(row.ids ?? '{}') as Record<string, string[]>;
@@ -161,8 +168,9 @@ type GuideRow = { source: string; id: string; state: string; name: string; one_l
 type Images = { hero: Record<string, unknown> | null; inline: Record<string, unknown>[] };
 // How much a pick is read about: its English Wikipedia views over the last 12 months. An NPS record has no article of
 // its own, so it takes the views of the Wikidata item it shares an identifier with (place_links), the most read if
-// there are several. Needs `g` (spot_guides) and `pl` (its row in places) in the query.
-const VIEWS = `coalesce(pl.views, (select max(w.views) from place_links l join places w on w.source = 'wikidata' and (
+// there are several. Needs `g` (spot_guides) and `pl` (its row in places) in the query. CROSS JOIN starts from the pick's
+// few links and looks each item up by its key: left to itself, SQLite went through every Wikidata row in places for each pick.
+const VIEWS = `coalesce(pl.views, (select max(w.views) from place_links l cross join places w on w.source = 'wikidata' and (
     (l.source_a = g.source and l.id_a = g.id and w.source = l.source_b and w.id = l.id_b)
     or (l.source_b = g.source and l.id_b = g.id and w.source = l.source_a and w.id = l.id_a))))`;
 // The destinations with picks so far
