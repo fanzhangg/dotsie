@@ -12,12 +12,12 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 
 /* ---------- Wide screens: Home's trips and the spots are a grid of cards on the page; sign-in is a card ---------- */
 @media (min-width: 768px) {
-  #app:is([data-page="home"], [data-page="spots"]) { max-width: 1040px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
+  #app:is([data-page="home"], [data-page="spots"]) { --wt-app-bar-surface: var(--wt-surface-page); --spots-gutter: var(--wt-space-6); max-width: 1040px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
   /* The bar spans the page's column, its edges with the cards', on the page's color */
-  #app:is([data-page="home"], [data-page="spots"]) .wt-app-bar { --wt-app-bar-surface: var(--wt-surface-page); min-height: 80px; margin: 0 calc(-1 * var(--wt-space-6)) var(--wt-space-2); padding-left: var(--wt-space-6); padding-right: var(--wt-space-6); }
+  #app:is([data-page="home"], [data-page="spots"]) .wt-app-bar { min-height: 80px; margin: 0 calc(-1 * var(--wt-space-6)) var(--wt-space-2); padding-left: var(--wt-space-6); padding-right: var(--wt-space-6); }
   #app:is([data-page="home"], [data-page="spots"]) .home { padding: 0 0 var(--wt-space-10); }
   #app:is([data-page="home"], [data-page="spots"]) .home-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--wt-space-4); }
-  .spots-find { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .spots-find { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--wt-space-3); }
   #app[data-page="home"] .home-guest { justify-self: start; width: auto; }
   #app[data-page="home"] .home-actions .wt-btn { width: auto; }
 
@@ -50,8 +50,23 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 .spots-count { margin: calc(-1 * var(--wt-space-2)) 0 calc(-1 * var(--wt-space-2)); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .spots-count:empty { display: none; }
 .spots-find { display: grid; gap: var(--wt-space-2); }
-.spots-filters { display: flex; flex-wrap: wrap; gap: var(--wt-space-2); }
-.spots-filters select { flex: 1 1 140px; width: auto; min-width: 0; }
+/* The search and the filters stay at the top of the list as it scrolls: just under the app bar, frosted like it and out
+   to the page's edges, with the bar's hairline moved under them, so the two read as one; on a phone, at the very top
+   while the bar is tucked away as the page scrolls down. --spots-stick is the bar's height, set by spots.js. */
+.spots-band {
+  position: sticky; top: var(--spots-stick, 64px); z-index: var(--wt-z-raised);
+  margin: calc(-1 * var(--wt-space-2)) calc(-1 * var(--spots-gutter, var(--wt-space-4))) 0;
+  padding: var(--wt-space-2) var(--spots-gutter, var(--wt-space-4));
+  background: color-mix(in oklab, var(--wt-app-bar-surface, var(--wt-surface-sheet)) 82%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px); backdrop-filter: saturate(1.6) blur(16px);
+  transition: top var(--wt-duration-base) var(--wt-ease-out);
+}
+@media (max-width: 767.98px) { #app:has(.wt-app-bar.is-tucked) .spots-band { top: 0; padding-top: calc(var(--wt-space-2) + env(safe-area-inset-top)); } }
+#app[data-page="spots"] .wt-app-bar.is-scrolled { box-shadow: none; }
+.wt-app-bar.is-scrolled + .spots .spots-band { box-shadow: 0 1px 0 var(--wt-border-default); }
+/* The filters: a row of chips (the design system's), scrolling sideways if they don't fit */
+.spots-filters { display: flex; gap: var(--wt-space-2); overflow-x: auto; scrollbar-width: none; }
+.spots-filters::-webkit-scrollbar { display: none; }
 .spots-empty { grid-column: 1 / -1; display: grid; justify-items: center; gap: var(--wt-space-3); }
 .spots-empty p { margin: 0; }
 .spots-more { justify-self: center; }
@@ -64,7 +79,7 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 .spots-entry { width: 100%; display: grid; align-content: start; }
 .spots-entry .wt-guide__top--photo { margin: 0 calc(-1 * var(--spot-gutter)); }
 @media (min-width: 768px) { #app[data-page="spot"] { --spot-gutter: var(--wt-space-10); max-width: 680px; } }
-:is(.spots-list, .spots-entry, .spots-more, .spots-pager, .spots-filters select)[hidden] { display: none; }
+:is(.spots-list, .spots-entry, .spots-more, .spots-pager)[hidden] { display: none; }
 
 /* ---------- Sign in: one choice per step ---------- */
 .signin { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }

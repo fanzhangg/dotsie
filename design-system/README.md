@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 15.0.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 15.1.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -871,7 +871,23 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 The top of Home and Spots, in one row: the app's pages on the left, the account on the right. Actions on the page (New trip) go in the page, not here.
 
 - **The bar** stays at the top as the page scrolls (`position: sticky`), 64px high (80px from 768px wide), frosted over what passes under it in the page's color (`--wt-surface-sheet`, or set `--wt-app-bar-surface`). Add `.is-scrolled` once the page has scrolled, for a hairline under it. The page's name is a hidden `h1`: the nav already shows it.
+- **On a phone it tucks away** while the page scrolls down, and comes back as soon as it scrolls up: add `.is-tucked` (it slides up out of view on `--wt-duration-base`). Anything else stuck under it moves up to the top meanwhile. From 768px wide it stays.
 - **`.wt-nav`** is the app's pages, as pills of an icon (18px) and a word, in `--wt-type-context`. The page you're on (`aria-current="page"`) is raised white with `--wt-shadow-hairline`, in primary ink, set apart by its surface as a card is; the others are in secondary ink, a grey pill when pointed at. Plan is `map`, Spots is `star`. For pages, not filters. Sign-in shows it under the wordmark.
+
+### Filter `.wt-filter`
+
+```html
+<label class="wt-filter is-set">
+  <span class="wt-filter__value">Washington</span>${chevronDownIcon}
+  <select aria-label="State"><option value="">All states</option><option value="WA" selected>Washington</option></select>
+</label>
+```
+
+One choice of a list's, as a chip, in a row of them over the list it narrows (Country, State, City over the spots).
+
+- It says its name ("State") while it's every one, and what it's set to ("Washington") once it's set, with `.is-set`: primary ink on `--wt-surface-current`, the grey of a highlighted row. So the row says at a glance what the list is narrowed to.
+- The `select` covers the whole chip, unseen: a tap opens the phone's own picker (a menu on a computer), and its 16px type keeps an iPhone from zooming in. Keep the `select`'s first option "All states": that's what the picker lists. Set `__value` from the `select` whenever it changes.
+- 36px high, a pill with a hairline. A row of them can scroll sideways rather than wrap.
 
 ### Pager `.wt-pager`
 
@@ -1115,6 +1131,11 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 15.1.0
+
+- New: `.wt-filter` (`.is-set`), with `__value`. See [Filter](#filter-wt-filter).
+- New: `.wt-app-bar.is-tucked`, the bar out of view on a phone while the page scrolls down. See [App bar](#app-bar-wt-app-bar-and-nav-wt-nav).
 
 ### Changed in 15.0.0
 

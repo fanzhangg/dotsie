@@ -40,6 +40,7 @@ export function renderSpots(r) {
   // A spot is a page of its own, to read: no app bar, one column (see #app[data-page="spot"] in styles.css)
   $app.dataset.page = r.page === 'spot' ? 'spot' : 'spots';
   $app.querySelector('.wt-app-bar').hidden = r.page === 'spot';
+  stickUnderBar(); // once the page's own layout applies
   const list = $app.querySelector('.spots-list'), entry = $app.querySelector('.spots-entry');
   document.title = r.page === 'spot' ? s.title : 'Spots · Dotsie';
   if (r.page === 'spot') {
@@ -65,16 +66,13 @@ function mount() {
     ${headHTML()}
     <main class="home spots">
       <section class="spots-list" aria-label="Spots">
-        <div class="spots-find">
+        <div class="spots-find spots-band">
           <label class="wt-input wt-input-group wt-search">${ICON.search}
             <input type="search" name="q" placeholder="Search spots, cities or states" aria-label="Search spots" autocomplete="off">
             <span class="wt-spinner" hidden></span>
             <button type="button" class="wt-search__clear" aria-label="Clear search" hidden>${ICON.close}</button></label>
-          <div class="spots-filters">
-            <select class="wt-input" name="country" aria-label="Country"></select>
-            <select class="wt-input" name="state" aria-label="State"></select>
-            <select class="wt-input" name="city" aria-label="City"></select>
-          </div>
+          <div class="spots-filters">${[['country', 'Country'], ['state', 'State'], ['city', 'City']].map(([name, label]) =>
+            `<label class="wt-filter" data-filter="${name}"><span class="wt-filter__value">${label}</span>${ICON.chevronDown}<select name="${name}" aria-label="${label}"></select></label>`).join('')}</div>
         </div>
         <p class="spots-count" role="status"></p>
         <div class="home-grid spots-grid"></div>
@@ -120,6 +118,14 @@ function mount() {
   if (!s.cities) loadCities(); else renderFilters();
   if (s.results.length) showResults(); // as it was, while it's asked again
 }
+// The search and the filters stay at the top of the list as it scrolls, just under the app bar, whatever height the
+// bar is (the phone's safe area adds to it), or at the very top while a phone's bar is tucked away: see .spots-band
+// in styles.css
+function stickUnderBar() {
+  const bar = $app.querySelector('.wt-app-bar');
+  if (bar && !bar.hidden) $app.style.setProperty('--spots-stick', `${bar.offsetHeight}px`);
+}
+addEventListener('resize', () => { if ($app.dataset.page === 'spots') stickUnderBar(); });
 const showClear = () => { const b = $app.querySelector('.wt-search__clear'); if (b) b.hidden = !s.q; };
 
 // ---------- The address: what's asked, after #/spots? ----------
@@ -161,8 +167,14 @@ function renderFilters() {
   set('country', option('', 'All countries') + countries.map(c => option(c, countryName(c), c === s.country)).join(''));
   set('state', option('', 'All states') + states.map(c => option(c.state, regionName(c.country, c.state), c.state === s.state)).join(''));
   set('city', option('', 'All cities') + cities.map(c => option(c.id, s.state ? c.name : `${c.name}, ${c.state}`, c.id === s.city)).join(''));
+  // Each filter shows what it's set to, or its name when it's every one
+  for (const chip of root.querySelectorAll('.wt-filter')) {
+    const select = chip.querySelector('select'), on = !!select.value;
+    chip.classList.toggle('is-set', on);
+    chip.querySelector('.wt-filter__value').textContent = on ? select.selectedOptions[0].textContent : select.getAttribute('aria-label');
+  }
   // One country so far: nothing to choose, so it stays out of the way until there's a second
-  root.querySelector('[name="country"]').hidden = countries.length < 2 && !s.country;
+  root.querySelector('[data-filter="country"]').hidden = countries.length < 2 && !s.country;
 }
 // A wider choice drops the narrower ones it doesn't hold; a city sets its state
 function pick(name, value) {

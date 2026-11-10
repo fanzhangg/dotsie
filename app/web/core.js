@@ -16,8 +16,18 @@ export const navHTML = page => `<nav class="wt-nav" aria-label="Pages">${PAGES.m
 export const appBarHTML = (page, end) => `<header class="wt-app-bar">
   <h1 class="wt-visually-hidden">${PAGES.find(p => p[0] === page)[2]}</h1>${navHTML(page)}
   <div class="wt-app-bar__end">${end}</div></header>`;
-// The app bar's hairline, once something has scrolled under it
-addEventListener('scroll', () => document.querySelector('.wt-app-bar')?.classList.toggle('is-scrolled', scrollY > 0), { passive: true });
+// The app bar's hairline, once something has scrolled under it; and on a phone, the bar tucks away while the page
+// scrolls down and comes back as soon as it scrolls up (.is-tucked: see App bar in the design system)
+let lastY = 0;
+addEventListener('scroll', () => {
+  const bar = document.querySelector('.wt-app-bar'), y = Math.max(0, Math.min(scrollY, document.documentElement.scrollHeight - innerHeight));
+  if (!bar) return;
+  bar.classList.toggle('is-scrolled', y > 0);
+  if (y <= bar.offsetHeight) bar.classList.remove('is-tucked');
+  else if (y - lastY > 4) bar.classList.add('is-tucked');
+  else if (lastY - y > 4) bar.classList.remove('is-tucked');
+  lastY = y;
+}, { passive: true });
 // sel: the selected stop · selRow: which of its rows was tapped (a hotel can start and end the day) · leg: the drive whose route is shown · snap: the phone's list, 'half' or 'full' ·
 // draft: the stop open in the stop sheet, as edited so far, which the map shows in its place
 export const state = { sel: null, selRow: null, leg: null, hoverLeg: null, day: null, snap: 'half', draft: null, flash: new Set() };
