@@ -18,6 +18,9 @@ on:
       models:
         description: 'Another model for a step, e.g. "write=claude-opus-5-5" (default: judge and pictures Haiku, pick and write Sonnet)'
         default: ""
+      explain:
+        description: 'Only explain, from the stores, why places are or aren''t in the guides: parts of names, e.g. "Kuwohi,Skyline Drive". Asks no model, changes nothing'
+        default: ""
 
 # The same group as Spots data: both update the stores in R2.
 concurrency:
@@ -87,7 +90,13 @@ jobs:
           done
       # Stopped before the job's time limit, so the answers so far are saved below: running it again carries on, and
       # takes the answers of batches still out (noted in the store) instead of asking again
+      - name: Explain
+        if: ${{ inputs.explain != '' }}
+        env:
+          EXPLAIN: ${{ inputs.explain }}
+        run: python3 explain.py --destination $IDS --names "$EXPLAIN" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Pick and write
+        if: ${{ inputs.explain == '' }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MODELS: ${{ inputs.models }}
@@ -109,13 +118,13 @@ jobs:
           exit $status
       # Saved even when a step above failed partway: the answers it got cost money to ask again
       - name: Save the store to R2
-        if: ${{ always() && hashFiles(format('pipeline/data/{0}.sqlite', matrix.job.state)) != '' }}
+        if: ${{ always() && inputs.explain == '' && hashFiles(format('pipeline/data/{0}.sqlite', matrix.job.state)) != '' }}
         run: |
           gzip -kf "data/$ST.sqlite"
           ./r2put.sh "data/$ST.sqlite.gz" "stores/$ST.sqlite.gz"
       # Every guide the state's store has, the ones just made and those from before; loaded by the load job below
       - name: The state's guides as SQL for D1
-        if: ${{ always() && hashFiles(format('pipeline/data/{0}.sqlite', matrix.job.state)) != '' }}
+        if: ${{ always() && inputs.explain == '' && hashFiles(format('pipeline/data/{0}.sqlite', matrix.job.state)) != '' }}
         run: |
           set -o pipefail
           python3 export_d1.py --state "$ST" --guides | gzip > "data/$ST.guides.sql.gz"
@@ -123,7 +132,7 @@ jobs:
 
   load:
     needs: [plan, guides]
-    if: ${{ always() && needs.plan.result == 'success' }}
+    if: ${{ always() && needs.plan.result == 'success' && inputs.explain == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:

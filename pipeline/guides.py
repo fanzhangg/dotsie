@@ -319,12 +319,15 @@ def candidates_in(db, dest, area):
     item's point is: a park's can be its headquarters, outside it), with the park's own NPS pages: it gets an entry of
     its own and isn't judged or picked. Otherwise the destination isn't one of its own sights."""
     box, whole = area.box, dest.get("kind") in WHOLE
+    # Items Wikidata says are in the destination (P3018, located in protected area), wherever their point is: a road's
+    # or a ridge's one point can fall just outside a narrow park (Skyline Drive's, outside Shenandoah's outline)
+    within = {q for (q,) in db.execute("SELECT id FROM ids WHERE source='wikidata' AND scheme='P3018' AND value=?", (dest["wikidata"],))}
     places = {}
     for rid, name, lat, lng, raw in db.execute(
             "SELECT id, name, lat, lng, raw FROM records WHERE source='wikidata' AND (lat BETWEEN ? AND ? AND lng BETWEEN ? AND ? "
-            "OR id = ?)", (box[0], box[1], box[2], box[3], dest["wikidata"])):
+            f"OR id = ? OR id IN ({','.join('?' * len(within))}))", (box[0], box[1], box[2], box[3], dest["wikidata"], *within)):
         itself = rid == dest["wikidata"]
-        if (itself and not whole) or (not itself and (lat, lng) not in area):
+        if (itself and not whole) or (not itself and rid not in within and (lat, lng) not in area):
             continue
         e = json.loads(raw)
         places[("wikidata", rid)] = {"itself": itself, 
@@ -392,19 +395,24 @@ def candidates_in(db, dest, area):
 
 JUDGE = """You check candidate places for a travel guide to a US destination. Decide from what you're given about each.
 
-A sight is a place people go to see or experience it: a landmark, building, museum, gallery, park, garden, natural feature, viewpoint, market, neighbourhood or district, artwork, stadium or campus. Businesses that serve people (restaurants, bars, cafés, shops, hotels), places for everyday use (offices, schools, hospitals, stations, homes), organizations and events are not sights. When the item is an institution that runs a place people go to (a university and its campus, a team and its stadium, a society and its museum), judge that place.
+A sight is a place people go to see or experience it: a landmark, building, museum, gallery, park, garden, natural feature, viewpoint, market, neighbourhood or district, artwork, stadium or campus; or an experience people come for there, such as a scenic drive or road, a trail, a scenic or heritage railway, a boat trip or a cave tour. Businesses that serve people (restaurants, bars, cafés, shops, hotels), places for everyday use (offices, schools, hospitals, stations, homes), organizations and events are not sights. When the item is an institution that runs a place people go to (a university and its campus, a team and its stadium, a society and its museum), judge that place.
+
+Not sights either: an interpretive sign, exhibit panel, marker or numbered stop on a tour; a trailhead, parking area, pull-off or information page as such (when the record is really about the trail or viewpoint it serves, judge that); a plant, animal or other species; an activity with no place of its own (stargazing, birding).
 
 Fields, in order:
 - evidence: the facts that decide the fields below.
 - is_sight: whether it is a sight, as defined above.
 - exists: whether it is still there and still what people would come for (false if demolished, removed, closed for good, never built).
 - visitable: "yes" if the public can go in or walk up to it; "outside" if it can only be seen from outside; "no" if the public cannot get to it or see it.
-- part_of: if it is mainly seen while visiting a bigger place in the nearby list (a sculpture in a park, a building on a campus, a market's stall), that place's name copied exactly; otherwise null."""
+- part_of: if it is mainly seen while visiting a bigger place in the nearby list that a visitor takes in as one visit (a sculpture in a park, a building on a campus, a market's stall), that place's name copied exactly. Never a mountain range, region, valley, forest, river or lake around it, or the destination itself: a peak in a range is a sight of its own. Otherwise null.
+- draw: how far out of their way a visitor would go for it, 1 to 5: 5 a reason to come to the destination at all, 4 worth half a day, 3 worth a stop when nearby, 2 only if passing, 1 hardly."""
 JUDGE_SCHEMA = obj({"evidence": {"type": "string"}, "is_sight": {"type": "boolean"}, "exists": {"type": "boolean"},
-                    "visitable": {"type": "string", "enum": ["yes", "outside", "no"]}, "part_of": {"type": ["string", "null"]}})
+                    "visitable": {"type": "string", "enum": ["yes", "outside", "no"]}, "part_of": {"type": ["string", "null"]},
+                    "draw": {"type": "integer", "enum": [1, 2, 3, 4, 5]}})
 
 
 JUDGE_ROUND, JUDGE_ROUND_BATCHED = 40, 200
+UNREAD = 20  # of the shortlist's places, kept for sights hardly anyone reads about on Wikipedia, by their draw
 
 
 def rank(p):
@@ -412,7 +420,26 @@ def rank(p):
     return (-p["views"], -p["langs"], p["name"])
 
 
-def judge(ask, places, need=None):
+def unread(p):
+    """A place hardly anyone reads about on English Wikipedia (no article, or none read): an NPS page, a feature without
+    an article. Its views can't rank it, so its judged draw does."""
+    return p["views"] <= 0
+
+
+def draw(p):
+    return (p.get("judged") or {}).get("draw", 3)
+
+
+def shortlist_of(sights):
+    """The sights the pick is made from: the most read on English Wikipedia, and up to UNREAD of those nobody reads
+    about, by their draw (Mesquite Flat's dunes and Keys View have NPS pages and no article). Fewer of those, more read."""
+    read = sorted((p for p in sights if not unread(p)), key=rank)
+    rest = sorted((p for p in sights if unread(p)), key=lambda p: (-draw(p), -p["langs"], p["name"]))
+    top = read[:SHORTLIST - min(UNREAD, len(rest))]
+    return top + rest[:SHORTLIST - len(top)]
+
+
+def judge(ask, places, need=None, dest=None):
     need = need or SHORTLIST
     grid = {}
     for p in places.values():
@@ -432,27 +459,35 @@ def judge(ask, places, need=None):
         ])
 
     def one(p):
-        return p, ask("judge", "v2", f"{p['source']}/{p['id']}", MODELS["judge"], JUDGE, describe(p), JUDGE_SCHEMA, "low")
+        return p, ask("judge", "v3", f"{p['source']}/{p['id']}", MODELS["judge"], JUDGE, describe(p), JUDGE_SCHEMA, "low")
 
-    # Most read first, a round at a time, until there are enough sights for the shortlist: only those can be
-    # shortlisted, so the rest needn't be asked (Seattle: 1,064 candidates, 43% of them sights). The places never
-    # asked aren't sights, here.
+    # The places nobody reads about first, all of them (their draw ranks them), then the most read, a round at a time,
+    # until there are enough sights for the shortlist: only those can be shortlisted, so the rest needn't be asked
+    # (Seattle: 1,064 candidates, 43% of them sights). The places never asked aren't sights, here.
     names = {p["name"] for p in places.values()}
+    itself = (lambda n: same_name(n, dest["name"])) if dest else (lambda n: False)
     for p in places.values():
         p.update(judged=None, part_of=None, sight=False)
     # In batches a round is one wait, so a round is bigger: 200 is enough for Seattle's shortlist at once
     batched = getattr(ask, "batcher", None) is not None
     size = JUDGE_ROUND_BATCHED if batched else JUDGE_ROUND
-    order, found = sorted(places.values(), key=rank), 0
+    def take(p, a):
+        p["judged"] = a
+        p["part_of"] = a["part_of"] if a["part_of"] in names and a["part_of"] != p["name"] and not itself(a["part_of"]) else None
+        p["sight"] = a["is_sight"] and a["exists"] and a["visitable"] != "no" and not p["part_of"]
+        return p["sight"]
+
+    order = sorted((p for p in places.values() if not unread(p)), key=rank)
     with ThreadPoolExecutor(size if batched else 8) as pool:
+        quiet = [p for p in places.values() if unread(p)]
+        found = sum(take(p, a) for p, a in pool.map(one, quiet))
+        need -= min(UNREAD, found)  # those take that many of the shortlist's places
+        found = 0
         for start in range(0, len(order), size):
             if found >= need:
                 break
             for p, a in pool.map(one, order[start:start + size]):
-                p["judged"] = a
-                p["part_of"] = a["part_of"] if a["part_of"] in names and a["part_of"] != p["name"] else None
-                p["sight"] = a["is_sight"] and a["exists"] and a["visitable"] != "no" and not p["part_of"]
-                found += p["sight"]
+                found += take(p, a)
 
 
 # ---------- 4. Pick ----------
@@ -464,15 +499,22 @@ PICK = """You are the editor of a travel guide. A visitor has a few days in {nam
 - Places a visitor would see on the way to or inside another pick (a sculpture at a museum, a bridge you cross) aren't picks of their own.
 - rank: 1 for the first place you'd send someone, and so on.
 - reason: one sentence on why a visitor should go.
-- left_out: up to 10 places on the shortlist a reader might expect to see and that you didn't choose, each with one sentence on why not."""
+- left_out: up to 10 places on the shortlist a reader might expect to see and that you didn't choose, each with one sentence on why not.{whole}"""
 PICK_SCHEMA = obj({"picks": {"type": "array", "items": obj({"id": {"type": "string"}, "rank": {"type": "integer"}, "reason": {"type": "string"}})},
                    "left_out": {"type": "array", "items": obj({"id": {"type": "string"}, "reason": {"type": "string"}})}})
 
 
 def pick(ask, dest, shortlist):
-    lines = [f"[{p['source']}/{p['id']}] {p['name']} | {', '.join(p['types'][:3])} | about {p['views']:,} Wikipedia views a month, "
-             f"{p['langs']} languages\n    {p['lead'][:450]}" for p in shortlist]
-    return ask("pick", "v1", dest["id"], MODELS["pick"], PICK.format(name=dest["name"], cap=dest["cap"]),
+    def known(p):  # "0 views" would read as "nobody goes": a place without an article is known from its NPS page
+        if unread(p):
+            return f"no English Wikipedia article{' (an NPS page)' if p['nps'] else ''}, judged a draw of {draw(p)} out of 5"
+        return f"about {p['views']:,} Wikipedia views a month, {p['langs']} languages"
+    lines = [f"[{p['source']}/{p['id']}] {p['name']} | {', '.join(p['types'][:3])} | {known(p)}\n    {p['lead'][:450]}"
+             for p in shortlist]
+    whole = (f"\n- {dest['name']} as a whole has an entry of its own already. Don't choose it again under another name, or "
+             "what the park essentially is (the canyon, range, mountain, lake or island it is named for or made of): choose "
+             "the places in it.") if dest.get("kind") in WHOLE else ""
+    return ask("pick", "v1", dest["id"], MODELS["pick"], PICK.format(name=dest["name"], cap=dest["cap"], whole=whole),
                "Shortlist:\n\n" + "\n".join(lines), PICK_SCHEMA, "high")
 
 
@@ -710,11 +752,11 @@ def run(dest_id, db_path=None, batcher=None):
     if dest.get("kind") in WHOLE and not itself:
         log(f"{dest_id}: no record of {dest['name']} itself ({dest['wikidata']}) in the store: no entry of its own")
     log(f"{dest_id}: {len(places)} candidates ({sum(1 for p in places.values() if p['nps'])} with an NPS page)")
-    judge(ask, places)
+    judge(ask, places, dest=dest)
     sights = [p for p in places.values() if p["sight"]]
     judged = sum(1 for p in places.values() if p["judged"])
     log(f"{dest_id}: judged {judged}: sights {len(sights)}; parts of a bigger place: {sum(1 for p in places.values() if p['part_of'])}")
-    shortlist = sorted(sights, key=rank)[:SHORTLIST]
+    shortlist = shortlist_of(sights)
     chosen = pick(ask, dest, shortlist)
     by_key = {f"{p['source']}/{p['id']}": p for p in shortlist}
     picks = [(c, by_key[c["id"]]) for c in sorted(chosen["picks"], key=lambda c: c["rank"])
