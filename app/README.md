@@ -18,8 +18,8 @@ One Worker serves the frontend and `/api/*`. Each trip is a Durable Object (`Tri
 | [e2e/](e2e) | End-to-end tests in Chromium (Playwright): the shared frontend through the prototype's seeded trips, the map (pins clear of the list, taps on pins, routes and empty map, the camera, double-tap zoom, sights) and the map with no WebGL, and sign-in, sharing and live edits against a local Worker. Nothing leaves the machine: tiles, place search, routes and sights fail, as they can for real. `npm run e2e` |
 | [test/](test) | Unit tests: time zones, a trip's days and stays, the map's sums and layers (geo.js, mapstyle.js), the stop check, the D1 copy (on SQLite with the migrations), and the app's and the prototype's pages loading the same modules. `npm test` |
 | [web/](web) | The frontend: plain HTML, CSS and JS modules, served as they are with no bundler (the top of [web/app.js](web/app.js) says which module does what). [web/backend.js](web/backend.js) is all it says to the server; `../prototype` runs the same modules with its own `backend.js`. [web/tz-lookup.js](web/tz-lookup.js) finds a place's time zone from where it is ([@photostructure/tz-lookup](https://github.com/photostructure/tz-lookup), CC0), so a stop's time is its place's local time; only a zone someone picked by hand is saved (`tz`) |
-| [web/developer/](web/developer) | The pages for developers, open to anyone: `/developer` documents the MCP server (its tools and sign-in from `GET /api/developer/mcp`, so from the code that runs them) and the API (this README's API section and how to connect an assistant, published by the build), `/developer/spots` searches the spots data, and `/developer/guide` previews the guide written from it, for review. Product-only |
-| [scripts/build.mjs](scripts/build.mjs) | Copies `web/` and `../design-system/` into `public/`, which Wrangler serves, and turns this README's API section and the start of its MCP section into `public/developer/docs.json` for `/developer` (with [scripts/markdown.mjs](scripts/markdown.mjs)). Runs on `dev` and `deploy`. Since that section is published, `npm test` checks every route in `src/index.ts` is in it |
+| [web/developer/](web/developer) | The pages for developers, open to anyone, laid out as developer docs are: a menu of pages on the left (a drawer on a phone), each page's headings on the right, and the pages before and after it at the bottom, all drawn by [shell.js](web/developer/shell.js) around each page's `<main>`. `/developer` is an overview; `/developer/mcp`, `/developer/tools` and `/developer/sign-in` document the MCP server (how to connect an assistant from this README, its tools and sign-in from `GET /api/developer/mcp`, so from the code that runs them); `/developer/api` is this README's API section, a heading on the page for each `###`; `/developer/spots` searches the spots data, and `/developer/guide` previews the guide written from it, for review. Product-only |
+| [scripts/build.mjs](scripts/build.mjs) | Copies `web/` and `../design-system/` into `public/`, which Wrangler serves, and turns this README's API section and the start of its MCP section into `public/developer/docs.json` for `/developer/api` and `/developer/mcp` (with [scripts/markdown.mjs](scripts/markdown.mjs)). Runs on `dev` and `deploy`. Since that section is published, `npm test` checks every route in `src/index.ts` is in it |
 
 The frontend saves edits in the background (they show at once) and keeps a WebSocket open on the current trip, so co-editors' changes appear live. A trip can be saved for offline from trip settings: the frontend keeps the trip's last snapshot in `localStorage`, and the app's files and the trip's Stadia tiles in Cache Storage, and [web/sw.js](web/sw.js) serves them when the network can't (see Offline in [the UX design](../docs/ux-design.md#offline)). The API itself isn't cached by the service worker. `../prototype` must stay the same as `web/` apart from the server: make every UX change to both (see [CLAUDE.md](../CLAUDE.md)).
 
@@ -70,12 +70,19 @@ Rate limits (in `wrangler.jsonc`): 20 sign-in steps per minute per IP (an email 
 
 All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sign-in-options`, `/api/invite/:token`, `/api/spots/*`, `/api/developer/*`, the OAuth routes, and `/api/mcp`, which takes an OAuth access token instead.
 
+### Sign-in and account
+
 | Route | |
 | --- | --- |
 | `GET /api/config` | Which sign-in options are set up: `{ google, apple, password }` |
 | `POST /api/sign-in-options` `{ email }` | Where an address leads: `{ account: 'password' \| 'google' \| 'none' }`, so sign-in asks for the right thing next |
-| `GET /api/invite/:token` | The trip name for a share link, for the sign-in screen |
 | `GET /api/me` | `{ id, name, image, isGuest }` |
+| `GET /api/invite/:token` | The trip name for a share link, for the sign-in screen |
+
+### Trips
+
+| Route | |
+| --- | --- |
 | `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights, travel, back }`, for the card's route sketch (at most 300) |
 | `POST /api/trips` `{ name }` | Create; returns the trip snapshot |
 | `GET /api/trips/:id` | `{ trip, members, stops }`; `trip.owner` is the id of whoever made it |
@@ -84,31 +91,58 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 | `POST /api/trips/:id/leave` | Leave the trip; your stops stay. Everyone but the owner (the owner gets 400 `invalid`) |
 | `GET /api/trips/:id/invite` · `POST /api/trips/:id/invite/rotate` | Share link, or a fresh one that kills the old |
 | `POST /api/join/:token` | Join through a share link |
+
+### Stops
+
+| Route | |
+| --- | --- |
 | `PUT /api/trips/:id/stops/:stopId` | Create a stop, or restore one (Undo). The client picks the id |
 | `PATCH /api/trips/:id/stops/:stopId` | Changed fields only, e.g. `{ kind: 'hotel', nights: 2, checkout: '11:00' }`. `links` is the whole list, `[{ url, label }]`: up to 10 http(s) pages, `label` up to 60 characters (`''` shows the page's site) |
 | `DELETE /api/trips/:id/stops/:stopId` | |
 | `GET /api/trips/:id/live` (WebSocket) | `stop.upserted`, `stop.removed`, `member.joined`, `member.updated`, `member.left`, `trip.updated`, `trip.deleted`, each with `by` |
+
+A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is a hotel's check-out time, `HH:MM`, on the day its nights end, or `null` (the app shows 11:00 AM). Other stops have `null`; a time some older clients saved there as a leave time is ignored. `travel` is how you get to the stop from the place before it (for a hotel, on its check-in day): `drive` (the default), `walk`, `bike`, `transit` or `flight`. `back` is a hotel's way back to it each night, by the day: `{ "2026-03-14": "walk" }`; nights not in it are drives, and a `drive` sent in it is dropped. Other stops have `{}`. A PATCH replaces the whole of it. Drives, walks and rides follow a route (`/api/route` with that `mode`); transit and flights have none, and the app draws them straight, with no time. Stops still carry `done`, which older clients set; the app no longer shows it.
+
+### Maps
+
+| Route | |
+| --- | --- |
 | `GET /api/places?q=&near=lat,lng` | Place search: `[{ name, address, lat, lng, category }]`. The category feeds the app's first guess at a stop's type |
+| `GET /api/route?from=lat,lng&to=lat,lng&mode=` | `{ duration, distance, coords }`. `mode` is `drive` (the default), `walk` or `bike` |
 | `GET /api/sights?tile=12/x/y` | What's worth seeing in one map tile at zoom 12: `[{ id, name, address, lat, lng, kind, rank }]`, at most 80, best ranked first. `kind` is `attraction`, `museum`, `viewpoint` or `nature`; `rank` is higher for better known places. 202 `{ pending: true }` while a tile no one has looked at yet is looked up (ask again in a few seconds); 503 `unavailable` when Overpass is down or busy |
 | `GET /api/about?id=Q123` | A sight's card: `{ title, text, url, image }` from its Wikidata item's English Wikipedia article (its first sentences and free lead picture, with author and license), or `null` when it has none |
-| `GET /api/developer/mcp` | For the developer page: the MCP server's address, `server`, `versions`, `instructions` and `tools` (as `tools/list` gives them), and `oauth`, how a client signs in. Open to anyone |
+
+### Spots
+
+| Route | |
+| --- | --- |
+| `GET /api/spots/cities` | For the Spots page's filters: the cities with guidebook picks, `[{ id, name, state, country, spots }]`, by country, state and name. `country` is an ISO code (`US`); `state` the state's code. Open to anyone, like the rest of `/api/spots`, signed in or not. Each answer is kept in Cloudflare's cache where it was asked for, for 5 minutes, and answered from there to anyone; what isn't is limited to 300 lookups a minute per IP |
+| `GET /api/spots/search?q=&country=&state=&city=&offset=&limit=` | Picks that match `q` (in their name or one-liner, their city's name, or their state's name or code: `washington`, `WA`; see [web/regions.js](web/regions.js)), in that country, state or city (a destination's `id`), `limit` at a time (1–50, 50 if not given), from `offset`: `{ results: [{ source, id, name, oneLiner, hero, rank, city: { id, name }, state, country, views }], total, more }`. `total` is how many match in all, for a pager. Most viewed first: `views` is the place's English Wikipedia views over the last 12 months; an NPS record with no article takes those of the Wikidata item it shares an identifier with. Ties go by the guide's own order (`rank`, 1 first), then name. With `city`, the guide's order comes first. A place two cities picked shows once, in the city that ranked it higher |
+| `GET /api/spots/:city/:source/:id` | One pick's entry, as `/api/developer/spots/guides/:destination/:source/:id` gives it, with `views`, and `destination` as `{ id, name, state, country }` |
+
+### For developers
+
+| Route | |
+| --- | --- |
+| `GET /api/developer/mcp` | For the developer pages: the MCP server's address, `server`, `versions`, `instructions` and `tools` (as `tools/list` gives them), and `oauth`, how a client signs in. Open to anyone |
 | `GET /api/developer/spots/states` | The states loaded into the spots data so far: `[{ state, loadedAt, builtAt, records }]`. Open to anyone, like the rest of `/api/developer/spots`, limited to 60 lookups a minute per IP |
 | `GET /api/developer/spots/search?q=&state=&source=&offset=` | Places with a word in their name starting with each word of `q`, in any order (`mount rai` finds Mount Rainier), most read on English Wikipedia first, 50 at a time: `{ results: [{ source, id, state, name, description, lat, lng, types, views }], more }`. `source` is `wikidata`, an NPS source such as `nps:places`, or `nps` for all of them |
 | `GET /api/developer/spots/place/:source/:id` | One place: the fields above plus `url`, `wikipedia`, `website`, `ids` (scheme → values), `schemes` (scheme → name) and `links` (`[{ via, source, id, name }]`, records elsewhere that share an identifier) |
 | `GET /api/developer/spots/guides` | The destinations with guidebook picks so far: `[{ id, name, state, kind, builtAt, picks }]`. The picks and entries are written by a model from the sources each lists ([pipeline/guides.py](../pipeline/guides.py)) and published under CC BY-SA 4.0 |
 | `GET /api/developer/spots/guides/:destination` | A destination's picks in order: `{ id, name, state, kind, wikidata, builtAt, counts, leftOut, picks: [{ source, id, rank, reason, name, oneLiner, hero, lat, lng }] }`. `hero` is the lead photo (a Wikimedia Commons file with its `thumb`, `page`, `author`, `licence` and `caption`), or null |
 | `GET /api/developer/spots/guides/:destination/:source/:id` | One pick's entry: `{ destination: { id, name, state, country }, name, rank, reason, oneLiner, paragraphs: [{ text, sources }], practical: [{ label, value, source }], sources: [{ url, kind }], images: { hero, inline: [{ after_paragraph, … }] }, overlap, lat, lng, url, wikipedia, website, views, model, prompt, createdAt, license }`. `overlap` is the share of its 8-word phrases also found in the sources |
-| `GET /api/spots/cities` | For the Spots page's filters: the cities with guidebook picks, `[{ id, name, state, country, spots }]`, by country, state and name. `country` is an ISO code (`US`); `state` the state's code. Open to anyone, like the rest of `/api/spots`, signed in or not. Each answer is kept in Cloudflare's cache where it was asked for, for 5 minutes, and answered from there to anyone; what isn't is limited to 300 lookups a minute per IP |
-| `GET /api/spots/search?q=&country=&state=&city=&offset=&limit=` | Picks that match `q` (in their name or one-liner, their city's name, or their state's name or code: `washington`, `WA`; see [web/regions.js](web/regions.js)), in that country, state or city (a destination's `id`), `limit` at a time (1–50, 50 if not given), from `offset`: `{ results: [{ source, id, name, oneLiner, hero, rank, city: { id, name }, state, country, views }], total, more }`. `total` is how many match in all, for a pager. Most viewed first: `views` is the place's English Wikipedia views over the last 12 months; an NPS record with no article takes those of the Wikidata item it shares an identifier with. Ties go by the guide's own order (`rank`, 1 first), then name. With `city`, the guide's order comes first. A place two cities picked shows once, in the city that ranked it higher |
-| `GET /api/spots/:city/:source/:id` | One pick's entry, as `/api/developer/spots/guides/:destination/:source/:id` gives it, with `views`, and `destination` as `{ id, name, state, country }` |
-| `GET /api/route?from=lat,lng&to=lat,lng&mode=` | `{ duration, distance, coords }`. `mode` is `drive` (the default), `walk` or `bike` |
+
+### AI assistants
+
+| Route | |
+| --- | --- |
 | `GET /api/assistants` | For Account: `{ url, connections: [{ id, name, domain, createdAt }] }`, the MCP server's address and the assistants you've allowed |
 | `DELETE /api/assistants/:id` | Disconnect one: its tokens stop working at once |
 | `POST /api/mcp` | The MCP server (below), with an OAuth access token |
 | `GET`·`POST /api/oauth/authorize` | The Allow page an assistant sends you to (a page, not JSON) |
 | `/api/oauth/token`, `/api/oauth/register`, `/.well-known/oauth-*` | OAuth's token, client registration and discovery endpoints, answered by the library |
 
-A stop is `{ id, name, address, lat, lng, time, note, kind, nights, checkout, travel, back, by, updatedAt }`. `time` is trip-local `YYYY-MM-DDTHH:MM`. `kind` is `''` (the app guesses from the name) or one of `place`, `airport`, `hotel`, `restaurant`, `cafe`, `attraction`, `museum`, `viewpoint`, `nature`, `shopping`, `gas`. `nights` is for a hotel: 1–30, or `null` to last until the next hotel or the trip's last day. `checkout` is a hotel's check-out time, `HH:MM`, on the day its nights end, or `null` (the app shows 11:00 AM). Other stops have `null`; a time some older clients saved there as a leave time is ignored. `travel` is how you get to the stop from the place before it (for a hotel, on its check-in day): `drive` (the default), `walk`, `bike`, `transit` or `flight`. `back` is a hotel's way back to it each night, by the day: `{ "2026-03-14": "walk" }`; nights not in it are drives, and a `drive` sent in it is dropped. Other stops have `{}`. A PATCH replaces the whole of it. Drives, walks and rides follow a route (`/api/route` with that `mode`); transit and flights have none, and the app draws them straight, with no time. Stops still carry `done`, which older clients set; the app no longer shows it.
+### Errors
 
 Errors are `{ error }` with 400 `invalid`, 401 `unauthorized`, 403 `not_member` or `not_owner`, 404 `not_found`, 410 `gone`, 429 `rate_limited`, or 503 `maps_not_configured`.
 

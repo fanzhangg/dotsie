@@ -10,8 +10,9 @@ for (const f of ['tokens.css', 'components.css', 'icons.js']) {
   cpSync(new URL(`../design-system/${f}`, root), new URL(`design-system/${f}`, out));
 }
 
-// The developer page (/developer) publishes README.md's API section, and the part of its MCP section on connecting
-// an assistant, so they're written once. The MCP tools themselves come from the code (GET /api/developer/mcp).
+// The developer pages publish README.md's API section (/developer/api), and the part of its MCP section on connecting
+// an assistant (/developer/mcp), so they're written once. The MCP tools themselves come from the code
+// (GET /api/developer/mcp).
 const readme = readFileSync(new URL('README.md', root), 'utf8');
 mkdirSync(new URL('developer/', out), { recursive: true });
 writeFileSync(new URL('developer/docs.json', out), JSON.stringify({

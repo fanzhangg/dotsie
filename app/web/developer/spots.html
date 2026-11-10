@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
   <title>Spots data · Dotsie</title>
   <meta name="description" content="Search what Wikidata and the National Park Service say about places in the US, as collected for Dotsie's sights.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/design-system/tokens.css">
   <link rel="stylesheet" href="/design-system/components.css">
   <link rel="stylesheet" href="/developer/developer.css">
@@ -14,9 +15,9 @@
 <body class="wt-base">
   <main class="dev">
     <header class="dev__head">
-      <a class="dev__crumb" href="/developer">Developers</a>
+      <p class="dev__crumb">Data</p>
       <h1 class="dev__title">Spots data</h1>
-      <p class="dev__intro" id="loaded">What Wikidata and the National Park Service say about places in the US, collected each month for Dotsie's sights. Nothing here is filtered or rated yet.</p>
+      <p class="dev__lede" id="loaded">What Wikidata and the National Park Service say about places in the US, collected each month for Dotsie's sights. Nothing here is filtered or rated yet.</p>
     </header>
 
     <section id="list" class="dev__place">
@@ -42,6 +43,7 @@
     <p class="dev__foot">Sources: <a href="https://www.wikidata.org/">Wikidata</a> (CC0), the <a href="https://www.nps.gov/subjects/developer/">NPS Data API</a> (public domain) and English Wikipedia page views from <a href="https://dumps.wikimedia.org/other/pageview_complete/">Wikimedia</a>.</p>
   </main>
   <script src="/design-system/icons.js"></script>
+  <script src="/developer/shell.js"></script>
   <script src="/developer/spots.js"></script>
 </body>
 </html>

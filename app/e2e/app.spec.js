@@ -202,15 +202,58 @@ test('on a computer, spots come in pages of 24; on a phone, 30 then Show more', 
   await expect(page.getByRole('button', { name: 'Show more' })).toBeHidden();
 });
 
-// The developer page documents the MCP server from GET /api/developer/mcp and the API from README.md
-test('the developer page lists the MCP server’s tools as the server gives them, and the app’s API', async ({ page }) => {
+// The pages for developers document the MCP server from GET /api/developer/mcp and the API from README.md, each part
+// on a page of its own, with a menu of them (a drawer behind a button on a phone)
+test('the developer pages: a menu of pages, the MCP server’s tools as the server gives them, and the app’s API', async ({ page }) => {
   await page.goto('/developer');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Developers');
   const { url, tools } = await (await page.request.get('/api/developer/mcp')).json();
-  await expect(page.locator('#tools h3')).toHaveText(tools.map(t => new RegExp(`^${t.name} · `)));
-  await expect(page.locator('#tool-add_stop')).toContainText('trip_id');
+  await expect(page.locator('#mcp-url')).toHaveText(url);
+
+  const menu = page.getByRole('navigation', { name: 'Developers' });
+  await expect(menu).toBeHidden();
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await expect(menu.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
+  await menu.getByRole('link', { name: 'Tools' }).click();
+  await expect(page).toHaveURL(/\/developer\/tools$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tools');
+  await expect(menu).toBeHidden();
+  await expect(page.locator('#tool-list h2')).toHaveText(tools.map(t => new RegExp(`^${t.name} `)));
+  await expect(page.locator('section', { has: page.locator('#tool-add_stop') })).toContainText('trip_id');
+
+  // The pages in the menu's order, one after another
+  await page.getByRole('link', { name: /^Next/ }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign-in');
+  await expect(page.locator('#oauth')).toContainText('/.well-known/oauth-authorization-server');
+  await page.getByRole('link', { name: /^Previous/ }).click();
+  await page.getByRole('link', { name: /^Previous/ }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Connect an assistant');
   await expect(page.locator('#mcp-facts')).toContainText(url);
+  await expect(page.locator('#mcp-docs')).toContainText(`claude mcp add --transport http dotsie ${url}`);
+
+  // The API's routes, grouped as README.md's API section groups them
+  await page.goto('/developer/api');
+  await expect(page.getByRole('heading', { level: 2, name: 'Trips' })).toBeVisible();
   await expect(page.locator('#api-docs')).toContainText('GET /api/trips/:id');
+
+  // The page was one page before: its old links go to where each part is now
+  await page.goto('/developer#tool-add_stop');
+  await expect(page).toHaveURL(/\/developer\/tools#tool-add_stop$/);
+  await page.goto('/developer');
   await page.getByRole('link', { name: 'Search the spots data' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
+});
+
+// On a wide screen the menu stays on the left, and the page's own headings are on the right
+test('a developer page on a wide screen: the menu beside it, and its headings to jump to', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/developer/api');
+  const menu = page.getByRole('navigation', { name: 'Developers' });
+  await expect(menu.getByRole('link', { name: 'App API' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('button', { name: 'Menu' })).toBeHidden();
+  const contents = page.getByRole('complementary', { name: 'On this page' });
+  await contents.getByRole('link', { name: 'Errors' }).click();
+  await expect(page).toHaveURL(/#errors$/);
+  await expect(page.getByRole('heading', { level: 2, name: 'Errors' })).toBeInViewport();
+  await expect(contents.getByRole('link', { name: 'Errors' })).toHaveClass(/is-current/);
 });

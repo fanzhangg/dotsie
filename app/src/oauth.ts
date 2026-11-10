@@ -15,7 +15,7 @@ export const AUTHORIZE_PATH = '/api/oauth/authorize';
 const SCOPE = 'trips';
 // An hour per access token; the grant lasts while it's used, and ends after 90 days without, like a session
 const ACCESS_TTL = 3600, REFRESH_TTL = 60 * 60 * 24 * 365, REFRESH_IDLE_TTL = 60 * 60 * 24 * 90;
-// How an MCP client signs in, for the developer page (/developer), from the same values the provider runs on
+// How an MCP client signs in, for the developer pages (/developer/sign-in), from the same values the provider runs on
 export const oauthSpec = (env: Env) => ({
   resource: mcpURL(env), issuer: env.BETTER_AUTH_URL, scopes: [SCOPE],
   authorize: `${env.BETTER_AUTH_URL}${AUTHORIZE_PATH}`, token: `${env.BETTER_AUTH_URL}/api/oauth/token`,
