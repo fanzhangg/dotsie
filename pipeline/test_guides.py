@@ -336,6 +336,19 @@ class ThePark(unittest.TestCase):
         self.assertIn(("wikidata", "Q55"), places)
         self.assertNotIn(("wikidata", "Q3"), places)  # outside, and nothing says it's in the park
 
+    def test_an_item_in_the_park_without_a_point_is_left_out_and_the_park_without_one_is_put_in_its_middle(self):
+        db = self.park_store()
+        db.execute("UPDATE records SET lat = NULL, lng = NULL WHERE id = 'Q999'")
+        db.execute("INSERT INTO records (source, id, name, lat, lng, url, raw) VALUES (?,?,?,?,?,?,?)",
+                   ("wikidata", "Q56", "Somewhere in the Park", None, None, None, item("Q56", "Somewhere in the Park")))
+        db.execute("INSERT INTO ids VALUES ('wikidata', 'Q56', 'P3018', 'Q999')")
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates([db], self.PARK, [SQUARE])
+        self.assertNotIn(("wikidata", "Q56"), places)
+        self.assertEqual((places[("wikidata", "Q999")]["lat"], places[("wikidata", "Q999")]["lng"]), (47.5, -121.5))
+        ask = lambda *a: {"evidence": "", "is_sight": True, "exists": True, "visitable": "yes", "part_of": None, "draw": 3}
+        guides.judge(ask, {k: p for k, p in places.items() if not p["itself"]}, dest=self.PARK)  # no point fails it
+
     def test_the_pick_is_told_the_park_has_its_own_entry_and_a_city_isnt(self):
         prompts = []
         ask = lambda step, prompt, key, model, system, *a: prompts.append(system) or {"picks": [], "left_out": []}
