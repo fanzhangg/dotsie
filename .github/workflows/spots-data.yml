@@ -160,30 +160,4 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           STATES: ${{ needs.plan.outputs.states }}
-        run: |
-          failed=""
-          for ST in $(echo "$STATES" | python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))'); do
-            key="d1/$ST.sql.gz"
-            if ! aws s3 cp --endpoint-url "$R2" "s3://$BUCKET/$key" "$RUNNER_TEMP/$ST.sql.gz" > /dev/null 2>&1; then
-              echo "$ST: nothing new to load"; continue
-            fi
-            gunzip -f "$RUNNER_TEMP/$ST.sql.gz"
-            ok=""
-            # Once, wrangler lost track of an import it had run ("Not currently importing anything"); the same file
-            # loaded fine on the next run.
-            for try in 1 2 3; do
-              if npx wrangler d1 execute waythread --remote --file "$RUNNER_TEMP/$ST.sql" > "$RUNNER_TEMP/$ST.log" 2>&1; then
-                ok=1; break
-              fi
-              tail -5 "$RUNNER_TEMP/$ST.log"; echo "$ST: load $try failed; trying again in 30 s"; sleep 30
-            done
-            if [ -n "$ok" ]; then
-              echo "$ST: $(grep -o 'Executed.*' "$RUNNER_TEMP/$ST.log" | head -1)"
-              echo "- $ST: $(grep -o 'Executed.*' "$RUNNER_TEMP/$ST.log" | head -1)" >> "$GITHUB_STEP_SUMMARY"
-              aws s3 rm --endpoint-url "$R2" "s3://$BUCKET/$key" > /dev/null
-            else
-              failed="$failed $ST"
-            fi
-            rm -f "$RUNNER_TEMP/$ST.sql"
-          done
-          if [ -n "$failed" ]; then echo "Not loaded:$failed (run the workflow again for them)"; exit 1; fi
+        run: ../pipeline/load_d1.sh sql.gz $(echo "$STATES" | python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))')

@@ -10,10 +10,12 @@ record goes in as the source gave it, and records are linked only through identi
 | `pageviews_month.py` | One month of English Wikipedia page views, from Wikimedia's monthly dump |
 | `export_d1.py` | A state's store as SQL for D1, for the public page at `/developer/spots`: metadata and links, no page text. With `--guides`, the state's guidebook entries instead |
 | `guides.py` | A destination's picks and their guidebook entries, written by Claude from the store, kept in the store |
-| `destinations.json` | The destinations with a guide: a city's Wikidata item, its Census place (its boundary), how many picks at most |
+| `destinations.json` | The destinations with a guide: cities, counties and national parks, each with its Wikidata item, its outline's ID (Census place or county, NPS unit), its state and how many picks at most |
+| `destinations.py` | Adds every national park, or a state's counties, to `destinations.json`; and plans a guides run, one job per state |
+| `load_d1.sh` | Loads the SQL files both workflows leave in R2 into D1, one state at a time |
 | `states.json` | The 50 states and DC, with their Wikidata items |
 | `../.github/workflows/spots-data.yml` | Runs both every month on GitHub Actions and keeps the results in R2 |
-| `../.github/workflows/spots-guides.yml` | Runs `guides.py` by hand for one destination, saves its answers in the state's store in R2, and loads the guide into D1 |
+| `../.github/workflows/spots-guides.yml` | Runs `guides.py` by hand for the destinations you name, a job per state, saves the answers in each state's store in R2, and loads the guides into D1 |
 
 The other scripts here (`step*.py`, `llm_*.py`, `sources.py`) are the earlier pilots in #90: rule-based
 scoring and model ratings tried on Washington, Seattle, Portland and Santa Fe.
@@ -53,11 +55,14 @@ a park across a state line) without the triggers seeing it.
 
 ## The guide
 
-Only places worth a special trip, about 10 to 20 for a city, each with a one-liner and two or three paragraphs in a
-travel guide's voice (under two minutes to read), practical facts kept apart, and photos from Wikimedia Commons.
-`guides.py` makes them for a destination in `destinations.json`, from its state's store:
+Only places worth a special trip, about 10 to 20 for a city or a park, each with a one-liner and two or three
+paragraphs in a travel guide's voice (under two minutes to read), practical facts kept apart, and photos from Wikimedia
+Commons. `guides.py` makes them for a destination in `destinations.json`, from its state's store:
 
-1. Candidates: places inside the city's Census boundary with an English Wikipedia article or an NPS page.
+1. Candidates: places inside the destination's outline with an English Wikipedia article or an NPS page. A city's
+   outline is its Census place, a county's its Census county (both from TIGERweb), a park's its NPS boundary (the
+   NPS Land Resources Division's); all of their parts, islands included. A park across a state line (Yellowstone,
+   the Great Smokies) also reads the stores of its `other_states`; its guide is kept in its own state's store.
 2. Is it a sight (Haiku, every candidate): somewhere people go to see or experience, still there, open to visitors,
    not part of a bigger place nearby. The only hard rules are on what can never be a sight.
 3. Shortlist: the 70 sights most read on English Wikipedia, only to narrow the field.
@@ -69,14 +74,32 @@ travel guide's voice (under two minutes to read), practical facts kept apart, an
    and licence.
 
 Entries are adapted from the sources each lists and published under CC BY-SA 4.0. They aren't updated on their own:
-run the Spots guides workflow (Actions → Spots guides → Run workflow, with the destination's id) when you want them
-rewritten. Answers whose input didn't change are reused, so a second run costs little; a first run for a city costs
-about $2 (Haiku $0.25, Opus $1.80). The result is at `/developer/guide`, for review, and on the app's Spots page (`#/spots`), open to anyone, most viewed first.
+run the Spots guides workflow (Actions → Spots guides → Run workflow) when you want them rewritten, naming the
+destinations: ids (`seattle,yellowstone`), `parks`, `counties`, `cities`, a state's code (`WA`: every destination kept
+in Washington's store) or `all`. It runs a job per state, four at a time, each state's destinations one after another
+(they write the same store); one that fails doesn't stop the others. The run's summary lists what it will make and
+what that costs at most. Answers whose input didn't change are reused, so a second run costs little; a first run for
+Seattle cost $2.34 (Haiku $0.24 to judge 1,064 candidates, Opus $2.10 to pick 19 and write and illustrate them), so all
+the national parks come to about $150. The result is at `/developer/guide`, for review, and on the app's Spots page
+(`#/spots`), open to anyone, most viewed first.
 
-On this machine, with `ANTHROPIC_API_KEY` in `pipeline/.env` and the state's store in `data/`:
+`destinations.json` has Seattle and the 60 national parks in a state (American Samoa's and the Virgin Islands' are
+left out with their territories). To add more:
 
 ```bash
-python3 guides.py --destination seattle
+python3 destinations.py parks          # national parks the file doesn't have yet
+python3 destinations.py counties WA    # every county in Washington (39)
+```
+
+They're added as found, never changed after: edit an entry by hand (its cap, its name, its state). A park's state is
+the one its centre is in, which can be wrong for a small park on a state line: Gateway Arch's centre is in the
+Mississippi, on Illinois' side, so its entry was set to Missouri by hand. A city is added by hand, with its Wikidata
+item and its 7-digit Census place (state and place FIPS codes, `5363000` for Seattle).
+
+On this machine, with `ANTHROPIC_API_KEY` in `pipeline/.env` and the destinations' stores in `data/`:
+
+```bash
+python3 guides.py --destination seattle olympic
 ```
 
 ## Running it

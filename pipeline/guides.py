@@ -1,8 +1,10 @@
 """A destination's picks and their guidebook entries, made from its state's store (store.py) and kept in it.
 
-For a destination in destinations.json (a city for now, by its Census boundary):
-  1. Candidates: places in it with an English Wikipedia article or an NPS page. An NPS record and a Wikidata item
-     the store links (a shared identifier, or the same name within 1 km) are one place.
+For a destination in destinations.json: a city (its Census place), a county (its Census county) or a national park (its
+NPS boundary), whichever it names (destinations.py adds parks and counties):
+  1. Candidates: places in it with an English Wikipedia article or an NPS page, from its state's store and the stores of
+     any other states it reaches into (a park across a state line). An NPS record and a Wikidata item the store links
+     (a shared identifier, or the same name within 1 km) are one place.
   2. Is it a sight (Haiku): a place people go to see or experience, still there, open to visitors, not part of a
      bigger place nearby. The stable question, asked of every candidate.
   3. Shortlist: the sights most read on English Wikipedia over the store's last 12 months, only to narrow the field.
@@ -17,7 +19,8 @@ The results go in the store's `destinations`, `picks` and `guides` tables, and e
 model answer is kept in `llm_answers` with a hash of what it was asked, so a later run asks again only what changed.
 Entries are written under CC BY-SA 4.0, adapted from the sources each lists.
 
-Run: python3 guides.py --destination seattle   (needs data/<ST>.sqlite and ANTHROPIC_API_KEY)
+Run: python3 guides.py --destination seattle [yellowstone …]   (needs data/<ST>.sqlite for each destination's states,
+     and ANTHROPIC_API_KEY). One destination failing doesn't stop the others; the run then ends with an error.
 """
 import argparse, base64, hashlib, json, os, re, sqlite3, statistics, threading, time, urllib.parse, urllib.request, zlib
 from concurrent.futures import ThreadPoolExecutor
@@ -25,6 +28,7 @@ from concurrent.futures import ThreadPoolExecutor
 import anthropic
 
 import store
+from destinations import NPS_BOUNDARIES, TIGERWEB
 from export_d1 import labels
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -88,21 +92,54 @@ class Asker:
 
 # ---------- The destination's area ----------
 
+AREAS = {  # where each kind of outline comes from (all public domain), and how it's asked for
+    "census_place": (TIGERWEB + "Places_CouSub_ConCity_SubMCD/MapServer/4/query?", "GEOID", re.compile(r"^\d{7}$")),
+    "census_county": (TIGERWEB + "State_County/MapServer/1/query?", "GEOID", re.compile(r"^\d{5}$")),
+    "nps_unit": (NPS_BOUNDARIES, "UNIT_CODE", re.compile(r"^[A-Z]{4}$")),
+}
+
+
 def boundary(dest):
-    """A city's outline as (lat, lng) pairs, from the Census Bureau's TIGERweb (public domain)."""
-    url = ("https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/4/query?"
-           + urllib.parse.urlencode({"where": f"GEOID='{dest['census_place']}'", "outFields": "NAME", "outSR": 4326,
-                                     "f": "json", "geometryPrecision": 5}))
-    ring = max(store.http_json(url)["features"][0]["geometry"]["rings"], key=len)
-    return [(y, x) for x, y in ring]
+    """A destination's outline as rings of (lat, lng) pairs: a city's Census place or a county from the Census Bureau's
+    TIGERweb, or a park's boundary from the NPS Land Resources Division. Every ring of every part, so a park's islands
+    and a city's exclaves count, and a hole is left out (inside() counts crossings over all of them). Simplified to
+    about 20 m: Olympic's coast alone is 287 polygons."""
+    kind = next(k for k in AREAS if k in dest)
+    url, field, valid = AREAS[kind]
+    if not valid.match(dest[kind]):
+        raise ValueError(f"{dest['id']}: {kind} {dest[kind]!r} isn't one")
+    body = store.http_json(url + urllib.parse.urlencode({
+        "where": f"{field}='{dest[kind]}'", "outFields": field, "outSR": 4326, "f": "json", "geometryPrecision": 5,
+        "maxAllowableOffset": 0.0002}))
+    rings = [[(y, x) for x, y in r] for f in (body or {}).get("features", []) for r in f["geometry"]["rings"]]
+    if not rings:
+        raise ValueError(f"{dest['id']}: no outline for {kind} {dest[kind]}")
+    return rings
 
 
-def inside(lat, lng, poly):
+def inside(lat, lng, rings):
+    """Whether a point is inside an outline (boundary()): an odd number of its rings' edges cross a line from it."""
     hit = False
-    for (y1, x1), (y2, x2) in zip(poly, poly[1:]):
-        if (y1 > lat) != (y2 > lat) and lng < (x2 - x1) * (lat - y1) / (y2 - y1) + x1:
-            hit = not hit
+    for ring in rings:
+        for (y1, x1), (y2, x2) in zip(ring, ring[1:] + ring[:1]):
+            if (y1 > lat) != (y2 > lat) and lng < (x2 - x1) * (lat - y1) / (y2 - y1) + x1:
+                hit = not hit
     return hit
+
+
+class Area:
+    """An outline that answers inside() quickly: rings whose box can't hold the point are skipped."""
+
+    def __init__(self, rings):
+        self.rings = [(min(y for y, _ in r), max(y for y, _ in r), min(x for _, x in r), max(x for _, x in r), r) for r in rings]
+        self.box = (min(r[0] for r in self.rings), max(r[1] for r in self.rings),
+                    min(r[2] for r in self.rings), max(r[3] for r in self.rings))
+
+    def __contains__(self, point):
+        lat, lng = point
+        if lat is None or lng is None:
+            return False
+        return inside(lat, lng, [r for y0, y1, x0, x1, r in self.rings if y0 <= lat <= y1 and x0 <= lng <= x1])
 
 
 # ---------- 1. Candidates ----------
@@ -135,14 +172,29 @@ def nps_text(raw):
         "listingDescription", "shortDescription", "description", "bodyText", "longDescription")))))[:6000].strip()
 
 
-def candidates(db, dest, poly):
-    lats, lngs = [p[0] for p in poly], [p[1] for p in poly]
-    box = (min(lats), max(lats), min(lngs), max(lngs))
+def candidates(dbs, dest, rings):
+    """The places inside a destination, from one store or several (a park across a state line): each store's own,
+    then merged. A record two stores have counts once, and so does an NPS record that one store links to a Wikidata
+    item and another, without that item, has on its own."""
+    area, places = Area(rings), {}
+    for db in dbs if isinstance(dbs, list) else [dbs]:
+        for k, p in candidates_in(db, dest, area).items():
+            places.setdefault(k, p)
+    hosted = {(n["source"], n["id"]) for p in places.values() for n in p["nps"] if p["source"] == "wikidata"}
+    places = {k: p for k, p in places.items() if k not in hosted}
+    names = labels({q for p in places.values() for q in p["type_ids"]})
+    for p in places.values():
+        p.setdefault("types", [names.get(q, q) for q in p["type_ids"]])
+    return places
+
+
+def candidates_in(db, dest, area):
+    box = area.box
     places = {}
     for rid, name, lat, lng, raw in db.execute(
             "SELECT id, name, lat, lng, raw FROM records WHERE source='wikidata' AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?",
             (box[0], box[1], box[2], box[3])):
-        if rid == dest["wikidata"] or not inside(lat, lng, poly):  # the destination isn't one of its own sights
+        if rid == dest["wikidata"] or (lat, lng) not in area:  # the destination isn't one of its own sights
             continue
         e = json.loads(raw)
         places[("wikidata", rid)] = {
@@ -155,9 +207,12 @@ def candidates(db, dest, poly):
     for source, rid, name, lat, lng, url, raw in db.execute(
             f"SELECT source, id, name, lat, lng, url, raw FROM records WHERE source IN ({','.join('?' * len(NPS_SIGHTS))}) "
             "AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?", (*NPS_SIGHTS, box[0], box[1], box[2], box[3])):
-        if not url or not inside(lat, lng, poly):
+        if not url or (lat, lng) not in area:
             continue
-        rec = {"source": source, "id": rid, "name": name, "url": url, "text": nps_text(json.loads(raw))}
+        raw = json.loads(raw)
+        if source == "nps:parks" and (raw.get("parkCode") or "").upper() == dest.get("nps_unit"):
+            continue  # the park itself, in its own guide
+        rec = {"source": source, "id": rid, "name": name, "url": url, "text": nps_text(raw)}
         same = [("wikidata", q) for (q,) in db.execute(  # links run either way: website links start from Wikidata
             "SELECT id_b FROM links WHERE source_a=? AND id_a=? AND source_b='wikidata' "
             "UNION SELECT id_a FROM links WHERE source_b=? AND id_b=? AND source_a='wikidata'", (source, rid, source, rid))]
@@ -169,7 +224,6 @@ def candidates(db, dest, poly):
                                      "type_ids": [], "types": [f"NPS {source.split(':')[1]}"], "description": "",
                                      "langs": 0, "p18": [], "nps": [rec]}
     places = {k: p for k, p in places.items() if p["enwiki"] or p["nps"]}
-    names = labels({q for p in places.values() for q in p["type_ids"]})
     months = [m for (m,) in db.execute("SELECT DISTINCT month FROM pageviews WHERE month != 'none' ORDER BY month DESC LIMIT 12")]
     titles = [p["enwiki"] for p in places.values() if p["enwiki"]]
     views, cats = {}, {}
@@ -185,7 +239,6 @@ def candidates(db, dest, poly):
         if ("wikidata", rid) in places:
             docs.setdefault(rid, {})[kind] = {"url": url, "rev": rev, "text": text_of(blob)}
     for p in places.values():
-        p.setdefault("types", [names.get(q, q) for q in p["type_ids"]])
         m = views.get(p["enwiki"] or "", {})
         p["views"] = round(statistics.median([m.get(k, 0) for k in months])) if m and months else 0
         p["categories"] = cats.get(p["enwiki"] or "", [])
@@ -432,12 +485,27 @@ def pictures(ask, p, entry):
 
 # ---------- Run ----------
 
+def store_path(state):
+    return os.path.join(HERE, "data", f"{state}.sqlite")
+
+
 def run(dest_id, db_path=None):
+    """One destination's picks and entries, kept in its state's store. The stores of the other states it reaches into
+    (`other_states`) are only read, for their places: a store missing there is said and skipped."""
     dest = DESTINATIONS[dest_id]
-    db = sqlite3.connect(db_path or os.path.join(HERE, "data", f"{dest['state']}.sqlite"), check_same_thread=False)
+    if not os.path.exists(db_path or store_path(dest["state"])):
+        raise FileNotFoundError(f"{dest_id}: no store for {dest['state']} ({db_path or store_path(dest['state'])})")
+    db = sqlite3.connect(db_path or store_path(dest["state"]), check_same_thread=False)
     db.executescript(store.SCHEMA)
+    others = []
+    for st in dest.get("other_states", []):
+        if os.path.exists(store_path(st)):
+            others.append(sqlite3.connect(f"file:{store_path(st)}?mode=ro", uri=True))
+        else:
+            log(f"{dest_id}: no store for {st}; its part of {dest['name']} is left out")
     ask, t0 = Asker(db), time.time()
-    places = candidates(db, dest, boundary(dest))
+    spent.clear()
+    places = candidates([db] + others, dest, boundary(dest))
     log(f"{dest['name']}: {len(places)} candidates ({sum(1 for p in places.values() if p['nps'])} with an NPS page)")
     judge(ask, places)
     sights = [p for p in places.values() if p["sight"]]
@@ -481,9 +549,18 @@ def run(dest_id, db_path=None):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--destination", required=True, choices=sorted(DESTINATIONS))
+    ap.add_argument("--destination", required=True, nargs="+", choices=sorted(DESTINATIONS))
     ap.add_argument("--db")
     a = ap.parse_args()
-    out = run(a.destination, a.db)
-    with open(os.path.join(HERE, "data", f"{a.destination}-guides.json"), "w") as f:
-        json.dump(out, f, indent=1)
+    failed = []
+    for d in a.destination:
+        try:
+            out = run(d, a.db)
+        except Exception as err:  # the next destination still runs: the answers so far are kept in the store
+            log(f"{d}: failed ({type(err).__name__}: {str(err)[:300]})")
+            failed.append(d)
+            continue
+        with open(os.path.join(HERE, "data", f"{d}-guides.json"), "w") as f:
+            json.dump(out, f, indent=1)
+    if failed:
+        raise SystemExit(f"failed: {' '.join(failed)}")
