@@ -4,14 +4,14 @@
 
 For each record whose name holds one of the names (any source, in any of the destination's stores): whether its point is
 inside the outline, whether it's a candidate (an English Wikipedia article or an NPS page) or hosted by one, its views
-and languages, the judging answer kept in the store (every model's and prompt's), its place among the sights by the
-shortlist's order, and whether it was picked or left out with the model's reason.
+and languages, the judging answer kept in the store (every model's and prompt's), whether it's on the
+shortlist, and whether it was picked or left out with the model's reason.
 """
 import argparse, json, os, sqlite3
 from unittest import mock
 
 import guides, store
-from guides import DESTINATIONS, SHORTLIST, Area, boundary, candidates, rank, store_path
+from guides import DESTINATIONS, SHORTLIST, Area, boundary, candidates, shortlist_of, store_path
 
 
 def explain(dest_id, names):
@@ -37,7 +37,10 @@ def explain(dest_id, names):
         return a["is_sight"] and a["exists"] and a["visitable"] != "no" and not (a.get("part_of") and a["part_of"] != p["name"])
 
     judged = {k: sight(p) for k, p in places.items()}
-    sights = sorted((p for k, p in places.items() if judged[k]), key=rank)
+    for k, p in places.items():  # the latest answer, for its draw
+        a = answers(f"{k[0]}/{k[1]}")
+        p["judged"] = a[-1][1] if a else None
+    shortlist = shortlist_of([p for k, p in places.items() if judged[k]])
     picks = {(s, i): (r, why) for s, i, r, why in home.execute(
         "SELECT source, id, rank, reason FROM picks WHERE destination = ?", (dest_id,))}
     left = {(x["source"], x["id"]): x["reason"] for x in json.loads((home.execute(
@@ -71,8 +74,7 @@ def explain(dest_id, names):
                     if judged[key] is None:
                         out.append("not judged (the shortlist was full before it came up)")
                     elif judged[key]:
-                        n = sights.index(p) + 1
-                        out.append(f"sight #{n} by the shortlist's order: {'on' if n <= SHORTLIST else 'not on'} the shortlist")
+                        out.append(f"a sight, #{shortlist.index(p) + 1} on the shortlist" if p in shortlist else "a sight, not on the shortlist")
                     if key in picks:
                         out.append(f"picked #{picks[key][0]}: {picks[key][1]}")
                     elif key in left:
