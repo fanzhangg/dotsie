@@ -240,6 +240,9 @@ test('a new trip opens on Want to go, where planning starts', async ({ page }) =
 });
 
 // Saving spots: the sheet of trips is checkboxes, so a spot can be on several, and saving is undone by unticking
+// A closed sheet takes its history entry a moment later (see closeSheet): wait for that before going anywhere, or it
+// takes the step back from the page gone to
+const sheetGone = page => expect.poll(() => page.evaluate(() => !history.state?.wtSheet)).toBe(true);
 const tripBox = (page, name) => sheet(page).getByRole('checkbox', { name: new RegExp(`^${name}`) });
 test('a spot’s page has Save to a trip floating at the bottom; Open, once saved, opens the trip on Want to go', async ({ page }) => {
   await page.goto('#/spots/alamogordo/sample/white-sands');
@@ -266,6 +269,12 @@ test('a spot can be saved to several trips, a new one too, and unticking one tak
   await sheet(page).getByRole('button', { name: /^New trip: Seattle/ }).click();
   await expect(tripBox(page, 'Seattle')).toHaveAttribute('aria-checked', 'true');
   await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'true');
+  // there's a Seattle now, so no second one is offered, and it takes the new button's focus
+  await expect(sheet(page).getByRole('button', { name: /^New trip/ })).toHaveCount(0);
+  await expect(tripBox(page, 'Seattle')).toBeFocused();
+  // ticked trips show their checks, not grey rows that run together (with the pointer off them, as a finger is)
+  await page.mouse.move(0, 0);
+  await expect(tripBox(page, 'Seattle')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await sheet(page).getByRole('button', { name: 'Close' }).click();
   await expect(toast(page)).toContainText('Saved to 2 trips');
   await expect(page.getByRole('button', { name: 'Saved to 2 trips' })).toBeVisible();
@@ -273,9 +282,12 @@ test('a spot can be saved to several trips, a new one too, and unticking one tak
   await page.getByRole('button', { name: 'Saved to 2 trips' }).click();
   await tripBox(page, 'White Sands, NM').click();
   await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'false');
+  await expect(sheet(page).getByRole('checkbox')).toHaveCount(2);
+  await expect(sheet(page).getByRole('button', { name: /^New trip/ })).toHaveCount(0);
   await sheet(page).getByRole('button', { name: 'Close' }).click();
   await expect(toast(page)).toContainText('Removed from White Sands, NM');
   await expect(page.getByRole('button', { name: 'Saved to Seattle' })).toBeVisible();
+  await sheetGone(page);
   await trip(page, 'white-sands');
   await expect(days(page).getByRole('tab', { name: /^Want to go/ })).toHaveAccessibleName('Want to go, 2 places');
 });
@@ -290,6 +302,7 @@ test('each spot’s card has a bookmark that saves it without leaving the list, 
   await expect(page).toHaveURL(/#\/spots$/);
   await expect(page.getByRole('button', { name: 'Saved to White Sands, NM. Change' })).toHaveAttribute('aria-pressed', 'true');
   // and after a reload, from the trips themselves
+  await sheetGone(page);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Saved to White Sands, NM. Change' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Save Space Needle to a trip' })).toHaveAttribute('aria-pressed', 'false');
