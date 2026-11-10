@@ -139,17 +139,31 @@ test.describe('on a wide screen', () => {
   });
 });
 
-test('Want to go shows its places as pins with no numbers, the trip’s stops quiet around them; tapping one selects it', async ({ page }) => {
-  await plan(page).getByRole('tab', { name: 'Want to go' }).click();
+test('Want to go shows its places as hollow pins with no numbers, the trip’s stops faded around them; tapping one selects it', async ({ page }) => {
+  await plan(page).getByRole('tab', { name: /^Want to go/ }).click();
   await settled(page);
   const oliver = pin(page, /^Oliver Lee Memorial State Park, Nature$/), rivers = pin(page, /^Three Rivers Petroglyph Site, Attraction$/);
-  await expect(oliver).toBeVisible();
-  await expect(rivers).toBeVisible();
-  await expect(page.locator('#map .wt-pin:not(.wt-pin--muted) .wt-pin__num')).toHaveCount(0);
+  await expect(oliver).toHaveClass(/wt-pin--idea/);
+  await expect(rivers).toHaveClass(/wt-pin--idea/);
+  await expect(page.locator('#map .wt-pin .wt-pin__num')).toHaveCount(0);
+  await expect(page.locator('#map .wt-pin--muted')).toHaveCount(0); // grey means over: the stops are faded instead
   const a = await shown(page);
   expect(inside(await center(oliver), a, 4) && inside(await center(rivers), a, 4)).toBe(true);
   await oliver.click();
   await expect(row(page, 'Oliver Lee Memorial State Park')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#map .wt-pin--selected')).toHaveAccessibleName(/Oliver Lee Memorial State Park/);
   await expect(plan(page).getByRole('button', { name: 'Add to a day' })).toBeVisible();
+});
+
+test('a day’s map shows the Want to go places nearest it, and one tapped there is added to that day', async ({ page }) => {
+  // today: Oliver Lee, near the hotel; not Three Rivers, nearer Saturday's stops
+  const oliver = pin(page, /^Oliver Lee Memorial State Park, Nature$/);
+  await expect(oliver).toHaveClass(/wt-pin--idea/);
+  await expect(pin(page, /^Three Rivers Petroglyph Site/)).toHaveCount(0);
+  expect(await pinsInView(page)).toBe(true);
+  await oliver.click();
+  await plan(page).getByRole('button', { name: 'Add to this day' }).click();
+  await expect(row(page, 'Oliver Lee Memorial State Park')).toHaveAttribute('aria-pressed', 'true');
+  await expect(pin(page, /^\d+\. Oliver Lee Memorial State Park, Nature$/)).toBeVisible();
+  await expect(page.locator('#map .wt-pin--idea')).toHaveCount(0);
 });

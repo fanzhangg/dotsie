@@ -147,13 +147,11 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
 /* The selected sight's bigger marker, and a hovered sight's name (see .wt-sight), come in front of the other sights. */
 .wt-sight-marker:has(.wt-sight.is-selected), .wt-sight-marker:has(.wt-sight:hover) { z-index: 9 !important; } /* still behind the pins (PIN_Z in map.js) */
 /* A sight's card (openSight in app.js): like a stop's sheet on a phone, it takes the list's place at the bottom. Its type
-   sits beside the sight's own marker, then what Wikipedia says (.wt-about), then Add to a day and Save to Want to go. */
+   sits beside the sight's own marker, then what Wikipedia says (.wt-about), then its one button (Add to this day, or Save). */
 .trip.has-card .wt-sheet { visibility: hidden; }
 .trip.has-card .trip-fit { display: none; }
 .sight-type { display: flex; align-items: center; gap: var(--wt-space-2); }
 .sight-type + .sight-add { margin-top: var(--wt-space-2); }
-/* Add to a day and Save to Want to go, one over the other */
-.sight-add { display: grid; gap: var(--wt-space-2); }
 /* With no map (no WebGL, or MapLibre couldn't load): why, where the map would be. The plan works as ever. */
 .wt-map-none { margin: 0; padding: calc(var(--wt-space-8) + 44px) var(--wt-space-5) 0; text-align: center; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 @container wt-trip (min-width: 768px) { .wt-map-none { padding-top: var(--wt-space-8); } }
@@ -165,3 +163,6 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
 /* A spot's Save to a trip, under its one line (spots.js), and the trips it offers, each with a map in a grey marker */
 .spot-save { margin: var(--wt-space-2) 0 0; }
 .spot-save__trip { --wt-kind-color: var(--wt-kind-drive); }
+/* A Want to go place's sheet: where it is, and the place in your maps app */
+.idea-where a { color: var(--wt-text-link); text-decoration: none; display: inline-flex; align-items: center; gap: 2px; }
+.idea-where .wt-icon { width: 14px; height: 14px; }

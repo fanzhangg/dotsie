@@ -26,7 +26,7 @@ test('a new trip gets the tables as they are now', () => {
   assert.deepEqual(r.cols('stops'), STOP_COLUMNS);
   assert.deepEqual(r.cols('trip'), ['id', 'name', 'created_by', 'invite', 'deleted_at', 'rev', 'edited_at']);
   assert.deepEqual(r.cols('members'), ['id', 'name', 'image', 'identity', 'joined_at']);
-  assert.deepEqual(r.cols('ideas'), ['id', 'name', 'address', 'lat', 'lng', 'note', 'kind', 'links', 'wikidata', 'by', 'updated_at']);
+  assert.deepEqual(r.cols('ideas'), ['id', 'name', 'address', 'lat', 'lng', 'note', 'kind', 'links', 'wikidata', 'by', 'updated_at', 'saved_at']);
   assert.equal(r.version(), SCHEMA.length);
   // the stop the app writes (putStop in trip.ts) fits
   r.db.prepare(`insert into stops (id, name, address, lat, lng, time, tz, duration, note, kind, nights, checkout, travel, back, links, wikidata, by, updated_at)

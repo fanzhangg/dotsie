@@ -313,7 +313,8 @@ const tripName = (v: unknown) => (typeof v === 'string' && v.trim() && v.length 
 // Guests have no email; the client asks them for a name (POST /api/auth/update-user) and offers sign-in later.
 app.get('/me', c => c.json({ ...c.get('user'), isGuest: c.get('guest') }));
 
-// Home screen: one card per trip, newest edit first, with its people and stops for the card's avatars, route sketch and photos
+// Home screen: one card per trip, newest edit first, with its people and stops for the card's avatars, route sketch and
+// photos, and its Want to go places by name and where (a spot says which trips have it)
 app.get('/trips', async c => {
   const { results } = await c.env.DB.prepare(
     `select t.id, t.name, t.first_stop as start, t.last_stop as end, t.preview from trips t
@@ -325,7 +326,7 @@ app.get('/trips', async c => {
   const cards = await Promise.all(results.map(async ({ preview, ...t }) => {
     const kept: Preview | null = preview ? JSON.parse(preview) : null;
     const p = kept?.stops.every(s => 'wikidata' in s) ? kept : (await room(c.env, t.id).summary().catch(() => null)) ?? kept;
-    return { ...t, members: p?.members ?? [], stops: p?.stops ?? [] };
+    return { ...t, members: p?.members ?? [], stops: p?.stops ?? [], ideas: p?.ideas ?? [] };
   }));
   return c.json(cards);
 });

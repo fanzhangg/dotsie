@@ -394,6 +394,8 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   font: var(--wt-type-context); color: var(--wt-text-tertiary); white-space: nowrap; transition: color var(--wt-duration-fast);
 }
 .wt-day-tab[aria-selected="true"] { color: var(--wt-text-primary); }
+/* How many places Want to go has, after its name, quieter than it */
+.wt-day-tab__count { margin-left: var(--wt-space-1); color: var(--wt-text-tertiary); font-variant-numeric: tabular-nums; }
 .wt-day-tab:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: -4px; border-radius: var(--wt-radius-md); }
 .wt-day-tabs__bar {
   position: absolute; left: 0; bottom: 0; width: 24px; height: 2px; border-radius: 1px; background: var(--wt-text-primary);
@@ -414,6 +416,7 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   cursor: pointer; font: var(--wt-type-body); color: var(--wt-text-link); border-radius: var(--wt-radius-md);
 }
 .wt-day-cal__overview[aria-pressed="true"] { color: var(--wt-text-primary); font-weight: 600; }
+.wt-day-cal__pages { display: flex; gap: var(--wt-space-3); }
 .wt-day-cal__month { grid-column: 1 / -1; padding: var(--wt-space-2) 0 var(--wt-space-1) var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .wt-day-cal .wt-cal__day { --wt-cal-size: 36px; }
 .wt-day-cal span.wt-cal__day { color: var(--wt-text-past); cursor: default; }
@@ -1080,6 +1083,19 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 }
 .wt-pin--muted { --wt-pin-size: 20px; opacity: .85; box-shadow: none; background: var(--wt-kind-past); }   /* flat grey, as in the list */
 .wt-pin--selected { --wt-pin-size: 32px; box-shadow: var(--wt-shadow-pin-selected); }
+/* A place on Want to go, with no day yet: hollow, its type's color as the ring around a dot of it on --wt-pin-fill, so
+   it reads as somewhere you might go rather than somewhere you're going. A touch smaller than a stop's pin, and no
+   number: it isn't in the plan's order. Selected, it grows as a stop's pin does and stays hollow. */
+.wt-pin--idea { --wt-pin-size: 20px; background: var(--wt-pin-fill); border-color: var(--wt-kind-color, var(--wt-kind-place)); }
+.wt-pin--idea .wt-pin__dot { background: var(--wt-kind-color, var(--wt-kind-place)); }
+.wt-pin--idea.wt-pin--selected { --wt-pin-size: 28px; border-width: 3px; }
+/* Faded: the plan's stops behind Want to go's places. Small, flat and light, still in their colors, as the pins beside
+   a selected one step back: grey would say they're over. */
+.wt-pin--faded {
+  --wt-pin-size: 16px; box-shadow: none; background-image: none;
+  --wt-marker-fill: color-mix(in oklab, var(--wt-kind-color, var(--wt-kind-place)) var(--wt-pin-faded-mix), var(--wt-pin-fill));
+}
+.wt-pin--faded .wt-pin__dot { width: 4px; height: 4px; background: var(--wt-pin-fill); }
 /* The others step back, still solid and in their colors (grey means over): flat, in a lighter version of their color
    (--wt-pin-faded-mix of it over the ring's), with the number in their own color. Not see-through, so the route and
    the map don't show through them. A pin that's over stays as it is. */

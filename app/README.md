@@ -83,7 +83,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 
 | Route | What it does |
 | --- | --- |
-| `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights, travel, back }`, for the card's route sketch (at most 300) |
+| `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops, ideas }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights, travel, back }`, for the card's route sketch (at most 300); `ideas`, its Want to go places, only `{ id, name, lat, lng }` |
 | `POST /api/trips` `{ name }` | Create; returns the trip snapshot |
 | `GET /api/trips/:id` | `{ trip, members, stops, ideas }`; `trip.owner` is the id of whoever made it, and `ideas` is the trip's Want to go list (see below) |
 | `PATCH /api/trips/:id` `{ name }` | Rename |
@@ -121,10 +121,10 @@ A trip's Want to go list: places the people on it would like to see, saved befor
 
 | Route | What it does |
 | --- | --- |
-| `PUT /api/trips/:id/ideas/:ideaId` | Save a place to the list, or restore one (Undo), whole. The client picks the id |
+| `PUT /api/trips/:id/ideas/:ideaId` | Save a place to the list, change one, or restore one (Undo), whole. The client picks the id |
 | `DELETE /api/trips/:id/ideas/:ideaId` | |
 
-An idea is `{ id, name, address, lat, lng, note, kind, links, wikidata, by, updatedAt }`, each field as a stop's: a stop's place and what's said about it, with no time, stay or way there. `name`, `lat` and `lng` are needed; any other field a stop has is dropped. The list is in the order the ideas were saved. It doesn't change the trip's dates or its home card, which come from its stops.
+An idea is `{ id, name, address, lat, lng, note, kind, links, wikidata, by, updatedAt }`, each field as a stop's: a stop's place and what's said about it, with no time, stay or way there. `name`, `lat` and `lng` are needed; any other field a stop has is dropped. To change one (its note, its links), PUT it whole again: it keeps its place in the list, which is in the order the ideas were first saved. It doesn't change the trip's dates, which come from its stops.
 
 ### Maps
 

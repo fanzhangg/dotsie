@@ -2,7 +2,7 @@
 import { $app, ICON, esc, state } from './core.js';
 import { cur } from './trips.js';
 import { api } from './backend.js';
-import { IDEAS, KINDS, ideasOf, kindColor, kindIcon, samePlace } from './plan.js';
+import { ALL, IDEAS, KINDS, findIdea, kindColor, kindIcon } from './plan.js';
 import { needsConnection, offlineNow } from './offline.js';
 import { addMarker, focusStop, map, mapSize, mapZoom, onMapTap, pins, routeCells, sightsShown, toScreen, viewBounds } from './map.js';
 import { latLng, tileOf } from './geo.js';
@@ -10,7 +10,7 @@ import { coveredBottom, coveredTop, inView } from './sheet.js';
 import { closeSheet, modalHead, openSheet } from './sheets.js';
 import { addIdea } from './edits.js';
 import { currentDay } from './timeline.js';
-import { ON_THE_WAY_KM, kmOff, kmPerDeg, openStopSheet } from './stopsheet.js';
+import { ON_THE_WAY_KM, addToDay, kmOff, kmPerDeg } from './stopsheet.js';
 
 // ---------- Sights: what's worth seeing nearby, once the map is zoomed in ----------
 // As a maps app shows its places: zoomed in to a town or closer, the map marks the best known attractions, museums,
@@ -106,14 +106,15 @@ export function drawSights() {
   }
 }
 const sightHTML = s => `<div class="wt-sight${s.id === sightOpen?.id ? ' is-selected' : ''}" style="--wt-kind-color: ${kindColor(s)}"><i class="wt-sight__marker">${kindIcon(s, 12)}</i><span class="wt-sight__name">${esc(s.name)}</span></div>`;
-// Add stop, with the sight as its place and type
-function addSight(s) {
+// On a day: Add to this day, as a stop at the time it most likely fits (see addToDay)
+function addSight(s, day) {
   const trip = cur?.stops ? cur : null;
   if (!trip || state.draft || !needsConnection()) return;
-  openStopSheet(trip, null, { name: s.name, address: s.address, lat: s.lat, lng: s.lng, kind: s.kind, ...(s.wikidata && { wikidata: s.wikidata }) });
+  closeSheet();
+  addToDay(trip, { name: s.name, address: s.address || '', lat: s.lat, lng: s.lng, kind: s.kind, wikidata: s.wikidata || null }, day);
 }
-
-// Saved for later, on Want to go: the card closes and the day on screen stays as it is (on Want to go, the place is selected)
+// On Want to go or the overview: Save, on Want to go, for when it has a day. The card closes, and on Want to go the
+// place is selected.
 function saveSight(s) {
   const trip = cur?.stops ? cur : null;
   if (!trip || state.draft || !needsConnection()) return;
@@ -223,22 +224,21 @@ function markSight(s) {
   $app.querySelector('.trip')?.classList.toggle('has-card', !!s);
   if (s) sightsShown.get(s.id)?.getElement()?.querySelector('.wt-sight')?.classList.add('is-selected');
 }
-// Then Save to Want to go, for a place worth going that has no day yet (the main button on Want to go itself), or, once
-// it's on the list, a word that it is.
+// Then one button, for the page you're on: on a day, Add to this day; on Want to go or the overview, Save, or Saved
+// (greyed) once it's on the list.
 function openSight(s) {
   const trip = cur?.stops ? cur : null;
   if (!trip || state.draft) return;
-  const onIdeas = currentDay(trip) === IDEAS, saved = ideasOf(trip).some(i => samePlace(i, s));
-  const add = `<button class="wt-btn wt-btn--${onIdeas ? 'secondary' : 'primary'} wt-btn--block" data-add>${ICON.plus}Add to a day</button>`;
-  const save = saved ? `<button class="wt-btn wt-btn--secondary wt-btn--block" disabled>${ICON.check}On Want to go</button>`
-    : `<button class="wt-btn wt-btn--${onIdeas ? 'primary' : 'secondary'} wt-btn--block" data-save>${ICON.star}Save to Want to go</button>`;
+  const day = currentDay(trip), onDay = day !== IDEAS && day !== ALL;
+  const button = onDay ? `<button class="wt-btn wt-btn--primary wt-btn--block sight-add" data-add>${ICON.plus}Add to this day</button>`
+    : findIdea(trip, s) ? `<button class="wt-btn wt-btn--secondary wt-btn--block sight-add" disabled>${ICON.check}Saved</button>`
+      : `<button class="wt-btn wt-btn--primary wt-btn--block sight-add" data-save aria-label="Save to Want to go">${ICON.star}Save</button>`;
   openSheet(`${modalHead(esc(s.name))}
     <p class="wt-modal__text sight-type"><i class="wt-sight__marker" style="--wt-kind-color: ${kindColor(s)}">${kindIcon(s, 12)}</i>${KINDS[s.kind].label}</p>
     ${aboutSlot(s.wikidata, false)}
-    <div class="sight-add">${onIdeas ? save + add : add + save}</div>`, el => {
-    el.querySelector('[data-add]').onclick = () => addSight(s);
-    const saveBtn = el.querySelector('[data-save]');
-    if (saveBtn) saveBtn.onclick = () => saveSight(s);
+    ${button}`, el => {
+    el.querySelector('[data-add]')?.addEventListener('click', () => addSight(s, day));
+    el.querySelector('[data-save]')?.addEventListener('click', () => saveSight(s));
     const about = el.querySelector('.wt-about--loading');
     if (about) showAbout(about, s.wikidata, false);
   }, { panel: true, onClose: () => { markSight(null); drawSights(); } });

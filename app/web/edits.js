@@ -61,6 +61,13 @@ export function addIdea(trip, data, { select = true } = {}) {
   save(api(`/trips/${trip.id}/ideas/${idea.id}`, { method: 'PUT', body: ideaBody(idea) }), 'Couldn’t save it to Want to go');
   return idea;
 }
+// Its note and links changed: saved whole, as the list keeps it (its place in the list stays)
+export function editIdea(trip, idea, fields) {
+  const target = openTripOf(trip.id)?.ideas.find(i => i.id === idea.id), next = { ...(target || idea), ...fields };
+  if (target) Object.assign(target, fields, { by: me.id });
+  render();
+  save(api(`/trips/${trip.id}/ideas/${idea.id}`, { method: 'PUT', body: ideaBody(next) }));
+}
 // Taken off the list: with Undo, which saves it again (at the end of the list, as the server keeps it), or quietly,
 // once it's been added to a day
 export function deleteIdea(trip, idea, { quiet = false } = {}) {

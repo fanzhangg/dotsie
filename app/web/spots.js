@@ -9,7 +9,7 @@ import { api } from './backend.js';
 import { me } from './signin.js';
 import { MAPS_APPS, mapsApp, placeURL } from './routes.js';
 import { regionName } from './regions.js';
-import { IDEAS, guessKind } from './plan.js';
+import { IDEAS, findIdea, guessKind } from './plan.js';
 import { QID } from './fields.js';
 import { nowStamp } from './time.js';
 import { tripDates } from './home.js';
@@ -300,8 +300,10 @@ async function showEntry({ city, source, id }) {
 }
 
 // ---------- Save to a trip: the spot goes on a trip's Want to go list, with no day yet ----------
-// The trips still to come (or under way, or with no dates), soonest first, then a new one named for the spot's city.
-// Saving says so, with Open, which opens the trip on Want to go. Signed out, it asks you to sign in first.
+// The trips still to come (or under way, or with no dates), soonest first, then a new one named for the spot's city. A
+// trip that has it already says Saved, and can't be picked. Saving says so, with Open, which opens the trip on Want to
+// go, and the button says where it went. Signed out, it asks you to sign in first.
+const savedTo = new Map(); // spot key → the trip it was saved to this visit
 const spotIdea = g => ({
   name: g.name, address: `${g.destination.name}, ${g.destination.state}`, lat: g.lat, lng: g.lng,
   kind: guessKind(g.name) === 'place' ? 'attraction' : guessKind(g.name), note: '',
@@ -317,23 +319,34 @@ async function saveSpot(g, btn) {
   const trips = list.filter(t => !t.end || t.end.slice(0, 10) >= today)
     .sort((a, b) => (a.start ? 0 : 1) - (b.start ? 0 : 1) || (a.start || '').localeCompare(b.start || ''));
   const row = (value, label, detail, marker) => `<li><button type="button" class="wt-option" data-trip="${esc(value)}">${marker}<span class="wt-option__text"><span class="wt-option__label">${esc(label)}</span>${detail ? `<span class="wt-option__detail">${esc(detail)}</span>` : ''}</span></button></li>`;
+  const has = t => !!findIdea(t, g);
   openSheet(`${modalHead('Save to a trip')}
     <p class="wt-modal__text">It goes on the trip’s Want to go list, for everyone on it, until someone gives it a day.</p>
-    <ul class="wt-options" aria-label="Trips">${trips.map(t => row(t.id, t.name, tripDates(t), `<i class="wt-marker spot-save__trip">${ICON.map}</i>`)).join('')}${row('', `New trip: ${city}`, '', `<i class="wt-marker spot-save__trip">${ICON.plus}</i>`)}</ul>`, el => {
-    for (const b of el.querySelectorAll('[data-trip]')) b.onclick = async () => {
-      for (const x of el.querySelectorAll('[data-trip]')) x.disabled = true;
+    <ul class="wt-options" aria-label="Trips">${trips.map(t => row(t.id, t.name, has(t) ? 'Saved' : tripDates(t), `<i class="wt-marker spot-save__trip">${has(t) ? ICON.check : ICON.map}</i>`)).join('')}${row('', `New trip: ${city}`, 'Rename it in its settings', `<i class="wt-marker spot-save__trip">${ICON.plus}</i>`)}</ul>`, el => {
+    for (const t of trips) if (has(t)) el.querySelector(`[data-trip="${CSS.escape(t.id)}"]`).disabled = true;
+    for (const b of el.querySelectorAll('[data-trip]:not(:disabled)')) b.onclick = async () => {
+      const was = [...el.querySelectorAll('[data-trip]:not(:disabled)')];
+      for (const x of was) x.disabled = true;
       try {
         let id = b.dataset.trip, name = trips.find(t => t.id === id)?.name;
         if (!id) ({ trip: { id, name } } = await api('/trips', { method: 'POST', body: { name: city } }));
         await api(`/trips/${id}/ideas/${uid()}`, { method: 'PUT', body: spotIdea(g) });
         closeSheet();
-        toast(`Saved to ${name}`, 'Open', () => { openTripOn(IDEAS); location.hash = `#/trip/${id}`; });
+        savedTo.set(spotKey(g), name);
+        showSaved(g);
+        toast(b.dataset.trip ? `Saved to ${name}` : `Saved to a new trip, ${name}`, 'Open', () => { openTripOn(IDEAS); location.hash = `#/trip/${id}`; });
       } catch (err) {
-        for (const x of el.querySelectorAll('[data-trip]')) x.disabled = false;
+        for (const x of was) x.disabled = false;
         if (err.status !== 401) failToast(err, 'Couldn’t save it to the trip');
       }
     };
   });
+}
+const spotKey = g => `${g.destination.id}/${g.source}/${g.id}`;
+const saveLabel = g => (savedTo.has(spotKey(g)) ? `${ICON.check}Saved to ${esc(savedTo.get(spotKey(g)))}` : `${ICON.star}Save to a trip`);
+function showSaved(g) {
+  const b = $app.querySelector('[data-spot-save]');
+  if (b && s.spot === g) { b.innerHTML = saveLabel(g); b.classList.toggle('wt-btn--primary', !savedTo.has(spotKey(g))); b.classList.toggle('wt-btn--secondary', savedTo.has(spotKey(g))); }
 }
 document.addEventListener('click', e => {
   const b = e.target.closest?.('[data-spot-save]');
@@ -369,7 +382,7 @@ function entryHTML(g) {
       <p class="wt-guide__where">${esc(`${g.destination.name}, ${regionName(g.destination.country, g.destination.state)}`)}</p>
       <h1 class="wt-guide__name">${esc(g.name)}</h1>
       <p class="wt-guide__lede">${esc(g.oneLiner)}</p>
-      ${g.lat != null ? `<p class="spot-save"><button type="button" class="wt-btn wt-btn--primary" data-spot-save>${ICON.star}Save to a trip</button></p>` : ''}
+      ${g.lat != null ? `<p class="spot-save"><button type="button" class="wt-btn ${savedTo.has(spotKey(g)) ? 'wt-btn--secondary' : 'wt-btn--primary'}" data-spot-save>${saveLabel(g)}</button></p>` : ''}
     </header>
     <div class="wt-guide__body">${(g.paragraphs ?? []).map((p, i) => `<p>${esc(p.text)}</p>${after(i + 1)}`).join('')}</div>
     ${g.practical?.length ? `<section class="wt-guide__section"><h2>Before you go</h2>

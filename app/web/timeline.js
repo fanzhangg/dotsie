@@ -2,7 +2,7 @@
 import { $app, ICON, WIDE, esc, state, token } from './core.js';
 import { DAYS, MONTHS, fmtDay, fmtDur, instantOf, nowIn, nowStamp, toDate, zoneOf } from './time.js';
 import { cur } from './trips.js';
-import { ALL, IDEAS, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysOf, ideasOf, kindColor, kindOf, pagesOf, samePlace, stayOf, staysOf, travelIcon } from './plan.js';
+import { ALL, IDEAS, TRAVEL, addDays, checkoutOf, dayOf, dayPlan, dayStops, daysOf, ideaDays, ideasOf, kindColor, kindOf, pagesOf, samePlace, stayOf, staysOf, travelIcon } from './plan.js';
 import { dayLegs, directionsURL, legsOn, placeURL } from './routes.js';
 import { offlineNow } from './offline.js';
 import { render, scheduleRender } from './app.js';
@@ -116,19 +116,30 @@ export const selectedStop = trip => (state.sel && trip.stops.find(s => s.id === 
 export const selectedIdea = trip => (state.sel && ideasOf(trip).find(i => i.id === state.sel)) || null;
 
 // ---------- Want to go: the places saved for the trip, with no day yet ----------
-// A row each, as a stop's: its marker, its name, and under it where it is and its note, with its links; no time, and no
-// rail between them, since they're in no order yet but the one they were saved in. Tapping one selects it, as a stop:
-// its pin grows, and the bar below offers Add to a day.
+// A row each, as a stop's: its marker, its name, its note and its links. No address (the map shows where, as for a
+// stop), no time, and no rail between them, since they're in no order yet. Tapping one selects it, as a stop: its pin
+// grows, and the bar below offers Add to a day.
 function ideaRow(i, sel) {
-  const notes = [i.address, i.note].filter(Boolean), links = i.links || [], linked = links.length > 0;
+  const links = i.links || [], linked = links.length > 0;
   return `<div class="wt-tl-stop wt-tl-idea${sel ? ' is-selected' : ''}" data-action="select-idea" data-id="${esc(i.id)}" data-row="${esc(i.id)}" tabindex="0" role="button" aria-pressed="${sel}" style="--wt-kind-color: ${kindColor(i)}">
       <span class="wt-tl-rail">${markerHTML(i, 'wt-tl-marker')}</span>
-      <span class="wt-tl-name">${esc(i.name)}</span>${notes.length || linked ? `<span class="wt-tl-notes">${linked ? LINKS_HINT : ''}${notes.map(n => `<span class="wt-tl-note">${noteHTML(n)}</span>`).join('')}</span>` : ''}${linked ? linksHTML(links) : ''}
+      <span class="wt-tl-name">${esc(i.name)}</span>${i.note || linked ? `<span class="wt-tl-notes">${linked ? LINKS_HINT : ''}${i.note ? `<span class="wt-tl-note">${noteHTML(i.note)}</span>` : ''}</span>` : ''}${linked ? linksHTML(links) : ''}
       <span class="wt-tl-time"></span>
     </div>`;
 }
-const IDEAS_EMPTY = `<p class="wt-empty">Save the places you’d like to go here, before you know when: find one with Add place, tap a sight on the map, or browse <a href="#/spots">Spots</a>. Then add each to a day.</p>`;
-const ideasHTML = trip => (ideasOf(trip).length ? ideasOf(trip).map(i => ideaRow(i, i.id === state.sel)).join('') : IDEAS_EMPTY);
+// Grouped by the day each is nearest, under that day's name as on the overview (tap it to open the day), so it's clear
+// where each would go; those near none of them last, under Farther away. A trip with no stops yet has no days to group by.
+function ideasHTML(trip) {
+  const ideas = ideasOf(trip);
+  if (!ideas.length) return '<p class="wt-empty">Places you’d like to go, before you know when.</p>';
+  const row = i => ideaRow(i, i.id === state.sel);
+  if (!trip.stops.length) return ideas.map(row).join('');
+  const by = ideaDays(trip);
+  return [...daysOf(trip), null].map(d => [d, ideas.filter(i => by.get(i.id) === d)]).filter(([, g]) => g.length)
+    .map(([d, g]) => (d ? `<button class="wt-tl-day" data-action="pick-day" data-day="${d}" aria-label="Near ${dayName(d)}. Open this day">
+      <span class="wt-tl-day__name">Near ${dayName(d)}</span><span class="wt-tl-day__open" aria-hidden="true">View day</span></button>`
+      : '<div class="wt-tl-day" role="heading" aria-level="3"><span class="wt-tl-day__name">Farther away</span></div>') + g.map(row).join('')).join('');
+}
 // Below the list, always in reach: Add stop; with a stop selected, Open in Maps (the place in the maps app, to see what it is)
 // and a round Edit stop; with a drive's route shown, Directions to the drive's end in the maps app, the way you're going,
 // and a round button with that way's icon to change it (a flight has no directions: Open in Maps shows where it lands).
@@ -136,15 +147,17 @@ const ideasHTML = trip => (ideasOf(trip).length ? ideasOf(trip).map(i => ideaRow
 // Offline, adding and editing are greyed out (aria-disabled), and a tap says why (see needsConnection).
 function addBarHTML(trip) {
   const s = selectedStop(trip), off = offlineNow() ? ' aria-disabled="true"' : '';
-  // Want to go: Add place; with one selected, Add to a day, then the place in the maps app, Remove, and + to add another
-  if (currentDay(trip) === IDEAS) {
-    const i = selectedIdea(trip);
-    if (!i) return `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="add" data-action="add-idea"${off}>${ICON.plus}Add place</button>`;
-    return `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="main" data-action="plan-idea" data-id="${esc(i.id)}"${off}>${ICON.calendar}Add to a day</button>`
-      + `<a class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" href="${esc(placeURL(i))}" target="_blank" rel="noopener" aria-label="Open ${esc(i.name)} in your maps app" title="Open in Maps">${ICON.map}</a>`
-      + `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="remove" data-action="remove-idea" data-id="${esc(i.id)}"${off} aria-label="Remove from Want to go" title="Remove from Want to go">${ICON.trash}</button>`
-      + `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add-idea"${off} aria-label="Add place" title="Add place">${ICON.plus}</button>`;
+  // A place on Want to go, selected (in the list, or its pin on a day's map): Add to a day (on a day, Add to this day, at
+  // once), its sheet (Edit), and + as on the page. Nothing selected, Want to go's own button is Save place.
+  const day = currentDay(trip), i = selectedIdea(trip);
+  const savePlus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add-idea"${off} aria-label="Save place" title="Save place">${ICON.plus}</button>`;
+  if (i) {
+    const onDay = day !== IDEAS && day !== ALL;
+    return `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="main" data-action="${onDay ? 'idea-to-day' : 'plan-idea'}" data-id="${esc(i.id)}"${onDay ? ` data-day="${day}"` : ''}${off}>${onDay ? `${ICON.plus}Add to this day` : `${ICON.calendar}Add to a day`}</button>`
+      + `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="edit" data-action="edit-idea" data-id="${esc(i.id)}"${off} aria-label="Edit place" title="Edit place">${ICON.edit}</button>`
+      + (day === IDEAS ? savePlus : `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add"${off} aria-label="Add stop" title="Add stop">${ICON.plus}</button>`);
   }
+  if (day === IDEAS) return `<button class="wt-btn wt-btn--primary wt-btn--block" data-key="add" data-action="add-idea"${off}>${ICON.plus}Save place</button>`;
   const leg = !s && state.leg && legsOn(trip, currentDay(trip)).find(l => l.key === state.leg);
   const plus = `<button class="wt-btn wt-btn--secondary wt-btn--icon" data-key="add" data-action="add"${off} aria-label="Add stop" title="Add stop">${ICON.plus}</button>`;
   if (leg) {
@@ -309,8 +322,10 @@ function tabLabel(d) {
 }
 // The tabs and the calendar button. The open tab and whether the calendar is open are set on them in renderDayBar,
 // so the row isn't rebuilt when only the day changes: its scroll and its bar move from where they are.
-const dayTabsHTML = trip => `<div class="wt-day-tabs" role="tablist" aria-label="Days">${pagesOf(trip).map(d =>
-  `<button class="wt-day-tab" role="tab" data-action="pick-day" data-day="${d}" aria-label="${dayName(d)}">${tabLabel(d)}</button>`).join('')}<span class="wt-day-tabs__bar" aria-hidden="true"></span></div>
+// Want to go says how many places are on it, still to be given a day: what's left to plan, at a glance from any day.
+const tabCount = (trip, d) => (d === IDEAS && ideasOf(trip).length ? ideasOf(trip).length : 0);
+const dayTabsHTML = trip => `<div class="wt-day-tabs" role="tablist" aria-label="Days">${pagesOf(trip).map(d => { const n = tabCount(trip, d);
+  return `<button class="wt-day-tab" role="tab" data-action="pick-day" data-day="${d}" aria-label="${dayName(d)}${n ? `, ${n} ${n === 1 ? 'place' : 'places'}` : ''}">${tabLabel(d)}${n ? `<span class="wt-day-tab__count">${n}</span>` : ''}</button>`; }).join('')}<span class="wt-day-tabs__bar" aria-hidden="true"></span></div>
   ${daysOf(trip).length ? `<button class="wt-icon-btn wt-day-bar__cal" data-action="day-cal" aria-label="Jump to a day" title="Jump to a day">${ICON.calendar}</button>` : ''}`;
 let dayCalOpen = false;
 export const isDayCalOpen = () => dayCalOpen;
@@ -389,7 +404,7 @@ function dayCalHTML(trip) {
   }
   return `<div class="wt-day-cal__head">
       <span class="wt-cal__month">${monthName(first)}</span>
-      <button type="button" class="wt-day-cal__overview" data-action="pick-day" data-day="${ALL}" aria-pressed="${open === ALL}">Overview</button>
+      <span class="wt-day-cal__pages"><button type="button" class="wt-day-cal__overview" data-action="pick-day" data-day="${IDEAS}" aria-pressed="${open === IDEAS}">Want to go</button><button type="button" class="wt-day-cal__overview" data-action="pick-day" data-day="${ALL}" aria-pressed="${open === ALL}">Overview</button></span>
     </div>
     <div class="wt-cal__grid" role="group" aria-label="The trip's days">
       ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(w => `<span class="wt-cal__wd" aria-hidden="true">${w}</span>`).join('')}${cells}

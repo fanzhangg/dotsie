@@ -144,7 +144,8 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
     return Object.values(d.trips).filter(t => !t.deleted && t.members.includes(ME)).sort((a, b) => b.updatedAt - a.updatedAt).map(t => {
       const times = t.spots.map(s => s.time).sort();
       const stops = t.spots.map(({ id, name, lat, lng, time, kind, nights, travel, back, wikidata = null }) => ({ id, name, lat, lng, time, kind, nights, travel, back, wikidata }));
-      return { id: t.id, name: t.name, start: times[0] || null, end: times.at(-1) || null, members: snapshotOf(d, t).members, stops };
+      const ideas = (t.ideas || []).map(({ id, name, lat, lng }) => ({ id, name, lat, lng }));
+      return { id: t.id, name: t.name, start: times[0] || null, end: times.at(-1) || null, members: snapshotOf(d, t).members, stops, ideas };
     });
   }
   if (call === 'POST trips' && !p[1]) {
@@ -210,7 +211,7 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
     broadcast(t.id, { type: 'stop.upserted', stop });
     return out(stop);
   }
-  // Want to go: written whole, in the order they're saved (a place saved again goes to the end, as the server keeps them)
+  // Want to go: written whole, in the order they were first saved (one written again, an edit, keeps its place)
   if (p[2] === 'ideas' && p[3]) {
     t.ideas ||= [];
     const i = t.ideas.findIndex(x => x.id === p[3]);
@@ -225,8 +226,7 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
     if (!body?.name?.trim() || !Number.isFinite(body.lat) || !Number.isFinite(body.lng)) fail(400, 'invalid');
     const { name, address = '', lat, lng, note = '', kind = '', links = [], wikidata = null } = body;
     const idea = { id: p[3], name: name.trim(), address, lat, lng, note, kind, links, wikidata, by: ME, updatedAt: now };
-    if (i >= 0) t.ideas.splice(i, 1);
-    t.ideas.push(idea);
+    if (i >= 0) t.ideas[i] = idea; else t.ideas.push(idea);
     touch();
     broadcast(t.id, { type: 'idea.upserted', idea });
     return out(idea);
