@@ -18,7 +18,14 @@ type Tool = {
 // Versions this server can speak. The tools use nothing that differs between them.
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 // Bump the version whenever a tool or its arguments change: a client may keep its copy of the tools until it does.
-const SERVER = { name: 'dotsie', title: 'Dotsie', version: '2.0.0' };
+// Say what changed at the top of CHANGES, which /developer/changelog shows.
+const SERVER = { name: 'dotsie', title: 'Dotsie', version: '2.1.0' };
+const CHANGES = [
+  { version: '2.1.0', date: '2026-11-10', changes: ['`address`, `lat`, `lng` and `list_stops`’ `day` say what they are.', 'A stop’s `tz` and `duration`, added on Nov 8 without a new version, are part of this one.'] },
+  { version: '2.0.0', date: '2026-11-07', changes: ['Folders are gone: `add_folder`, `rename_folder`, and a stop’s `folder` field. Crowded pins merge on the map instead.'] },
+  { version: '1.1.0', date: '2026-11-06', changes: ['Stops have `links`, shown as buttons under them: `add_link` adds one, and `add_stop` and `edit_stop` take the whole list.', 'Stops have `travel`, how you get to them, and a hotel has `back`, each night’s way back to it.', 'Folders: `add_folder`, `rename_folder`, and a stop’s `folder` field.', 'A mistake in a call says which field is wrong and what it should be.'] },
+  { version: '1.0.0', date: '2026-11-05', changes: ['`list_trips`, `list_stops`, `add_stop`, `edit_stop` and `delete_stop`.'] },
+];
 const INSTRUCTIONS = `Dotsie plans road trips. A trip is a list of stops, each with a time ("YYYY-MM-DDTHH:MM"): the clock time where the stop is, in the place's own time zone, as on a ticket or a booking. A flight that leaves Los Angeles at 10:00 and lands in New York at 18:30 is two stops at those times.
 Call list_trips to find a trip and list_stops to see its plan; add_stop, edit_stop and delete_stop change it. Changes show at once for everyone on the trip.
 A stop's links are buttons under it in the app, one tap from the plan. Whenever you find or are given a web page for a stop, add it with add_link instead of writing the URL in the note: a booking or reservation, a flight (the airline's booking or its flight status), tickets, the place's own site, a guide to it. Label each in a few words ("UA 123", "Hotel booking", "Tickets"). A flight's links go on the airport you fly from, where you'll need them; with no stop there, on the one you land at.`;
@@ -111,9 +118,9 @@ const LINK = {
 
 const EDITABLE = {
   name: { type: 'string', maxLength: 200, description: 'The place’s name' },
-  address: { type: 'string', maxLength: 300 },
-  lat: { type: 'number', minimum: -90, maximum: 90 },
-  lng: { type: 'number', minimum: -180, maximum: 180 },
+  address: { type: 'string', maxLength: 300, description: 'Its street address, as the place gives it' },
+  lat: { type: 'number', minimum: -90, maximum: 90, description: 'Its latitude, in degrees' },
+  lng: { type: 'number', minimum: -180, maximum: 180, description: 'Its longitude, in degrees' },
   time: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$', description: 'When you arrive, "YYYY-MM-DDTHH:MM", in the clock time where the stop is (its place’s time zone, or tz). Stops are ordered by when that is' },
   tz: { type: ['string', 'null'], maxLength: 64, description: 'Only if time isn’t the clock time where the stop is: the IANA time zone it’s in ("America/Denver"). null (the default) is the place’s own' },
   duration: { type: ['integer', 'null'], minimum: 1, maximum: 1440, description: 'How long you’re at the stop, in minutes, or null for not said. The drive after it leaves when it ends. Not for a hotel: its stay is nights and checkout' },
@@ -156,7 +163,7 @@ const TOOLS: Tool[] = [
       type: 'object',
       properties: {
         trip_id: { type: 'string', description: 'From list_trips' },
-        day: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'Optional: only stops on this trip-local day, "YYYY-MM-DD"' },
+        day: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'Only the stops on this day, "YYYY-MM-DD", by each stop’s own clock time' },
       },
       required: ['trip_id'],
       additionalProperties: false,
@@ -255,9 +262,9 @@ const TOOLS: Tool[] = [
   },
 ];
 
-// What the server offers, as tools/list and initialize say it, for the developer page (/developer): the page shows
-// the tools from here, so it can't drift from what an assistant is given.
-export const mcpSpec = () => ({ server: SERVER, versions: VERSIONS, instructions: INSTRUCTIONS, tools: TOOLS.map(({ run, ...t }) => t) });
+// What the server offers, as tools/list and initialize say it, for the developer pages (/developer/tools and
+// /developer/mcp): they show the tools from here, so they can't drift from what an assistant is given.
+export const mcpSpec = () => ({ server: SERVER, versions: VERSIONS, instructions: INSTRUCTIONS, tools: TOOLS.map(({ run, ...t }) => t), changes: CHANGES });
 
 // ---------- JSON-RPC ----------
 type Message = { jsonrpc?: unknown; id?: string | number | null; method?: unknown; params?: Record<string, unknown> };

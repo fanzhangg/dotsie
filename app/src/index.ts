@@ -90,8 +90,8 @@ app.get(AUTHORIZE_PATH.slice(4), async c => authorizePage(c.req.raw, c.env, awai
 app.post(AUTHORIZE_PATH.slice(4), async c => authorizeDecision(c.req.raw, c.env, await signedIn(c)));
 
 // ---------- For developers (the pages under /developer), open to anyone ----------
-// The MCP server's tools, version and instructions, and how a client signs in: what /developer documents, from the
-// code that runs them
+// The MCP server's tools, version and instructions, and how a client signs in: what /developer/mcp, /developer/tools
+// and /developer/sign-in document, from the code that runs them
 app.get('/developer/mcp', c => c.json({ url: mcpURL(c.env), ...mcpSpec(), oauth: oauthSpec(c.env) }, 200, { 'Cache-Control': 'public, max-age=300' }));
 
 // ---------- Spots data: what outside sources say about places, open to anyone, read-only ----------
