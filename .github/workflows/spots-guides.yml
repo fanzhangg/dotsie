@@ -112,14 +112,14 @@ jobs:
         if: ${{ always() && hashFiles(format('pipeline/data/{0}.sqlite', matrix.job.state)) != '' }}
         run: |
           gzip -kf "data/$ST.sqlite"
-          aws s3 cp --endpoint-url "$R2" "data/$ST.sqlite.gz" "s3://$BUCKET/stores/$ST.sqlite.gz"
+          ./r2put.sh "data/$ST.sqlite.gz" "stores/$ST.sqlite.gz"
       # Every guide the state's store has, the ones just made and those from before; loaded by the load job below
       - name: The state's guides as SQL for D1
         if: ${{ always() && hashFiles(format('pipeline/data/{0}.sqlite', matrix.job.state)) != '' }}
         run: |
           set -o pipefail
           python3 export_d1.py --state "$ST" --guides | gzip > "data/$ST.guides.sql.gz"
-          aws s3 cp --endpoint-url "$R2" "data/$ST.guides.sql.gz" "s3://$BUCKET/d1/$ST.guides.sql.gz"
+          ./r2put.sh "data/$ST.guides.sql.gz" "d1/$ST.guides.sql.gz"
 
   load:
     needs: [plan, guides]

@@ -78,7 +78,7 @@ jobs:
               echo "$m: already in R2"; continue
             fi
             python3 pageviews_month.py "$m" --out data/pageviews
-            aws s3 cp --endpoint-url "$R2" "data/pageviews/enwiki-$m.tsv.gz" "s3://$BUCKET/$key"
+            ./r2put.sh "data/pageviews/enwiki-$m.tsv.gz" "$key"
             rm "data/pageviews/enwiki-$m.tsv.gz"
           done
 
@@ -124,9 +124,9 @@ jobs:
           # Opening it rolls back a write that the time limit cut short
           python3 -c 'import sqlite3, sys; sqlite3.connect(sys.argv[1]).execute("select count(*) from records").fetchone()' "data/$ST.sqlite"
           gzip -kf "data/$ST.sqlite"
-          aws s3 cp --endpoint-url "$R2" "data/$ST.sqlite.gz" "s3://$BUCKET/stores/$ST.sqlite.gz"
+          ./r2put.sh "data/$ST.sqlite.gz" "stores/$ST.sqlite.gz"
           if [ -f "data/$ST.json" ]; then
-            aws s3 cp --endpoint-url "$R2" "data/$ST.json" "s3://$BUCKET/stores/$ST.json"
+            ./r2put.sh "data/$ST.json" "stores/$ST.json"
             { echo "### $ST"; echo '```json'; cat "data/$ST.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
       # The public page at /developer/spots reads D1: names, points, types, identifiers, links and views, no page text.
@@ -135,7 +135,7 @@ jobs:
         run: |
           set -o pipefail # a half-written file would delete the state's rows and load only some back
           python3 export_d1.py --state "$ST" | gzip > "data/$ST.d1.sql.gz"
-          aws s3 cp --endpoint-url "$R2" "data/$ST.d1.sql.gz" "s3://$BUCKET/d1/$ST.sql.gz"
+          ./r2put.sh "data/$ST.d1.sql.gz" "d1/$ST.sql.gz"
 
   # Every state built above into D1, one at a time: D1 serves no queries while it imports a file (the app's sign-in
   # included), and two imports at once can trip over each other. Each file replaces its state's rows, so loading one
