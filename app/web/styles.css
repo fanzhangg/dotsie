@@ -54,13 +54,16 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 .spots-filters select { flex: 1 1 140px; width: auto; min-width: 0; }
 .spots-empty { grid-column: 1 / -1; display: grid; justify-items: center; gap: var(--wt-space-3); }
 .spots-empty p { margin: 0; }
-.spots-trips { display: grid; min-height: 64px; align-content: start; }
-.spots-trips > .wt-spinner { justify-self: center; margin-top: var(--wt-space-4); }
 .spots-more { justify-self: center; }
 .spots-pager { padding-top: var(--wt-space-2); }
 .spots-note { margin: 0; font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
-.spots-entry { width: 100%; max-width: 40rem; justify-self: center; display: grid; align-content: start; }
-.spots-actions { display: flex; flex-wrap: wrap; gap: var(--wt-space-2); }
+/* A spot: a page to read, the app's white column (680px from 768px wide), with no app bar; its photo runs to the
+   column's edges */
+#app[data-page="spot"] { --spot-gutter: var(--wt-space-4); }
+#app[data-page="spot"] .home { padding: 0 var(--spot-gutter); }
+.spots-entry { width: 100%; display: grid; align-content: start; }
+.spots-entry .wt-guide__top--photo { margin: 0 calc(-1 * var(--spot-gutter)); }
+@media (min-width: 768px) { #app[data-page="spot"] { --spot-gutter: var(--wt-space-10); max-width: 680px; } }
 :is(.spots-list, .spots-entry, .spots-more, .spots-pager, .spots-filters select)[hidden] { display: none; }
 
 /* ---------- Sign in: one choice per step ---------- */

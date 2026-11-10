@@ -52,7 +52,7 @@ function tripWhen(t, today) {
   return { text: d === 1 ? 'Tomorrow' : d < 14 ? `In ${d} days` : d < 60 ? `In ${Math.round(d / 7)} weeks` : `In ${Math.round(d / 30.4)} months` };
 }
 // A trip's dates, always with the year: "Nov 5 – 8, 2026"; one over New Year says both
-export function tripDates(t) {
+function tripDates(t) {
   if (!t.start) return 'No dates yet';
   const end = t.end || t.start, y1 = t.start.slice(0, 4), y2 = end.slice(0, 4);
   return y1 !== y2 ? `${fmtRange(t.start, t.start)}, ${y1} – ${fmtRange(end, end)}, ${y2}` : `${fmtRange(t.start, end)}, ${y1}`;

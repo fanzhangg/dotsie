@@ -3,8 +3,6 @@ export const params = new URLSearchParams(location.search);
 
 // Saved keys and caches keep the app's first name, waythread, so what a device already saved outlives the rename to Dotsie
 export const ROUTE_KEY = 'waythread:routes:v1';
-// Where to come back to once signed in (a spot, to add it to a trip), kept for the tab in sessionStorage
-export const AFTER_SIGN_IN = 'dotsie:after-sign-in';
 export const $app = document.getElementById('app');
 export const $sheets = document.getElementById('sheets');
 // The app's name as its wordmark, with a stop for the i's dot (see Wordmark in the design system); read as plain text

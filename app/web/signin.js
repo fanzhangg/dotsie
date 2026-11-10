@@ -1,5 +1,5 @@
 /* Who's signed in: starting the app, signing in and out, and the sign-in screens. */
-import { $app, AFTER_SIGN_IN, ICON, WORDMARK, esc, failMsg, navHTML, params } from './core.js';
+import { $app, ICON, WORDMARK, esc, failMsg, navHTML, params } from './core.js';
 import { closeTrip, setTrips } from './trips.js';
 import { api } from './backend.js';
 import { anySaved, forgetOffline, keepShell, offline, registerOffline, rememberSession } from './offline.js';
@@ -155,10 +155,6 @@ export function authFlow(root, { joining = false, connecting = false, guest = fa
     me = await api('/me');
     setTrips(null);
     closeSheet();
-    // Signed in to add a spot to a trip: back to the spot
-    let back = null;
-    try { back = sessionStorage.getItem(AFTER_SIGN_IN); sessionStorage.removeItem(AFTER_SIGN_IN); } catch {}
-    if (back?.startsWith('#/spots/')) { location.replace(back); return; }
     render();
     if (msg) toast(msg);
   };

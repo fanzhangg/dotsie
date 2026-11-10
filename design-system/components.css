@@ -1,4 +1,4 @@
-/* Dotsie design system — components v14.1.0
+/* Dotsie design system — components v15.0.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -25,7 +25,7 @@
   border-radius: var(--wt-radius-md);
 }
 :where(.wt-btn, .wt-icon-btn):disabled { opacity: .35; cursor: default; }
-a:where(.wt-btn, .wt-icon-btn, .wt-trip-card, .wt-spot-card, .wt-nav__link, .wt-guide__back) { color: inherit; text-decoration: none; }
+a:where(.wt-btn, .wt-icon-btn, .wt-trip-card, .wt-spot-card, .wt-nav__link, .wt-guide__back, .wt-guide__link) { color: inherit; text-decoration: none; }
 
 /* ---------- Button ---------- */
 .wt-btn {
@@ -906,6 +906,7 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   transition: box-shadow var(--wt-duration-fast);
 }
 .wt-app-bar.is-scrolled { box-shadow: 0 1px 0 var(--wt-border-default); }
+.wt-app-bar[hidden] { display: none; }
 .wt-app-bar__end { margin-left: auto; display: flex; align-items: center; gap: var(--wt-space-2); }
 
 /* ---------- Nav: the app's pages (Plan, Spots) ---------- */
@@ -977,40 +978,58 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-spot-card__bar:nth-child(3) { width: 90%; }
 
 /* ---------- Guide entry (a spot's page) ---------- */
-/* One spot as a guidebook has it: the lead photo, where it is, its name and one line, two or three paragraphs, then
-   the facts to know before you go on a quiet panel, and the sources and photo credits at the foot. Read in one
-   column, at most about 40em wide. */
-.wt-guide { display: grid; gap: var(--wt-space-4); grid-template-columns: minmax(0, 1fr); }
+/* One spot as a guidebook has it, to read, on --wt-surface-raised with nothing else on the page: the lead photo across
+   the top with the way back over its corner, where it is, its name and one line, the text, then what to know before
+   you go, every page it was written from or that's about it, and the credits. Sections are set apart by space and
+   their headings; rows by hairlines. Put it in a column about 40em wide at most. */
+.wt-guide { display: grid; gap: var(--wt-space-6); grid-template-columns: minmax(0, 1fr); padding-bottom: var(--wt-space-8); }
+.wt-guide__top { position: relative; padding-top: calc(env(safe-area-inset-top) + var(--wt-space-3)); }
+.wt-guide__top--photo { padding-top: 0; }
+.wt-guide__hero { display: block; width: 100%; aspect-ratio: 4 / 3; max-height: 60vh; object-fit: cover; background: var(--wt-surface-map); }
+@media (min-width: 768px) { .wt-guide__hero { aspect-ratio: 16 / 9; } }
+/* Back: a round button, frosted over the photo, or on its own above the name */
 .wt-guide__back {
-  justify-self: start; display: inline-flex; align-items: center; gap: 2px; height: var(--wt-size-touch);
-  margin-left: calc(-1 * var(--wt-space-2)); padding: 0 var(--wt-space-2) 0 0; border-radius: var(--wt-radius-md);
-  font: var(--wt-type-context); color: var(--wt-text-secondary);
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--wt-radius-round);
+  color: var(--wt-text-primary); background: var(--wt-surface-sunken);
 }
-.wt-guide__back:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: -2px; }
-@media (hover: hover) { .wt-guide__back:hover { color: var(--wt-text-primary); } }
-.wt-guide__figure { margin: 0; display: grid; gap: var(--wt-space-1); }
+.wt-guide__top--photo .wt-guide__back {
+  position: absolute; z-index: 1; top: calc(env(safe-area-inset-top) + var(--wt-space-3)); left: var(--wt-space-3);
+  background: color-mix(in oklab, var(--wt-surface-raised) 80%, transparent); box-shadow: var(--wt-shadow-float);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.wt-guide__back:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+.wt-guide__head { display: grid; gap: var(--wt-space-2); margin-top: calc(-1 * var(--wt-space-2)); }
+.wt-guide__where { margin: 0; font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; color: var(--wt-text-tertiary); }
+.wt-guide__name { margin: 0; font: var(--wt-type-headline); color: var(--wt-text-primary); }
+.wt-guide__lede { margin: 0; font: var(--wt-type-body); font-size: 17px; line-height: 25px; color: var(--wt-text-secondary); }
+.wt-guide__body { display: grid; gap: var(--wt-space-4); }
+.wt-guide__body p { margin: 0; font: var(--wt-type-body); font-size: 16px; line-height: 1.65; color: var(--wt-text-primary); }
+.wt-guide__figure { margin: var(--wt-space-1) 0; display: grid; gap: var(--wt-space-2); }
 .wt-guide__figure img { display: block; width: 100%; height: auto; max-height: 420px; object-fit: cover; border-radius: var(--wt-radius-md); background: var(--wt-surface-map); }
 .wt-guide__figure figcaption { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-.wt-guide__credit { color: var(--wt-text-tertiary); }
-.wt-guide__head { display: grid; gap: var(--wt-space-1); }
-.wt-guide__where { margin: 0; font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; color: var(--wt-text-tertiary); }
-.wt-guide__name { margin: 0; font: var(--wt-type-title); color: var(--wt-text-primary); }
-.wt-guide__lede { margin: 0; font: var(--wt-type-name); color: var(--wt-text-secondary); }
-.wt-guide__para { margin: 0; font: var(--wt-type-body); line-height: 1.6; color: var(--wt-text-primary); }
-.wt-guide__facts { display: grid; gap: var(--wt-space-2); padding: var(--wt-space-3); border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); }
-.wt-guide__facts h3 { margin: 0; font: var(--wt-type-heading); color: var(--wt-text-primary); }
-.wt-guide__facts dl { display: grid; gap: 2px var(--wt-space-3); margin: 0; font: var(--wt-type-caption); }
-.wt-guide__facts dd + dt { margin-top: var(--wt-space-2); }
-/* Label over value on a phone; side by side where there's room */
-@media (min-width: 520px) {
-  .wt-guide__facts dl { grid-template-columns: minmax(0, 8rem) minmax(0, 1fr); row-gap: var(--wt-space-2); }
-  .wt-guide__facts dd + dt { margin-top: 0; }
+.wt-guide__section { display: grid; gap: var(--wt-space-1); }
+.wt-guide__section h2 { margin: 0 0 var(--wt-space-1); font: var(--wt-type-heading); color: var(--wt-text-primary); }
+/* Before you go: each fact a row, its label over it, between hairlines */
+.wt-guide__facts { margin: 0; }
+.wt-guide__facts > div { display: grid; gap: 2px; padding: var(--wt-space-3) 0; border-top: 1px solid var(--wt-border-subtle); }
+.wt-guide__facts dt { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.wt-guide__facts dd { margin: 0; font: var(--wt-type-body); color: var(--wt-text-primary); }
+/* Sources and links: one row each, what it is over where it goes, with the external icon on the right */
+.wt-guide__links { list-style: none; margin: 0; padding: 0; }
+.wt-guide__links li { border-top: 1px solid var(--wt-border-subtle); }
+.wt-guide__link {
+  display: flex; align-items: center; gap: var(--wt-space-3); min-height: 56px; padding: var(--wt-space-2) 0;
+  border-radius: var(--wt-radius-sm); transition: background var(--wt-duration-fast);
 }
-.wt-guide__facts dt { color: var(--wt-text-secondary); }
-.wt-guide__facts dd { margin: 0; color: var(--wt-text-primary); overflow-wrap: anywhere; }
-.wt-guide__foot { display: grid; gap: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+.wt-guide__link .wt-icon { flex: none; width: 18px; height: 18px; color: var(--wt-text-tertiary); }
+.wt-guide__link:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+@media (hover: hover) { .wt-guide__link:hover .wt-guide__link-label { color: var(--wt-text-link); } }
+.wt-guide__link-text { flex: 1; min-width: 0; display: grid; }
+.wt-guide__link-label { font: var(--wt-type-name); font-size: 15px; color: var(--wt-text-primary); transition: color var(--wt-duration-fast); }
+.wt-guide__link-detail { font: var(--wt-type-caption); color: var(--wt-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-guide__foot { display: grid; gap: var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
 .wt-guide__foot p { margin: 0; }
-.wt-guide a:not(.wt-btn, .wt-guide__back) { color: var(--wt-text-link); }
+.wt-guide__foot a { color: var(--wt-text-link); }
 
 /* ---------- Map pin ---------- */
 /* A round dot centered on its place, like a stop on a transit map: the stop's type color, shaded like a marker, in a
