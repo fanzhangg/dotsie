@@ -548,7 +548,9 @@ def image_names(p18, wikitext):
     return out
 
 
-COMMONS = threading.Semaphore(8)  # requests to Wikimedia Commons at once, whatever runs alongside
+# Requests to Wikimedia Commons at once, whatever runs alongside: with four jobs at 8 each, Wikimedia turned the
+# photos away ("429: Your bot is making too many requests") and 11 of the 17 parks in Alaska and California failed
+COMMONS = threading.Semaphore(2)
 
 
 def image_candidates(p, limit=8):
@@ -580,10 +582,18 @@ def media_type(raw):
             else "image/gif" if raw[:4] == b"GIF8" else "image/jpeg")
 
 
-def fetch_image(url):
-    """A Commons thumbnail (the 960 px one the API named: Wikimedia makes thumbnails only at standard widths)."""
-    with COMMONS, urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": store.UA}), timeout=60) as r:
-        return r.read()
+def fetch_image(url, tries=6):
+    """A Commons thumbnail (the 960 px one the API named: Wikimedia makes thumbnails only at standard widths). Turned
+    away (429, 503), it waits as long as Retry-After says, or longer each time, without holding a place in COMMONS."""
+    for i in range(tries):
+        try:
+            with COMMONS, urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": store.UA}), timeout=60) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 503) or i == tries - 1:
+                raise
+            retry = e.headers.get("Retry-After")
+            time.sleep(min(120, int(retry) if retry and retry.isdigit() else 10 * 2 ** i))
 
 
 PICTURES = """You choose pictures for a travel guide's entry about a place. You're given the entry, and candidate photos from Wikimedia Commons, each shown to you, with its caption from the Wikipedia article, its Commons description and its date.
@@ -680,7 +690,11 @@ def run(dest_id, db_path=None, batcher=None):
         c, p = c_p
         p["wikitext"] = article(p)
         e = write(ask, dest, p)
-        e["images"] = pictures(ask, p, e)
+        try:
+            e["images"] = pictures(ask, p, e)
+        except Exception as err:  # an entry without photos rather than none: run it again for them (the rest is kept)
+            log(f"{dest_id}: {p['name']}: no pictures ({type(err).__name__}: {str(err)[:150]})")
+            e["images"], e["pictures_failed"] = {"hero": None, "inline": []}, True
         return c, p, e
 
     with ThreadPoolExecutor(max(1, len(picks)) if batcher else 4) as pool:  # in batches, every entry's questions at once
@@ -704,6 +718,9 @@ def run(dest_id, db_path=None, batcher=None):
                "seconds": round(time.time() - t0),
                "picks": [{"rank": i, "name": p["name"], "one_liner": e["one_liner"], "overlap": e["overlap"],
                           "hero": bool(e["images"]["hero"]), "inline": len(e["images"]["inline"])} for i, (_, p, e) in enumerate(made, 1)]}
+    no_pictures = [p["name"] for _, p, e in made if e.get("pictures_failed")]
+    if no_pictures:  # run the destination again for them: only the pictures are asked again
+        summary["pictures_failed"] = no_pictures
     log(json.dumps(summary, indent=1))
     return summary
 
