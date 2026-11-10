@@ -43,11 +43,11 @@ import { toast } from './notices.js';
 
 // ---------- Routing (hash) ----------
 export function parseHash() {
-  const p = location.hash.replace(/^#\/?/, '').split('/');
+  const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?'), p = path.split('/');
   if (p[0] === 'trip' && p[1]) return { page: 'trip', id: decodeURIComponent(p[1]) };
   if (p[0] === 'join' && p[1]) return { page: 'join', token: p[1] };
-  // #/spots, or one spot: #/spots/<city>/<source>/<id>
-  if (p[0] === 'spots') return p[3] ? { page: 'spot', city: decodeURIComponent(p[1]), source: decodeURIComponent(p[2]), id: decodeURIComponent(p.slice(3).join('/')) } : { page: 'spots' };
+  // #/spots (with what's asked after ?: #/spots?city=seattle), or one spot: #/spots/<city>/<source>/<id>
+  if (p[0] === 'spots') return p[3] ? { page: 'spot', city: decodeURIComponent(p[1]), source: decodeURIComponent(p[2]), id: decodeURIComponent(p.slice(3).join('/')) } : { page: 'spots', query };
   return { page: 'home' };
 }
 // setTimeout rather than rAF: rAF is paused in background tabs, and co-editors' changes should land there too

@@ -46,11 +46,16 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 .signin-nav { padding: 0 var(--wt-space-4) var(--wt-space-3); }
 
 /* ---------- Spots: a search and filters over a grid of spot cards, as Home's trips; a spot's entry in one column ---------- */
-.spots-list { display: grid; gap: var(--wt-space-4); align-content: start; }
+.spots-list { display: grid; gap: var(--wt-space-4); align-content: start; scroll-margin-top: calc(80px + var(--wt-space-2)); } /* clear of the app bar when a page of the pager scrolls to it */
+.spots-count { margin: calc(-1 * var(--wt-space-2)) 0 calc(-1 * var(--wt-space-2)); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.spots-count:empty { display: none; }
 .spots-find { display: grid; gap: var(--wt-space-2); }
 .spots-filters { display: flex; flex-wrap: wrap; gap: var(--wt-space-2); }
 .spots-filters select { flex: 1 1 140px; width: auto; min-width: 0; }
-.spots-empty { grid-column: 1 / -1; }
+.spots-empty { grid-column: 1 / -1; display: grid; justify-items: center; gap: var(--wt-space-3); }
+.spots-empty p { margin: 0; }
+.spots-trips { display: grid; min-height: 64px; align-content: start; }
+.spots-trips > .wt-spinner { justify-self: center; margin-top: var(--wt-space-4); }
 .spots-more { justify-self: center; }
 .spots-pager { padding-top: var(--wt-space-2); }
 .spots-note { margin: 0; font: var(--wt-type-caption); color: var(--wt-text-tertiary); }

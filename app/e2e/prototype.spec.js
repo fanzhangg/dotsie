@@ -165,7 +165,8 @@ test('the nav goes between Plan and Spots, and Spots lists the guide’s places,
   await expect(nav.getByRole('link', { name: 'Spots' })).toHaveAttribute('aria-current', 'page');
   await expect(spotNames(page)).toHaveText(['Space Needle', 'Pike Place Market', 'White Sands National Park', 'Stanley Park',
     'Chihuly Garden and Glass', 'Discovery Park', 'New Mexico Museum of Space History']);
-  await expect(page.getByRole('link', { name: /^Space Needle/ })).toContainText('Seattle, WA · 1.9M views');
+  await expect(page.getByRole('link', { name: /^Space Needle/ })).toContainText('Seattle, WA');
+  await expect(page.getByRole('status').filter({ hasText: 'spots' })).toHaveText('7 spots');
   await expect(page.getByRole('button', { name: 'Show more' })).toBeHidden();
   await nav.getByRole('link', { name: 'Plan' }).click();
   await expect(cards(page).getByText('White Sands, NM')).toBeVisible();
@@ -189,11 +190,45 @@ test('spots can be searched and narrowed to a country, a state and a city', asyn
   await page.getByRole('combobox', { name: 'State' }).selectOption('');
   await page.getByRole('combobox', { name: 'City' }).selectOption('seattle');
   await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('WA');
-  await expect(spotNames(page)).toHaveText(['Space Needle', 'Pike Place Market', 'Chihuly Garden and Glass', 'Discovery Park']);
+  // In a city, the guide's own order, not the views'
+  await expect(spotNames(page)).toHaveText(['Pike Place Market', 'Space Needle', 'Chihuly Garden and Glass', 'Discovery Park']);
+  await expect(page.getByText('In the guide’s order for Seattle')).toBeVisible();
+  // The address keeps what's asked, so a reload (or a link) shows the same
+  await expect(page).toHaveURL(/#\/spots\?country=US&state=WA&city=seattle$/);
+  await page.reload();
+  await expect(page.getByRole('combobox', { name: 'City' })).toHaveValue('seattle');
+  await expect(spotNames(page)).toHaveCount(4);
   // Another country drops a state and city it doesn't have
   await page.getByRole('combobox', { name: 'Country' }).selectOption('CA');
   await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('');
   await expect(spotNames(page)).toHaveText(['Stanley Park']);
+});
+
+test('the search finds a city’s and a state’s spots by their names, and clears', async ({ page }) => {
+  await page.goto('#/spots');
+  const search = page.getByRole('searchbox', { name: 'Search spots' });
+  await search.fill('seattle');
+  await expect(spotNames(page)).toHaveCount(4);
+  await search.fill('new mexico');
+  await expect(spotNames(page)).toHaveText(['White Sands National Park', 'New Mexico Museum of Space History']);
+  await search.fill('nm');
+  await expect(spotNames(page)).toHaveCount(2);
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  await expect(search).toHaveValue('');
+  await expect(spotNames(page)).toHaveCount(7);
+});
+
+test('a spot can be added to a trip, after the trip’s last stop', async ({ page }) => {
+  await page.goto('#/spots/alamogordo/sample/white-sands');
+  await page.getByRole('button', { name: 'Add to a trip' }).click();
+  await expect(sheet(page).getByRole('button')).toContainText(['White Sands, NM', 'Big Bend in spring', 'New trip: Alamogordo']);
+  await sheet(page).getByRole('button', { name: /^White Sands, NM/ }).click();
+  await expect(toast(page)).toContainText('Added to White Sands, NM');
+  await toast(page).getByRole('button', { name: 'Open' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('White Sands, NM');
+  // Two hours after the trip's last stop: the flight home at 11:00 AM on Sun, Nov 22
+  await days(page).getByRole('tab', { name: 'Sun, Nov 22' }).click();
+  await expect(stop(page, 'White Sands National Park')).toContainText('1:00');
 });
 
 test('a spot opens its guide entry, and All spots goes back to the list as it was', async ({ page }) => {

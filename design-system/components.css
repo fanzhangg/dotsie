@@ -137,6 +137,8 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-search__clear .wt-icon { width: 18px; height: 18px; }
 @media (hover: hover) { .wt-search__clear:hover { background: var(--wt-surface-hover); color: var(--wt-text-primary); } }
 .wt-search__clear[hidden], .wt-spinner[hidden] { display: none; }
+/* The clear button is ours, the same in every browser: not the browser's own on a type=search input as well */
+.wt-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
 .wt-spinner {
   flex: none; display: block; width: 18px; height: 18px; margin: 0 11px; border-radius: var(--wt-radius-round);
   border: 2px solid var(--wt-border-default); border-top-color: var(--wt-text-secondary); animation: wt-spin .7s linear infinite;
@@ -966,6 +968,14 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   .wt-spot-card__body { gap: var(--wt-space-1); padding: var(--wt-space-3) var(--wt-space-4) var(--wt-space-4); }
 }
 
+/* Loading: grey bars where the text goes, until the spots come, so the page doesn't jump when they do */
+.wt-spot-card--loading { pointer-events: none; }
+.wt-spot-card--loading .wt-spot-card__photo { background: var(--wt-surface-sunken); }
+.wt-spot-card__bar { display: block; height: 12px; border-radius: var(--wt-radius-sm); background: var(--wt-surface-sunken); }
+.wt-spot-card__bar:nth-child(1) { width: 40%; height: 10px; }
+.wt-spot-card__bar:nth-child(2) { width: 70%; height: 14px; }
+.wt-spot-card__bar:nth-child(3) { width: 90%; }
+
 /* ---------- Guide entry (a spot's page) ---------- */
 /* One spot as a guidebook has it: the lead photo, where it is, its name and one line, two or three paragraphs, then
    the facts to know before you go on a quiet panel, and the sources and photo credits at the foot. Read in one
@@ -989,7 +999,13 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-guide__para { margin: 0; font: var(--wt-type-body); line-height: 1.6; color: var(--wt-text-primary); }
 .wt-guide__facts { display: grid; gap: var(--wt-space-2); padding: var(--wt-space-3); border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); }
 .wt-guide__facts h3 { margin: 0; font: var(--wt-type-heading); color: var(--wt-text-primary); }
-.wt-guide__facts dl { display: grid; grid-template-columns: minmax(0, 8rem) minmax(0, 1fr); gap: var(--wt-space-2) var(--wt-space-3); margin: 0; font: var(--wt-type-caption); }
+.wt-guide__facts dl { display: grid; gap: 2px var(--wt-space-3); margin: 0; font: var(--wt-type-caption); }
+.wt-guide__facts dd + dt { margin-top: var(--wt-space-2); }
+/* Label over value on a phone; side by side where there's room */
+@media (min-width: 520px) {
+  .wt-guide__facts dl { grid-template-columns: minmax(0, 8rem) minmax(0, 1fr); row-gap: var(--wt-space-2); }
+  .wt-guide__facts dd + dt { margin-top: 0; }
+}
 .wt-guide__facts dt { color: var(--wt-text-secondary); }
 .wt-guide__facts dd { margin: 0; color: var(--wt-text-primary); overflow-wrap: anywhere; }
 .wt-guide__foot { display: grid; gap: var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-tertiary); }

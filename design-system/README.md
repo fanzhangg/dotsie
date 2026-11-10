@@ -861,7 +861,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
   <h1 class="wt-visually-hidden">Plan</h1>
   <nav class="wt-nav" aria-label="Pages">
     <a class="wt-nav__link" href="#/" aria-current="page">${mapIcon}Plan</a>
-    <a class="wt-nav__link" href="#/spots">${pinIcon}Spots</a>
+    <a class="wt-nav__link" href="#/spots">${starIcon}Spots</a>
   </nav>
   <div class="wt-app-bar__end">${accountButton}</div>
 </header>
@@ -870,7 +870,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 The top of Home and Spots, in one row: the app's pages on the left, the account on the right. Actions on the page (New trip) go in the page, not here.
 
 - **The bar** stays at the top as the page scrolls (`position: sticky`), 64px high (80px from 768px wide), frosted over what passes under it in the page's color (`--wt-surface-sheet`, or set `--wt-app-bar-surface`). Add `.is-scrolled` once the page has scrolled, for a hairline under it. The page's name is a hidden `h1`: the nav already shows it.
-- **`.wt-nav`** is the app's pages, as pills of an icon (18px) and a word, in `--wt-type-context`. The page you're on (`aria-current="page"`) is raised white with `--wt-shadow-hairline`, in primary ink, set apart by its surface as a card is; the others are in secondary ink, a grey pill when pointed at. Plan is `map`, Spots is `pin`. For pages, not filters. Sign-in shows it under the wordmark.
+- **`.wt-nav`** is the app's pages, as pills of an icon (18px) and a word, in `--wt-type-context`. The page you're on (`aria-current="page"`) is raised white with `--wt-shadow-hairline`, in primary ink, set apart by its surface as a card is; the others are in secondary ink, a grey pill when pointed at. Plan is `map`, Spots is `star`. For pages, not filters. Sign-in shows it under the wordmark.
 
 ### Pager `.wt-pager`
 
@@ -900,7 +900,7 @@ Pages of a long grid, on a computer. On a phone, use Show more under a list inst
   <span class="wt-spot-card__body">
     <span class="wt-spot-card__name">Space Needle</span>
     <span class="wt-spot-card__line">The 1962 World’s Fair tower, with the city at your feet.</span>
-    <span class="wt-spot-card__where">Seattle, WA · <span title="English Wikipedia views in the last 12 months">1.9M views</span></span>
+    <span class="wt-spot-card__where">Seattle, WA</span>
   </span>
 </a>
 ```
@@ -909,7 +909,8 @@ A place worth a trip, in a list of them, on `--wt-surface-sheet`, set apart by i
 
 - **On a phone, a row:** `__photo` is a 96px square on the left, and the text beside it. **From 768px wide, a card** in a grid, `__photo` across the top at 3:2.
 - With no photo, `__photo--none` holds its place with a pin on `--wt-surface-map`, so the rows line up. Say who took a photo and its license in its `title`.
-- `__where` (the city and state, and how much it's read) shows first, though it comes last in the markup, so a screen reader starts with the name: small capitals (`--wt-type-overline`) in tertiary ink. Then `__name` in `--wt-type-name`, then `__line`, the guide's one line, a sentence in secondary ink, at most two lines. Capitals and a sentence look nothing alike, so the eye goes from the name to the line.
+- `--loading`: grey bars (`__bar`, three) where the text goes and a sunken square for the photo, until the list comes, so it doesn't jump. Hidden from screen readers; say it's loading elsewhere.
+- `__where` (the city and state) shows first, though it comes last in the markup, so a screen reader starts with the name: small capitals (`--wt-type-overline`) in tertiary ink. Then `__name` in `--wt-type-name`, then `__line`, the guide's one line, a sentence in secondary ink, at most two lines. Capitals and a sentence look nothing alike, so the eye goes from the name to the line.
 
 ### Guide entry `.wt-guide`
 
@@ -933,7 +934,7 @@ One spot as a guidebook has it, in one column about 40em wide at most.
 - `__back` goes back to the list, in `--wt-type-context` with the back icon, like a sub-page's back button.
 - `__where` is an overline (small capitals, tertiary); `__name` a title (`--wt-type-title`), never display type, which is the app name's; `__lede` in `--wt-type-name`, secondary.
 - `__para` is running text with room between lines (1.6). A `__figure` can follow the paragraph it shows.
-- `__facts` are the practical facts, on a sunken panel, as a list of label and value.
+- `__facts` are the practical facts, on a sunken panel, as a list: the label over its value on a phone, side by side from 520px wide.
 - `__foot` says what it was written from, its license, and each photo's author and license, in tertiary caption. Links in the entry are `--wt-text-link`.
 
 ### Map pin `.wt-pin`
@@ -1112,7 +1113,7 @@ The app has a second page, Spots, for anyone, and Home and Spots share an app ba
 
 - New: `.wt-app-bar` with `__end` and `.is-scrolled`, and `.wt-nav` with `__link` (an icon and a word; `aria-current="page"`). See [App bar](#app-bar-wt-app-bar-and-nav-wt-nav).
 - New: `.wt-pager`, with `__page`, `__step` and `__gap`. See [Pager](#pager-wt-pager).
-- New: `.wt-spot-card`, with `__photo` (`--none`), `__body`, `__name`, `__line` and `__where`. See [Spot card](#spot-card-wt-spot-card).
+- New: `.wt-spot-card` (`--loading`), with `__photo` (`--none`), `__body`, `__name`, `__line`, `__where` and `__bar`. See [Spot card](#spot-card-wt-spot-card).
 - New: `.wt-guide`, with `__back`, `__figure`, `__credit`, `__head`, `__where`, `__name`, `__lede`, `__para`, `__facts` and `__foot`. See [Guide entry](#guide-entry-wt-guide).
 - The wordmark is now on sign-in only.
 

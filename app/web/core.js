@@ -3,12 +3,14 @@ export const params = new URLSearchParams(location.search);
 
 // Saved keys and caches keep the app's first name, waythread, so what a device already saved outlives the rename to Dotsie
 export const ROUTE_KEY = 'waythread:routes:v1';
+// Where to come back to once signed in (a spot, to add it to a trip), kept for the tab in sessionStorage
+export const AFTER_SIGN_IN = 'dotsie:after-sign-in';
 export const $app = document.getElementById('app');
 export const $sheets = document.getElementById('sheets');
 // The app's name as its wordmark, with a stop for the i's dot (see Wordmark in the design system); read as plain text
 export const WORDMARK = '<span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span>';
 // The app's pages: Plan (Home, the trips) and Spots, each with its icon
-const PAGES = [['plan', '#/', 'Plan', 'map'], ['spots', '#/spots', 'Spots', 'pin']];
+const PAGES = [['plan', '#/', 'Plan', 'map'], ['spots', '#/spots', 'Spots', 'star']];
 export const navHTML = page => `<nav class="wt-nav" aria-label="Pages">${PAGES.map(([id, href, label, icon]) =>
   `<a class="wt-nav__link" href="${href}"${id === page ? ' aria-current="page"' : ''}>${DotsieIcons.svg(icon, 18)}${label}</a>`).join('')}</nav>`;
 // The top of Home and Spots, in one row: the pages, then `end` (the account, or Sign in) on the right. The page's
