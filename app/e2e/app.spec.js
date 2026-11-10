@@ -197,6 +197,45 @@ test('anyone can browse the spots and read a spot’s guide without signing in',
   await expect(page.getByRole('button', { name: 'Continue as a guest' })).toBeVisible();
 });
 
+// Saving a spot waits on the server, so a trip ticked while another's change is on its way must not take a second tap
+test('a spot is saved to a trip once, however the taps fall while the server answers', async ({ page }) => {
+  await page.goto('/');
+  await guest(page, 'Robin');
+  await newTrip(page, 'Lodge weekend');
+  await page.goto('/#/');
+  await newTrip(page, 'Big lodge trip');
+  await page.goto('/#/spots');
+  await page.getByRole('searchbox', { name: 'Search spots' }).fill('test lodge');
+  await page.getByRole('link', { name: /Test Lodge/ }).click();
+  await page.getByRole('button', { name: 'Save to a trip' }).click();
+  // the first save comes back soon, the second takes a while
+  let puts = 0, back = 0;
+  await page.route('**/api/trips/*/ideas/*', async route => {
+    if (route.request().method() !== 'PUT') return route.continue();
+    puts++;
+    await new Promise(r => setTimeout(r, puts === 1 ? 300 : 2000));
+    await route.continue();
+    back++;
+  });
+  const box = name => sheet(page).getByRole('checkbox', { name: new RegExp(`^${name}`) });
+  await box('Lodge weekend').click();
+  await box('Big lodge trip').click();
+  await expect.poll(() => back).toBe(1);
+  await expect(box('Lodge weekend')).toHaveAttribute('aria-checked', 'true');
+  await box('Big lodge trip').click(); // once the first trip's back, while this one's still on its way
+  await expect.poll(() => back).toBe(2);
+  await expect(box('Lodge weekend')).toHaveAttribute('aria-checked', 'true');
+  await expect(box('Big lodge trip')).toHaveAttribute('aria-checked', 'true');
+  expect(puts).toBe(2);
+  await page.unroute('**/api/trips/*/ideas/*');
+  // there's no Testville trip yet, so a new one is offered; once made, it isn't again
+  await sheet(page).getByRole('button', { name: /^New trip: Testville/ }).click();
+  await expect(box('Testville')).toHaveAttribute('aria-checked', 'true');
+  await expect(sheet(page).getByRole('button', { name: /^New trip/ })).toHaveCount(0);
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await expect(toast(page)).toContainText('Saved to 3 trips');
+});
+
 // e2e/places.sql loads Pagetown's 31 picks
 test('on a computer, spots come in pages of 24; on a phone, 30 then Show more', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });

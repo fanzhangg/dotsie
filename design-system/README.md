@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 15.3.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 15.3.1. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -593,7 +593,7 @@ The day tabs sit at the top of the sheet: Overview, then every day of the trip. 
 - **Type** keeps the stop sheet short this way, so the map stays in view above it.
 - In the app, `optionHTML`, `choicePageHTML` and `choicePage` in `app/web/stopsheet.js` build and wire any picker, as a page on a phone and a menu on a computer; use them for a new one.
 - Type starts as a guess from the place's name and category, until someone picks one.
-- **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). Rows are at least 44px tall.
+- **Option** (`.wt-option`) is one row for every choice in a list: marker, label over an optional detail, and a check. The type list and search results are both made of it. The grey row means "this one", as a selected row does in the timeline: the set type in a radiogroup (`aria-checked`, with its check), the one Return picks in a listbox (`aria-selected`). A checklist, where any number can be ticked (`role="checkbox"`, as a spot's trips are), shows only the checks: grey rows side by side would run together. Rows are at least 44px tall.
 - **The types** come in sections a traveler thinks in, split by `.wt-options__sep`: Place; Hotel, Airport, Gas; Restaurant, Café; Attraction, Viewpoint, Nature, Museum, Shopping. A detail line only where a type changes the form: Hotel's "Check-in and check-out". ↑ ↓ move between types.
 - **One time for a stop: Arrive**, when you get there. There's no leave time: the drive after a stop sets off just in time for the next one.
 - **Check-out** shows only for a hotel, under Check-in, and is a day and time like it ([When](#when-wt-when-month-wt-cal-and-wheels-wt-wheels)). Arrive becomes Check-in: 3:00 PM for a new hotel. The nights are the days between the two, so there's no separate Nights field: pick the day you leave. The count shows on the right of Check-out's label (`.wt-field__label--split` with a `.wt-field__aside`: `2 nights`, or `Same day`). Check-out is after check-in, as early as the same day (0 nights, for a stay that starts after midnight), and at most 30 nights later: its month offers only those days, and a time before check-in on the same day comes up to it. 11:00 AM unless someone sets another time. Moving check-in keeps the check-out day while that still leaves 0–30 nights.
@@ -1134,6 +1134,10 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Fixed in 15.3.1
+
+- A ticked `.wt-option` with `role="checkbox"` is no longer grey, only checked: in a checklist several are ticked at once, and their grey rows ran together into one block.
 
 ### Changed in 15.3.0
 

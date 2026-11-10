@@ -332,22 +332,29 @@ async function saveSpot(pl, btn) {
   btn.disabled = true;
   try { await loadMyTrips(); } catch (err) { if (err.status !== 401) failToast(err, 'Couldn’t load your trips'); return; } finally { btn.disabled = false; }
   const before = new Set(savedIn(pl).map(t => t.id));
+  // A new trip is offered until one of yours has the city's name: tapping it again would make another of the same name
+  const named = () => myTrips.some(t => t.name.trim().toLowerCase() === pl.city.trim().toLowerCase());
   const row = t => { const on = !!findIdea(t, pl); return `<li><button type="button" class="wt-option" role="checkbox" aria-checked="${on}" data-trip="${esc(t.id)}"><i class="wt-marker spot-save__trip">${ICON.map}</i><span class="wt-option__text"><span class="wt-option__label">${esc(t.name)}</span><span class="wt-option__detail">${esc(tripDates(t))}</span></span>${ICON.check}</button></li>`; };
-  const listHTML = () => `${myTrips.map(row).join('')}<li><button type="button" class="wt-option" data-new><i class="wt-marker spot-save__trip">${ICON.plus}</i><span class="wt-option__text"><span class="wt-option__label">New trip: ${esc(pl.city)}</span><span class="wt-option__detail">Rename it in its settings</span></span></button></li>`;
+  const newHTML = `<li><button type="button" class="wt-option" data-new><i class="wt-marker spot-save__trip">${ICON.plus}</i><span class="wt-option__text"><span class="wt-option__label">New trip: ${esc(pl.city)}</span><span class="wt-option__detail">Rename it in its settings</span></span></button></li>`;
   openSheet(`${modalHead(`Save ${esc(pl.name)}`)}
-    <p class="wt-modal__text">Each trip it’s on has it on its Want to go list, for everyone on it, until someone gives it a day.</p>
-    <ul class="wt-options" aria-label="Trips">${listHTML()}</ul>`, el => {
+    <p class="wt-modal__text">It goes on the Want to go list of each trip you tick, for everyone on the trip, until someone gives it a day.</p>
+    <ul class="wt-options" aria-label="Trips">${myTrips.map(row).join('')}${named() ? '' : newHTML}</ul>`, el => {
     const ul = el.querySelector('.wt-options');
+    // A trip whose change is on its way takes no other tap until it's done: a second would save the spot to it twice
+    const busy = new Set();
     ul.addEventListener('click', async e => {
       const b = e.target.closest('.wt-option');
-      if (!b || b.disabled) return;
-      b.disabled = true;
+      const key = b?.dataset.trip ?? (b?.hasAttribute('data-new') ? 'new' : null);
+      if (!key || busy.has(key)) return;
+      busy.add(key);
       let t = myTrips.find(x => x.id === b.dataset.trip);
       try {
-        if (b.hasAttribute('data-new')) {
+        if (key === 'new') {
           const { trip } = await api('/trips', { method: 'POST', body: { name: pl.city } });
           t = { id: trip.id, name: trip.name, start: null, end: null, ideas: [] };
           myTrips.push(t);
+          b.closest('li').insertAdjacentHTML('beforebegin', row(t));
+          if (named()) b.closest('li').remove();
         }
         const had = findIdea(t, pl);
         if (had) {
@@ -360,9 +367,12 @@ async function saveSpot(pl, btn) {
         }
       } catch (err) {
         if (err.status !== 401) failToast(err, 'Couldn’t change the trip');
+      } finally {
+        busy.delete(key);
       }
-      ul.innerHTML = listHTML();
-      (t && ul.querySelector(`[data-trip="${CSS.escape(t.id)}"]`))?.focus();
+      // Its row says where it is now; a new trip's row takes the place, and the focus, of the button that made it
+      const tb = t && ul.querySelector(`[data-trip="${CSS.escape(t.id)}"]`);
+      if (tb) { tb.setAttribute('aria-checked', String(!!findIdea(t, pl))); if (key === 'new' && !b.isConnected) tb.focus(); }
       showSaved();
     });
   }, {

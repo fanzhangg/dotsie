@@ -1,4 +1,4 @@
-/* Dotsie design system — components v15.3.0
+/* Dotsie design system — components v15.3.1
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -578,6 +578,11 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 /* A word at the start of the detail that sets a result apart (On the way): in the name's ink, not a color */
 .wt-option__tag { font-weight: 500; color: var(--wt-text-primary); }
 .wt-option[aria-selected="true"], .wt-option[aria-checked="true"] { background: var(--wt-surface-current); }
+/* A checklist (role="checkbox", any number ticked) shows its checks alone: grey rows side by side would run together
+   into one block, and grey means the one choice */
+.wt-option[role="checkbox"][aria-checked="true"] { background: none; }
+.wt-option[role="checkbox"][aria-checked="true"]:active { background: var(--wt-surface-hover); }
+@media (hover: hover) { .wt-option[role="checkbox"][aria-checked="true"]:hover { background: var(--wt-surface-sunken); } }
 .wt-option > .wt-icon:last-child { width: 18px; height: 18px; visibility: hidden; }
 .wt-option[aria-checked="true"] > .wt-icon:last-child { visibility: visible; }
 
