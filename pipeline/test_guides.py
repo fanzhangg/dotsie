@@ -345,6 +345,15 @@ class ThePark(unittest.TestCase):
         self.assertEqual(prompts[1], guides.PICK.format(name=DEST["name"], cap=DEST["cap"], whole=""))
         self.assertNotIn("entry of its own", prompts[1])
 
+    def test_a_place_without_an_article_isnt_shown_as_unread_in_the_pick(self):
+        contents = []
+        ask = lambda step, prompt, key, model, system, content, *a: contents.append(content) or {"picks": [], "left_out": []}
+        dunes = {"source": "nps:places", "id": "N5", "name": "Dunes", "types": ["NPS places"], "views": 0, "langs": 0,
+                 "lead": "Dunes.", "nps": [{"id": "N5"}], "judged": {"draw": 5}}
+        guides.pick(ask, self.PARK, [dunes])
+        self.assertIn("no English Wikipedia article (an NPS page), judged a draw of 5 out of 5", contents[0])
+        self.assertNotIn("0 Wikipedia views", contents[0])
+
     def test_another_item_for_the_park_isnt_picked_again(self):
         self.assertTrue(guides.same_name("Denali National Park", "Denali  national park"))
         self.assertFalse(guides.same_name("Denali", "Denali National Park"))

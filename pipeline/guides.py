@@ -505,8 +505,12 @@ PICK_SCHEMA = obj({"picks": {"type": "array", "items": obj({"id": {"type": "stri
 
 
 def pick(ask, dest, shortlist):
-    lines = [f"[{p['source']}/{p['id']}] {p['name']} | {', '.join(p['types'][:3])} | about {p['views']:,} Wikipedia views a month, "
-             f"{p['langs']} languages\n    {p['lead'][:450]}" for p in shortlist]
+    def known(p):  # "0 views" would read as "nobody goes": a place without an article is known from its NPS page
+        if unread(p):
+            return f"no English Wikipedia article{' (an NPS page)' if p['nps'] else ''}, judged a draw of {draw(p)} out of 5"
+        return f"about {p['views']:,} Wikipedia views a month, {p['langs']} languages"
+    lines = [f"[{p['source']}/{p['id']}] {p['name']} | {', '.join(p['types'][:3])} | {known(p)}\n    {p['lead'][:450]}"
+             for p in shortlist]
     whole = (f"\n- {dest['name']} as a whole has an entry of its own already. Don't choose it again under another name, or "
              "what the park essentially is (the canyon, range, mountain, lake or island it is named for or made of): choose "
              "the places in it.") if dest.get("kind") in WHOLE else ""
