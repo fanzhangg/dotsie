@@ -66,6 +66,50 @@ class Asking(unittest.TestCase):
         self.assertEqual(db.execute("SELECT COUNT(*) FROM llm_answers").fetchone()[0], 1)
 
 
+class Judging(unittest.TestCase):
+    def places(self, n):
+        return {("wikidata", f"Q{i}"): {"source": "wikidata", "id": f"Q{i}", "name": f"Place {i}", "lat": 47.5, "lng": -121.5,
+                                        "views": 1000 - i, "langs": 1, "types": [], "description": "", "categories": [], "lead": "", "docs": {}, "nps": []}
+                for i in range(n)}
+
+    def ask(self, asked):
+        def ask(step, prompt, key, model, system, content, schema, effort):
+            asked.append(key)
+            return {"evidence": "", "is_sight": int(key.split("Q")[1]) % 2 == 0, "exists": True, "visitable": "yes", "part_of": None}
+        return ask
+
+    def test_most_read_first_until_the_shortlist_is_full_with_the_same_shortlist_as_asking_all(self):
+        lazy, everything, asked = self.places(30), self.places(30), []
+        with mock.patch.object(guides, "JUDGE_ROUND", 4):
+            guides.judge(self.ask(asked), lazy, need=5)
+            guides.judge(self.ask([]), everything, need=1000)
+        self.assertEqual(len(asked), 12)                               # three rounds of 4: 6 sights, enough for 5
+        self.assertEqual(asked[:3], ["wikidata/Q0", "wikidata/Q1", "wikidata/Q2"])
+        top = lambda ps: [p["id"] for p in sorted((p for p in ps.values() if p["sight"]), key=guides.rank)[:5]]
+        self.assertEqual(top(lazy), top(everything))
+        self.assertFalse(lazy[("wikidata", "Q20")]["sight"])         # never asked: not a sight here
+
+    def test_answers_from_before_models_were_kept_apart_are_kept_under_their_model(self):
+        db = fixture()
+        db.execute("INSERT INTO llm_answers VALUES ('write', 'wikidata/Q1', 'v3', 'claude-opus-5-5', 'h', '{}', 'now')")
+        guides.keep_older_answers(db)
+        guides.keep_older_answers(db)
+        self.assertEqual(db.execute("SELECT prompt FROM llm_answers").fetchall(), [("v3 claude-opus-5-5",)])
+
+    def test_side_by_side_only_for_picks_more_than_one_model_wrote(self):
+        db = fixture()
+        db.execute("INSERT INTO picks VALUES ('testville', 'wikidata', 'Q1', 1, 'why', 'm')")
+        db.execute("INSERT INTO guides (source, id, name, one_liner, paragraphs) VALUES ('wikidata', 'Q1', 'Test Museum', 'x', '[]')")
+        write = lambda model, line: db.execute("INSERT INTO llm_answers VALUES ('write', 'wikidata/Q1', ?, ?, 'h', ?, 'now')",
+                                               (f"v3 {model}", model, json.dumps({"one_liner": line, "paragraphs": [{"text": "P."}]})))
+        write("claude-opus-5-5", "Opus line.")
+        self.assertEqual(guides.compare(db, "testville"), "")
+        write("claude-sonnet-5-5", "Sonnet line.")
+        text = guides.compare(db, "testville")
+        self.assertIn("#### Test Museum", text)
+        self.assertLess(text.index("claude-opus-5-5**: Opus line."), text.index("claude-sonnet-5-5**: Sonnet line."))
+
+
 class Pictures(unittest.TestCase):
     def test_captions_leave_out_layout_options_links_and_references(self):
         self.assertEqual(guides.caption_of("|thumb|right|upright=1.2|The [[Space Needle|needle]] at night<ref>x</ref>"), "The needle at night")

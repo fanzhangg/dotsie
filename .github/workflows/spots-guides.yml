@@ -11,6 +11,9 @@ on:
       destinations:
         description: 'Ids from pipeline/destinations.json, or "parks", "counties", "cities", state codes ("WA"), "all"; comma-separated'
         default: seattle
+      models:
+        description: 'Another model for a step, e.g. "write=claude-opus-5-5" (default: judge and pictures Haiku, pick and write Sonnet)'
+        default: ""
 
 # The same group as Spots data: both update the stores in R2.
 concurrency:
@@ -82,12 +85,16 @@ jobs:
       - name: Pick and write
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODELS: ${{ inputs.models }}
         run: |
           status=0
-          timeout --signal=INT --kill-after=5m 300m python3 guides.py --destination $IDS || status=$?
+          models=""; for m in ${MODELS//,/ }; do models="$models --model $m"; done
+          timeout --signal=INT --kill-after=5m 300m python3 guides.py --destination $IDS $models || status=$?
           for id in $IDS; do
             if [ -f "data/$id-guides.json" ]; then
               { echo "### $id"; echo '```json'; cat "data/$id-guides.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+              # The entries more than one model has written, side by side
+              [ -f "data/$id-compare.md" ] && cat "data/$id-compare.md" >> "$GITHUB_STEP_SUMMARY"
             else
               echo "### $id: failed (see the log)" >> "$GITHUB_STEP_SUMMARY"
             fi

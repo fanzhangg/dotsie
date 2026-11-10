@@ -6,18 +6,21 @@ NPS boundary), whichever it names (destinations.py adds parks and counties):
      any other states it reaches into (a park across a state line). An NPS record and a Wikidata item the store links
      (a shared identifier, or the same name within 1 km) are one place.
   2. Is it a sight (Haiku): a place people go to see or experience, still there, open to visitors, not part of a
-     bigger place nearby. The stable question, asked of every candidate.
+     bigger place nearby. The stable question, asked of the candidates most read first, until there are enough
+     sights for the shortlist.
   3. Shortlist: the sights most read on English Wikipedia over the store's last 12 months, only to narrow the field.
-  4. Pick (Opus): reads the whole shortlist and chooses what a visitor with a few days shouldn't miss, at most `cap`.
-  5. Write (Opus): for each pick, a one-liner and two or three paragraphs in English, in a travel guide's voice, from
+  4. Pick (Sonnet): reads the whole shortlist and chooses what a visitor with a few days shouldn't miss, at most `cap`.
+  5. Write (Sonnet): for each pick, a one-liner and two or three paragraphs in English, in a travel guide's voice, from
      the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages), each paragraph with its
      sources; practical facts kept apart. Wording shared with the sources is measured.
-  6. Pictures (Opus, looking): a lead photo and up to two more from Wikimedia Commons, placed after the paragraph
+  6. Pictures (Haiku, looking): a lead photo and up to two more from Wikimedia Commons, placed after the paragraph
      each illustrates, with author and licence.
 
 The results go in the store's `destinations`, `picks` and `guides` tables, and export_d1.py takes them to D1. Each
 model answer is kept in `llm_answers` with a hash of what it was asked, so a later run asks again only what changed.
-Entries are written under CC BY-SA 4.0, adapted from the sources each lists.
+Entries are written under CC BY-SA 4.0, adapted from the sources each lists. Each step's model is in MODELS, and
+--model write=claude-opus-5-5 asks another; each model's answers are kept apart, so going back to one costs nothing, and
+<id>-compare.md has each entry as every model wrote it.
 
 Run: python3 guides.py --destination seattle [yellowstone …]   (needs data/<ST>.sqlite for each destination's states,
      and ANTHROPIC_API_KEY). One destination failing doesn't stop the others; the run then ends with an error.
@@ -34,8 +37,12 @@ from export_d1 import labels
 HERE = os.path.dirname(os.path.abspath(__file__))
 DESTINATIONS = {d["id"]: d for d in json.load(open(os.path.join(HERE, "destinations.json")))}
 SHORTLIST = 70
-HAIKU, OPUS = "claude-haiku-5-5", "claude-opus-5-5"
-PRICE = {HAIKU: (0.10, 0.50), OPUS: (4.00, 20.00)}  # $ per million input and output tokens
+HAIKU, SONNET, OPUS = "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"
+PRICE = {HAIKU: (0.10, 0.50), SONNET: (2.00, 10.00), OPUS: (4.00, 20.00)}  # $ per million input and output tokens
+# Which model each step asks (guides.py --model write=claude-opus-5-5 for another). Seattle with Opus for all but the
+# judging cost $2.34 (write $1.26, pictures $0.72, pick $0.12, judge $0.24): Sonnet is half Opus's price a token, Haiku
+# a fortieth, so these come to about $0.80 a destination
+MODELS = {"judge": HAIKU, "pick": SONNET, "write": SONNET, "pictures": HAIKU}
 NOT_WIKIPEDIA = {"commonswiki", "specieswiki", "metawiki", "mediawikiwiki", "wikidatawiki", "sourceswiki",
                  "wikimaniawiki", "outreachwiki", "incubatorwiki", "foundationwiki"}
 BOT_WIKIS = {"cebwiki", "warwiki", "svwiki", "arzwiki", "azbwiki", "viwiki", "zh_min_nanwiki", "cewiki"}
@@ -63,8 +70,10 @@ class Asker:
                 if k and v and not k.startswith("#"):
                     os.environ.setdefault(k, v.strip().strip('"'))
         self.db, self.client, self.lock = db, anthropic.Anthropic(max_retries=6), threading.Lock()  # asked from several threads
+        keep_older_answers(db)
 
     def __call__(self, step, prompt, key, model, system, content, schema, effort, fingerprint=None):
+        prompt = f"{prompt} {model}"  # each model's answer kept apart: switching back costs nothing
         h = hashlib.sha256(json.dumps([model, system, fingerprint or content], sort_keys=True).encode()).hexdigest()
         with self.lock:
             row = self.db.execute("SELECT input_hash, answer FROM llm_answers WHERE step=? AND key=? AND prompt=?", (step, key, prompt)).fetchone()
@@ -73,7 +82,7 @@ class Asker:
         params = dict(model=model, max_tokens=16000, system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
                       messages=[{"role": "user", "content": content}],
                       output_config={"effort": effort, "format": {"type": "json_schema", "schema": schema}})
-        if model == OPUS:  # on a policy decline, the API reruns the request on a fallback model
+        if model in (OPUS, SONNET):  # on a policy decline, the API reruns the request on a fallback model
             r = self.client.beta.messages.create(betas=["server-side-fallback-2026-07-01"], fallbacks="default", **params)
         else:
             r = self.client.messages.create(**params)
@@ -88,6 +97,12 @@ class Asker:
                             (step, key, prompt, model, h, json.dumps(out), store.NOW()))
             self.db.commit()
         return out
+
+
+def keep_older_answers(db):
+    """Answers kept before each model's were kept apart ("v3" rather than "v3 claude-opus-5-5"), under their model's key."""
+    db.execute("UPDATE OR IGNORE llm_answers SET prompt = prompt || ' ' || model WHERE prompt NOT LIKE '% %'")
+    db.commit()
 
 
 # ---------- The destination's area ----------
@@ -263,7 +278,16 @@ JUDGE_SCHEMA = obj({"evidence": {"type": "string"}, "is_sight": {"type": "boolea
                     "visitable": {"type": "string", "enum": ["yes", "outside", "no"]}, "part_of": {"type": ["string", "null"]}})
 
 
-def judge(ask, places):
+JUDGE_ROUND = 40
+
+
+def rank(p):
+    """The order of the shortlist: most read on English Wikipedia, in most languages."""
+    return (-p["views"], -p["langs"], p["name"])
+
+
+def judge(ask, places, need=None):
+    need = need or SHORTLIST
     grid = {}
     for p in places.values():
         grid.setdefault((round(p["lat"], 2), round(p["lng"], 2)), []).append(p)
@@ -282,16 +306,24 @@ def judge(ask, places):
         ])
 
     def one(p):
-        return p, ask("judge", "v2", f"{p['source']}/{p['id']}", HAIKU, JUDGE, describe(p), JUDGE_SCHEMA, "low")
+        return p, ask("judge", "v2", f"{p['source']}/{p['id']}", MODELS["judge"], JUDGE, describe(p), JUDGE_SCHEMA, "low")
 
-    with ThreadPoolExecutor(8) as pool:
-        for p, a in pool.map(one, places.values()):
-            p["judged"] = a
+    # Most read first, a round at a time, until there are enough sights for the shortlist: only those can be
+    # shortlisted, so the rest needn't be asked (Seattle: 1,064 candidates, 43% of them sights). The places never
+    # asked aren't sights, here.
     names = {p["name"] for p in places.values()}
     for p in places.values():
-        a = p["judged"]
-        p["part_of"] = a["part_of"] if a["part_of"] in names and a["part_of"] != p["name"] else None
-        p["sight"] = a["is_sight"] and a["exists"] and a["visitable"] != "no" and not p["part_of"]
+        p.update(judged=None, part_of=None, sight=False)
+    order, found = sorted(places.values(), key=rank), 0
+    with ThreadPoolExecutor(8) as pool:
+        for start in range(0, len(order), JUDGE_ROUND):
+            if found >= need:
+                break
+            for p, a in pool.map(one, order[start:start + JUDGE_ROUND]):
+                p["judged"] = a
+                p["part_of"] = a["part_of"] if a["part_of"] in names and a["part_of"] != p["name"] else None
+                p["sight"] = a["is_sight"] and a["exists"] and a["visitable"] != "no" and not p["part_of"]
+                found += p["sight"]
 
 
 # ---------- 4. Pick ----------
@@ -311,7 +343,7 @@ PICK_SCHEMA = obj({"picks": {"type": "array", "items": obj({"id": {"type": "stri
 def pick(ask, dest, shortlist):
     lines = [f"[{p['source']}/{p['id']}] {p['name']} | {', '.join(p['types'][:3])} | about {p['views']:,} Wikipedia views a month, "
              f"{p['langs']} languages\n    {p['lead'][:450]}" for p in shortlist]
-    return ask("pick", "v1", dest["id"], OPUS, PICK.format(name=dest["name"], cap=dest["cap"]),
+    return ask("pick", "v1", dest["id"], MODELS["pick"], PICK.format(name=dest["name"], cap=dest["cap"]),
                "Shortlist:\n\n" + "\n".join(lines), PICK_SCHEMA, "high")
 
 
@@ -361,7 +393,7 @@ def write(ask, dest, p):
     dossier = "\n".join([f"Place: {p['name']} ({dest['name']})", f"Instance of: {', '.join(p['types'])}",
                          f"Coordinates: {p['lat']:.5f}, {p['lng']:.5f}", ""] +
                         [f'<source kind="{k}" url="{u}">\n{t}\n</source>' for u, k, t in sources])
-    a = ask("write", "v3", f"{p['source']}/{p['id']}", OPUS, WRITE, dossier, WRITE_SCHEMA, "medium")
+    a = ask("write", "v3", f"{p['source']}/{p['id']}", MODELS["write"], WRITE, dossier, WRITE_SCHEMA, "medium")
     a = dict(a, sources=[{"url": u, "kind": k} for u, k, _ in sources])
     a["overlap"] = round(overlap(a["one_liner"] + " " + " ".join(x["text"] for x in a["paragraphs"]),
                                  [plain(t) if k == "wikipedia" else t for _, k, t in sources]), 3)
@@ -468,7 +500,7 @@ def pictures(ask, p, entry):
                                                f"description: {c['description'] or '(none)'} | date: {c['date'] or '?'}"})
         blocks.append({"type": "image", "source": {"type": "base64", "media_type": media_type(raw), "data": base64.b64encode(raw).decode()}})
     # The answer is kept by the entry and the photos offered (their files), not the pictures' bytes
-    a = ask("pictures", "v1", f"{p['source']}/{p['id']}", OPUS, PICTURES, blocks, PICTURES_SCHEMA, "medium",
+    a = ask("pictures", "v1", f"{p['source']}/{p['id']}", MODELS["pictures"], PICTURES, blocks, PICTURES_SCHEMA, "medium",
             fingerprint=[entry["paragraphs"], [(c["file"], c["caption"]) for c in cands]])
     ids, used = {c["id"]: c for c in cands}, set()
 
@@ -484,6 +516,23 @@ def pictures(ask, p, entry):
 
 
 # ---------- Run ----------
+
+def compare(db, dest_id):
+    """Each pick's entry as every model wrote it, side by side, for the picks more than one model has written: to
+    judge a cheaper model against a dearer one on the same places before choosing. Empty when there are none."""
+    out = []
+    for source, rid, name in db.execute("SELECT p.source, p.id, g.name FROM picks p JOIN guides g ON g.source = p.source "
+                                        "AND g.id = p.id WHERE p.destination = ? ORDER BY p.rank", (dest_id,)):
+        rows = db.execute("SELECT model, answer FROM llm_answers WHERE step = 'write' AND key = ? ORDER BY model",
+                          (f"{source}/{rid}",)).fetchall()
+        if len({m for m, _ in rows}) < 2:
+            continue
+        out.append(f"#### {name}")
+        for model, answer in rows:
+            a = json.loads(answer)
+            out += [f"**{model}**: {a['one_liner']}", ""] + [f"> {x['text']}" for x in a["paragraphs"]] + [""]
+    return "\n".join(out)
+
 
 def store_path(state):
     return os.path.join(HERE, "data", f"{state}.sqlite")
@@ -509,8 +558,9 @@ def run(dest_id, db_path=None):
     log(f"{dest['name']}: {len(places)} candidates ({sum(1 for p in places.values() if p['nps'])} with an NPS page)")
     judge(ask, places)
     sights = [p for p in places.values() if p["sight"]]
-    log(f"sights: {len(sights)}; parts of a bigger place: {sum(1 for p in places.values() if p['part_of'])}")
-    shortlist = sorted(sights, key=lambda p: (-p["views"], -p["langs"], p["name"]))[:SHORTLIST]
+    judged = sum(1 for p in places.values() if p["judged"])
+    log(f"judged {judged}: sights {len(sights)}; parts of a bigger place: {sum(1 for p in places.values() if p['part_of'])}")
+    shortlist = sorted(sights, key=rank)[:SHORTLIST]
     chosen = pick(ask, dest, shortlist)
     by_key = {f"{p['source']}/{p['id']}": p for p in shortlist}
     picks = [(c, by_key[c["id"]]) for c in sorted(chosen["picks"], key=lambda c: c["rank"]) if c["id"] in by_key][:dest["cap"]]
@@ -527,14 +577,15 @@ def run(dest_id, db_path=None):
         made = list(pool.map(entry, picks))
     now = store.NOW()
     db.execute("DELETE FROM picks WHERE destination=?", (dest_id,))
-    for rank, (c, p, e) in enumerate(made, 1):
-        db.execute("INSERT INTO picks VALUES (?,?,?,?,?,?)", (dest_id, p["source"], p["id"], rank, c["reason"], OPUS))
+    for n, (c, p, e) in enumerate(made, 1):
+        db.execute("INSERT INTO picks VALUES (?,?,?,?,?,?)", (dest_id, p["source"], p["id"], n, c["reason"], MODELS["pick"]))
         db.execute("INSERT OR REPLACE INTO guides VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
             p["source"], p["id"], p["name"], e["one_liner"], json.dumps(e["paragraphs"]), json.dumps(e["practical"]),
-            json.dumps(e["sources"]), json.dumps(e["images"]), e["overlap"], OPUS, "write v3, pictures v1", now))
+            json.dumps(e["sources"]), json.dumps(e["images"]), e["overlap"], MODELS["write"],
+            f"write v3, pictures v1 ({MODELS['pictures']})", now))
     left_out = [{"source": by_key[c["id"]]["source"], "id": by_key[c["id"]]["id"], "name": by_key[c["id"]]["name"], "reason": c["reason"]}
                 for c in chosen["left_out"] if c["id"] in by_key]
-    counts = {"candidates": len(places), "sights": len(sights), "shortlist": len(shortlist), "picks": len(made)}
+    counts = {"candidates": len(places), "judged": judged, "sights": len(sights), "shortlist": len(shortlist), "picks": len(made)}
     db.execute("INSERT OR REPLACE INTO destinations VALUES (?,?,?,?,?,?,?,?)", (
         dest_id, dest["name"], dest["kind"], dest["wikidata"], now, json.dumps(counts), json.dumps(left_out),
         json.dumps({k: round(v, 3) for k, v in spent.items()})))
@@ -551,7 +602,15 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--destination", required=True, nargs="+", choices=sorted(DESTINATIONS))
     ap.add_argument("--db")
+    ap.add_argument("--model", action="append", default=[], metavar="STEP=MODEL",
+                    help=f"another model for a step: {', '.join(f'{k}={v}' for k, v in MODELS.items())} by default")
     a = ap.parse_args()
+    for m in a.model:
+        step, _, model = m.partition("=")
+        if step not in MODELS or model not in PRICE:
+            raise SystemExit(f"--model {m}: a step ({', '.join(MODELS)}) and a model ({', '.join(PRICE)})")
+        MODELS[step] = model
+    log("models: " + ", ".join(f"{k} {v}" for k, v in MODELS.items()))
     failed = []
     for d in a.destination:
         try:
@@ -562,5 +621,9 @@ if __name__ == "__main__":
             continue
         with open(os.path.join(HERE, "data", f"{d}-guides.json"), "w") as f:
             json.dump(out, f, indent=1)
+        side_by_side = compare(sqlite3.connect(a.db or store_path(DESTINATIONS[d]["state"])), d)
+        if side_by_side:
+            with open(os.path.join(HERE, "data", f"{d}-compare.md"), "w") as f:
+                f.write(side_by_side + "\n")
     if failed:
         raise SystemExit(f"failed: {' '.join(failed)}")

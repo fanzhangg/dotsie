@@ -63,14 +63,16 @@ Commons. `guides.py` makes them for a destination in `destinations.json`, from i
    outline is its Census place, a county's its Census county (both from TIGERweb), a park's its NPS boundary (the
    NPS Land Resources Division's); all of their parts, islands included. A park across a state line (Yellowstone,
    the Great Smokies) also reads the stores of its `other_states`; its guide is kept in its own state's store.
-2. Is it a sight (Haiku, every candidate): somewhere people go to see or experience, still there, open to visitors,
-   not part of a bigger place nearby. The only hard rules are on what can never be a sight.
+2. Is it a sight (Haiku): somewhere people go to see or experience, still there, open to visitors, not part of a
+   bigger place nearby. The only hard rules are on what can never be a sight. Asked of the candidates most read
+   first, 40 at a time, until there are enough sights for the shortlist: the same shortlist as asking them all, for
+   about a fifth of the questions in Seattle (where 43% of the candidates were sights).
 3. Shortlist: the 70 sights most read on English Wikipedia, only to narrow the field.
-4. Pick (Opus): what a visitor with a few days shouldn't miss, at most `cap`, compared with each other, with what it
+4. Pick (Sonnet): what a visitor with a few days shouldn't miss, at most `cap`, compared with each other, with what it
    left out and why.
-5. Write (Opus): each entry from the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages),
+5. Write (Sonnet): each entry from the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages),
    each paragraph with its sources. The share of its 8-word phrases also in the sources is kept, to spot copying.
-6. Pictures (Opus, looking at them): a lead photo and up to two more, each after the paragraph it shows, with author
+6. Pictures (Haiku, looking at them): a lead photo and up to two more, each after the paragraph it shows, with author
    and licence.
 
 Entries are adapted from the sources each lists and published under CC BY-SA 4.0. They aren't updated on their own:
@@ -78,9 +80,13 @@ run the Spots guides workflow (Actions → Spots guides → Run workflow) when y
 destinations: ids (`seattle,yellowstone`), `parks`, `counties`, `cities`, a state's code (`WA`: every destination kept
 in Washington's store) or `all`. It runs a job per state, four at a time, each state's destinations one after another
 (they write the same store); one that fails doesn't stop the others. The run's summary lists what it will make and
-what that costs at most. Answers whose input didn't change are reused, so a second run costs little; a first run for
-Seattle cost $2.34 (Haiku $0.24 to judge 1,064 candidates, Opus $2.10 to pick 19 and write and illustrate them), so all
-the national parks come to about $150. The result is at `/developer/guide`, for review, and on the app's Spots page
+what that costs. Answers whose input didn't change are reused, so a second run costs little. Seattle's first run, with
+Opus picking, writing and choosing pictures, cost $2.34 (judge $0.24, pick $0.12, write $1.26, pictures $0.72). Sonnet
+costs half of Opus a token and Haiku a fortieth, and asking only the candidates the shortlist needs cuts the judging
+to about a fifth, so with the models in `guides.py`'s `MODELS` a destination comes to about $0.80, and all the national
+parks to about $50. A step can ask another model for a run (the workflow's `models`, such as `write=claude-opus-5-5`);
+each model's answers are kept apart, and the run's summary shows the entries more than one model wrote side by side,
+to compare before choosing. The result is at `/developer/guide`, for review, and on the app's Spots page
 (`#/spots`), open to anyone, most viewed first.
 
 `destinations.json` has Seattle and the 60 national parks in a state (American Samoa's and the Virgin Islands' are
@@ -100,6 +106,7 @@ On this machine, with `ANTHROPIC_API_KEY` in `pipeline/.env` and the destination
 
 ```bash
 python3 guides.py --destination seattle olympic
+python3 guides.py --destination seattle --model write=claude-opus-5-5   # one step with another model
 ```
 
 ## Running it
