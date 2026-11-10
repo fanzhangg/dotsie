@@ -86,7 +86,15 @@ costs half of Opus a token and Haiku a fortieth, and asking only the candidates 
 to about a fifth, so with the models in `guides.py`'s `MODELS` a destination comes to about $0.80, and all the national
 parks to about $50. A step can ask another model for a run (the workflow's `models`, such as `write=claude-opus-5-5`);
 each model's answers are kept apart, and the run's summary shows the entries more than one model wrote side by side,
-to compare before choosing. The result is at `/developer/guide`, for review, and on the app's Spots page
+to compare before choosing.
+
+The workflow asks in Message Batches (its `batch`, on by default; `guides.py --batch`), at half price: about $0.40 a
+destination, $25 for the national parks. A job's destinations then run at once, so each step's questions from all of
+them go in one batch, and a job waits about as many times as there are steps: judging (once, 200 candidates at a time,
+where it would ask 40), picking, writing and the pictures. Most batches end within the hour, all within a day. A job
+that runs out of time saves its store with the batches still out noted in it (`llm_batches`), and running it again
+(Re-run failed jobs) takes their answers instead of paying for them twice. A question a batch can't answer (the model
+declined, the request failed or expired) is asked again on its own, where a declined one can fall back to another model. The result is at `/developer/guide`, for review, and on the app's Spots page
 (`#/spots`), open to anyone, most viewed first.
 
 `destinations.json` has Seattle and the 60 national parks in a state (American Samoa's and the Virgin Islands' are
@@ -107,6 +115,7 @@ On this machine, with `ANTHROPIC_API_KEY` in `pipeline/.env` and the destination
 ```bash
 python3 guides.py --destination seattle olympic
 python3 guides.py --destination seattle --model write=claude-opus-5-5   # one step with another model
+python3 guides.py --destination olympic mount-rainier --batch           # in batches, at half price
 ```
 
 ## Running it

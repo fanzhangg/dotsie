@@ -137,11 +137,11 @@ def plan(spec, dests):
 
 def markdown(jobs):
     """A plan for the workflow's summary, with what a first run would cost: about $0.80 a destination with guides.py's
-    models (Haiku and Sonnet), $2.50 with Opus writing (Seattle's was $2.34)."""
+    models (Haiku and Sonnet), half that in batches, $2.50 with Opus writing (Seattle's was $2.34)."""
     n = sum(len(j["ids"]) for j in jobs)
     lines = [f"### {n} destinations in {len(jobs)} states", "",
-             f"A first run costs about $0.80 a destination with the default models, so about ${n * 0.8:,.0f} "
-             f"(${n * 2.5:,.0f} with Opus writing); one whose answers are kept costs little.", ""]
+             f"A first run costs about $0.40 a destination in batches with the default models, so about ${n * 0.4:,.0f} "
+             f"(${n * 0.8:,.0f} without batches, ${n * 2.5:,.0f} with Opus writing); one whose answers are kept costs little.", ""]
     for j in jobs:
         also = f" (also reads {', '.join(j['stores'][1:])})" if j["stores"][1:] else ""
         lines.append(f"- {j['state']}: {', '.join(j['ids'])}{also}")

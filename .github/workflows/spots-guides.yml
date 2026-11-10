@@ -11,6 +11,10 @@ on:
       destinations:
         description: 'Ids from pipeline/destinations.json, or "parks", "counties", "cities", state codes ("WA"), "all"; comma-separated'
         default: seattle
+      batch:
+        description: Ask in Message Batches, at half price (slower; a job that runs out of time picks up its batches when run again)
+        type: boolean
+        default: true
       models:
         description: 'Another model for a step, e.g. "write=claude-opus-5-5" (default: judge and pictures Haiku, pick and write Sonnet)'
         default: ""
@@ -81,15 +85,18 @@ jobs:
               echo "No store for $s: the destinations that reach into it go without its places"
             fi
           done
-      # Stopped before the job's time limit, so the answers so far are saved below: running it again carries on
+      # Stopped before the job's time limit, so the answers so far are saved below: running it again carries on, and
+      # takes the answers of batches still out (noted in the store) instead of asking again
       - name: Pick and write
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MODELS: ${{ inputs.models }}
+          BATCH: ${{ inputs.batch }}
         run: |
           status=0
           models=""; for m in ${MODELS//,/ }; do models="$models --model $m"; done
-          timeout --signal=INT --kill-after=5m 300m python3 guides.py --destination $IDS $models || status=$?
+          batch=""; [ "$BATCH" = "true" ] && batch="--batch"
+          timeout --signal=INT --kill-after=5m 300m python3 guides.py --destination $IDS $models $batch || status=$?
           for id in $IDS; do
             if [ -f "data/$id-guides.json" ]; then
               { echo "### $id"; echo '```json'; cat "data/$id-guides.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

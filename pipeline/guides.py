@@ -26,7 +26,7 @@ Run: python3 guides.py --destination seattle [yellowstone …]   (needs data/<ST
      and ANTHROPIC_API_KEY). One destination failing doesn't stop the others; the run then ends with an error.
 """
 import argparse, base64, hashlib, json, os, re, sqlite3, statistics, threading, time, urllib.parse, urllib.request, zlib
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 
 import anthropic
 
@@ -47,7 +47,6 @@ NOT_WIKIPEDIA = {"commonswiki", "specieswiki", "metawiki", "mediawikiwiki", "wik
                  "wikimaniawiki", "outreachwiki", "incubatorwiki", "foundationwiki"}
 BOT_WIKIS = {"cebwiki", "warwiki", "svwiki", "arzwiki", "azbwiki", "viwiki", "zh_min_nanwiki", "cewiki"}
 NPS_SIGHTS = ("nps:parks", "nps:places", "nps:thingstodo")  # the NPS endpoints that list places to go
-spent = {}
 
 
 def log(*a):
@@ -60,16 +59,13 @@ def obj(props, required=None):
 
 class Asker:
     """Structured answers from Claude, kept in the store by step, key and prompt version, with a hash of the input:
-    asked again only when the input changed."""
+    asked again only when the input changed. With a Batcher, asked in Message Batches at half price; a request a
+    batch can't answer (declined, failed, expired) is asked again on its own, where a declined one can fall back."""
 
-    def __init__(self, db):
-        env = os.path.join(HERE, ".env")
-        if os.path.exists(env):
-            for line in open(env):
-                k, _, v = line.strip().partition("=")
-                if k and v and not k.startswith("#"):
-                    os.environ.setdefault(k, v.strip().strip('"'))
+    def __init__(self, db, batcher=None):
+        load_env()
         self.db, self.client, self.lock = db, anthropic.Anthropic(max_retries=6), threading.Lock()  # asked from several threads
+        self.batcher, self.spent = batcher, {}
         keep_older_answers(db)
 
     def __call__(self, step, prompt, key, model, system, content, schema, effort, fingerprint=None):
@@ -82,21 +78,128 @@ class Asker:
         params = dict(model=model, max_tokens=16000, system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
                       messages=[{"role": "user", "content": content}],
                       output_config={"effort": effort, "format": {"type": "json_schema", "schema": schema}})
-        if model in (OPUS, SONNET):  # on a policy decline, the API reruns the request on a fallback model
-            r = self.client.beta.messages.create(betas=["server-side-fallback-2026-07-01"], fallbacks="default", **params)
-        else:
-            r = self.client.messages.create(**params)
+        r = self.batcher.ask(h, params) if self.batcher else None
+        share = 0.5 if r else 1  # a batch's tokens cost half
+        if not r or r.stop_reason != "end_turn":
+            if r:
+                log(f"  {step}/{key}: the batch's answer stopped with {r.stop_reason}; asking on its own")
+            r = self.direct(params)
+            share = 1
         if r.stop_reason != "end_turn":
             raise RuntimeError(f"{step}/{key}: the model stopped with {r.stop_reason}")
         out = json.loads(next(b.text for b in r.content if b.type == "text"))
         tokens_in = r.usage.input_tokens + (r.usage.cache_read_input_tokens or 0) + (r.usage.cache_creation_input_tokens or 0)
         p = PRICE.get(model, PRICE[OPUS])
         with self.lock:
-            spent[step] = spent.get(step, 0) + tokens_in / 1e6 * p[0] + r.usage.output_tokens / 1e6 * p[1]
+            self.spent[step] = self.spent.get(step, 0) + share * (tokens_in / 1e6 * p[0] + r.usage.output_tokens / 1e6 * p[1])
             self.db.execute("INSERT OR REPLACE INTO llm_answers VALUES (?,?,?,?,?,?,?)",
                             (step, key, prompt, model, h, json.dumps(out), store.NOW()))
             self.db.commit()
         return out
+
+    def direct(self, params):
+        if params["model"] in (OPUS, SONNET):  # on a policy decline, the API reruns the request on a fallback model
+            return self.client.beta.messages.create(betas=["server-side-fallback-2026-07-01"], fallbacks="default", **params)
+        return self.client.messages.create(**params)
+
+
+def load_env():
+    env = os.path.join(HERE, ".env")
+    if os.path.exists(env):
+        for line in open(env):
+            k, _, v = line.strip().partition("=")
+            if k and v and not k.startswith("#"):
+                os.environ.setdefault(k, v.strip().strip('"'))
+
+
+class Batcher:
+    """Every destination's requests in a run, sent as Message Batches (half price; most end within the hour, all
+    within a day). A request waits until requests stop coming for `quiet` seconds, so each step's, from every
+    destination running at once, go in one batch; batches stay well under the API's 256 MB (pictures are the bulk).
+
+    Each batch's requests are noted in the store (llm_batches) until their answers are in: a run stopped while a batch
+    was out (the job's time limit) and run again takes the answers from that batch instead of paying for them twice.
+    A request the batch didn't answer is None, for the Asker to ask on its own."""
+
+    MAX_BYTES, MAX_REQUESTS = 100_000_000, 10_000
+
+    def __init__(self, client, db_path, quiet=20, poll=30):
+        self.client, self.quiet, self.poll = client, quiet, poll
+        self.db = sqlite3.connect(db_path, timeout=60, check_same_thread=False)
+        self.db.execute("CREATE TABLE IF NOT EXISTS llm_batches (input_hash TEXT PRIMARY KEY, batch_id TEXT, created_at TEXT)")
+        self.db.commit()
+        self.lock, self.waiting, self.last = threading.Lock(), {}, 0.0
+        threading.Thread(target=self.gather, daemon=True).start()
+
+    def ask(self, h, params):
+        with self.lock:
+            fut = self.waiting.setdefault(h, (params, Future()))[1]  # the same request twice (a city and its county): once
+            self.last = time.time()
+        return fut.result()
+
+    def gather(self):
+        while True:
+            time.sleep(1)
+            with self.lock:
+                if not self.waiting or time.time() - self.last < self.quiet:
+                    continue
+                items, self.waiting = self.waiting, {}
+            threading.Thread(target=self.send, args=(items,), daemon=True).start()
+
+    def send(self, items):
+        try:
+            with self.lock:
+                out = dict(self.db.execute(f"SELECT input_hash, batch_id FROM llm_batches WHERE input_hash IN "
+                                           f"({','.join('?' * len(items))})", list(items)))
+            new = [h for h in items if h not in out]
+            for chunk in self.chunks(new, items):
+                b = self.client.messages.batches.create(requests=[{"custom_id": h, "params": items[h][0]} for h in chunk])
+                log(f"  batch {b.id}: {len(chunk)} requests")
+                with self.lock:
+                    self.db.executemany("INSERT OR REPLACE INTO llm_batches VALUES (?,?,?)", [(h, b.id, store.NOW()) for h in chunk])
+                    self.db.commit()
+                out.update({h: b.id for h in chunk})
+            answers = {}
+            for batch_id in sorted(set(out.values())):
+                answers.update(self.results(batch_id))
+            with self.lock:
+                self.db.executemany("DELETE FROM llm_batches WHERE input_hash=?", [(h,) for h in items])
+                self.db.commit()
+            for h, (_, fut) in items.items():
+                fut.set_result(answers.get(h))
+        except Exception as err:  # each request is then asked on its own
+            log(f"  batch failed ({type(err).__name__}: {str(err)[:200]}); asking on its own")
+            for _, fut in items.values():
+                if not fut.done():
+                    fut.set_result(None)
+
+    def chunks(self, hs, items):
+        chunk, size = [], 0
+        for h in hs:
+            n = len(json.dumps(items[h][0]))
+            if chunk and (size + n > self.MAX_BYTES or len(chunk) == self.MAX_REQUESTS):
+                yield chunk
+                chunk, size = [], 0
+            chunk.append(h)
+            size += n
+        if chunk:
+            yield chunk
+
+    def results(self, batch_id):
+        """A batch's answers by request, once it has ended: the message, or None for one it couldn't answer. A batch
+        that can't be read (one noted by an earlier run, gone since) answers nothing, and only its requests are asked
+        again."""
+        try:
+            while True:
+                b = self.client.messages.batches.retrieve(batch_id)
+                if b.processing_status == "ended":
+                    break
+                time.sleep(self.poll)
+            return {r.custom_id: r.result.message if r.result.type == "succeeded" else None
+                    for r in self.client.messages.batches.results(batch_id)}
+        except anthropic.APIError as err:
+            log(f"  batch {batch_id} couldn't be read ({type(err).__name__}); its requests are asked on their own")
+            return {}
 
 
 def keep_older_answers(db):
@@ -278,7 +381,7 @@ JUDGE_SCHEMA = obj({"evidence": {"type": "string"}, "is_sight": {"type": "boolea
                     "visitable": {"type": "string", "enum": ["yes", "outside", "no"]}, "part_of": {"type": ["string", "null"]}})
 
 
-JUDGE_ROUND = 40
+JUDGE_ROUND, JUDGE_ROUND_BATCHED = 40, 200
 
 
 def rank(p):
@@ -314,12 +417,15 @@ def judge(ask, places, need=None):
     names = {p["name"] for p in places.values()}
     for p in places.values():
         p.update(judged=None, part_of=None, sight=False)
+    # In batches a round is one wait, so a round is bigger: 200 is enough for Seattle's shortlist at once
+    batched = getattr(ask, "batcher", None) is not None
+    size = JUDGE_ROUND_BATCHED if batched else JUDGE_ROUND
     order, found = sorted(places.values(), key=rank), 0
-    with ThreadPoolExecutor(8) as pool:
-        for start in range(0, len(order), JUDGE_ROUND):
+    with ThreadPoolExecutor(size if batched else 8) as pool:
+        for start in range(0, len(order), size):
             if found >= need:
                 break
-            for p, a in pool.map(one, order[start:start + JUDGE_ROUND]):
+            for p, a in pool.map(one, order[start:start + size]):
                 p["judged"] = a
                 p["part_of"] = a["part_of"] if a["part_of"] in names and a["part_of"] != p["name"] else None
                 p["sight"] = a["is_sight"] and a["exists"] and a["visitable"] != "no" and not p["part_of"]
@@ -442,13 +548,17 @@ def image_names(p18, wikitext):
     return out
 
 
+COMMONS = threading.Semaphore(8)  # requests to Wikimedia Commons at once, whatever runs alongside
+
+
 def image_candidates(p, limit=8):
     """Free photos of the place on Wikimedia Commons, 640 px wide or more, each with its author and licence."""
     names, out = image_names(p["p18"], p["wikitext"])[:30], []
     for batch in store.batches(names, 25):
-        q = store.http_json(COMMONS_API + urllib.parse.urlencode({
-            "action": "query", "titles": "|".join("File:" + n for n, _, _ in batch), "prop": "imageinfo",
-            "iiprop": "url|size|mime|extmetadata", "iiurlwidth": 960, "format": "json", "formatversion": 2}))
+        with COMMONS:
+            q = store.http_json(COMMONS_API + urllib.parse.urlencode({
+                "action": "query", "titles": "|".join("File:" + n for n, _, _ in batch), "prop": "imageinfo",
+                "iiprop": "url|size|mime|extmetadata", "iiurlwidth": 960, "format": "json", "formatversion": 2}))
         info = {pg["title"].removeprefix("File:"): pg for pg in (q or {}).get("query", {}).get("pages", [])}
         for n, cap, where in batch:
             ii = (info.get(n, {}).get("imageinfo") or [None])[0]
@@ -472,7 +582,7 @@ def media_type(raw):
 
 def fetch_image(url):
     """A Commons thumbnail (the 960 px one the API named: Wikimedia makes thumbnails only at standard widths)."""
-    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": store.UA}), timeout=60) as r:
+    with COMMONS, urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": store.UA}), timeout=60) as r:
         return r.read()
 
 
@@ -538,13 +648,14 @@ def store_path(state):
     return os.path.join(HERE, "data", f"{state}.sqlite")
 
 
-def run(dest_id, db_path=None):
+def run(dest_id, db_path=None, batcher=None):
     """One destination's picks and entries, kept in its state's store. The stores of the other states it reaches into
-    (`other_states`) are only read, for their places: a store missing there is said and skipped."""
+    (`other_states`) are only read, for their places: a store missing there is said and skipped. With a Batcher, its
+    questions go in batches, alongside the other destinations' running at the same time."""
     dest = DESTINATIONS[dest_id]
     if not os.path.exists(db_path or store_path(dest["state"])):
         raise FileNotFoundError(f"{dest_id}: no store for {dest['state']} ({db_path or store_path(dest['state'])})")
-    db = sqlite3.connect(db_path or store_path(dest["state"]), check_same_thread=False)
+    db = sqlite3.connect(db_path or store_path(dest["state"]), timeout=60, check_same_thread=False)  # shared with others
     db.executescript(store.SCHEMA)
     others = []
     for st in dest.get("other_states", []):
@@ -552,19 +663,18 @@ def run(dest_id, db_path=None):
             others.append(sqlite3.connect(f"file:{store_path(st)}?mode=ro", uri=True))
         else:
             log(f"{dest_id}: no store for {st}; its part of {dest['name']} is left out")
-    ask, t0 = Asker(db), time.time()
-    spent.clear()
+    ask, t0 = Asker(db, batcher), time.time()
     places = candidates([db] + others, dest, boundary(dest))
-    log(f"{dest['name']}: {len(places)} candidates ({sum(1 for p in places.values() if p['nps'])} with an NPS page)")
+    log(f"{dest_id}: {len(places)} candidates ({sum(1 for p in places.values() if p['nps'])} with an NPS page)")
     judge(ask, places)
     sights = [p for p in places.values() if p["sight"]]
     judged = sum(1 for p in places.values() if p["judged"])
-    log(f"judged {judged}: sights {len(sights)}; parts of a bigger place: {sum(1 for p in places.values() if p['part_of'])}")
+    log(f"{dest_id}: judged {judged}: sights {len(sights)}; parts of a bigger place: {sum(1 for p in places.values() if p['part_of'])}")
     shortlist = sorted(sights, key=rank)[:SHORTLIST]
     chosen = pick(ask, dest, shortlist)
     by_key = {f"{p['source']}/{p['id']}": p for p in shortlist}
     picks = [(c, by_key[c["id"]]) for c in sorted(chosen["picks"], key=lambda c: c["rank"]) if c["id"] in by_key][:dest["cap"]]
-    log(f"picks: {len(picks)}: {', '.join(p['name'] for _, p in picks)}")
+    log(f"{dest_id}: picks: {len(picks)}: {', '.join(p['name'] for _, p in picks)}")
 
     def entry(c_p):
         c, p = c_p
@@ -573,7 +683,7 @@ def run(dest_id, db_path=None):
         e["images"] = pictures(ask, p, e)
         return c, p, e
 
-    with ThreadPoolExecutor(4) as pool:
+    with ThreadPoolExecutor(max(1, len(picks)) if batcher else 4) as pool:  # in batches, every entry's questions at once
         made = list(pool.map(entry, picks))
     now = store.NOW()
     db.execute("DELETE FROM picks WHERE destination=?", (dest_id,))
@@ -588,9 +698,9 @@ def run(dest_id, db_path=None):
     counts = {"candidates": len(places), "judged": judged, "sights": len(sights), "shortlist": len(shortlist), "picks": len(made)}
     db.execute("INSERT OR REPLACE INTO destinations VALUES (?,?,?,?,?,?,?,?)", (
         dest_id, dest["name"], dest["kind"], dest["wikidata"], now, json.dumps(counts), json.dumps(left_out),
-        json.dumps({k: round(v, 3) for k, v in spent.items()})))
+        json.dumps({k: round(v, 3) for k, v in ask.spent.items()})))
     db.commit()
-    summary = {"destination": dest["name"], "counts": counts, "spent_this_run": {k: round(v, 3) for k, v in spent.items()},
+    summary = {"destination": dest["name"], "counts": counts, "spent_this_run": {k: round(v, 3) for k, v in ask.spent.items()},
                "seconds": round(time.time() - t0),
                "picks": [{"rank": i, "name": p["name"], "one_liner": e["one_liner"], "overlap": e["overlap"],
                           "hero": bool(e["images"]["hero"]), "inline": len(e["images"]["inline"])} for i, (_, p, e) in enumerate(made, 1)]}
@@ -602,6 +712,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--destination", required=True, nargs="+", choices=sorted(DESTINATIONS))
     ap.add_argument("--db")
+    ap.add_argument("--batch", action="store_true", help="ask in Message Batches, at half price: slower, up to a day")
     ap.add_argument("--model", action="append", default=[], metavar="STEP=MODEL",
                     help=f"another model for a step: {', '.join(f'{k}={v}' for k, v in MODELS.items())} by default")
     a = ap.parse_args()
@@ -610,20 +721,27 @@ if __name__ == "__main__":
         if step not in MODELS or model not in PRICE:
             raise SystemExit(f"--model {m}: a step ({', '.join(MODELS)}) and a model ({', '.join(PRICE)})")
         MODELS[step] = model
-    log("models: " + ", ".join(f"{k} {v}" for k, v in MODELS.items()))
-    failed = []
-    for d in a.destination:
+    log("models: " + ", ".join(f"{k} {v}" for k, v in MODELS.items()) + (", in batches" if a.batch else ""))
+    batcher = None
+    if a.batch:  # its notes of the batches out go in the first destination's store, to be found by a run again
+        load_env()
+        batcher = Batcher(anthropic.Anthropic(max_retries=6), a.db or store_path(DESTINATIONS[a.destination[0]]["state"]))
+
+    def one(d):
         try:
-            out = run(d, a.db)
-        except Exception as err:  # the next destination still runs: the answers so far are kept in the store
+            out = run(d, a.db, batcher)
+        except Exception as err:  # the other destinations still run: the answers so far are kept in the store
             log(f"{d}: failed ({type(err).__name__}: {str(err)[:300]})")
-            failed.append(d)
-            continue
+            return d
         with open(os.path.join(HERE, "data", f"{d}-guides.json"), "w") as f:
             json.dump(out, f, indent=1)
-        side_by_side = compare(sqlite3.connect(a.db or store_path(DESTINATIONS[d]["state"])), d)
+        side_by_side = compare(sqlite3.connect(a.db or store_path(DESTINATIONS[d]["state"]), timeout=60), d)
         if side_by_side:
             with open(os.path.join(HERE, "data", f"{d}-compare.md"), "w") as f:
                 f.write(side_by_side + "\n")
+
+    # In batches, every destination at once, so that each step's questions from all of them share a batch
+    with ThreadPoolExecutor(len(a.destination) if batcher else 1) as pool:
+        failed = [d for d in pool.map(one, a.destination) if d]
     if failed:
         raise SystemExit(f"failed: {' '.join(failed)}")

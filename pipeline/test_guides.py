@@ -1,5 +1,6 @@
 """Tests for guides.py that need no network or model: python3 -m unittest test_guides (from pipeline/)."""
-import json, sqlite3, types, unittest, zlib
+import json, os, sqlite3, tempfile, types, unittest, zlib
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 import guides, store
 
@@ -58,12 +59,97 @@ class Asking(unittest.TestCase):
             return types.SimpleNamespace(stop_reason="end_turn", content=[types.SimpleNamespace(type="text", text=json.dumps({"n": len(calls)}))],
                                          usage=types.SimpleNamespace(input_tokens=10, output_tokens=5, cache_read_input_tokens=0, cache_creation_input_tokens=0))
         ask.db, ask.client, ask.lock = db, types.SimpleNamespace(messages=types.SimpleNamespace(create=create)), guides.threading.Lock()
+        ask.batcher, ask.spent = None, {}
         a = lambda content: ask("judge", "v2", "wikidata/Q1", guides.HAIKU, "system", content, {}, "low")
         self.assertEqual(a("one"), {"n": 1})
         self.assertEqual(a("one"), {"n": 1})
         self.assertEqual(a("two"), {"n": 2})
         self.assertEqual(len(calls), 2)
         self.assertEqual(db.execute("SELECT COUNT(*) FROM llm_answers").fetchone()[0], 1)
+
+
+def message(text, stop="end_turn"):
+    return types.SimpleNamespace(stop_reason=stop, content=[types.SimpleNamespace(type="text", text=text)],
+                                 usage=types.SimpleNamespace(input_tokens=1_000_000, output_tokens=0, cache_read_input_tokens=0,
+                                                             cache_creation_input_tokens=0))
+
+
+class FakeBatches:
+    """The Message Batches API as far as the Batcher uses it: each request answered with its custom_id, or as `answers` says."""
+
+    def __init__(self, answers=None, known=()):
+        self.created, self.answers, self.known = [], answers or {}, {b: [] for b in known}
+
+    def create(self, requests):
+        bid = f"msgbatch_{len(self.created)}"
+        self.created.append([r["custom_id"] for r in requests])
+        self.known[bid] = [r["custom_id"] for r in requests]
+        return types.SimpleNamespace(id=bid)
+
+    def retrieve(self, bid):
+        return types.SimpleNamespace(processing_status="ended")
+
+    def results(self, bid):
+        for h in self.known[bid]:
+            m = self.answers.get(h, message(json.dumps({"from": "batch"})))
+            yield types.SimpleNamespace(custom_id=h, result=types.SimpleNamespace(type="succeeded" if m else "errored", message=m))
+
+
+class Batching(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.dir.name, "ZZ.sqlite")
+        self.keep = sqlite3.connect(self.path)
+        self.keep.executescript(store.SCHEMA)
+        self.direct = []
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def asker(self, batcher):
+        ask = guides.Asker.__new__(guides.Asker)
+        ask.db, ask.lock, ask.batcher, ask.spent = sqlite3.connect(self.path, check_same_thread=False), guides.threading.Lock(), batcher, {}
+        ask.direct = lambda params: self.direct.append(params) or message(json.dumps({"from": "direct"}))
+        return ask
+
+    def batcher(self, batches):
+        return guides.Batcher(types.SimpleNamespace(messages=types.SimpleNamespace(batches=batches)), self.path, quiet=1, poll=0)
+
+    def ask_all(self, ask, contents):
+        with ThreadPoolExecutor(len(contents)) as pool:
+            return list(pool.map(lambda c: ask("judge", "v2", f"k/{c}", guides.HAIKU, "sys", c, {}, "low"), contents))
+
+    def test_questions_asked_together_share_a_batch_at_half_price_and_the_same_one_is_sent_once(self):
+        batches = FakeBatches()
+        ask = self.asker(self.batcher(batches))
+        out = self.ask_all(ask, ["a", "b", "c"]) + self.ask_all(ask, ["a"])
+        self.assertEqual(out, [{"from": "batch"}] * 4)
+        self.assertEqual([len(c) for c in batches.created], [3])       # one batch; "a" again is already answered
+        self.assertAlmostEqual(ask.spent["judge"], 3 * 0.10 / 2)       # a million tokens each, at half Haiku's price
+        self.assertEqual(self.keep.execute("SELECT COUNT(*) FROM llm_batches").fetchone()[0], 0)
+
+    def test_an_answer_the_batch_couldnt_give_is_asked_on_its_own(self):
+        h = lambda c: guides.hashlib.sha256(json.dumps([guides.HAIKU, "sys", c], sort_keys=True).encode()).hexdigest()
+        batches = FakeBatches({h("declined"): message("", stop="refusal"), h("failed"): None})
+        out = self.ask_all(self.asker(self.batcher(batches)), ["fine", "declined", "failed"])
+        self.assertEqual(out, [{"from": "batch"}, {"from": "direct"}, {"from": "direct"}])
+        self.assertEqual(len(self.direct), 2)
+
+    def test_a_run_again_takes_the_answers_from_the_batch_an_earlier_run_sent(self):
+        h = guides.hashlib.sha256(json.dumps([guides.HAIKU, "sys", "a"], sort_keys=True).encode()).hexdigest()
+        batches = FakeBatches(known=["msgbatch_earlier"])
+        batches.known["msgbatch_earlier"] = [h]
+        self.keep.execute("CREATE TABLE IF NOT EXISTS llm_batches (input_hash TEXT PRIMARY KEY, batch_id TEXT, created_at TEXT)")
+        self.keep.execute("INSERT INTO llm_batches VALUES (?, 'msgbatch_earlier', 'then')", (h,))
+        self.keep.commit()
+        self.assertEqual(self.ask_all(self.asker(self.batcher(batches)), ["a"]), [{"from": "batch"}])
+        self.assertEqual(batches.created, [])                          # nothing sent again
+
+    def test_batches_stay_under_the_size_limit(self):
+        b = self.batcher(FakeBatches())
+        items = {f"h{i}": ({"x": "y" * 40}, None) for i in range(10)}
+        with mock.patch.object(guides.Batcher, "MAX_BYTES", 100):  # each request is 49 bytes: two a batch
+            self.assertEqual([len(c) for c in b.chunks(list(items), items)], [2, 2, 2, 2, 2])
 
 
 class Judging(unittest.TestCase):
@@ -84,7 +170,7 @@ class Judging(unittest.TestCase):
             guides.judge(self.ask(asked), lazy, need=5)
             guides.judge(self.ask([]), everything, need=1000)
         self.assertEqual(len(asked), 12)                               # three rounds of 4: 6 sights, enough for 5
-        self.assertEqual(asked[:3], ["wikidata/Q0", "wikidata/Q1", "wikidata/Q2"])
+        self.assertEqual(set(asked[:4]), {f"wikidata/Q{i}" for i in range(4)})  # a round at a time, most read first
         top = lambda ps: [p["id"] for p in sorted((p for p in ps.values() if p["sight"]), key=guides.rank)[:5]]
         self.assertEqual(top(lazy), top(everything))
         self.assertFalse(lazy[("wikidata", "Q20")]["sight"])         # never asked: not a sight here
