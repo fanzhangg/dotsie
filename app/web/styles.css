@@ -171,6 +171,6 @@ html:has(#app[data-page="trip"]), html:has(#app[data-page="trip"]) body { overfl
 .wt-map-marker:focus-visible { outline: none; }
 .wt-map-marker:focus-visible > .wt-pin { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
 /* A spot's Save to a trip sheet: each trip with a map in a grey marker */
-.spot-save__trip { --wt-kind-color: var(--wt-kind-drive); }
+.spot-save__trip, .plan-day__marker { --wt-kind-color: var(--wt-kind-drive); }
 /* Move to Want to go, in a planned stop's sheet: quiet, as Add link is, above Delete and Save */
 .stop-unplan { margin-top: var(--wt-space-2); }

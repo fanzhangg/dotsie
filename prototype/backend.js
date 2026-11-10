@@ -142,7 +142,7 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
     return Object.values(d.trips).filter(t => !t.deleted && t.members.includes(ME)).sort((a, b) => b.updatedAt - a.updatedAt).map(t => {
       const times = t.spots.map(s => s.time).sort();
       const stops = t.spots.map(({ id, name, lat, lng, time, kind, nights, travel, back, wikidata = null }) => ({ id, name, lat, lng, time, kind, nights, travel, back, wikidata }));
-      const ideas = (t.ideas || []).map(({ id, name, lat, lng }) => ({ id, name, lat, lng }));
+      const ideas = (t.ideas || []).map(({ id, name, lat, lng, kind = null, wikidata = null }) => ({ id, name, lat, lng, kind, wikidata }));
       return { id: t.id, name: t.name, start: times[0] || null, end: times.at(-1) || null, members: snapshotOf(d, t).members, stops, ideas };
     });
   }

@@ -104,15 +104,16 @@ function tripCardHTML(t, past, today) {
     ${when?.now ? tripNowHTML(t, today) : ''}</a>`;
 }
 // The top of a trip's card: photos of its places when they have them, so you can tell at a glance where it goes, else
-// the sketch of its route. The photos are those of its first places, in the plan's order, whose English Wikipedia
-// article has a free photo: what /api/about says, as a stop's sheet shows. A place added from a sight on the map (or
+// the sketch of its route. The photos are those of its first places, in the plan's order, then its Want to go places, in
+// the order they were saved, whose English Wikipedia article has a free photo: what /api/about says, as a stop's sheet
+// shows. So a trip of saved places only, with no stops yet, shows where it'd go too. A place added from a sight on the map (or
 // at one) is asked for by its Wikidata item; any other by its name and where it is. Airports, hotels and places to eat
 // are left out: their photos don't say where a trip goes. The sketch shows until they're in, and offline, as
 // Wikimedia's photos aren't saved for offline.
 const CARD_PHOTOS = 3, CARD_PHOTO_TRIES = 6; // photos on a card, at most; places asked for one, at most, per trip
 const NO_CARD_PHOTO = new Set(['airport', 'hotel', 'restaurant', 'cafe', 'gas']);
 const badPhotos = new Set(); // photos that wouldn't load: the next place's stands in
-const photoItems = t => [...new Set((t.stops || []).filter(s => !NO_CARD_PHOTO.has(s.kind) && s.name)
+const photoItems = t => [...new Set([...(t.stops || []), ...(t.ideas || [])].filter(s => !NO_CARD_PHOTO.has(s.kind) && s.name)
   .map(s => s.wikidata || `${s.name}@${(+s.lat).toFixed(4)},${(+s.lng).toFixed(4)}`))].slice(0, CARD_PHOTO_TRIES);
 // The card's photos, from what's known already; undefined while one it would show hasn't been asked for or answered
 function cardPhotos(t) {
@@ -166,11 +167,12 @@ function cardPhotoFailed(img) {
 // plan (a map picture from Stadia cost 2,000 credits each time a trip changed). Like the overview's map, it shows each
 // day's drives, along the roads where they've been looked up already (Home never looks routes up, so as not to use up
 // the limit), straight otherwise, as transit and flights always are, and a dot for each place in its type's color,
-// with north up.
+// with north up. A trip with no stops yet, only Want to go places, has those dots and no drives.
 const SKETCH_W = 320, SKETCH_H = 128, SKETCH_PAD = 16, SKETCH_MIN_SPAN = 0.01; // the sketch's own units (5:2, as its box); degrees
 const mercY = lat => -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * 180 / Math.PI; // down the page
 function tripMapHTML(t, past) {
-  const stops = t.stops || [];
+  const stops = t.stops || [], ideas = (t.ideas || []).filter(i => i.lat != null);
+  if (!stops.length && ideas.length) return `<span class="wt-trip-card__map" aria-hidden="true">${routeSketchSVG([], ideas, past)}</span>`;
   if (!stops.length) return '<span class="wt-trip-card__map wt-trip-card__map--empty">No stops yet</span>';
   const trip = { stops }, legs = [];
   for (const d of daysOf(trip)) {

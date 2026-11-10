@@ -169,6 +169,38 @@ test('a Want to go place gets a time only on a day: Add to this day puts it afte
   await expect(wish(page)).toHaveText([/Three Rivers Petroglyph Site/]);
 });
 
+test('Add to a day, on Want to go, asks which day, the nearest saying so, and puts it there as Add to this day does', async ({ page }) => {
+  await trip(page, 'white-sands');
+  await wantToGo(page).click();
+  await stop(page, 'Three Rivers Petroglyph Site').click();
+  await plan(page).getByRole('button', { name: 'Add to a day' }).click();
+  const days_ = sheet(page).getByRole('list', { name: 'Days' }).getByRole('button');
+  await expect(days_).toHaveText([/Fri, Nov 20/, /Sat, Nov 21\s*Nearest · 2 stops/, /Sun, Nov 22/, /Another day/]);
+  await days_.filter({ hasText: 'Sat, Nov 21' }).click();
+  // after the museum at 9:30 AM, the stop nearest it, halfway to Cloudcroft at 12:30 PM
+  await expect(toast(page)).toContainText('Added to Sat, Nov 21, arriving at 11:00 AM');
+  await expect(days(page).getByRole('tab', { selected: true })).toHaveAccessibleName('Sat, Nov 21');
+  await expect(stop(page, 'Three Rivers Petroglyph Site')).toHaveAttribute('aria-pressed', 'true');
+  await expect(wantToGo(page)).toHaveAccessibleName('Want to go, 1 place');
+});
+
+test('a trip of saved places only, with no days yet, is planned from Want to go: Add to a day opens Add stop with the place in it', async ({ page }) => {
+  await page.goto('#/spots/seattle/sample/pike-place-market');
+  await page.getByRole('button', { name: 'Save to a trip' }).click();
+  await sheet(page).getByRole('button', { name: /^New trip: Seattle/ }).click();
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await toast(page).getByRole('button', { name: 'Open' }).click();
+  await expect(days(page).getByRole('tab')).toHaveCount(2); // Want to go and the overview: no days
+  await stop(page, 'Pike Place Market').click();
+  await plan(page).getByRole('button', { name: 'Add to a day' }).click();
+  await expect(sheet(page).getByRole('heading', { name: 'Add stop' })).toBeVisible();
+  await expect(sheet(page).getByRole('button', { name: 'Place' })).toContainText('Pike Place Market');
+  await sheet(page).getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(stop(page, 'Pike Place Market')).toBeVisible();
+  await expect(days(page).getByRole('tab')).toHaveCount(3);
+  await expect(wantToGo(page)).toHaveAccessibleName('Want to go');
+});
+
 test('a planned stop moves back to Want to go from its sheet, as only its place, and Undo puts it back on its day', async ({ page }) => {
   await trip(page, 'white-sands');
   await stop(page, 'White Sands Visitor Center').click();
@@ -196,7 +228,7 @@ test('Want to go is an icon with a count; its places are only places, with nothi
   await expect(wish(page)).toHaveText([/^\s*Oliver Lee Memorial State Park\s*$/, /^\s*Three Rivers Petroglyph Site\s*$/]);
 });
 
-test('Want to go is a plain list: a place selected has Open in Maps and its bookmark, which takes it off, with Undo, for everyone', async ({ page, context }) => {
+test('Want to go is a plain list: a place selected has Add to a day, Open in Maps and Remove, which takes it off, with Undo, for everyone', async ({ page, context }) => {
   await trip(page, 'white-sands');
   const sam = await context.newPage();
   await trip(sam, 'white-sands', 'sam');
@@ -204,7 +236,7 @@ test('Want to go is a plain list: a place selected has Open in Maps and its book
   await wantToGo(page).click();
   await stop(page, 'Three Rivers Petroglyph Site').click();
   await expect(plan(page).getByRole('link', { name: 'Open Three Rivers Petroglyph Site in your maps app' })).toBeVisible();
-  await expect(plan(page).locator('.wt-add-bar').getByRole('button', { name: /day/ })).toHaveCount(0); // no days or times here
+  await expect(plan(page).getByRole('button', { name: 'Add to a day' })).toBeVisible();
   await plan(page).getByRole('button', { name: 'Remove from Want to go' }).click();
   await expect(wish(page)).toHaveCount(1);
   await expect(wish(sam)).toHaveCount(1);
@@ -254,8 +286,10 @@ test('a spot’s page has Save to a trip floating at the bottom; Open, once save
   await tripBox(page, 'White Sands, NM').click();
   await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'true');
   await sheet(page).getByRole('button', { name: 'Close' }).click();
-  await expect(toast(page)).toContainText('Saved to White Sands, NM');
-  await expect(page.getByRole('button', { name: 'Saved to White Sands, NM' })).toBeVisible();
+  await expect(toast(page)).toContainText('Saved to Want to go');
+  await expect(toast(page)).toContainText('White Sands, NM');
+  // it says Saved, not where: a spot can be on several trips, and a trip's name can read as a place's
+  await expect(page.getByRole('button', { name: 'Saved to White Sands, NM. Change' })).toHaveText('Saved');
   await toast(page).getByRole('button', { name: 'Open' }).click();
   await expect(days(page).getByRole('tab', { selected: true })).toHaveAccessibleName('Want to go, 3 places');
   // the national park is near the first day, with the visitor center
@@ -276,20 +310,41 @@ test('a spot can be saved to several trips, a new one too, and unticking one tak
   await page.mouse.move(0, 0);
   await expect(tripBox(page, 'Seattle')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await sheet(page).getByRole('button', { name: 'Close' }).click();
-  await expect(toast(page)).toContainText('Saved to 2 trips');
-  await expect(page.getByRole('button', { name: 'Saved to 2 trips' })).toBeVisible();
+  await expect(toast(page)).toContainText('Saved to Want to go');
+  await expect(toast(page)).toContainText('On 2 trips');
+  await expect(page.getByRole('button', { name: 'Saved to 2 trips. Change' })).toHaveText('Saved');
   // off White Sands again: the sheet shows where it is, and a tick takes it off
-  await page.getByRole('button', { name: 'Saved to 2 trips' }).click();
+  await page.getByRole('button', { name: 'Saved to 2 trips. Change' }).click();
   await tripBox(page, 'White Sands, NM').click();
   await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'false');
   await expect(sheet(page).getByRole('checkbox')).toHaveCount(2);
   await expect(sheet(page).getByRole('button', { name: /^New trip/ })).toHaveCount(0);
   await sheet(page).getByRole('button', { name: 'Close' }).click();
-  await expect(toast(page)).toContainText('Removed from White Sands, NM');
-  await expect(page.getByRole('button', { name: 'Saved to Seattle' })).toBeVisible();
+  await expect(toast(page)).toContainText('Removed from Want to go');
+  await expect(toast(page)).toContainText('White Sands, NM');
+  await expect(page.getByRole('button', { name: 'Saved to Seattle. Change' })).toBeVisible();
   await sheetGone(page);
   await trip(page, 'white-sands');
   await expect(days(page).getByRole('tab', { name: /^Want to go/ })).toHaveAccessibleName('Want to go, 2 places');
+});
+
+test('a spot already planned on a trip is saved to it: ticked, with its day, and not taken off its day from here', async ({ page }) => {
+  // White Sands has the museum on Saturday
+  await page.goto('#/spots/alamogordo/sample/museum-of-space-history');
+  const saved = page.getByRole('button', { name: 'Saved to White Sands, NM. Change' });
+  await expect(saved).toHaveText('Saved');
+  await saved.click();
+  await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'true');
+  await expect(tripBox(page, 'White Sands, NM')).toContainText('Planned for Sat, Nov 21');
+  await tripBox(page, 'White Sands, NM').click();
+  await expect(toast(page)).toContainText('Planned for Sat, Nov 21');
+  await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'true');
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await sheetGone(page);
+  await trip(page, 'white-sands');
+  await expect(wantToGo(page)).toHaveAccessibleName('Want to go, 2 places');
+  await page.goto('#/spots?q=museum');
+  await expect(page.getByRole('button', { name: 'Saved to White Sands, NM. Change' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('each spot’s card has a bookmark that saves it without leaving the list, filled once it’s saved', async ({ page }) => {
@@ -297,15 +352,34 @@ test('each spot’s card has a bookmark that saves it without leaving the list, 
   const bookmark = page.getByRole('button', { name: 'Save Pike Place Market to a trip' });
   await expect(bookmark).toHaveAttribute('aria-pressed', 'false');
   await bookmark.click();
+  const pike = page.locator('[data-spot-save="seattle/sample/pike-place-market"]');
   await tripBox(page, 'White Sands, NM').click();
   await sheet(page).getByRole('button', { name: 'Close' }).click();
   await expect(page).toHaveURL(/#\/spots$/);
-  await expect(page.getByRole('button', { name: 'Saved to White Sands, NM. Change' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(pike).toHaveAccessibleName('Saved to White Sands, NM. Change');
+  await expect(pike).toHaveAttribute('aria-pressed', 'true');
   // and after a reload, from the trips themselves
   await sheetGone(page);
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Saved to White Sands, NM. Change' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(pike).toHaveAccessibleName('Saved to White Sands, NM. Change');
+  await expect(pike).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Save Space Needle to a trip' })).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('a trip of saved places only shows them on its Home card: their dots for a sketch, and their photos asked for', async ({ page }) => {
+  await page.goto('#/spots/seattle/sample/pike-place-market');
+  await page.getByRole('button', { name: 'Save to a trip' }).click();
+  await sheet(page).getByRole('button', { name: /^New trip: Seattle/ }).click();
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await sheetGone(page);
+  // the photo's looked up by the place's name, as for a stop found by search; it needn't come, offline or blocked
+  const asked = page.waitForRequest(r => /Pike(\+|%20| )Place/.test(r.url()));
+  await page.route(/wikipedia\.org|wikidata\.org|wikimedia\.org/, route => route.abort());
+  await page.goto('#/');
+  await asked;
+  const card = page.locator('.wt-trip-card').filter({ hasText: 'Seattle' });
+  await expect(card.locator('.wt-trip-card__stop')).toHaveCount(1);
+  await expect(card).not.toContainText('No stops yet');
 });
 
 test('Home loads the map’s library while it’s idle, so a trip’s map doesn’t wait for it', async ({ page }) => {

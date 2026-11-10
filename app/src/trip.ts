@@ -28,7 +28,7 @@ const IDENTITIES = 6;
 // photos each stop's Wikidata item; a trip longer than this is cut off there.
 const PREVIEW_STOPS = 300;
 // Want to go's places, by name and where, so a spot can say which trips have it already
-export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights' | 'travel' | 'back' | 'wikidata'>[]; ideas: Pick<Idea, 'id' | 'name' | 'lat' | 'lng'>[] };
+export type Preview = { members: Member[]; stops: Pick<Stop, 'id' | 'name' | 'lat' | 'lng' | 'time' | 'kind' | 'nights' | 'travel' | 'back' | 'wikidata'>[]; ideas: Pick<Idea, 'id' | 'name' | 'lat' | 'lng' | 'kind' | 'wikidata'>[] };
 
 // folder is a column from when stops could be grouped in folders: older trips still have it, and it's left out
 type StopRow = Omit<Stop, 'updatedAt' | 'back' | 'links'> & { updated_at: number; back: string; links: string };
@@ -351,7 +351,7 @@ export class TripRoom extends DurableObject<Env> {
       members: this.sql.exec<Member>('select id, name, image, identity from members order by joined_at').toArray(),
       stops: this.sql.exec<Omit<Preview['stops'][number], 'back'> & { back: string }>('select id, name, lat, lng, time, kind, nights, travel, back, wikidata from stops order by time, id limit ?', PREVIEW_STOPS)
         .toArray().map(s => ({ ...s, back: parseBack(s.back) })),
-      ideas: this.sql.exec<Preview['ideas'][number]>('select id, name, lat, lng from ideas order by saved_at, id limit ?', PREVIEW_STOPS).toArray(),
+      ideas: this.sql.exec<Preview['ideas'][number]>('select id, name, lat, lng, kind, wikidata from ideas order by saved_at, id limit ?', PREVIEW_STOPS).toArray(),
     };
   }
   private broadcast(event: TripEvent, by?: string) {

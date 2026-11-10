@@ -233,7 +233,7 @@ test('a spot is saved to a trip once, however the taps fall while the server ans
   await expect(box('Testville')).toHaveAttribute('aria-checked', 'true');
   await expect(sheet(page).getByRole('button', { name: /^New trip/ })).toHaveCount(0);
   await sheet(page).getByRole('button', { name: 'Close' }).click();
-  await expect(toast(page)).toContainText('Saved to 3 trips');
+  await expect(toast(page)).toContainText('On 3 trips');
 });
 
 // e2e/places.sql loads Pagetown's 31 picks

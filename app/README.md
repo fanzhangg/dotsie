@@ -83,7 +83,7 @@ All routes need a session cookie, except `/api/auth/*`, `/api/config`, `/api/sig
 
 | Route | What it does |
 | --- | --- |
-| `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops, ideas }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights, travel, back }`, for the card's route sketch (at most 300); `ideas`, its Want to go places, only `{ id, name, lat, lng }` |
+| `GET /api/trips` | Home cards: `[{ id, name, start, end, members, stops, ideas }]`, last edited first. `members` as in a trip; `stops` only `{ id, name, lat, lng, time, kind, nights, travel, back }`, for the card's route sketch (at most 300); `ideas`, its Want to go places, only `{ id, name, lat, lng, kind, wikidata }`, for the card's photos and so a spot can say which trips have it |
 | `POST /api/trips` `{ name }` | Create; returns the trip snapshot |
 | `GET /api/trips/:id` | `{ trip, members, stops, ideas }`; `trip.owner` is the id of whoever made it, and `ideas` is the trip's Want to go list (see below) |
 | `PATCH /api/trips/:id` `{ name }` | Rename |
