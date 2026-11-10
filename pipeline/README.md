@@ -46,7 +46,7 @@ removed from R2, so a state that failed to build keeps the rows it had. The app 
 search by name, filter by state and source, and open a place to see its identifiers and the records in other sources
 that share one. Only metadata and links are loaded, never text copied from Wikipedia or other sites.
 
-Search goes through a full-text index on names (`places_fts`, `app/migrations/0006_places_search.sql`), kept in step by
+Search goes through a full-text index on names (`places_fts`, `app/migrations/0007_places_search.sql`), kept in step by
 triggers on `places`, so a search reads only the places whose words match, not the whole table. That's why the export
 writes `places` with an upsert rather than `INSERT OR REPLACE`: REPLACE would delete a row that's in two states (a river,
 a park across a state line) without the triggers seeing it.
@@ -114,7 +114,7 @@ in D1; the stores in R2 come to a few GB. To load them all:
 2. **GitHub Actions minutes.** From scratch, every state takes about 40 runner hours (half an hour to an hour a state,
    California, Texas and New York longer), and the repository is private: more than GitHub Free's 2,000 minutes a month
    (about $15 more at $0.006 a minute), so add a payment method or split the run across two months.
-3. Merge and deploy, so D1 has `places_fts` (migration 0006) before anything is loaded into it.
+3. Merge and deploy, so D1 has `places_fts` (migration 0007) before anything is loaded into it.
 4. Actions → Spots data → Run workflow with `all` (page views are already in R2). Four states build at a time; the whole
    run takes about half a day. A state that runs into the 5-hour limit saves what it fetched: **Re-run failed jobs**
    carries on from there, and the load job loads whatever finished.

@@ -113,7 +113,7 @@ app.get('/developer/spots/states', async c => {
   return c.json(results);
 });
 // Places with a word starting with each word of q ("mount rai" finds Mount Rainier; all, when q is empty), most read on
-// Wikipedia first, 50 at a time, through the names' full-text index (migrations/0006_places_search.sql), so a search
+// Wikipedia first, 50 at a time, through the names' full-text index (migrations/0007_places_search.sql), so a search
 // reads the places that match, not the whole table. source "nps" is every NPS endpoint.
 const nameMatch = (q: string) => (q.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).slice(0, 8)
   .map(w => `"${w}"${w.length > 1 ? '*' : ''}`).join(' ');
@@ -168,8 +168,9 @@ type GuideRow = { source: string; id: string; state: string; name: string; one_l
 type Images = { hero: Record<string, unknown> | null; inline: Record<string, unknown>[] };
 // How much a pick is read about: its English Wikipedia views over the last 12 months. An NPS record has no article of
 // its own, so it takes the views of the Wikidata item it shares an identifier with (place_links), the most read if
-// there are several. Needs `g` (spot_guides) and `pl` (its row in places) in the query.
-const VIEWS = `coalesce(pl.views, (select max(w.views) from place_links l join places w on w.source = 'wikidata' and (
+// there are several. Needs `g` (spot_guides) and `pl` (its row in places) in the query. CROSS JOIN starts from the pick's
+// few links and looks each item up by its key: left to itself, SQLite went through every Wikidata row in places for each pick.
+const VIEWS = `coalesce(pl.views, (select max(w.views) from place_links l cross join places w on w.source = 'wikidata' and (
     (l.source_a = g.source and l.id_a = g.id and w.source = l.source_b and w.id = l.id_b)
     or (l.source_b = g.source and l.id_b = g.id and w.source = l.source_a and w.id = l.id_a))))`;
 // The destinations with picks so far

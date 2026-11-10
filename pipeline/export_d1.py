@@ -31,7 +31,7 @@ def lit(v):
 
 def inserts(table, cols, rows, out, key=None):
     """INSERT OR REPLACE, or with `key`, an upsert on those columns: for `places`, whose triggers keep the names' search
-    index in step (app/migrations/0006_places_search.sql). REPLACE deletes a row without firing them, which a record
+    index in step (app/migrations/0007_places_search.sql). REPLACE deletes a row without firing them, which a record
     in two states (a river, a park across a state line) would do."""
     head = f"INSERT {'' if key else 'OR REPLACE '}INTO {table} ({', '.join(cols)}) VALUES "
     tail = (f" ON CONFLICT ({', '.join(key)}) DO UPDATE SET " + ", ".join(f"{c} = excluded.{c}" for c in cols if c not in key)
