@@ -114,30 +114,76 @@ jobs:
           for key in $(aws s3 ls --endpoint-url "$R2" "s3://$BUCKET/pageviews/" | awk '{print $4}' | grep '^enwiki-' | sort | tail -12); do
             aws s3 cp --endpoint-url "$R2" "s3://$BUCKET/pageviews/$key" "data/pageviews/$key"
           done
-      - run: python3 store.py --state "$ST" --pageviews data/pageviews
+      # Stopped before the job's time limit (California or Texas from scratch can take hours), so what it fetched is
+      # still saved below: running the job again carries on from there, as store.py fetches only what it doesn't have.
+      - name: Build the store
+        run: timeout --signal=INT --kill-after=5m 300m python3 store.py --state "$ST" --pageviews data/pageviews
       - name: Save the store to R2
+        if: ${{ always() && hashFiles(format('pipeline/data/{0}.sqlite', matrix.state)) != '' }}
         run: |
+          # Opening it rolls back a write that the time limit cut short
+          python3 -c 'import sqlite3, sys; sqlite3.connect(sys.argv[1]).execute("select count(*) from records").fetchone()' "data/$ST.sqlite"
           gzip -kf "data/$ST.sqlite"
           aws s3 cp --endpoint-url "$R2" "data/$ST.sqlite.gz" "s3://$BUCKET/stores/$ST.sqlite.gz"
-          aws s3 cp --endpoint-url "$R2" "data/$ST.json" "s3://$BUCKET/stores/$ST.json"
-          { echo "### $ST"; echo '```json'; cat "data/$ST.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "data/$ST.json" ]; then
+            aws s3 cp --endpoint-url "$R2" "data/$ST.json" "s3://$BUCKET/stores/$ST.json"
+            { echo "### $ST"; echo '```json'; cat "data/$ST.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
       # The public page at /developer/spots reads D1: names, points, types, identifiers, links and views, no page text.
+      # Written here, loaded by the load job below, one state at a time.
+      - name: The state as SQL for D1
+        run: |
+          set -o pipefail # a half-written file would delete the state's rows and load only some back
+          python3 export_d1.py --state "$ST" | gzip > "data/$ST.d1.sql.gz"
+          aws s3 cp --endpoint-url "$R2" "data/$ST.d1.sql.gz" "s3://$BUCKET/d1/$ST.sql.gz"
+
+  # Every state built above into D1, one at a time: D1 serves no queries while it imports a file (the app's sign-in
+  # included), and two imports at once can trip over each other. Each file replaces its state's rows, so loading one
+  # again is safe; it's removed from R2 once loaded, so a state whose build failed keeps the rows it had.
+  load:
+    needs: [plan, state]
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
-      - name: Load the state into D1
+      - run: npm ci
+        working-directory: app
+      - name: Load each state into D1
+        working-directory: app
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          STATES: ${{ needs.plan.outputs.states }}
         run: |
-          python3 export_d1.py --state "$ST" > "data/$ST.d1.sql"
-          cd ../app && npm ci
-          # Once, wrangler lost track of an import it had run ("Not currently importing anything"); the same file
-          # loaded fine on the next run. The file replaces the state's rows, so running it again is safe.
-          for try in 1 2 3; do
-            npx wrangler d1 execute waythread --remote --file "../pipeline/data/$ST.d1.sql" && exit 0
-            echo "Load $try failed; trying again in 30 s"; sleep 30
+          failed=""
+          for ST in $(echo "$STATES" | python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))'); do
+            key="d1/$ST.sql.gz"
+            if ! aws s3 cp --endpoint-url "$R2" "s3://$BUCKET/$key" "$RUNNER_TEMP/$ST.sql.gz" > /dev/null 2>&1; then
+              echo "$ST: nothing new to load"; continue
+            fi
+            gunzip -f "$RUNNER_TEMP/$ST.sql.gz"
+            ok=""
+            # Once, wrangler lost track of an import it had run ("Not currently importing anything"); the same file
+            # loaded fine on the next run.
+            for try in 1 2 3; do
+              if npx wrangler d1 execute waythread --remote --file "$RUNNER_TEMP/$ST.sql" > "$RUNNER_TEMP/$ST.log" 2>&1; then
+                ok=1; break
+              fi
+              tail -5 "$RUNNER_TEMP/$ST.log"; echo "$ST: load $try failed; trying again in 30 s"; sleep 30
+            done
+            if [ -n "$ok" ]; then
+              echo "$ST: $(grep -o 'Executed.*' "$RUNNER_TEMP/$ST.log" | head -1)"
+              echo "- $ST: $(grep -o 'Executed.*' "$RUNNER_TEMP/$ST.log" | head -1)" >> "$GITHUB_STEP_SUMMARY"
+              aws s3 rm --endpoint-url "$R2" "s3://$BUCKET/$key" > /dev/null
+            else
+              failed="$failed $ST"
+            fi
+            rm -f "$RUNNER_TEMP/$ST.sql"
           done
-          exit 1
+          if [ -n "$failed" ]; then echo "Not loaded:$failed (run the workflow again for them)"; exit 1; fi

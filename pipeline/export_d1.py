@@ -29,18 +29,23 @@ def lit(v):
     return "'" + str(v).replace("\x00", "").replace("'", "''") + "'"
 
 
-def inserts(table, cols, rows, out):
-    head = f"INSERT OR REPLACE INTO {table} ({', '.join(cols)}) VALUES "
-    chunk, size = [], len(head)
+def inserts(table, cols, rows, out, key=None):
+    """INSERT OR REPLACE, or with `key`, an upsert on those columns: for `places`, whose triggers keep the names' search
+    index in step (app/migrations/0006_places_search.sql). REPLACE deletes a row without firing them, which a record
+    in two states (a river, a park across a state line) would do."""
+    head = f"INSERT {'' if key else 'OR REPLACE '}INTO {table} ({', '.join(cols)}) VALUES "
+    tail = (f" ON CONFLICT ({', '.join(key)}) DO UPDATE SET " + ", ".join(f"{c} = excluded.{c}" for c in cols if c not in key)
+            if key else "")
+    chunk, size = [], len(head) + len(tail)
     for r in rows:
         values = "(" + ", ".join(lit(v) for v in r) + ")"
         if chunk and size + len(values) + 2 > STATEMENT_BYTES:
-            out.write(head + ",\n".join(chunk) + ";\n")
-            chunk, size = [], len(head)
+            out.write(head + ",\n".join(chunk) + tail + ";\n")
+            chunk, size = [], len(head) + len(tail)
         chunk.append(values)
         size += len(values) + 2
     if chunk:
-        out.write(head + ",\n".join(chunk) + ";\n")
+        out.write(head + ",\n".join(chunk) + tail + ";\n")
 
 
 def labels(qids):
@@ -117,7 +122,7 @@ def main():
     out = sys.stdout
     out.write(f"DELETE FROM places WHERE state = {lit(st)};\nDELETE FROM place_links WHERE state = {lit(st)};\n")
     inserts("places", ["source", "id", "state", "name", "description", "lat", "lng", "types", "url", "wikipedia", "website",
-                       "views", "ids"], rows, out)
+                       "views", "ids"], rows, out, key=["source", "id"])
     inserts("place_links", ["source_a", "id_a", "source_b", "id_b", "via", "state"],
             [(*l, st) for l in db.execute("SELECT source_a, id_a, source_b, id_b, via FROM links")], out)
     inserts("place_schemes", ["scheme", "label"],

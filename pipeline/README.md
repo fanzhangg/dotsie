@@ -38,14 +38,18 @@ each time (a few requests per state).
 
 ## The public page
 
-After saving a state's store, the workflow loads it into D1 (`places`, `place_links`, `place_schemes`, `place_loads`;
-see `app/migrations/0004_places.sql`), replacing that state's rows. The app shows it at `/developer/spots`: search by name, filter
-by state and source, and open a place to see its identifiers and the records in other sources that share one. Only
-metadata and links are loaded, never text copied from Wikipedia or other sites.
+After saving a state's store, the workflow writes it as SQL for D1 (`places`, `place_links`, `place_schemes`,
+`place_loads`; see `app/migrations/0004_places.sql`) and keeps the file in R2 under `d1/`. Once every state is built, one
+job loads those files one at a time, each replacing its state's rows: D1 serves no queries while it imports a file (the
+app's sign-in included, a few seconds a state), and two imports at once can trip over each other. A loaded file is
+removed from R2, so a state that failed to build keeps the rows it had. The app shows the result at `/developer/spots`:
+search by name, filter by state and source, and open a place to see its identifiers and the records in other sources
+that share one. Only metadata and links are loaded, never text copied from Wikipedia or other sites.
 
-Search matches names with `LIKE`, which reads the whole table: fine for a few states on D1's free plan (5 million rows
-read a day). Each load rewrites the state's rows, which counts against the free plan's 100,000 rows written a day, so
-loading many states, or all of them, needs Workers Paid; a full-text index can replace `LIKE` then.
+Search goes through a full-text index on names (`places_fts`, `app/migrations/0006_places_search.sql`), kept in step by
+triggers on `places`, so a search reads only the places whose words match, not the whole table. That's why the export
+writes `places` with an upsert rather than `INSERT OR REPLACE`: REPLACE would delete a row that's in two states (a river,
+a park across a state line) without the triggers seeing it.
 
 ## The guide
 
@@ -98,11 +102,28 @@ python3 store.py --state DC --limit 20
 5. Run the workflow once with `months` set to 12, to fill R2 with a year of page views.
 6. For the guide, add an [Anthropic API key](https://console.anthropic.com/settings/keys) as the secret `ANTHROPIC_API_KEY`.
 
-## What it costs
+## Every state at once
 
-A first run builds every store from scratch: roughly half an hour per state, more for California, Texas or New
-York, and up to half an hour per month of page views. A full first run of all states can use most of a GitHub Free
-account's monthly Actions allowance ($12 of compute, about 2,000 Linux minutes for a private repository), so run
-it a few states at a time, or add a payment method. Later runs only fetch what changed and take a fraction of that.
+Washington, from scratch: 28,771 places in D1, 145,703 rows written (the delete, the rows, their indexes), 54 minutes
+to build. Every state is about 40 times that, so roughly a million places, 6 to 10 million rows written and half a GB
+in D1; the stores in R2 come to a few GB. To load them all:
+
+1. **Cloudflare Workers Paid** ($5 a month). D1's free plan allows 100,000 rows written a day and 500 MB a database, and
+   this one also holds the app's accounts: a full load would hit both. Paid includes 50 million rows written a month and
+   10 GB a database.
+2. **GitHub Actions minutes.** From scratch, every state takes about 40 runner hours (half an hour to an hour a state,
+   California, Texas and New York longer), and the repository is private: more than GitHub Free's 2,000 minutes a month
+   (about $15 more at $0.006 a minute), so add a payment method or split the run across two months.
+3. Merge and deploy, so D1 has `places_fts` (migration 0006) before anything is loaded into it.
+4. Actions → Spots data → Run workflow with `all` (page views are already in R2). Four states build at a time; the whole
+   run takes about half a day. A state that runs into the 5-hour limit saves what it fetched: **Re-run failed jobs**
+   carries on from there, and the load job loads whatever finished.
+
+The sources see four states at a time: Wikidata 8 requests at once from each, Wikipedia 4, websites 16 (different
+hosts), and the NPS API a few requests a state. Every request waits as long as `Retry-After` says when it's turned away.
+
+The monthly run that follows only fetches what changed: a fraction of the time.
+
+## What it costs
 
 R2's free tier (10 GB stored, a million writes a month) holds every state's store.

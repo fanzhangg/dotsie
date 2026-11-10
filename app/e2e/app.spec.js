@@ -102,8 +102,13 @@ test('anyone can search the spots data and follow a place to the same place in a
   await page.goto('/developer/spots');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
   await page.getByLabel('State').selectOption('ZZ');
-  await page.getByRole('searchbox', { name: 'Search places by name' }).fill('test lodge');
   const results = page.locator('#results').getByRole('button');
+  // by the start of each word, in any order, through the names' full-text index
+  await page.getByRole('searchbox', { name: 'Search places by name' }).fill('lod tes');
+  await expect(results).toHaveCount(2);
+  await page.getByRole('searchbox', { name: 'Search places by name' }).fill('odge');
+  await expect(page.locator('#results')).not.toContainText('Test Lodge');
+  await page.getByRole('searchbox', { name: 'Search places by name' }).fill('test lodge');
   await expect(results).toHaveCount(2);
   await expect(results.first()).toContainText('hotel, historic building'); // the one read most on Wikipedia first
 
