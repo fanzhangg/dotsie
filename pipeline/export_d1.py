@@ -4,7 +4,11 @@
 Metadata and links only, for the public page at /developer/spots: names, points, descriptions, types, identifiers, links
 between records, page views. No text fetched from other sites.
 
+With --guides, only the state's guidebook entries instead (guides.py's `destinations`, `picks` and `guides`, for
+app/migrations/0005_guides.sql), replacing the state's destinations: model-written text, under CC BY-SA 4.0.
+
 Run: python3 export_d1.py --state WA > data/WA.d1.sql
+     python3 export_d1.py --state WA --guides > data/WA.guides.sql
 """
 import argparse, json, os, sqlite3, sys, time, urllib.parse
 from store import HERE, batches, http_json
@@ -51,11 +55,35 @@ def labels(qids):
     return out
 
 
+def guides(db, st, out):
+    dests = json.load(open(os.path.join(HERE, "destinations.json")))
+    mine = {d["id"]: d for d in dests if d["state"] == st}
+    rows = [r for r in db.execute("SELECT id, name, kind, wikidata, built_at, counts, left_out FROM destinations") if r[0] in mine]
+    for d in mine:
+        out.write(f"DELETE FROM spot_picks WHERE destination = {lit(d)};\nDELETE FROM spot_destinations WHERE id = {lit(d)};\n")
+    out.write(f"DELETE FROM spot_guides WHERE state = {lit(st)};\n")
+    inserts("spot_destinations", ["id", "name", "state", "kind", "wikidata", "built_at", "counts", "left_out"],
+            [(i, n, st, k, w, b, c, l) for i, n, k, w, b, c, l in rows], out)
+    picks = [r for r in db.execute("SELECT destination, source, id, rank, reason FROM picks") if r[0] in mine]
+    inserts("spot_picks", ["destination", "source", "id", "rank", "reason"], picks, out)
+    picked = {(s, i) for _, s, i, _, _ in picks}
+    inserts("spot_guides", ["source", "id", "state", "name", "one_liner", "paragraphs", "practical", "sources", "images",
+                            "overlap", "model", "prompt", "created_at"],
+            [(s, i, st, *rest) for s, i, *rest in db.execute(
+                "SELECT source, id, name, one_liner, paragraphs, practical, sources, images, overlap, model, prompt, created_at "
+                "FROM guides") if (s, i) in picked], out)
+    print(f"{st}: {len(rows)} destinations, {len(picks)} picks", file=sys.stderr)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--state", required=True)
-    st = ap.parse_args().state
+    ap.add_argument("--guides", action="store_true", help="only the state's guidebook entries")
+    a = ap.parse_args()
+    st = a.state
     db = sqlite3.connect(os.path.join(HERE, "data", f"{st}.sqlite"))
+    if a.guides:
+        return guides(db, st, sys.stdout)
     external = {p for (p,) in db.execute("SELECT pid FROM properties WHERE datatype = 'external-id'")}
     views = dict(db.execute("SELECT article, SUM(views) FROM pageviews GROUP BY article"))
     ids = {}

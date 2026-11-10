@@ -43,3 +43,27 @@
 .dev__back { justify-self: start; }
 .dev__name { font: var(--wt-type-heading); color: var(--wt-text-primary); margin: 0; }
 [hidden] { display: none !important; }
+
+/* Guide preview (/developer/guide): a destination's picks and one pick's entry, as a reader would see them */
+.guide__picks { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--wt-space-2); }
+.dev .guide__pick { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: var(--wt-space-3); align-items: center; padding: var(--wt-space-2); border-radius: var(--wt-radius-md); color: inherit; text-decoration: none; }
+.guide__pick:hover { background: var(--wt-surface-hover); }
+.guide__pick img, .guide__nophoto { width: 96px; height: 72px; object-fit: cover; border-radius: var(--wt-radius-sm); background: var(--wt-surface-sunken); display: block; }
+.guide__pick-text { display: grid; gap: 2px; }
+.guide__rank { font: var(--wt-type-caption); color: var(--wt-text-tertiary); font-variant-numeric: tabular-nums; }
+.guide__oneliner { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.guide { display: grid; gap: var(--wt-space-4); grid-template-columns: minmax(0, 1fr); }
+.guide__head { display: grid; gap: var(--wt-space-1); }
+.guide__name { font: var(--wt-type-display); color: var(--wt-text-primary); margin: 0; }
+.guide__lede { font: var(--wt-type-name); color: var(--wt-text-secondary); margin: 0; }
+.guide__para { font: var(--wt-type-body); line-height: 1.6; color: var(--wt-text-primary); margin: 0; }
+.guide__cites { display: block; margin-top: var(--wt-space-1); font: var(--wt-type-caption); }
+.guide__cites a + a { margin-left: var(--wt-space-2); }
+.guide__figure { margin: 0; display: grid; gap: var(--wt-space-1); }
+.guide__figure img { width: 100%; height: auto; max-height: 420px; object-fit: cover; border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); }
+.guide__figure figcaption { font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.guide__credit { color: var(--wt-text-tertiary); }
+.guide__practical, .guide__review { display: grid; gap: var(--wt-space-2); padding: var(--wt-space-3); border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); }
+.guide__review { background: none; border: 1px dashed var(--wt-border-subtle); }
+.guide__foot { font: var(--wt-type-caption); color: var(--wt-text-tertiary); display: grid; gap: var(--wt-space-1); }
+.guide__foot p { margin: 0; }

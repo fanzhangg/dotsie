@@ -1,0 +1,79 @@
+# A destination's picks and their guidebook entries, written by a model from its state's store (issue #90).
+# Run by hand, one destination at a time (pipeline/destinations.json): it reads the store the Spots data workflow keeps
+# in R2, asks Claude (pipeline/guides.py), saves the answers back into the store, and loads the guide into D1 for the
+# preview at /developer/guide. A model answer whose input hasn't changed is reused, so running it again costs little.
+name: Spots guides
+
+on:
+  workflow_dispatch:
+    inputs:
+      destination:
+        description: A destination's id in pipeline/destinations.json, such as "seattle"
+        default: seattle
+
+# The same group as Spots data: both update the stores in R2.
+concurrency:
+  group: spots-data
+  cancel-in-progress: false
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: auto
+  R2: https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+  BUCKET: ${{ vars.SPOTS_BUCKET || 'waythread-spots' }}
+
+defaults:
+  run:
+    working-directory: pipeline
+
+jobs:
+  guide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      DEST: ${{ inputs.destination }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install anthropic==2.6.0
+      - name: The destination's state
+        run: |
+          ST=$(python3 -c 'import json,os; d={x["id"]: x for x in json.load(open("destinations.json"))}; print(d[os.environ["DEST"]]["state"])')
+          echo "ST=$ST" >> "$GITHUB_ENV"
+      - name: The state's store
+        run: |
+          mkdir -p data
+          aws s3 cp --endpoint-url "$R2" "s3://$BUCKET/stores/$ST.sqlite.gz" "data/$ST.sqlite.gz"
+          gunzip "data/$ST.sqlite.gz"
+      - name: Pick and write
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 guides.py --destination "$DEST"
+          { echo "### $DEST"; echo '```json'; cat "data/$DEST-guides.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      # Saved even when a step above failed partway: the answers it got cost money to ask again
+      - name: Save the store to R2
+        if: ${{ always() && env.ST != '' && hashFiles(format('pipeline/data/{0}.sqlite', env.ST)) != '' }}
+        run: |
+          gzip -kf "data/$ST.sqlite"
+          aws s3 cp --endpoint-url "$R2" "data/$ST.sqlite.gz" "s3://$BUCKET/stores/$ST.sqlite.gz"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Load the state's guides into D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          python3 export_d1.py --state "$ST" --guides > "data/$ST.guides.sql"
+          cd ../app && npm ci
+          for try in 1 2 3; do
+            npx wrangler d1 execute waythread --remote --file "../pipeline/data/$ST.guides.sql" && exit 0
+            echo "Load $try failed; trying again in 30 s"; sleep 30
+          done
+          exit 1

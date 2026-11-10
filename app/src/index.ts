@@ -149,6 +149,57 @@ app.get('/developer/spots/place/:source/:id', async c => {
     schemes: Object.fromEntries(names.results.map(n => [n.scheme, n.label])), links: links.results });
 });
 
+// ---------- Spots guides: each destination's picks and their guidebook entries, for review ----------
+// Written by a model from the sources each entry lists (pipeline/guides.py), loaded by the Spots guides workflow and
+// shown at /developer/guide. CC BY-SA 4.0.
+const DESTINATION = /^[a-z0-9-]{1,40}$/;
+const json = <T>(v: string | null, empty: T) => (v ? JSON.parse(v) as T : empty);
+type GuideRow = { source: string; id: string; state: string; name: string; one_liner: string; paragraphs: string; practical: string | null;
+  sources: string | null; images: string | null; overlap: number | null; model: string | null; prompt: string | null; created_at: string };
+type Images = { hero: Record<string, unknown> | null; inline: Record<string, unknown>[] };
+// The destinations with picks so far
+app.get('/developer/spots/guides', async c => {
+  const { results } = await c.env.DB.prepare(
+    `select d.id, d.name, d.state, d.kind, d.built_at as builtAt, count(p.id) as picks from spot_destinations d
+       left join spot_picks p on p.destination = d.id group by d.id order by d.name`).all();
+  return c.json(results);
+});
+// A destination's picks, in order, each with its one-liner and lead photo, and what was left out
+app.get('/developer/spots/guides/:destination', async c => {
+  const dest = c.req.param('destination');
+  if (!DESTINATION.test(dest)) bad();
+  const d = await c.env.DB.prepare('select * from spot_destinations where id = ?').bind(dest)
+    .first<{ id: string; name: string; state: string; kind: string | null; wikidata: string | null; built_at: string; counts: string | null; left_out: string | null }>();
+  if (!d) throw new Error(ERR.notFound);
+  const { results } = await c.env.DB.prepare(
+    `select p.source, p.id, p.rank, p.reason, g.name, g.one_liner, g.images, pl.lat, pl.lng from spot_picks p
+       join spot_guides g on g.source = p.source and g.id = p.id
+       left join places pl on pl.source = p.source and pl.id = p.id
+     where p.destination = ? order by p.rank`).bind(dest)
+    .all<{ source: string; id: string; rank: number; reason: string | null; name: string; one_liner: string; images: string | null; lat: number | null; lng: number | null }>();
+  return c.json({ id: d.id, name: d.name, state: d.state, kind: d.kind, wikidata: d.wikidata, builtAt: d.built_at,
+    counts: json(d.counts, {}), leftOut: json(d.left_out, []),
+    picks: results.map(({ one_liner, images, ...p }) => ({ ...p, oneLiner: one_liner, hero: json<Images>(images, { hero: null, inline: [] }).hero })) });
+});
+// One pick's entry in full: paragraphs with their sources, practical facts, photos with their credits
+app.get('/developer/spots/guides/:destination/:source/:id', async c => {
+  const dest = c.req.param('destination'), source = c.req.param('source'), id = c.req.param('id');
+  if (!DESTINATION.test(dest) || !SOURCE.test(source) || !PLACE_ID.test(id)) bad();
+  const g = await c.env.DB.prepare(
+    `select g.*, p.rank, p.reason, d.name as destination_name, pl.lat, pl.lng, pl.url, pl.wikipedia, pl.website from spot_guides g
+       join spot_picks p on p.source = g.source and p.id = g.id and p.destination = ?1
+       join spot_destinations d on d.id = p.destination
+       left join places pl on pl.source = g.source and pl.id = g.id
+     where g.source = ?2 and g.id = ?3`).bind(dest, source, id)
+    .first<GuideRow & { rank: number; reason: string | null; destination_name: string; lat: number | null; lng: number | null; url: string | null; wikipedia: string | null; website: string | null }>();
+  if (!g) throw new Error(ERR.notFound);
+  return c.json({ destination: { id: dest, name: g.destination_name }, source: g.source, id: g.id, state: g.state, name: g.name,
+    rank: g.rank, reason: g.reason, oneLiner: g.one_liner, paragraphs: json(g.paragraphs, []), practical: json(g.practical, []),
+    sources: json(g.sources, []), images: json<Images>(g.images, { hero: null, inline: [] }), overlap: g.overlap,
+    lat: g.lat, lng: g.lng, url: g.url, wikipedia: g.wikipedia, website: g.website,
+    model: g.model, prompt: g.prompt, createdAt: g.created_at, license: 'CC BY-SA 4.0' });
+});
+
 // Everything below needs a signed-in user (a guest session counts).
 app.use(async (c, next) => {
   const session = await getAuth(c.env).api.getSession({ headers: c.req.raw.headers });

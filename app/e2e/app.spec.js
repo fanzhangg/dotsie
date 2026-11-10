@@ -119,6 +119,31 @@ test('anyone can search the spots data and follow a place to the same place in a
   await expect(page.getByRole('searchbox', { name: 'Search places by name' })).toHaveValue('test lodge');
 });
 
+// The guide preview reads /api/developer/spots/guides; e2e/places.sql loads Testville's one pick
+test('anyone can preview a destination’s picks and read a pick’s entry with its sources and photo credits', async ({ page }) => {
+  await page.goto('/developer');
+  await page.getByRole('link', { name: 'Preview the guide' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Guide preview');
+  await page.getByRole('link', { name: /Testville/ }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Testville');
+  await expect(page.locator('#guide')).toContainText('Only worth it on a game day.'); // what was left out, and why
+
+  await page.getByRole('link', { name: /Test Lodge Sleep under the beams/ }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Test Lodge');
+  await expect(page.getByText('Sleep under the beams loggers cut in 1917.')).toBeVisible();
+  const article = page.locator('article');
+  await expect(article.locator('p.guide__para')).toHaveCount(2);
+  // The inline photo comes after the paragraph it illustrates, the season under "Before you go"
+  await expect(article.locator('p.guide__para + figure')).toContainText('The stone fireplace');
+  await expect(article.locator('.guide__practical')).toContainText('Open from May to September.');
+  await expect(article.locator('.guide__foot')).toContainText('CC BY-SA 4.0');
+  await expect(article.locator('.guide__foot')).toContainText('A. Photographer, CC BY-SA 4.0, via Wikimedia Commons');
+  await expect(page.getByRole('link', { name: 'Open in Maps' })).toHaveAttribute('href', /46\.78,-121\.73/);
+
+  await page.getByRole('link', { name: 'Testville' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Testville');
+});
+
 // The developer page documents the MCP server from GET /api/developer/mcp and the API from README.md
 test('the developer page lists the MCP server’s tools as the server gives them, and the app’s API', async ({ page }) => {
   await page.goto('/developer');

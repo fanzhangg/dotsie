@@ -15,6 +15,9 @@ Tables:
   categories  English Wikipedia categories per article
   documents   texts fetched for a record: its English Wikipedia article's wikitext, its official website's first page
   properties  Wikidata property labels, to read the raw claims
+  destinations, picks, guides, llm_answers
+              what guides.py makes from the rest: each destination's picks, their guidebook entries, and the model
+              answers behind them (so a later run asks again only what changed)
 
 Run: python3 store.py --state WA [--limit N] [--pageviews DIR] [steps...]
   steps: wikidata wikipedia websites nps pageviews links (default: all, in that order)
@@ -46,6 +49,16 @@ CREATE TABLE IF NOT EXISTS documents (
   source TEXT, id TEXT, kind TEXT, url TEXT, title TEXT, license TEXT, rev TEXT, fetched_at TEXT, status TEXT,
   sha256 TEXT, chars INTEGER, text BLOB, PRIMARY KEY (source, id, kind));
 CREATE TABLE IF NOT EXISTS properties (pid TEXT PRIMARY KEY, label TEXT, datatype TEXT);
+-- Written by guides.py: a destination's picks and their guidebook entries, and every model answer they came from
+CREATE TABLE IF NOT EXISTS llm_answers (
+  step TEXT, key TEXT, prompt TEXT, model TEXT, input_hash TEXT, answer TEXT, created_at TEXT, PRIMARY KEY (step, key, prompt));
+CREATE TABLE IF NOT EXISTS destinations (
+  id TEXT PRIMARY KEY, name TEXT, kind TEXT, wikidata TEXT, built_at TEXT, counts TEXT, left_out TEXT, cost TEXT);
+CREATE TABLE IF NOT EXISTS picks (
+  destination TEXT, source TEXT, id TEXT, rank INTEGER, reason TEXT, by TEXT, PRIMARY KEY (destination, source, id));
+CREATE TABLE IF NOT EXISTS guides (
+  source TEXT, id TEXT, name TEXT, one_liner TEXT, paragraphs TEXT, practical TEXT, sources TEXT, images TEXT, overlap REAL,
+  model TEXT, prompt TEXT, created_at TEXT, PRIMARY KEY (source, id));
 """
 
 
@@ -327,18 +340,24 @@ class Store:
     # ---------- Links: records that share an identifier ----------
 
     def links(self):
-        """A record from another source and a Wikidata item that carry the same identifier, ignoring case: Wikidata
-        writes park codes in capitals (P4083 "MORA"), the NPS API in lower case ("mora"). Starts from the other
-        sources' few thousand identifiers rather than joining every identifier with every other."""
+        """A record from another source and a Wikidata item that carry the same identifier, ignoring case (Wikidata
+        writes park codes in capitals, P4083 "MORA", the NPS API in lower case, "mora") and a trailing slash, or the
+        same website. Each join starts from the other sources' few thousand identifiers (CROSS JOIN keeps SQLite to
+        that order) and looks them up by the folded value's index (INDEXED BY: left to itself, SQLite picks the
+        primary key's, by source): driven from Wikidata's half a million identifiers
+        instead, the same two joins took 24 minutes for Washington."""
+        self.db.execute("CREATE INDEX IF NOT EXISTS ids_by_folded ON ids (scheme, lower(rtrim(value, '/')))")
         self.db.execute("DELETE FROM links")
         self.db.execute("""INSERT OR IGNORE INTO links
-                           SELECT a.source, a.id, b.source, b.id, a.scheme FROM ids a JOIN ids b
-                             ON b.source = 'wikidata' AND b.scheme = a.scheme AND lower(b.value) = lower(a.value)
+                           SELECT a.source, a.id, b.source, b.id, a.scheme FROM ids a CROSS JOIN ids b INDEXED BY ids_by_folded
+                             ON b.scheme = a.scheme AND lower(rtrim(b.value, '/')) = lower(rtrim(a.value, '/'))
+                            AND b.source = 'wikidata'
                            WHERE a.source != 'wikidata' AND a.scheme NOT IN ('parkCode', 'url')""")
         self.db.execute("""INSERT OR IGNORE INTO links
-                           SELECT a.source, a.id, b.source, b.id, 'website' FROM ids a JOIN ids b
-                             ON a.source = 'wikidata' AND a.scheme = 'P856' AND b.scheme = 'url' AND b.source != 'wikidata'
-                            AND rtrim(lower(a.value), '/') = rtrim(lower(b.value), '/')""")
+                           SELECT a.source, a.id, b.source, b.id, 'website' FROM ids b CROSS JOIN ids a INDEXED BY ids_by_folded
+                             ON a.scheme = 'P856' AND lower(rtrim(a.value, '/')) = lower(rtrim(b.value, '/'))
+                            AND a.source = 'wikidata'
+                           WHERE b.scheme = 'url' AND b.source != 'wikidata'""")
         self.name_links()
         self.db.commit()
         log("links:", self.db.execute("SELECT via, source_b, COUNT(*) FROM links GROUP BY 1, 2").fetchall())

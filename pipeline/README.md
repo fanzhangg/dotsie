@@ -8,9 +8,12 @@ record goes in as the source gave it, and records are linked only through identi
 | --- | --- |
 | `store.py` | Builds or updates one state's store, `data/<ST>.sqlite` |
 | `pageviews_month.py` | One month of English Wikipedia page views, from Wikimedia's monthly dump |
-| `export_d1.py` | A state's store as SQL for D1, for the public page at `/developer/spots`: metadata and links, no page text |
+| `export_d1.py` | A state's store as SQL for D1, for the public page at `/developer/spots`: metadata and links, no page text. With `--guides`, the state's guidebook entries instead |
+| `guides.py` | A destination's picks and their guidebook entries, written by Claude from the store, kept in the store |
+| `destinations.json` | The destinations with a guide: a city's Wikidata item, its Census place (its boundary), how many picks at most |
 | `states.json` | The 50 states and DC, with their Wikidata items |
 | `../.github/workflows/spots-data.yml` | Runs both every month on GitHub Actions and keeps the results in R2 |
+| `../.github/workflows/spots-guides.yml` | Runs `guides.py` by hand for one destination, saves its answers in the state's store in R2, and loads the guide into D1 |
 
 The other scripts here (`step*.py`, `llm_*.py`, `sources.py`) are the earlier pilots in #90: rule-based
 scoring and model ratings tried on Washington, Seattle, Portland and Santa Fe.
@@ -26,6 +29,8 @@ scoring and model ratings tried on Washington, Seattle, Portland and Santa Fe.
 | `categories` | English Wikipedia categories per article |
 | `pageviews` | English Wikipedia views per article per month, for the last 12 months |
 | `properties` | Wikidata property labels, to read the raw claims |
+| `llm_answers` | Every model answer `guides.py` used, by step, place and prompt version, with a hash of what it was asked: asked again only when that changes |
+| `destinations`, `picks`, `guides` | Written by `guides.py`: each destination's picks in order (with the model's reason, and what it left out), and each pick's entry |
 
 A run fetches only what changed since the last one: Wikidata items and Wikipedia articles whose revision
 changed, websites not fetched in 90 days, months of page views it doesn't have yet. The NPS API is read whole
@@ -41,6 +46,34 @@ metadata and links are loaded, never text copied from Wikipedia or other sites.
 Search matches names with `LIKE`, which reads the whole table: fine for a few states on D1's free plan (5 million rows
 read a day). Each load rewrites the state's rows, which counts against the free plan's 100,000 rows written a day, so
 loading many states, or all of them, needs Workers Paid; a full-text index can replace `LIKE` then.
+
+## The guide
+
+Only places worth a special trip, about 10 to 20 for a city, each with a one-liner and two or three paragraphs in a
+travel guide's voice (under two minutes to read), practical facts kept apart, and photos from Wikimedia Commons.
+`guides.py` makes them for a destination in `destinations.json`, from its state's store:
+
+1. Candidates: places inside the city's Census boundary with an English Wikipedia article or an NPS page.
+2. Is it a sight (Haiku, every candidate): somewhere people go to see or experience, still there, open to visitors,
+   not part of a bigger place nearby. The only hard rules are on what can never be a sight.
+3. Shortlist: the 70 sights most read on English Wikipedia, only to narrow the field.
+4. Pick (Opus): what a visitor with a few days shouldn't miss, at most `cap`, compared with each other, with what it
+   left out and why.
+5. Write (Opus): each entry from the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages),
+   each paragraph with its sources. The share of its 8-word phrases also in the sources is kept, to spot copying.
+6. Pictures (Opus, looking at them): a lead photo and up to two more, each after the paragraph it shows, with author
+   and licence.
+
+Entries are adapted from the sources each lists and published under CC BY-SA 4.0. They aren't updated on their own:
+run the Spots guides workflow (Actions → Spots guides → Run workflow, with the destination's id) when you want them
+rewritten. Answers whose input didn't change are reused, so a second run costs little; a first run for a city costs
+about $2 (Haiku $0.25, Opus $1.80). The result is at `/developer/guide`, for review before it reaches the app.
+
+On this machine, with `ANTHROPIC_API_KEY` in `pipeline/.env` and the state's store in `data/`:
+
+```bash
+python3 guides.py --destination seattle
+```
 
 ## Running it
 
@@ -63,6 +96,7 @@ python3 store.py --state DC --limit 20
    secret `NPS_API_KEY` (the public `DEMO_KEY` allows only 50 requests a day).
 4. `CLOUDFLARE_ACCOUNT_ID` is already a repository variable for the deploy workflow; this one uses it too.
 5. Run the workflow once with `months` set to 12, to fill R2 with a year of page views.
+6. For the guide, add an [Anthropic API key](https://console.anthropic.com/settings/keys) as the secret `ANTHROPIC_API_KEY`.
 
 ## What it costs
 
