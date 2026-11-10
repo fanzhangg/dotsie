@@ -300,22 +300,34 @@ def candidates(dbs, dest, rings):
             places.setdefault(k, p)
     hosted = {(n["source"], n["id"]) for p in places.values() for n in p["nps"] if p["source"] == "wikidata"}
     places = {k: p for k, p in places.items() if k not in hosted}
+    whole = sorted((k for k, p in places.items() if p["itself"]), key=lambda k: k[0] != "wikidata")
+    for k in whole[1:]:  # one entry for the park: its item's, or else its NPS page's
+        del places[k]
     names = labels({q for p in places.values() for q in p["type_ids"]})
     for p in places.values():
         p.setdefault("types", [names.get(q, q) for q in p["type_ids"]])
     return places
 
 
+# Destinations that get an entry of their own, first in their guide (a park as a whole: what it is, how to visit it).
+# A city doesn't: Seattle isn't one of Seattle's sights.
+WHOLE = {"national park"}
+
+
 def candidates_in(db, dest, area):
-    box = area.box
+    """The places inside a destination in one store. For a park, the park itself too, marked `itself` (wherever its
+    item's point is: a park's can be its headquarters, outside it), with the park's own NPS pages: it gets an entry of
+    its own and isn't judged or picked. Otherwise the destination isn't one of its own sights."""
+    box, whole = area.box, dest.get("kind") in WHOLE
     places = {}
     for rid, name, lat, lng, raw in db.execute(
-            "SELECT id, name, lat, lng, raw FROM records WHERE source='wikidata' AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?",
-            (box[0], box[1], box[2], box[3])):
-        if rid == dest["wikidata"] or (lat, lng) not in area:  # the destination isn't one of its own sights
+            "SELECT id, name, lat, lng, raw FROM records WHERE source='wikidata' AND (lat BETWEEN ? AND ? AND lng BETWEEN ? AND ? "
+            "OR id = ?)", (box[0], box[1], box[2], box[3], dest["wikidata"])):
+        itself = rid == dest["wikidata"]
+        if (itself and not whole) or (not itself and (lat, lng) not in area):
             continue
         e = json.loads(raw)
-        places[("wikidata", rid)] = {
+        places[("wikidata", rid)] = {"itself": itself, 
             "source": "wikidata", "id": rid, "name": name, "lat": lat, "lng": lng, "enwiki": e["sitelinks"].get("enwiki"),
             "type_ids": [c["value"] for c in e["claims"].get("P31", []) if isinstance(c["value"], str) and c.get("rank") != "deprecated"],
             "description": e["descriptions"].get("en") or e["descriptions"].get("mul") or "",
@@ -329,7 +341,7 @@ def candidates_in(db, dest, area):
             continue
         raw = json.loads(raw)
         if source == "nps:parks" and (raw.get("parkCode") or "").upper() == dest.get("nps_unit"):
-            continue  # the park itself, in its own guide
+            continue  # the park itself: its pages are the park's own entry's, below
         rec = {"source": source, "id": rid, "name": name, "url": url, "text": nps_text(raw)}
         same = [("wikidata", q) for (q,) in db.execute(  # links run either way: website links start from Wikidata
             "SELECT id_b FROM links WHERE source_a=? AND id_a=? AND source_b='wikidata' "
@@ -338,9 +350,20 @@ def candidates_in(db, dest, area):
         if host:
             host["nps"].append(rec)
         else:
-            places[(source, rid)] = {"source": source, "id": rid, "name": name, "lat": lat, "lng": lng, "enwiki": None,
+            places[(source, rid)] = {"itself": False, "source": source, "id": rid, "name": name, "lat": lat, "lng": lng, "enwiki": None,
                                      "type_ids": [], "types": [f"NPS {source.split(':')[1]}"], "description": "",
                                      "langs": 0, "p18": [], "nps": [rec]}
+    if whole:  # the park's own NPS pages, wherever their point is, on the park's own entry (or as it, without an item)
+        for source, rid, name, lat, lng, url, raw in db.execute(
+                "SELECT source, id, name, lat, lng, url, raw FROM records WHERE source = 'nps:parks' AND id IN "
+                "(SELECT id FROM ids WHERE source = 'nps:parks' AND scheme = 'P4083' AND upper(value) = ?)", (dest.get("nps_unit"),)):
+            rec = {"source": source, "id": rid, "name": name, "url": url, "text": nps_text(json.loads(raw))}
+            if ("wikidata", dest["wikidata"]) in places:
+                places[("wikidata", dest["wikidata"])]["nps"].append(rec)
+            else:
+                places[(source, rid)] = {"itself": True, "source": source, "id": rid, "name": name, "lat": lat, "lng": lng,
+                                         "enwiki": None, "type_ids": [], "types": ["national park"], "description": "",
+                                         "langs": 0, "p18": [], "nps": [rec]}
     places = {k: p for k, p in places.items() if p["enwiki"] or p["nps"]}
     months = [m for (m,) in db.execute("SELECT DISTINCT month FROM pageviews WHERE month != 'none' ORDER BY month DESC LIMIT 12")]
     titles = [p["enwiki"] for p in places.values() if p["enwiki"]]
@@ -496,7 +519,9 @@ def write(ask, dest, p):
         sources.append((site["url"], "official website", site["text"][:6000]))
     for n in p["nps"]:
         sources.append((n["url"], "National Park Service", n["text"]))
-    dossier = "\n".join([f"Place: {p['name']} ({dest['name']})", f"Instance of: {', '.join(p['types'])}",
+    whole = ["This entry is the park as a whole, not one sight in it: what kind of place it is and what it's known for, "
+             "how to visit it (entrances, roads, seasons, how long to spend) and which parts are most worth the time."] if p.get("itself") else []
+    dossier = "\n".join([f"Place: {p['name']} ({dest['name']})", *whole, f"Instance of: {', '.join(p['types'])}",
                          f"Coordinates: {p['lat']:.5f}, {p['lng']:.5f}", ""] +
                         [f'<source kind="{k}" url="{u}">\n{t}\n</source>' for u, k, t in sources])
     a = ask("write", "v3", f"{p['source']}/{p['id']}", MODELS["write"], WRITE, dossier, WRITE_SCHEMA, "medium")
@@ -658,6 +683,12 @@ def store_path(state):
     return os.path.join(HERE, "data", f"{state}.sqlite")
 
 
+def same_name(a, b):
+    """Another item for the destination itself, as Wikidata has for some parks ("Denali National Park" beside
+    "Denali National Park and Preserve"): the same name once written alike."""
+    return store.name_key(a) == store.name_key(b)
+
+
 def run(dest_id, db_path=None, batcher=None):
     """One destination's picks and entries, kept in its state's store. The stores of the other states it reaches into
     (`other_states`) are only read, for their places: a store missing there is said and skipped. With a Batcher, its
@@ -675,6 +706,9 @@ def run(dest_id, db_path=None, batcher=None):
             log(f"{dest_id}: no store for {st}; its part of {dest['name']} is left out")
     ask, t0 = Asker(db, batcher), time.time()
     places = candidates([db] + others, dest, boundary(dest))
+    itself = next((places.pop(k) for k in [k for k, p in places.items() if p["itself"]]), None)
+    if dest.get("kind") in WHOLE and not itself:
+        log(f"{dest_id}: no record of {dest['name']} itself ({dest['wikidata']}) in the store: no entry of its own")
     log(f"{dest_id}: {len(places)} candidates ({sum(1 for p in places.values() if p['nps'])} with an NPS page)")
     judge(ask, places)
     sights = [p for p in places.values() if p["sight"]]
@@ -683,8 +717,11 @@ def run(dest_id, db_path=None, batcher=None):
     shortlist = sorted(sights, key=rank)[:SHORTLIST]
     chosen = pick(ask, dest, shortlist)
     by_key = {f"{p['source']}/{p['id']}": p for p in shortlist}
-    picks = [(c, by_key[c["id"]]) for c in sorted(chosen["picks"], key=lambda c: c["rank"]) if c["id"] in by_key][:dest["cap"]]
+    picks = [(c, by_key[c["id"]]) for c in sorted(chosen["picks"], key=lambda c: c["rank"])
+             if c["id"] in by_key and not (itself and same_name(by_key[c["id"]]["name"], dest["name"]))][:dest["cap"]]
     log(f"{dest_id}: picks: {len(picks)}: {', '.join(p['name'] for _, p in picks)}")
+    if itself:  # first, and beyond the cap: the park as a whole
+        picks = [({"reason": None}, itself)] + picks
 
     def entry(c_p):
         c, p = c_p
