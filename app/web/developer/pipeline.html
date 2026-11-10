@@ -5,225 +5,107 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
-  <title>How it’s made · Developers · Dotsie</title>
-  <meta name="description" content="How Dotsie's spots data and guide are made: sources kept as they are, code for what can be measured, a model only for what takes judgment, and every answer kept with its reason.">
+  <title>Picking and writing spots · Developers · Dotsie</title>
+  <meta name="description" content="How a model chooses Dotsie's spots and writes their entries: code narrows the places down, the model judges and writes from the sources only.">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/design-system/tokens.css">
   <link rel="stylesheet" href="/design-system/components.css">
   <link rel="stylesheet" href="/developer/developer.css">
 </head>
 <body class="wt-base">
-  <!-- Written by hand from pipeline/README.md and pipeline/guides.py: when a step, a model or a number there changes,
-       change it here too. Product-only, like the other pages for developers. -->
+  <!-- Written by hand from pipeline/guides.py: when a step, a model or a number there changes, change it here too.
+       Product-only, like the other pages for developers. -->
   <main class="dev">
     <header class="dev__head">
       <p class="dev__crumb">Data</p>
-      <h1 class="dev__title">How the spots data is made</h1>
-      <p class="dev__lede">The sources say what a place is. Code measures what can be measured. A model is asked only what takes judgment, in a form code can check, and every answer is kept with its reason, so any pick can be traced back to where it came from.</p>
+      <h1 class="dev__title">Picking and writing spots</h1>
+      <p class="dev__lede">Code narrows a destination’s places down. A model makes the calls that take judgment: which places are worth going to, and how to tell a visitor about them, from the sources only.</p>
     </header>
+    <p class="pipe__key" aria-hidden="true"><span class="pipe__dot"></span>Code <span class="pipe__dot pipe__dot--model"></span>A model</p>
 
-    <section class="dev__section" aria-labelledby="ideas">
-      <h2 class="dev__h2" id="ideas">Four rules</h2>
-      <ol class="pipe__rules">
-        <li class="dev__card">
-          <span class="dev__overline">1</span>
-          <span class="dev__card-title">Keep what the sources say</span>
-          <span class="dev__card-text">Every record goes into the store as Wikidata, Wikipedia or the Park Service gave it. Nothing is filtered or judged on the way in, and records are linked only by identifiers they share, so any later judgment can be made again from the source.</span>
-        </li>
-        <li class="dev__card">
-          <span class="dev__overline">2</span>
-          <span class="dev__card-title">Measure what can be measured</span>
-          <span class="dev__card-text">Whether a place is inside a city or a park, how much people read about it, which records are the same place: these are facts, so code works them out, the same way every time.</span>
-        </li>
-        <li class="dev__card">
-          <span class="dev__overline">3</span>
-          <span class="dev__card-title">Ask a model what rules can’t answer</span>
-          <span class="dev__card-text">Is this somewhere people go? Which few are worth a special trip? How would a good guidebook put it? Which photo shows it? Each is a narrow question with a typed answer.</span>
-        </li>
-        <li class="dev__card">
-          <span class="dev__overline">4</span>
-          <span class="dev__card-title">Show the working</span>
-          <span class="dev__card-text">A pick comes with why, a guide with what it left out, a paragraph with its sources. Any place can be followed through every step, without asking a model again.</span>
-        </li>
-      </ol>
-    </section>
-
-    <section class="dev__section" aria-labelledby="flow">
-      <h2 class="dev__h2" id="flow">From sources to a guide</h2>
-      <p class="dev__intro">Two runs. The first collects, every month, and asks no model. The second writes a destination’s guide from what the first collected, when someone asks for it.</p>
-      <p class="pipe__key" aria-hidden="true"><span class="pipe__dot"></span>Code <span class="pipe__dot pipe__dot--model"></span>A model</p>
-
-      <p class="dev__overline">Collect · every state, on the 3rd of each month</p>
+    <section class="dev__section" aria-labelledby="choose">
+      <h2 class="dev__h2" id="choose">Choosing the spots</h2>
       <ol class="pipe__steps">
         <li class="pipe__step">
           <span class="pipe__dot"><span class="wt-visually-hidden">Code</span></span>
           <div class="pipe__body">
-            <p class="pipe__name">Fetch what changed</p>
-            <p class="pipe__what">Every Wikidata item in the state with coordinates; every record the NPS Data API lists; each English Wikipedia article’s text, categories and 12 months of page views; each official website’s first page. Only what changed since last month is fetched again.</p>
+            <p class="pipe__name">Candidates</p>
+            <p class="pipe__what">Every place inside the city’s or park’s outline that has an English Wikipedia article or an NPS page.</p>
+          </div>
+        </li>
+        <li class="pipe__step pipe__step--model">
+          <span class="pipe__dot pipe__dot--model"><span class="wt-visually-hidden">A model</span></span>
+          <div class="pipe__body">
+            <p class="pipe__name">Is it a sight? <span class="pipe__model">Haiku</span></p>
+            <p class="pipe__what">One place at a time, from its Wikidata description, article intro or NPS page, categories and what’s nearby: is it somewhere people go, still there, open to visitors, and not just part of a bigger place? And how far out of their way would a visitor go, 1 to 5.</p>
           </div>
         </li>
         <li class="pipe__step">
           <span class="pipe__dot"><span class="wt-visually-hidden">Code</span></span>
           <div class="pipe__body">
-            <p class="pipe__name">Link, don’t merge</p>
-            <p class="pipe__what">Two records from different sources are linked when they share an identifier (a park code, an NPS place ID, the same website). Records that are only probably the same place, with the same name within 1 km, are linked too, but marked as such.</p>
+            <p class="pipe__name">Shortlist</p>
+            <p class="pipe__what">70 sights: the most read on Wikipedia, plus up to 20 that hardly anyone reads about, by how far a visitor would go for them.</p>
           </div>
         </li>
-        <li class="pipe__step">
-          <span class="pipe__dot"><span class="wt-visually-hidden">Code</span></span>
+        <li class="pipe__step pipe__step--model">
+          <span class="pipe__dot pipe__dot--model"><span class="wt-visually-hidden">A model</span></span>
           <div class="pipe__body">
-            <p class="pipe__name">Publish metadata, not text</p>
-            <p class="pipe__what">Each state’s store goes to D1 as names, identifiers and links, never text copied from other sites: <a href="/developer/spots">Spots data</a> searches it.</p>
+            <p class="pipe__name">Pick <span class="pipe__model">Sonnet</span></p>
+            <p class="pipe__what">The whole shortlist at once, compared with each other: what a visitor with a few days shouldn’t miss, in order, each with a reason, and what it left out and why.</p>
           </div>
         </li>
       </ol>
-
-      <p class="dev__overline">Guide · one destination at a time, run by hand</p>
-      <ol class="pipe__steps">
-        <li class="pipe__step">
-          <span class="pipe__dot"><span class="wt-visually-hidden">Code</span></span>
-          <div class="pipe__body">
-            <p class="pipe__name">1. Candidates</p>
-            <p class="pipe__what">Places inside the destination’s outline (its Census place or county, or its NPS boundary) that have an English Wikipedia article or an NPS page.</p>
-          </div>
-        </li>
-        <li class="pipe__step pipe__step--model">
-          <span class="pipe__dot pipe__dot--model"><span class="wt-visually-hidden">A model</span></span>
-          <div class="pipe__body">
-            <p class="pipe__name">2. Is it a sight? <span class="pipe__model">Haiku</span></p>
-            <p class="pipe__what">A place people go to see or experience, still there, open to visitors, and not part of a bigger place nearby. Plus its draw, 1 to 5: how far out of their way a visitor would go.</p>
-          </div>
-        </li>
-        <li class="pipe__step">
-          <span class="pipe__dot"><span class="wt-visually-hidden">Code</span></span>
-          <div class="pipe__body">
-            <p class="pipe__name">3. Shortlist</p>
-            <p class="pipe__what">70 sights to choose from: the most read on Wikipedia, and up to 20 that hardly anyone reads about, by their draw.</p>
-          </div>
-        </li>
-        <li class="pipe__step pipe__step--model">
-          <span class="pipe__dot pipe__dot--model"><span class="wt-visually-hidden">A model</span></span>
-          <div class="pipe__body">
-            <p class="pipe__name">4. Pick <span class="pipe__model">Sonnet</span></p>
-            <p class="pipe__what">The whole shortlist at once, compared with each other: what a visitor with a few days shouldn’t miss, in order, with a reason for each, and what it left out and why.</p>
-          </div>
-        </li>
-        <li class="pipe__step pipe__step--model">
-          <span class="pipe__dot pipe__dot--model"><span class="wt-visually-hidden">A model</span></span>
-          <div class="pipe__body">
-            <p class="pipe__name">5. Write <span class="pipe__model">Sonnet</span></p>
-            <p class="pipe__what">A one-liner and two or three paragraphs per pick, from the store’s dossier only, each paragraph with its sources. Practical facts, such as hours and fees, kept apart.</p>
-          </div>
-        </li>
-        <li class="pipe__step pipe__step--model">
-          <span class="pipe__dot pipe__dot--model"><span class="wt-visually-hidden">A model</span></span>
-          <div class="pipe__body">
-            <p class="pipe__name">6. Pictures <span class="pipe__model">Haiku</span></p>
-            <p class="pipe__what">Looks at up to 8 photos from Wikimedia Commons and chooses a lead photo and up to two more, each after the paragraph it shows, with its author and licence.</p>
-          </div>
-        </li>
-        <li class="pipe__step">
-          <span class="pipe__dot"><span class="wt-visually-hidden">Code</span></span>
-          <div class="pipe__body">
-            <p class="pipe__name">Review, then the app</p>
-            <p class="pipe__what">The entries go to D1, where <a href="/developer/guide">Guide preview</a> shows each with what it takes to review it, and the app’s Spots page shows them to everyone.</p>
-          </div>
-        </li>
-      </ol>
-    </section>
-
-    <section class="dev__section" aria-labelledby="funnel">
-      <h2 class="dev__h2" id="funnel">Seattle, step by step</h2>
-      <p class="dev__intro">Each step hands the next fewer places. The model is asked only about the places that could still make the shortlist: the ones nobody reads about first, then the most read, 40 at a time, until there are enough sights.</p>
       <figure class="pipe__figure">
         <table class="pipe__bars">
           <caption class="wt-visually-hidden">Places at each step of Seattle’s guide</caption>
           <tbody>
-            <tr style="--f: 1"><th scope="row">Candidates</th><td><span class="pipe__bar"></span><span class="pipe__value">1,064</span></td></tr>
+            <tr style="--f: 1"><th scope="row">Seattle’s candidates</th><td><span class="pipe__bar"></span><span class="pipe__value">1,064</span></td></tr>
             <tr style="--f: .2"><th scope="row">Asked “is it a sight?”</th><td><span class="pipe__bar pipe__bar--model"></span><span class="pipe__value">about 1 in 5</span></td></tr>
             <tr style="--f: .066"><th scope="row">Shortlist</th><td><span class="pipe__bar"></span><span class="pipe__value">70</span></td></tr>
             <tr style="--f: .019"><th scope="row">Picks, at most</th><td><span class="pipe__bar pipe__bar--model"></span><span class="pipe__value">20</span></td></tr>
           </tbody>
         </table>
-        <figcaption class="dev__hint">43% of Seattle’s candidates were sights, so a fifth of the questions found enough for the shortlist. The places never asked aren’t in the guide.</figcaption>
       </figure>
-    </section>
-
-    <section class="dev__section" aria-labelledby="model">
-      <h2 class="dev__h2" id="model">Where the model comes in</h2>
-      <div class="dev__prose">
-        <h3 id="why">Why not rules</h3>
-        <p>The first pilots, on Seattle and Washington, decided what’s a sight with rules: lists of Wikidata types to keep and to block, a page-view floor per type, Wikipedia categories for what’s demolished or closed, and a table of exceptions. Each rule fixed one place and broke another. Blocking creative works, to drop a TV series, also dropped the Gum Wall and Smith Tower. In a city, office towers are read about as much as sights. The Tacoma Narrows Bridge of 1940, which fell that year, ranked at the top with 17,486 views a month.</p>
-        <p>“Would people go there?” is a judgment, and a model can make it the way a person would: by reading what the article and the Park Service say. Each version was measured against the same checklist of places each area must have and must never have, and against Wikivoyage’s lists of sights.</p>
-
-        <h3 id="typed">A narrow question, a typed answer</h3>
-        <p>Every step asks for JSON that fits a schema, so code can read the answer and check it. Judging a place, for example, returns:</p>
-        <pre><code>{
-  "evidence":  "the facts that decide the fields below",
-  "is_sight":  true,
-  "exists":    true,          // false if demolished, closed for good, never built
-  "visitable": "yes",         // "yes", "outside" (seen only from outside) or "no"
-  "part_of":   null,          // the bigger place nearby it's seen with, by name
-  "draw":      4              // 1 hardly … 5 a reason to come at all
-}</code></pre>
-        <p>The evidence comes first, so the facts are written down before the verdict. Code then decides from the fields: a sight is one that is a sight, exists, can be visited and isn’t part of another place, and a <code>part_of</code> counts only if it names a place really on the list nearby, and not the destination itself.</p>
-
-        <h3 id="measured">Popularity is measured, not asked</h3>
-        <p>The judge is never shown page views: it says what a place is, and Wikimedia’s counts say how well known it is. The pick sees views as one hint, and is told to choose by what a visitor would get from going. A place with no article isn’t shown as “0 views”, which would read as “nobody goes”, but as an NPS page with its judged draw.</p>
-
-        <h3 id="sources">Sources are data, never instructions</h3>
-        <p>An entry is written from a dossier the store puts together: the Wikipedia article, the official site’s page, the NPS pages, each inside <code>&lt;source&gt;</code> tags, which the model is told are information, never instructions to it. It writes only what they say, and each paragraph lists the sources it draws on. Afterwards, code counts how many of the entry’s 8-word phrases also appear in the sources, to spot copying, and <a href="/developer/guide">Guide preview</a> shows that share next to each entry.</p>
-
-        <h3 id="models">The smallest model that does the job</h3>
-        <p>Many small questions go to Haiku; the few that compare many places or need good writing go to Sonnet. Each step’s model can be changed for a run, and each model’s answers are kept apart, so two can be compared side by side before choosing.</p>
-      </div>
-      <div class="dev__table">
-        <table>
-          <thead><tr><th>Step</th><th>Model</th><th>Thinks</th><th>Asked</th></tr></thead>
-          <tbody>
-            <tr><td>Is it a sight?</td><td>Haiku</td><td>a little</td><td>once per place, until there are enough</td></tr>
-            <tr><td>Pick</td><td>Sonnet</td><td>hard</td><td>once per destination, the whole shortlist at once</td></tr>
-            <tr><td>Write</td><td>Sonnet</td><td>some</td><td>once per pick</td></tr>
-            <tr><td>Pictures</td><td>Haiku, looking</td><td>some</td><td>once per pick, with its photos</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="dev__prose">
-        <h3 id="kept">Every answer is kept</h3>
-        <p>Each answer is kept in the state’s store by its step, its place, its prompt’s version and its model, with a hash of exactly what was asked: the model, the instructions and the input. Running a guide again reuses every answer whose question hasn’t changed, and asks only what has: a place whose article was edited, a step whose prompt is a new version. Going back to an earlier model costs nothing.</p>
-        <p>Runs ask in Message Batches, at half price, most back within the hour. A run stopped while a batch is out notes it in the store and picks up its answers the next time. A question a batch can’t answer is asked again on its own.</p>
-      </div>
-      <figure class="pipe__figure">
-        <table class="pipe__bars">
-          <caption class="wt-visually-hidden">What one destination’s guide costs</caption>
-          <tbody>
-            <tr style="--f: 1"><th scope="row">Seattle’s first run, Opus picking, writing and choosing pictures</th><td><span class="pipe__bar"></span><span class="pipe__value">$2.34</span></td></tr>
-            <tr style="--f: .34"><th scope="row">With Haiku and Sonnet, asking only what the shortlist needs</th><td><span class="pipe__bar"></span><span class="pipe__value">about $0.80</span></td></tr>
-            <tr style="--f: .17"><th scope="row">The same, in batches</th><td><span class="pipe__bar"></span><span class="pipe__value">about $0.40</span></td></tr>
-          </tbody>
-        </table>
-        <figcaption class="dev__hint">One destination. All the national parks come to about $25 in batches, and a second run, with nothing changed, costs next to nothing.</figcaption>
-      </figure>
-    </section>
-
-    <section class="dev__section" aria-labelledby="never">
-      <h2 class="dev__h2" id="never">What the model never does</h2>
       <ul class="dev__prose">
-        <li><strong>Decide where a place is.</strong> Outlines are the Census Bureau’s and the Park Service’s, and code tests each point against them.</li>
-        <li><strong>Go and look things up.</strong> It reads what the store gives it, and nothing else.</li>
-        <li><strong>Rank by how well known a place is.</strong> That’s Wikipedia’s page views, counted.</li>
-        <li><strong>Write without sources.</strong> Every paragraph lists the pages it was adapted from, and entries are published under CC BY-SA 4.0.</li>
-        <li><strong>Run on its own.</strong> A guide is written when someone runs it for the destinations they name, and is there to review before and after.</li>
+        <li><strong>Why a model.</strong> Rules couldn’t say what’s a sight: blocking creative works, to drop a TV series, also dropped the Gum Wall, and a bridge that fell in 1940 ranked at the top on its page views. A model reads what the article says, as a person would.</li>
+        <li><strong>It judges what a place is, not how popular it is.</strong> The judge never sees page views; those are counted, and only rank the shortlist.</li>
+        <li><strong>Its answer is checked by code.</strong> Each answer is JSON in a fixed shape, facts first, then the verdict, and code decides from it: a “part of” only counts if it names a place really nearby.</li>
+        <li><strong>Only as many questions as needed.</strong> The places nobody reads about are all asked; then the most read, 40 at a time, until there are enough sights for the shortlist.</li>
       </ul>
     </section>
 
-    <section class="dev__section" aria-labelledby="trace">
-      <h2 class="dev__h2" id="trace">Tracing a place</h2>
-      <div class="dev__prose"><p>Why is a place in a guide, or not? <code>explain.py</code> follows it through every step from the stores alone, asking no model and changing nothing: whether it’s inside the outline, whether it’s a candidate, every answer the judge gave it (each model’s and each prompt’s), whether it made the shortlist, and whether it was picked or left out, with the model’s reason.</p></div>
-      <pre><code>python3 explain.py --destination great-smoky-mountains shenandoah --names "Kuwohi,Skyline Drive"</code></pre>
-      <p class="dev__foot">The code is <code>pipeline/guides.py</code>; <code>pipeline/README.md</code> has every step and what it costs.</p>
+    <section class="dev__section" aria-labelledby="write">
+      <h2 class="dev__h2" id="write">Writing a spot</h2>
+      <ol class="pipe__steps">
+        <li class="pipe__step">
+          <span class="pipe__dot"><span class="wt-visually-hidden">Code</span></span>
+          <div class="pipe__body">
+            <p class="pipe__name">Dossier</p>
+            <p class="pipe__what">What the store has on the place: its Wikipedia article, its official site’s page and its NPS pages, each marked with its address.</p>
+          </div>
+        </li>
+        <li class="pipe__step pipe__step--model">
+          <span class="pipe__dot pipe__dot--model"><span class="wt-visually-hidden">A model</span></span>
+          <div class="pipe__body">
+            <p class="pipe__name">Write <span class="pipe__model">Sonnet</span></p>
+            <p class="pipe__what">A one-liner of at most 12 words, and two or three paragraphs in a guidebook’s voice, under two minutes to read, each listing its sources. Hours, fees and seasons kept apart, only as the sources state them.</p>
+          </div>
+        </li>
+        <li class="pipe__step">
+          <span class="pipe__dot"><span class="wt-visually-hidden">Code</span></span>
+          <div class="pipe__body">
+            <p class="pipe__name">Check</p>
+            <p class="pipe__what">How many of the entry’s 8-word phrases are also in the sources, to spot copying. <a href="/developer/guide">Guide preview</a> shows it next to each entry.</p>
+          </div>
+        </li>
+      </ol>
+      <ul class="dev__prose">
+        <li><strong>Only what the sources say.</strong> The model gets the dossier and nothing else, and is told the pages in it are information, never instructions to it.</li>
+        <li><strong>In its own words.</strong> No copied sentences, and no hype: no “breathtaking” or “hidden gem”, just what makes it worth going.</li>
+      </ul>
     </section>
+
+    <p class="dev__foot">Every answer is kept with a hash of what was asked, so running a guide again only asks about what changed. The code is <code>pipeline/guides.py</code>.</p>
   </main>
   <script src="/design-system/icons.js"></script>
   <script src="/developer/shell.js"></script>

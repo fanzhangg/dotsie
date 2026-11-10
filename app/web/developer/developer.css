@@ -171,11 +171,9 @@ h2[id] { scroll-margin-top: calc(var(--dev-bar, 0px) + var(--wt-space-4)); }
 .guide__foot { font: var(--wt-type-caption); color: var(--wt-text-tertiary); display: grid; gap: var(--wt-space-1); }
 .guide__foot p { margin: 0; }
 
-/* How it's made (/developer/pipeline): the four rules, the steps on a rail as the trip's timeline has one (a ring for
+/* Picking and writing spots (/developer/pipeline): the steps on a rail as the trip's timeline has one (a ring for
    code, a filled dot for a model), and bars for the numbers. Greys and the strongest ink only: a model's step is the
    black one, nothing is colored */
-.pipe__rules { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--wt-space-3); grid-template-columns: minmax(0, 1fr); }
-@media (min-width: 600px) { .pipe__rules { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pipe__key { display: flex; align-items: center; gap: var(--wt-space-2); margin: 0; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .pipe__key .pipe__dot { margin: 0; }
 .pipe__key .pipe__dot--model { margin-left: var(--wt-space-3); }

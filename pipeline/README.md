@@ -21,9 +21,8 @@ record goes in as the source gave it, and records are linked only through identi
 The other scripts here (`step*.py`, `llm_*.py`, `sources.py`) are the earlier pilots in #90: rule-based
 scoring and model ratings tried on Washington, Seattle, Portland and Santa Fe.
 
-The app's `/developer/pipeline` (`app/web/developer/pipeline.html`) explains all this for anyone: what code does and
-what a model does, and why. It's written by hand from this README and `guides.py`: when a step, a model or a cost
-changes, change it there too.
+The app's `/developer/pipeline` (`app/web/developer/pipeline.html`) explains for anyone how a model picks the spots and
+writes their entries. It's written by hand from `guides.py`: when a step or a model changes, change it there too.
 
 ## What a state's store holds
 
