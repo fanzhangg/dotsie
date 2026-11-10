@@ -5,7 +5,8 @@ import { STOP_KINDS, TRAVEL_MODES } from './fields.js';
 import { momentOf, toDate, toInput } from './time.js';
 
 /** @typedef {import('../src/stop').Stop} Stop A stop as the server sends it */
-/** @typedef {{ stops: Stop[] }} Trip A trip as the app holds it (fromSnapshot in trips.js); only its stops matter here */
+/** @typedef {import('../src/stop').Idea} Idea A place on the trip's Want to go list, as the server sends it */
+/** @typedef {{ stops: Stop[], ideas?: Idea[] }} Trip A trip as the app holds it (fromSnapshot in trips.js); only its stops and ideas matter here */
 /** @typedef {{ key: string, place: Stop, role: 'wake' | 'checkout' | 'from' | 'stop' | 'night', day?: string, at?: string }} Entry
     A place in a day's plan, and why it's there */
 
@@ -48,8 +49,13 @@ export function daysOf(trip) {
 }
 // The overview: every day of the trip on one page, before the first day. The day bar steps through the pages.
 export const ALL = 'all';
-/** @param {Trip} trip */
-export const pagesOf = trip => { const days = daysOf(trip); return days.length ? [ALL, ...days] : []; };
+// Want to go: the places saved for the trip that have no day yet, on a page of their own before the overview, since
+// that's where planning starts: first where you'd like to go, then when.
+export const IDEAS = 'ideas';
+/** @param {Trip} trip @returns {string[]} Want to go, the overview, then every day (none yet: the overview is empty) */
+export const pagesOf = trip => [IDEAS, ALL, ...daysOf(trip)];
+/** @param {Trip} trip @returns {Idea[]} in the order they were saved */
+export const ideasOf = trip => trip.ideas || [];
 /** @param {Trip} trip @param {string} day */
 export const dayStops = (trip, day) => stopsOf(trip).filter(s => dayOf(s) === day);
 
@@ -82,7 +88,9 @@ export function dayPlan(trip, day) {
 // A page's places, drives and rows: one day's, or on the overview every day's, in order. Leg and row keys are
 // unique across the trip, so the overview's map works like a day's.
 /** @param {Trip} trip @param {string} day */
-export const planOn = (trip, day) => (day === ALL ? daysOf(trip).flatMap(d => dayPlan(trip, d)) : dayPlan(trip, day));
+// Want to go has no plan: its places have no day.
+/** @param {Trip} trip @param {string} day */
+export const planOn = (trip, day) => (day === IDEAS ? [] : day === ALL ? daysOf(trip).flatMap(d => dayPlan(trip, d)) : dayPlan(trip, day));
 
 // ---------- Stop types: an icon and a color each (--wt-kind-<key>), shared by the list marker and the map pin ----------
 // The colors skip blue (routes) and red (a drive that doesn't fit). The types, in this order, are fields.js's, which the

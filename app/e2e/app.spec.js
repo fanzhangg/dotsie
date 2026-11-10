@@ -36,6 +36,27 @@ test('a guest makes a trip, and its stops show in order', async ({ page }) => {
   await expect(page.getByText('Dunes weekend')).toBeVisible();
 });
 
+test('a new trip opens on Want to go; a place saved there goes to a day, and the server takes it off the list', async ({ page }) => {
+  await page.goto('/');
+  await guest(page, 'Alex');
+  const id = await newTrip(page, 'Someday dunes');
+  await expect(plan(page).getByRole('tab', { selected: true })).toHaveAccessibleName('Want to go');
+  const origin = { Origin: new URL(page.url()).origin };
+  const put = await page.request.put(`/api/trips/${id}/ideas/ideaaaaa1`, { data: { name: 'Oliver Lee Memorial State Park', lat: 32.7486, lng: -105.9145, kind: 'nature', note: 'Dog Canyon trail', time: '2026-11-20T09:00' }, headers: origin });
+  expect(await put.json()).toMatchObject({ id: 'ideaaaaa1', name: 'Oliver Lee Memorial State Park', note: 'Dog Canyon trail', links: [], wikidata: null });
+  expect(await put.json()).not.toHaveProperty('time');
+  expect((await page.request.put(`/api/trips/${id}/ideas/ideaaaaa2`, { data: { name: 'No place' }, headers: origin })).status()).toBe(400);
+  await page.reload();
+  await stop(page, 'Oliver Lee Memorial State Park').click();
+  await plan(page).getByRole('button', { name: 'Add to a day' }).click();
+  await sheet(page).getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(stop(page, 'Oliver Lee Memorial State Park')).toBeVisible();
+  await expect(plan(page).getByRole('tab', { selected: true })).not.toHaveAccessibleName('Want to go');
+  await expect.poll(async () => (await (await page.request.get(`/api/trips/${id}`)).json()).ideas).toEqual([]);
+  const { stops } = await (await page.request.get(`/api/trips/${id}`)).json();
+  expect(stops).toMatchObject([{ name: 'Oliver Lee Memorial State Park', kind: 'nature', note: 'Dog Canyon trail' }]);
+});
+
 test('someone joins with the share link, and each sees the other’s changes live', async ({ page, newContext }) => {
   await page.goto('/');
   await guest(page, 'Alex');

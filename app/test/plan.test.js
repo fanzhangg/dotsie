@@ -2,7 +2,7 @@ import './tz.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { STOP_KINDS, TRAVEL_MODES } from '../web/fields.js';
-import { daysOf, dayPlan, guessKind, KINDS, kindOf, staysOf, stayOf, stopsOf, TRAVEL, wayTo } from '../web/plan.js';
+import { ALL, daysOf, dayPlan, guessKind, IDEAS, ideasOf, KINDS, kindOf, pagesOf, planOn, staysOf, stayOf, stopsOf, TRAVEL, wayTo } from '../web/plan.js';
 
 // Stops near Alamogordo, NM, unless they say otherwise
 let n = 0;
@@ -36,6 +36,17 @@ test('a hotel lasts its nights, or until the next hotel, or the trip’s last da
 test('a trip’s days are the days with stops and every day of a stay, up to check-out', () => {
   const trip = { stops: [stop('2026-11-20T10:00'), hotel('2026-11-20T15:00', { nights: 3 })] };
   assert.deepEqual(daysOf(trip), ['2026-11-20', '2026-11-21', '2026-11-22', '2026-11-23']);
+});
+
+test('the pages are Want to go, the overview, then each day; Want to go has no plan', () => {
+  const idea = { id: 'i1', name: 'Oliver Lee', address: '', lat: 32.75, lng: -105.91, note: '', kind: '', links: [], wikidata: null, by: 'u', updatedAt: 0 };
+  const trip = { stops: [stop('2026-11-20T10:00'), stop('2026-11-21T10:00')], ideas: [idea] };
+  assert.deepEqual(pagesOf(trip), [IDEAS, ALL, '2026-11-20', '2026-11-21']);
+  assert.deepEqual(planOn(trip, IDEAS), []);
+  assert.deepEqual(ideasOf(trip), [idea]);
+  // a new trip has Want to go and an empty overview; a trip from before the list has none on it
+  assert.deepEqual(pagesOf({ stops: [] }), [IDEAS, ALL]);
+  assert.deepEqual(ideasOf({ stops: [] }), []);
 });
 
 test('a day starts at last night’s hotel and ends back at tonight’s', () => {

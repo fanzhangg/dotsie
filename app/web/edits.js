@@ -50,6 +50,34 @@ export function deleteStop(trip, stop) {
   });
 }
 
+// ---------- Want to go ----------
+// A place saved for the trip, with no day yet. It's selected, so its pin is named and Add to a day is in reach.
+const ideaBody = ({ name, address = '', lat, lng, note = '', kind = '', links = [], wikidata = null }) => ({ name, address, lat, lng, note, kind, links, wikidata });
+export function addIdea(trip, data, { select = true } = {}) {
+  const idea = { id: uid(), ...ideaBody(data), by: me.id, updatedAt: Date.now() };
+  openTripOf(trip.id)?.ideas.push(idea);
+  if (select) { state.leg = null; state.sel = idea.id; state.selRow = null; }
+  render();
+  save(api(`/trips/${trip.id}/ideas/${idea.id}`, { method: 'PUT', body: ideaBody(idea) }), 'Couldn’t save it to Want to go');
+  return idea;
+}
+// Taken off the list: with Undo, which saves it again (at the end of the list, as the server keeps it), or quietly,
+// once it's been added to a day
+export function deleteIdea(trip, idea, { quiet = false } = {}) {
+  const t = openTripOf(trip.id);
+  if (t) t.ideas = t.ideas.filter(i => i.id !== idea.id);
+  if (state.sel === idea.id) state.sel = state.selRow = null;
+  render();
+  save(api(`/trips/${trip.id}/ideas/${idea.id}`, { method: 'DELETE' }));
+  if (quiet) return;
+  toast(`Removed ${idea.name} from Want to go`, 'Undo', () => {
+    const now = openTripOf(trip.id);
+    if (now && !now.ideas.some(i => i.id === idea.id)) now.ideas.push({ ...idea, by: me.id, updatedAt: Date.now() });
+    render();
+    save(api(`/trips/${trip.id}/ideas/${idea.id}`, { method: 'PUT', body: ideaBody(idea) }));
+  });
+}
+
 // How you get there, from a drive on show: the round button beside Directions opens the ways, one per row, like a stop's
 // Type. Each way that has a route says how long it takes, so they can be compared before picking: they're looked up as
 // the list opens (… until then). Picking one saves it at once, for everyone; the row, the route and Directions follow.

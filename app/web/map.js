@@ -4,7 +4,7 @@
 import { $app, $sheets, ICON, esc, state, token } from './core.js';
 import { DEVICE_ZONE, fmtTime, momentOf, zoneName, zoneOf } from './time.js';
 import { cur } from './trips.js';
-import { ALL, KINDS, TRAVEL, dayOf, dayPlan, kindColor, kindIcon, kindOf, pagesOf, planOn, samePlace, stayOf, stopsOf } from './plan.js';
+import { ALL, IDEAS, KINDS, TRAVEL, dayOf, dayPlan, ideasOf, kindColor, kindIcon, kindOf, pagesOf, planOn, samePlace, stayOf, stopsOf } from './plan.js';
 import { centerFocus, currentDay, isWide, itemsOn, overviewItems, setDay, setSnap, updateFades } from './timeline.js';
 import { dropBackgroundRoutes, legRoute, legsOn } from './routes.js';
 import { offlineNow, savedTrip, topUpOffline } from './offline.js';
@@ -227,7 +227,7 @@ function preloadTrip() {
   const dist = d => { const i = pages.indexOf(d); return Math.abs(i - i0) * 2 - (i > i0 ? 1 : 0); };
   const days = pages.filter(d => d !== d0).sort((a, b) => dist(a) - dist(b));
   for (const d of days) {
-    if (d === ALL) continue;
+    if (d === ALL || d === IDEAS) continue;
     const plan = dayPlan(trip, d);
     for (let i = 1; i < plan.length; i++) legRoute(plan[i - 1], plan[i], { background: true });
   }
@@ -444,7 +444,7 @@ export function updateFitBtn() {
   btn.hidden = !map || !day || !!state.draft || (!isWide() && state.snap === 'full');
   btn.disabled = dayShown && !state.leg;
   // on the overview, it's the whole trip
-  const label = day === ALL ? ['Whole trip', 'Show the whole trip on the map'] : ['Whole day', 'Show the whole day on the map'];
+  const label = day === IDEAS ? ['All places', 'Show all of Want to go on the map'] : day === ALL ? ['Whole trip', 'Show the whole trip on the map'] : ['Whole day', 'Show the whole day on the map'];
   if (btn.title !== label[0]) { btn.title = label[0]; btn.setAttribute('aria-label', label[1]); }
 }
 export function showWholeDay() {
@@ -503,6 +503,7 @@ export function drawMap(trip) {
   // The overview draws every day this way: all the trip's places and drives. Its days' starts are stops of the day before, so none is quiet.
   const day = currentDay(trip);
   if (!day) { setRoutes([]); return drawDraft(); }
+  if (day === IDEAS) { drawIdeas(trip); return; }
   const plan = planOn(trip, day);
   const start = day === ALL ? null : plan.find(e => e.role === 'from')?.place;
   const legs = legsOn(trip, day);
@@ -571,6 +572,26 @@ export function drawMap(trip) {
   fitPins();
   drawSights();
 }
+// Want to go: a pin for each place on it, with no number (they're in no order yet) and no routes. The trip's stops are
+// quiet pins around them, so you can see which days a place is near; tapping one opens it on its day.
+function drawIdeas(trip) {
+  setRoutes([]);
+  const draft = state.draft;
+  for (const s of stopsOf(trip)) {
+    addPin(s, pinHTML(s, [], 'wt-pin--muted'), PIN_Z.quiet, { muted: true, stops: [s], tap: () => { if (state.draft) return; setDay(dayOf(s)); selectStop(s); } });
+  }
+  for (const i of ideasOf(trip)) {
+    if (draft && draft.fromIdea === i.id) continue; // being added to a day: the draft is its pin
+    const sel = i.id === state.sel;
+    addPin(i, pinHTML(i, [], sel ? 'wt-pin--selected' : ''), sel ? PIN_Z.sel : PIN_Z.pin, { sel, stops: [i], tap: () => { if (!state.draft) selectStop(i); } });
+  }
+  drawDraft();
+  frameMap(trip);
+  fitPins();
+  drawSights();
+}
+// The places a page frames: a day's plan, the overview's every day, or Want to go's places (or, with none yet, the trip's stops)
+const pagePlaces = (trip, day) => (day === IDEAS ? (ideasOf(trip).length ? ideasOf(trip) : trip.stops) : planOn(trip, day).map(e => e.place));
 // Frame the day on screen, or the drive on show, when either has changed since the map was last framed.
 // A stop added to the day, taken off it or moved, by you or a co-editor, re-frames the map only while it shows the whole day:
 // if you've brought it to a stop or a drive, or moved it yourself, it stays where you are. (Any change of the day's
@@ -578,7 +599,7 @@ export function drawMap(trip) {
 function frameMap(trip) {
   const day = currentDay(trip);
   if (!day) return;
-  const key = [trip.id, day, planOn(trip, day).map(e => `${e.place.lat},${e.place.lng}`).join(' ')].join('|');
+  const key = [trip.id, day, pagePlaces(trip, day).map(p => `${p.lat},${p.lng}`).join(' ')].join('|');
   if (key === fitKey || state.draft) return;
   const sameDay = fitKey.slice(0, fitKey.lastIndexOf('|')) === key.slice(0, key.lastIndexOf('|'));
   fitKey = key;
@@ -594,7 +615,7 @@ function frameMap(trip) {
 // fetch the tiles a day will land on, so it works the view out without moving the map.
 export function dayView(trip, day) {
   if (!map) return null;
-  const pts = planOn(trip, day).map(e => ({ lat: e.place.lat, lng: e.place.lng }));
+  const pts = pagePlaces(trip, day).map(p => ({ lat: p.lat, lng: p.lng }));
   if (!pts.length) return null;
   if (new Set(pts.map(p => `${p.lat},${p.lng}`)).size === 1) return { center: pts[0], zoom: 12 };
   // the side panel sits beside the map, not on it; on a phone, the list covers the bottom

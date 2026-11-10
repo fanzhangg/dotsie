@@ -1,4 +1,4 @@
-/* Dotsie design system — components v15.1.0
+/* Dotsie design system — components v15.2.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -229,6 +229,8 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-tl > :first-child .wt-tl-rail::before { top: var(--wt-tl-mark-y); }
 .wt-tl > :last-child .wt-tl-rail::before { bottom: auto; height: var(--wt-tl-mark-y); }
 .wt-tl > :only-child .wt-tl-rail::before { display: none; }
+/* A place on Want to go: a stop's row with no rail, since the places are in no order yet */
+.wt-tl-idea .wt-tl-rail::before { display: none; }
 
 /* Stop: marker · name · time, and its notes on the next row, across the name and time columns, so a long note
    wraps to the row's full width and its right edge lines up with the times. The name is one line, cut off with an ellipsis. A hotel at either end of the day is the

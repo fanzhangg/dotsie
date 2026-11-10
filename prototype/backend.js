@@ -51,6 +51,13 @@ function seed() {
           { ...s('restaurant', 'Cloudcroft', 'Burro Ave, Cloudcroft, NM', 32.9573, -105.7428, '2026-11-21T12:30', 'Lunch', 'sam'), wikidata: 'Q432556' },
           s('airport', 'El Paso International Airport', '6701 Convair Rd, El Paso, TX', 31.8072, -106.3779, '2026-11-22T11:00', 'Fly home · return car by 10:00', 'alex'),
         ],
+        // Want to go: places saved with no day yet
+        ideas: [
+          { id: uid(), kind: 'nature', name: 'Oliver Lee Memorial State Park', address: 'Dog Canyon Rd, Alamogordo, NM', lat: 32.7486, lng: -105.9145,
+            note: 'Dog Canyon trail, if we have a morning', links: [], wikidata: null, by: 'sam', updatedAt: t - 2 },
+          { id: uid(), kind: 'attraction', name: 'Three Rivers Petroglyph Site', address: 'County Rd B30, Three Rivers, NM', lat: 33.3456, lng: -105.9864,
+            note: '', links: [{ url: 'https://www.blm.gov/visit/three-rivers-petroglyph-site', label: 'BLM' }], wikidata: null, by: 'alex', updatedAt: t - 1 },
+        ],
       },
       'big-bend': {
         id: 'big-bend', name: 'Big Bend in spring', members: ['alex', 'jo', 'sam'], createdBy: 'jo', updatedAt: t - 1,
@@ -77,7 +84,7 @@ function loadDB() {
 }
 const userOf = (d, id) => ({ ...USERS[id], name: d.names?.[id] || USERS[id]?.name || 'Someone' });
 // A trip as the server sends it
-const snapshotOf = (d, t) => ({ trip: { id: t.id, name: t.name, owner: t.createdBy }, members: t.members.filter(u => USERS[u]).map(u => userOf(d, u)), stops: t.spots });
+const snapshotOf = (d, t) => ({ trip: { id: t.id, name: t.name, owner: t.createdBy }, members: t.members.filter(u => USERS[u]).map(u => userOf(d, u)), stops: t.spots, ideas: t.ideas || [] });
 const shareURL = token => `${location.origin}${location.pathname}#/join/${token}`;
 const newToken = () => uid() + uid();
 function inviteToken(tripId) {
@@ -141,7 +148,7 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
     });
   }
   if (call === 'POST trips' && !p[1]) {
-    const t = { id: uid(), name: body.name, members: [ME], createdBy: ME, spots: [], updatedAt: now };
+    const t = { id: uid(), name: body.name, members: [ME], createdBy: ME, spots: [], ideas: [], updatedAt: now };
     d.trips[t.id] = t;
     return out(snapshotOf(d, t));
   }
@@ -202,6 +209,27 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
     touch();
     broadcast(t.id, { type: 'stop.upserted', stop });
     return out(stop);
+  }
+  // Want to go: written whole, in the order they're saved (a place saved again goes to the end, as the server keeps them)
+  if (p[2] === 'ideas' && p[3]) {
+    t.ideas ||= [];
+    const i = t.ideas.findIndex(x => x.id === p[3]);
+    if (method === 'DELETE') {
+      if (i < 0) return out();
+      const [gone] = t.ideas.splice(i, 1);
+      touch();
+      broadcast(t.id, { type: 'idea.removed', id: gone.id, name: gone.name });
+      return out();
+    }
+    if (method !== 'PUT') fail(404, 'not_found');
+    if (!body?.name?.trim() || !Number.isFinite(body.lat) || !Number.isFinite(body.lng)) fail(400, 'invalid');
+    const { name, address = '', lat, lng, note = '', kind = '', links = [], wikidata = null } = body;
+    const idea = { id: p[3], name: name.trim(), address, lat, lng, note, kind, links, wikidata, by: ME, updatedAt: now };
+    if (i >= 0) t.ideas.splice(i, 1);
+    t.ideas.push(idea);
+    touch();
+    broadcast(t.id, { type: 'idea.upserted', idea });
+    return out(idea);
   }
   fail(404, 'not_found');
 }

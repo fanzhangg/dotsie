@@ -138,3 +138,18 @@ test.describe('on a wide screen', () => {
     expect(await pinsInView(page)).toBe(true);
   });
 });
+
+test('Want to go shows its places as pins with no numbers, the trip’s stops quiet around them; tapping one selects it', async ({ page }) => {
+  await plan(page).getByRole('tab', { name: 'Want to go' }).click();
+  await settled(page);
+  const oliver = pin(page, /^Oliver Lee Memorial State Park, Nature$/), rivers = pin(page, /^Three Rivers Petroglyph Site, Attraction$/);
+  await expect(oliver).toBeVisible();
+  await expect(rivers).toBeVisible();
+  await expect(page.locator('#map .wt-pin:not(.wt-pin--muted) .wt-pin__num')).toHaveCount(0);
+  const a = await shown(page);
+  expect(inside(await center(oliver), a, 4) && inside(await center(rivers), a, 4)).toBe(true);
+  await oliver.click();
+  await expect(row(page, 'Oliver Lee Memorial State Park')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#map .wt-pin--selected')).toHaveAccessibleName(/Oliver Lee Memorial State Park/);
+  await expect(plan(page).getByRole('button', { name: 'Add to a day' })).toBeVisible();
+});

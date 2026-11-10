@@ -3,7 +3,7 @@ import { $app, ICON } from './core.js';
 import { fmtDay, toInput } from './time.js';
 import { config, me } from './signin.js';
 import { cur, fromSnapshot, reloadTrip } from './trips.js';
-import { TRAVEL, dayPlan, daysOf, pagesOf, samePlace, wayTo } from './plan.js';
+import { TRAVEL, dayPlan, daysOf, ideasOf, pagesOf, samePlace, wayTo } from './plan.js';
 import { BG_ROUTE_GAP, fetchRoute, legKey, routes } from './routes.js';
 import { scheduleRender } from './app.js';
 import { MAPLIBRE, STOP_ZOOM, TILE_PRELOAD_PARALLEL, basemap, dayView, glFiles, glTileURLs, isGLStyle, map, mapSize } from './map.js';
@@ -76,7 +76,7 @@ export function keepOfflinePlan() {
   planTimer = setTimeout(() => {
     const trip = cur?.stops ? cur : null, t = trip && savedTrip(trip.id);
     if (!t || trip.offline) return;
-    const snap = { trip: { id: trip.id, name: trip.name }, members: trip.members, stops: trip.stops };
+    const snap = { trip: { id: trip.id, name: trip.name }, members: trip.members, stops: trip.stops, ideas: ideasOf(trip) };
     if (JSON.stringify(snap) !== JSON.stringify(t.snap)) { t.snap = snap; t.savedAt = Date.now(); storeOffline(); }
   }, 1000);
 }
@@ -99,7 +99,7 @@ function offlineTileURLs(trip) {
     // a level in covers the whole view, where a zoom in can land; a level out, a view-sized area around its middle
     for (const dz of [-1, 0, 1]) { const k = Math.max(1, 2 ** dz) / 2; add(v.center, v.zoom + dz, size.x * k + spare, size.y * k + spare); }
   }
-  for (const s of trip.stops) for (const z of [STOP_ZOOM, STOP_ZOOM + 1]) add(s, z, 256, 256);
+  for (const s of [...trip.stops, ...ideasOf(trip)]) for (const z of [STOP_ZOOM, STOP_ZOOM + 1]) add(s, z, 256, 256);
   return [...urls];
 }
 
@@ -121,7 +121,7 @@ export async function saveOffline(trip, { quiet = false } = {}) {
   if (!quiet) navigator.storage?.persist?.().catch(() => {});
   registerOffline();
   const t = offline.trips[id] ||= { tiles: 0, bytes: 0 };
-  t.snap = { trip: { id, name: trip.name }, members: trip.members, stops: trip.stops };
+  t.snap = { trip: { id, name: trip.name }, members: trip.members, stops: trip.stops, ideas: ideasOf(trip) };
   t.savedAt = Date.now();
   // the map showing; a trip saved with the other kind keeps it until this one is all saved
   const style = basemap?.gs.url;

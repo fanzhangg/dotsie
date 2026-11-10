@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 15.1.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 15.2.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -210,7 +210,7 @@ Four weights, each with a job: **700** the app name (sign-in) only; **600** head
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed)
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed) `trash` (take something off a list: a place off Want to go)
 
 Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
 
@@ -456,6 +456,7 @@ The core of the product: one day of the plan, down a single rail. Stops and driv
   - Give the row `role="button"` and `aria-pressed` while its route is shown.
   - `__late`: "Arrives 13 min late", with `is-late`.
   - Never add distance or badges.
+- **A place on Want to go** (`.wt-tl-idea`, with `.wt-tl-stop`): a trip's places with no day yet, as stop rows with their address and note for notes, an empty `.wt-tl-time`, and no rail between them, since they're in no order but the one they were saved in.
 - **Day heading** (`.wt-tl-day`): the **Overview** puts every day in one timeline, each day's stops under its name. See [Overview](#overview-wt-tl-day).
 - **States:**
 
@@ -1131,6 +1132,11 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 15.2.0
+
+- New: `.wt-tl-idea`, a row on a trip's Want to go list: a `.wt-tl-stop` with no rail, since its places are in no order yet. See [Timeline](#timeline-wt-tl).
+- New icon: `trash` (icons 4.2.0), on the button that takes a place off Want to go.
 
 ### Added in 15.1.0
 

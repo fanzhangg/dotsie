@@ -386,6 +386,16 @@ app.delete('/trips/:id/stops/:stopId', async c => {
   return c.body(null, 204);
 });
 
+// ---------- Want to go: places saved for the trip, with no day yet ----------
+app.put('/trips/:id/ideas/:ideaId', async c => {
+  const ideaId = ID.test(c.req.param('ideaId')) ? c.req.param('ideaId') : bad();
+  return c.json(await room(c.env, c.req.param('id')).putIdea(c.get('user').id, ideaId, await body(c.req.raw)));
+});
+app.delete('/trips/:id/ideas/:ideaId', async c => {
+  await room(c.env, c.req.param('id')).deleteIdea(c.get('user').id, c.req.param('ideaId'));
+  return c.body(null, 204);
+});
+
 // ---------- Connected assistants, in Account ----------
 // Not under /api/mcp: everything there needs an assistant's token, and these take your session.
 app.get('/assistants', async c => c.json({ url: mcpURL(c.env), connections: await listConnections(c.env, c.get('user').id) }));

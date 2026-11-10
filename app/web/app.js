@@ -33,12 +33,13 @@ import { renderSpots } from './spots.js';
 import { signOut } from './backend.js';
 import { applySnap, centerFocus, closeDayCal, currentDay, grabLabel, isWide, pickDay, renderAddBar, renderDayBar, renderList, setSnap, snaps, stepDay, toggleDayCal } from './timeline.js';
 import { legsOn } from './routes.js';
-import { openTravel } from './edits.js';
+import { deleteIdea, openTravel } from './edits.js';
+import { ideasOf } from './plan.js';
 import { keepOfflinePlan, needsConnection, renderOfflineStatus, savedTrip, statusSay } from './offline.js';
 import { drawMap, mountTrip, preloadMap, previewLeg, refit, schedulePreload, selectStop, showWholeDay, teardownTrip, updateFitBtn } from './map.js';
 import { drag, holdRender, sheetTarget } from './sheet.js';
 import { closeSheet, openAccount, openNewTrip, openSettings } from './sheets.js';
-import { openStopSheet } from './stopsheet.js';
+import { openIdeaSearch, openStopSheet } from './stopsheet.js';
 import { toast } from './notices.js';
 
 // ---------- Routing (hash) ----------
@@ -121,11 +122,17 @@ document.addEventListener('click', e => {
   if (!el || el.disabled) return;
   const trip = cur?.stops ? cur : null;
   const stop = trip && el.dataset.id && trip.stops.find(s => s.id === el.dataset.id);
+  const idea = trip && el.dataset.id && ideasOf(trip).find(i => i.id === el.dataset.id);
   switch (el.dataset.action) {
     case 'new-trip': openNewTrip(); break;
     case 'add': if (needsConnection()) openStopSheet(trip); break;
     case 'select': if (stop && !e.target.closest('a')) selectStop(stop, el.dataset.row); break; // a link in its note opens on its own
     case 'edit': if (stop && needsConnection()) openStopSheet(trip, stop); break;
+    // Want to go: a place found by search goes on the list; one on it goes to a day as a new stop, set in the stop sheet
+    case 'select-idea': if (idea && !e.target.closest('a')) selectStop(idea, el.dataset.row); break;
+    case 'add-idea': if (needsConnection()) openIdeaSearch(trip); break;
+    case 'plan-idea': if (idea && needsConnection()) openStopSheet(trip, null, null, { idea }); break;
+    case 'remove-idea': if (idea && needsConnection()) deleteIdea(trip, idea); break;
     case 'settings': openSettings(trip); break;
     case 'offline-status': if (statusSay) toast(statusSay); break;
     case 'pick-day': closeSheet(); pickDay(el.dataset.day); break;
