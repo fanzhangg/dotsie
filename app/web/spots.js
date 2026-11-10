@@ -40,6 +40,7 @@ export function renderSpots(r) {
   // A spot is a page of its own, to read: no app bar, one column (see #app[data-page="spot"] in styles.css)
   $app.dataset.page = r.page === 'spot' ? 'spot' : 'spots';
   $app.querySelector('.wt-app-bar').hidden = r.page === 'spot';
+  stickUnderBar(); // once the page's own layout applies
   const list = $app.querySelector('.spots-list'), entry = $app.querySelector('.spots-entry');
   document.title = r.page === 'spot' ? s.title : 'Spots · Dotsie';
   if (r.page === 'spot') {
@@ -65,11 +66,11 @@ function mount() {
     ${headHTML()}
     <main class="home spots">
       <section class="spots-list" aria-label="Spots">
-        <div class="spots-find">
-          <label class="wt-input wt-input-group wt-search">${ICON.search}
+        <div class="spots-find spots-band">
+          <div class="spots-search spots-band"><label class="wt-input wt-input-group wt-search">${ICON.search}
             <input type="search" name="q" placeholder="Search spots, cities or states" aria-label="Search spots" autocomplete="off">
             <span class="wt-spinner" hidden></span>
-            <button type="button" class="wt-search__clear" aria-label="Clear search" hidden>${ICON.close}</button></label>
+            <button type="button" class="wt-search__clear" aria-label="Clear search" hidden>${ICON.close}</button></label></div>
           <div class="spots-filters">
             <select class="wt-input" name="country" aria-label="Country"></select>
             <select class="wt-input" name="state" aria-label="State"></select>
@@ -120,6 +121,13 @@ function mount() {
   if (!s.cities) loadCities(); else renderFilters();
   if (s.results.length) showResults(); // as it was, while it's asked again
 }
+// The search (and on a computer, the filters) stay at the top of the list as it scrolls, just under the app bar,
+// whatever height the bar is (the phone's safe area adds to it): see .spots-band in styles.css
+function stickUnderBar() {
+  const bar = $app.querySelector('.wt-app-bar');
+  if (bar && !bar.hidden) $app.style.setProperty('--spots-stick', `${bar.offsetHeight}px`);
+}
+addEventListener('resize', () => { if ($app.dataset.page === 'spots') stickUnderBar(); });
 const showClear = () => { const b = $app.querySelector('.wt-search__clear'); if (b) b.hidden = !s.q; };
 
 // ---------- The address: what's asked, after #/spots? ----------

@@ -218,6 +218,21 @@ test('the search finds a city’s and a state’s spots by their names, and clea
   await expect(spotNames(page)).toHaveCount(7);
 });
 
+test('the search stays at the top as the spots scroll; on a computer, the filters too', async ({ page }) => {
+  await page.goto('#/spots');
+  await expect(spotNames(page)).toHaveCount(7);
+  await page.mouse.wheel(0, 2000);
+  await expect(page.getByRole('searchbox', { name: 'Search spots' })).toBeInViewport();
+  await expect(page.getByRole('combobox', { name: 'State' })).not.toBeInViewport(); // a phone keeps the screen for the spots
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.mouse.wheel(0, 2000);
+  await expect(page.getByRole('searchbox', { name: 'Search spots' })).toBeInViewport();
+  await expect(page.getByRole('combobox', { name: 'State' })).toBeInViewport();
+  // Just under the app bar, not under it
+  const bar = await page.locator('.wt-app-bar').boundingBox(), search = await page.getByRole('searchbox', { name: 'Search spots' }).boundingBox();
+  expect(search.y).toBeGreaterThanOrEqual(bar.y + bar.height);
+});
+
 test('a spot opens its guide entry, a page of its own with its sources and links at the end, and back goes to the list as it was', async ({ page }) => {
   await page.goto('#/spots');
   await page.getByRole('combobox', { name: 'State' }).selectOption('NM');

@@ -12,9 +12,9 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 
 /* ---------- Wide screens: Home's trips and the spots are a grid of cards on the page; sign-in is a card ---------- */
 @media (min-width: 768px) {
-  #app:is([data-page="home"], [data-page="spots"]) { max-width: 1040px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
+  #app:is([data-page="home"], [data-page="spots"]) { --wt-app-bar-surface: var(--wt-surface-page); --spots-gutter: var(--wt-space-6); max-width: 1040px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
   /* The bar spans the page's column, its edges with the cards', on the page's color */
-  #app:is([data-page="home"], [data-page="spots"]) .wt-app-bar { --wt-app-bar-surface: var(--wt-surface-page); min-height: 80px; margin: 0 calc(-1 * var(--wt-space-6)) var(--wt-space-2); padding-left: var(--wt-space-6); padding-right: var(--wt-space-6); }
+  #app:is([data-page="home"], [data-page="spots"]) .wt-app-bar { min-height: 80px; margin: 0 calc(-1 * var(--wt-space-6)) var(--wt-space-2); padding-left: var(--wt-space-6); padding-right: var(--wt-space-6); }
   #app:is([data-page="home"], [data-page="spots"]) .home { padding: 0 0 var(--wt-space-10); }
   #app:is([data-page="home"], [data-page="spots"]) .home-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--wt-space-4); }
   .spots-find { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
@@ -50,6 +50,24 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 .spots-count { margin: calc(-1 * var(--wt-space-2)) 0 calc(-1 * var(--wt-space-2)); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .spots-count:empty { display: none; }
 .spots-find { display: grid; gap: var(--wt-space-2); }
+/* The band that stays at the top of the list under the app bar as it scrolls: on a phone the search alone (it finds
+   cities and states too, and with the filters it would take a quarter of the screen), on a computer the search and the
+   filters, in one row. Frosted like the bar and out to the page's edges; the bar's hairline moves under it, so the two
+   read as one. --spots-stick is the bar's height, set by spots.js. */
+.spots-band {
+  position: sticky; top: var(--spots-stick, 64px); z-index: var(--wt-z-raised);
+  margin: calc(-1 * var(--wt-space-2)) calc(-1 * var(--spots-gutter, var(--wt-space-4))) 0;
+  padding: var(--wt-space-2) var(--spots-gutter, var(--wt-space-4));
+  background: color-mix(in oklab, var(--wt-app-bar-surface, var(--wt-surface-sheet)) 82%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px); backdrop-filter: saturate(1.6) blur(16px);
+}
+#app[data-page="spots"] .wt-app-bar.is-scrolled { box-shadow: none; }
+.wt-app-bar.is-scrolled + .spots .spots-band { box-shadow: 0 1px 0 var(--wt-border-default); }
+/* Which one is the band: on a phone the search (the row around it gives no box of its own), on a computer the row */
+@media (max-width: 767.98px) { .spots-find { display: contents; } }
+@media (min-width: 768px) {
+  .spots-search.spots-band { position: static; margin: 0; padding: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+}
 .spots-filters { display: flex; flex-wrap: wrap; gap: var(--wt-space-2); }
 .spots-filters select { flex: 1 1 140px; width: auto; min-width: 0; }
 .spots-empty { grid-column: 1 / -1; display: grid; justify-items: center; gap: var(--wt-space-3); }
