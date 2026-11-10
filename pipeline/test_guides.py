@@ -262,6 +262,49 @@ class Pictures(unittest.TestCase):
         self.assertEqual(places[("wikidata", "Q1")]["views"], 200)  # the home store's copy, with its page views
 
 
+class ThePark(unittest.TestCase):
+    def park_store(self, with_item=True):
+        db = fixture()
+        if with_item:  # the park's item, its point at headquarters outside the park
+            db.execute("INSERT INTO records (source, id, name, lat, lng, url, raw) VALUES (?,?,?,?,?,?,?)",
+                       ("wikidata", "Q999", "Test National Park", 49.5, -125.0, None, item("Q999", "Test National Park")))
+            db.execute("INSERT INTO ids VALUES ('wikidata', 'Q999', 'P4083', 'TEPA')")
+        db.execute("INSERT INTO records (source, id, name, lat, lng, url, raw) VALUES (?,?,?,?,?,?,?)",
+                   ("nps:parks", "N9", "Test National Park", 47.4, -121.4, "https://www.nps.gov/tepa",
+                    json.dumps({"parkCode": "tepa", "description": "The park's own page."})))
+        db.execute("INSERT INTO ids VALUES ('nps:parks', 'N9', 'P4083', 'tepa')")
+        return db
+
+    PARK = dict(DEST, id="testpark", name="Test National Park", kind="national park", nps_unit="TEPA", wikidata="Q999")
+
+    def test_a_park_is_an_entry_of_its_own_with_its_nps_page_wherever_its_point_is(self):
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates([self.park_store()], self.PARK, [SQUARE])
+        whole = [p for p in places.values() if p["itself"]]
+        self.assertEqual([(p["source"], p["id"]) for p in whole], [("wikidata", "Q999")])
+        self.assertEqual([n["id"] for n in whole[0]["nps"]], ["N9"])
+        self.assertNotIn(("nps:parks", "N9"), places)
+        self.assertEqual(sum(1 for p in places.values() if p["itself"]), 1)
+
+    def test_without_its_item_the_parks_nps_page_is_its_entry_and_two_stores_make_one(self):
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates([self.park_store(with_item=False), self.park_store()], self.PARK, [SQUARE])
+        self.assertEqual([(p["source"], p["id"]) for p in places.values() if p["itself"]], [("wikidata", "Q999")])
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates([self.park_store(with_item=False)], self.PARK, [SQUARE])
+        self.assertEqual([(p["source"], p["id"]) for p in places.values() if p["itself"]], [("nps:parks", "N9")])
+
+    def test_a_city_isnt_one_of_its_own_sights(self):
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates(fixture(), DEST, [SQUARE])
+        self.assertNotIn(("wikidata", "Q100"), places)
+        self.assertFalse(any(p["itself"] for p in places.values()))
+
+    def test_another_item_for_the_park_isnt_picked_again(self):
+        self.assertTrue(guides.same_name("Denali National Park", "Denali  national park"))
+        self.assertFalse(guides.same_name("Denali", "Denali National Park"))
+
+
 class Boundary(unittest.TestCase):
     def test_inside(self):
         self.assertTrue(guides.inside(47.5, -121.5, [SQUARE]))

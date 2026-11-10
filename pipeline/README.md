@@ -63,6 +63,10 @@ Commons. `guides.py` makes them for a destination in `destinations.json`, from i
    outline is its Census place, a county's its Census county (both from TIGERweb), a park's its NPS boundary (the
    NPS Land Resources Division's); all of their parts, islands included. A park across a state line (Yellowstone,
    the Great Smokies) also reads the stores of its `other_states`; its guide is kept in its own state's store.
+   A park is also an entry of its own, the first in its guide and beyond its `cap`: the park as a whole (what it
+   is, how to visit it, which parts are worth the time), from its Wikidata item, article and NPS pages. It isn't
+   judged or picked, and another Wikidata item with the park's name (Denali has two) isn't picked again. A city
+   isn't one of its own sights.
 2. Is it a sight (Haiku): somewhere people go to see or experience, still there, open to visitors, not part of a
    bigger place nearby. The only hard rules are on what can never be a sight. Asked of the candidates most read
    first, 40 at a time, until there are enough sights for the shortlist: the same shortlist as asking them all, for
