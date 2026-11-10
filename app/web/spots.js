@@ -456,7 +456,7 @@ function entryHTML(g) {
   const pl = pagePlace(g);
   // Save to a trip floats at the bottom of the page, as Plan's main button does, so it's in reach however far you've read
   const sb = saveButton(pl);
-  const save = canSave(pl) ? `<div class="spot-save"><button type="button" class="wt-btn wt-btn--primary wt-btn--block${sb.label ? ' is-saved' : ''}" data-spot-save${sb.label ? ` aria-label="${esc(sb.label)}"` : ''}>${sb.html}</button></div>` : '';
+  const save = canSave(pl) ? `<div class="wt-float-bar spot-save"><button type="button" class="wt-btn wt-btn--primary wt-btn--block${sb.label ? ' is-saved' : ''}" data-spot-save${sb.label ? ` aria-label="${esc(sb.label)}"` : ''}>${sb.html}</button></div>` : '';
   return `<article class="wt-guide${save ? ' has-save' : ''}">
     ${topHTML(g.images?.hero)}
     <header class="wt-guide__head">

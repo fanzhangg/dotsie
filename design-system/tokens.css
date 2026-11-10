@@ -1,4 +1,4 @@
-/* Dotsie design system — tokens v2.2.0
+/* Dotsie design system — tokens v2.3.0
  *
  * Three tiers. Components use tier 2 and 3 only; tier 1 exists to feed tier 2.
  *   1. Primitives  --wt-color-*            raw palette, never themed, never used by components
@@ -375,6 +375,7 @@
 
   /* Layers */
   --wt-z-raised: 1;
+  --wt-z-float: 5;          /* a page's float bar, over its sticky bars */
   --wt-z-sheet: 500;        /* above the map's pins and sights */
   --wt-z-modal: 1000;
   --wt-z-dialog: 1500;      /* a confirmation, over any sheet */

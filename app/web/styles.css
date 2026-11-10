@@ -17,16 +17,17 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
   #app:is([data-page="home"], [data-page="spots"]) .wt-app-bar { min-height: 80px; margin: 0 calc(-1 * var(--wt-space-6)) var(--wt-space-2); padding-left: var(--wt-space-6); padding-right: var(--wt-space-6); }
   #app:is([data-page="home"], [data-page="spots"]) .home { padding: 0 0 var(--wt-space-10); }
   #app:is([data-page="home"], [data-page="spots"]) .home-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--wt-space-4); }
+  #app[data-page="home"] .home-grid--small { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
   .spots-find { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--wt-space-3); }
   #app[data-page="home"] .home-guest { justify-self: start; width: auto; }
-  #app[data-page="home"] .home-actions .wt-btn { width: auto; }
+  #app[data-page="home"] .home-new { --wt-float-bar-width: 1040px; }
 
   #app[data-page="signin"] { max-width: 420px; min-height: 0; margin: max(var(--wt-space-10), 12vh) auto var(--wt-space-10); padding: var(--wt-space-3) var(--wt-space-3) 0; border-radius: var(--wt-radius-lg); }
 }
 
-/* ---------- Home: the app bar (the page, the nav, the account), New trip, then the trips under UPCOMING and PAST ----------
-   On the grey of the trip's list sheet, with white cards on it. New trip leads the page's content: across it on a phone,
-   a button on its own from 768px wide. */
+/* ---------- Home: the app bar (the page, the nav, the account), the trips under CURRENT, UPCOMING, WISHLIST and PAST, and New trip ----------
+   On the grey of the trip's list sheet, with white cards on it. New trip floats at the bottom of the screen: across the
+   column on a phone, a pill as wide as its words, centred, from 768px wide. */
 #app:is([data-page="home"], [data-page="spots"]) { display: flex; flex-direction: column; background: var(--wt-surface-sheet); }
 .home-head { display: flex; align-items: center; justify-content: space-between; gap: var(--wt-space-3); padding: var(--wt-space-6) var(--wt-space-4) var(--wt-space-4); }
 .home-head h1 { margin: 0; font: var(--wt-type-display); letter-spacing: var(--wt-tracking-display); }
@@ -39,8 +40,11 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
   font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase;
 }
 .home-grid { display: grid; gap: var(--wt-space-3); }
-.home-actions { display: flex; }
-.home-actions .wt-btn { width: 100%; }
+/* Wishlist and Past: small cards, two to a row */
+.home-grid--small { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* New trip floats at the bottom (.wt-float-bar), on the page's grey; the page leaves it room at its end */
+#app[data-page="home"] .home { padding-bottom: var(--wt-float-bar-room); }
+.home-new { --wt-float-bar-surface: var(--wt-surface-sheet); }
 /* The app bar (the design system's) tops Home and Spots; on sign-in, the nav sits under the app's name */
 .wt-app-bar + .home { padding-top: var(--wt-space-2); }
 .signin-nav { padding: 0 var(--wt-space-4) var(--wt-space-3); }
@@ -78,17 +82,12 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 #app[data-page="spot"] .home { padding: 0 var(--spot-gutter); }
 .spots-entry { width: 100%; display: grid; align-content: start; }
 .spots-entry .wt-guide__top--photo { margin: 0 calc(-1 * var(--spot-gutter)); }
-/* Save to a trip floats at the bottom of a spot's page, over what's read, as Plan's main button does under its list: the
-   page's column wide, with the safe area below it; the page leaves room for it at its end. Saved, its bookmark fills. */
-.spot-save {
-  position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; margin: 0 auto;
-  padding: var(--wt-space-2) var(--spot-gutter) max(var(--wt-space-3), env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to bottom, transparent, var(--wt-surface-raised) var(--wt-space-3));
-}
-.spot-save .wt-btn { border-radius: var(--wt-radius-pill); }
+/* Save to a trip floats at the bottom of a spot's page (.wt-float-bar), over what's read, the page's column wide; the
+   page leaves room for it at its end. Saved, its bookmark fills. */
+.spot-save { --wt-float-bar-gutter: var(--spot-gutter); }
 .spot-save .wt-btn.is-saved .wt-icon { fill: currentColor; }
-.wt-guide.has-save { padding-bottom: calc(var(--wt-space-8) + 56px + env(safe-area-inset-bottom, 0px)); }
-@media (min-width: 768px) { #app[data-page="spot"] { --spot-gutter: var(--wt-space-10); max-width: 680px; } .spot-save { max-width: 680px; } }
+.wt-guide.has-save { padding-bottom: calc(var(--wt-float-bar-room) + var(--wt-space-3)); }
+@media (min-width: 768px) { #app[data-page="spot"] { --spot-gutter: var(--wt-space-10); max-width: 680px; } .spot-save { --wt-float-bar-width: 680px; } }
 :is(.spots-list, .spots-entry, .spots-more, .spots-pager)[hidden] { display: none; }
 
 /* ---------- Sign in: one choice per step ---------- */

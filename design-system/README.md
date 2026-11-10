@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 15.3.1. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 15.4.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -705,6 +705,23 @@ With a stop selected, the add bar holds Open in Maps, a round Edit stop and a ro
 
 Pad the top when you fit the map on a phone, so pins stay clear of the header card. From 768px wide, the header and the sheet stack into a full-height panel on the left, `--wt-size-panel` wide, and the map fills the rest. Your code clears the sheet's `height` there: no snapping, no dragging, and the grab handle hides. Without the `wt-trip` container, the header floats and the sheet is a bottom sheet at every width.
 
+### Float bar `.wt-float-bar`
+
+```html
+<!-- after the page's content, inside #app -->
+<div class="wt-float-bar wt-float-bar--hug">
+  <button class="wt-btn wt-btn--primary wt-btn--block" data-action="new-trip">${icon('plus')}New trip</button>
+</div>
+```
+
+A page's one main action, floating at the bottom of the screen so it's in reach however far down you are: New trip on Home, Save to a trip on a spot's page. It's the trip screen's add bar for a page that scrolls, and it looks and acts like one: the same black pill (`--primary --block`), and room for round buttons beside it.
+
+- **Fixed to the bottom,** the page's column wide (`--wt-float-bar-width`, `--wt-size-column` unless set) and centred, with the safe area under the button. What scrolls under it fades out into the page's own color in the 12px above the button: set `--wt-float-bar-surface` to the page's background (`--wt-surface-raised` unless set; Home's is `--wt-surface-sheet`). Its side padding is `--wt-float-bar-gutter` (16px unless set), the page's gutter, so the button lines up with the content.
+- **Leave room at the page's end:** `padding-bottom: var(--wt-float-bar-room)`, so the last card or line can scroll clear of the button.
+- **`--hug`**: from 768px wide, the button is as wide as its words (at least 240px), centred, and lifted off the page by `--wt-shadow-float`. A button across a 1040px page reads as a bar, not a button. On a phone it's across the column either way.
+- It sits on `--wt-z-float`: over the page's sticky bars (the app bar, Spots' search), under sheets, dialogs and toasts.
+- **One per page,** for the page's main action only. Everything else stays in the page or the app bar.
+
 ### Map credit `.wt-credit`
 
 ```html
@@ -855,6 +872,7 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
 - `.is-now`: the trip is under way. `__when` ("Day 2 of 3") is in primary ink, like the row happening now.
 - `__now`, at the foot of a card that `.is-now`, under a hairline: what the trip is at now and what's next. One `__step` each, like a row of the timeline: the stop's `.wt-marker--sm`, `__step-name` (one line, cut off with an ellipsis), and `__step-time` on the right, which says "Now" for the first and when it is for the next ("12:30 PM", "Tomorrow, 11:00 AM", "Tonight"). The time column already says which is which, so there's no Now or Next label. `.is-now` on the first puts it in primary ink, its time in semibold; the next stays secondary. Leave out a step there's nothing for.
 - `.is-past`: the trip is over. Its route turns `--wt-route-done`; give its dots `--wt-kind-past`, as past pins have. Its photos lose most of their color.
+- `--small`: a card in a grid of two to a row (Home's Wishlist and Past). `__map` and `__photos` are 3:2 rather than 5:2, so draw its sketch in a 3:2 box, and give it one photo. The name and dates are a step smaller in a tighter `__body`, and the avatar stack is hidden, as it doesn't fit beside a name that narrow; keep the names in the `.wt-visually-hidden` span.
 
 ### App bar `.wt-app-bar` and nav `.wt-nav`
 
@@ -1134,6 +1152,11 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 15.4.0
+
+- New: `.wt-float-bar`, a page's main action floating at the bottom of the screen, with `--hug` (from 768px wide, the button as wide as its words), `--wt-float-bar-width`, `--wt-float-bar-surface`, `--wt-float-bar-gutter` and `--wt-float-bar-room` (see [Float bar](#float-bar-wt-float-bar)). New token: `--wt-z-float` (tokens 2.3.0). Home's New trip and a spot's Save to a trip use it.
+- New: `.wt-trip-card--small`, for a grid of two to a row (Home's Wishlist and Past): a 3:2 picture with one photo, a tighter body, and no avatar stack.
 
 ### Fixed in 15.3.1
 
