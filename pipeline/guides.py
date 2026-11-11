@@ -65,14 +65,14 @@ class Asker:
         self.batcher, self.spent = batcher, {}
         keep_older_answers(db)
 
-    def __call__(self, step, prompt, key, model, system, content, schema, effort, fingerprint=None):
+    def __call__(self, step, prompt, key, model, system, content, schema, effort, fingerprint=None, max_tokens=16000):
         prompt = f"{prompt} {model}"  # each model's answer kept apart: switching back costs nothing
         h = hashlib.sha256(json.dumps([model, system, fingerprint or content], sort_keys=True).encode()).hexdigest()
         with self.lock:
             row = self.db.execute("SELECT input_hash, answer FROM llm_answers WHERE step=? AND key=? AND prompt=?", (step, key, prompt)).fetchone()
         if row and row[0] == h:
             return json.loads(row[1])
-        params = dict(model=model, max_tokens=16000, system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+        params = dict(model=model, max_tokens=max_tokens, system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
                       messages=[{"role": "user", "content": content}],
                       output_config={"effort": effort, "format": {"type": "json_schema", "schema": schema}})
         r = self.batcher.ask(h, params) if self.batcher else None
@@ -95,8 +95,17 @@ class Asker:
         return out
 
     def direct(self, params):
+        # A long answer (ranking a big park) is streamed: the SDK won't wait that long for a plain request
+        long = params["max_tokens"] > 16000
         if params["model"] in (OPUS, SONNET):  # on a policy decline, the API reruns the request on a fallback model
-            return self.client.beta.messages.create(betas=["server-side-fallback-2026-07-01"], fallbacks="default", **params)
+            fb = dict(betas=["server-side-fallback-2026-07-01"], fallbacks="default", **params)
+            if long:
+                with self.client.beta.messages.stream(**fb) as s:
+                    return s.get_final_message()
+            return self.client.beta.messages.create(**fb)
+        if long:
+            with self.client.messages.stream(**params) as s:
+                return s.get_final_message()
         return self.client.messages.create(**params)
 
 
@@ -481,7 +490,7 @@ def pick(ask, dest, sights):
     whole = (f"\n\n{dest['name']} itself has its own entry at the top of the page: don't rank it again under another "
              "name.") if dest.get("kind") in WHOLE else ""
     return ask("pick", "v4", dest["id"], MODELS["pick"], PICK.format(name=dest["name"], whole=whole),
-               "Places:\n\n" + "\n".join(lines), PICK_SCHEMA, "high")
+               "Places:\n\n" + "\n".join(lines), PICK_SCHEMA, "high", max_tokens=64000)  # every place, ranked: a long answer
 
 
 # ---------- 4. Write ----------
