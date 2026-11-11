@@ -351,17 +351,14 @@ class ThePark(unittest.TestCase):
         self.assertNotIn(("wikidata", "Q8"), places)
         self.assertIn("name", guides.PICK_SCHEMA["properties"]["picks"]["items"]["required"])
 
-    def test_an_nps_page_under_a_places_name_within_2_km_is_that_place(self):
-        db = fixture()
-        db.executemany("INSERT INTO records (source, id, name, lat, lng, url, raw) VALUES (?,?,?,?,?,?,?)", [
-            ("wikidata", "Q9", "Test Icefield", 47.5, -121.5, None, item("Q9", "Test Icefield")),
-            ("nps:thingstodo", "T1", "Hike the Test Icefield Trail", 47.51, -121.5, "https://www.nps.gov/t1", json.dumps({})),
-            ("nps:thingstodo", "T2", "Hike the Test Icefield Trail", 47.9, -121.5, "https://www.nps.gov/t2", json.dumps({}))])
-        with mock.patch.object(guides, "labels", lambda qids: {}):
-            places = guides.candidates(db, DEST, [SQUARE])
-        self.assertEqual([n["id"] for n in places[("wikidata", "Q9")]["nps"]], ["T1"])
-        self.assertNotIn(("nps:thingstodo", "T1"), places)
-        self.assertIn(("nps:thingstodo", "T2"), places)                     # 45 km off: another place
+    def test_the_pick_sees_which_places_on_the_shortlist_are_near_each_other(self):
+        contents = []
+        ask = lambda step, prompt, key, model, system, content, *a: contents.append(content) or {"picks": [], "left_out": []}
+        place = lambda i, name, lat: {"source": "wikidata", "id": i, "name": name, "types": [], "views": 10, "langs": 1,
+                                      "lead": "", "nps": [], "lat": lat, "lng": -121.5}
+        guides.pick(ask, DEST, [place("Q1", "Icefield", 47.5), place("Q2", "Icefield Trail", 47.505), place("Q3", "Far", 47.9)])
+        self.assertIn("Icefield |  | about 10 Wikipedia views a month, 1 languages | within 1 km: Icefield Trail (556 m)", contents[0])
+        self.assertIn("Far |  | about 10 Wikipedia views a month, 1 languages | within 1 km: nothing on the list", contents[0])
 
     def test_a_place_without_an_article_isnt_shown_as_unread_in_the_pick(self):
         contents = []

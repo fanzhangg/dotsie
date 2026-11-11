@@ -299,17 +299,6 @@ def candidates(dbs, dest, rings):
             places.setdefault(k, p)
     hosted = {(n["source"], n["id"]) for p in places.values() for n in p["nps"] if p["source"] == "wikidata"}
     places = {k: p for k, p in places.items() if k not in hosted}
-    # An NPS page Wikidata doesn't link to its place's item, under the place's name (with a title's words: "Hike the
-    # Harding Icefield Trail" is the Harding Icefield), within 2 km: one place, the item's, with the page on it
-    items = [p for p in places.values() if p["source"] == "wikidata" and not p["itself"]]
-    for k, p in list(places.items()):
-        if p["source"] == "wikidata" or p["itself"] or not name_words(p["name"]):
-            continue
-        host = next((q for q in items if name_words(q["name"]) == name_words(p["name"])
-                     and store.metres(p["lat"], p["lng"], q["lat"], q["lng"]) <= 2000), None)
-        if host:
-            host["nps"] += p["nps"]
-            del places[k]
     whole = sorted((k for k, p in places.items() if p["itself"]), key=lambda k: k[0] != "wikidata")
     for k in whole[1:]:  # one entry for the park: its item's, or else its NPS page's
         del places[k]
@@ -324,16 +313,6 @@ def candidates(dbs, dest, rings):
 NOT_PLACES = {"Q5": "human", "Q16521": "taxon", "Q26401003": "individual animal", "Q1190554": "occurrence",
               "Q1656682": "event", "Q19860854": "destroyed building or structure",
               "Q96084375": "former building or structure", "Q811683": "proposed building or structure"}
-# Words an NPS page's title adds to a place's name ("Hike the Harding Icefield Trail"): left out when telling whether
-# two records name one place.
-TITLE_WORDS = {"the", "a", "an", "to", "of", "hike", "hiking", "visit", "drive", "explore", "experience", "take", "enjoy",
-               "see", "tour", "walk", "paddle", "bike", "trail", "trailhead", "loop"}
-
-
-def name_words(name):
-    return frozenset(w for w in re.findall(r"[a-z0-9]+", name.lower().replace("&", " and ")) if w not in TITLE_WORDS)
-
-
 # Destinations that get an entry of their own, first in their guide (a park as a whole: what it is, how to visit it).
 # A city doesn't: Seattle isn't one of Seattle's sights.
 WHOLE = {"national park"}
@@ -509,8 +488,11 @@ def pick(ask, dest, shortlist):
         if unread(p):
             return f"no English Wikipedia article{' (an NPS page)' if p['nps'] else ''}"
         return f"about {p['views']:,} Wikipedia views a month, {p['langs']} languages"
-    lines = [f"[{p['source']}/{p['id']}] {p['name']} | {', '.join(p['types'][:3])} | {known(p)}\n    {p['lead'][:450]}"
-             for p in shortlist]
+    def near(p):  # which other places on the shortlist are close by: one place in two records, or a trail and its end
+        close = sorted((store.metres(p["lat"], p["lng"], o["lat"], o["lng"]), o["name"]) for o in shortlist if o is not p)
+        return "; ".join(f"{n} ({d:,.0f} m)" for d, n in close if d <= 1000)[:300] or "nothing on the list"
+    lines = [f"[{p['source']}/{p['id']}] {p['name']} | {', '.join(p['types'][:3])} | {known(p)} | within 1 km: {near(p)}"
+             f"\n    {p['lead'][:450]}" for p in shortlist]
     whole = (f"\n\n{dest['name']} itself has an entry at the top of the page already: don't choose it again under another "
              "name.") if dest.get("kind") in WHOLE else ""
     return ask("pick", "v3", dest["id"], MODELS["pick"], PICK.format(name=dest["name"], cap=dest["cap"], whole=whole),

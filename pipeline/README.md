@@ -71,8 +71,9 @@ Commons. `guides.py` makes them for a destination in `destinations.json`, from i
    isn't one of its own sights.
    What is objective is decided in code: a place is inside (or Wikidata puts it in the park, P3018, wherever its one
    point is: Skyline Drive's falls just outside Shenandoah's outline), has a point, and isn't a person, a species,
-   an event or a building that's gone (its Wikidata "instance of", `NOT_PLACES`). An NPS page under a place's name
-   within 2 km is that place ("Hike the Harding Icefield Trail" is the Harding Icefield). What is judgement is the
+   an event or a building that's gone (its Wikidata "instance of", `NOT_PLACES`). Two records are one place when the
+   store links them (an identifier they share); whether two others are, a trail and the place it leads to, is the
+   pick's to tell, from which places on the shortlist are within 1 km of each other. What is judgement is the
    model's, told what the list is for and not given rules: a minor place is ranked low, one left out is lost.
 2. How worth a visit (Haiku): every candidate gets a draw, 0 to 5, and a reason. 0 is not somewhere to go (not a
    place, gone, or for something else, like an office); anything from 1 up is a sight.
