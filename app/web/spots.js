@@ -10,7 +10,7 @@ import { me } from './signin.js';
 import { MAPS_APPS, mapsApp, placeURL } from './routes.js';
 import { regionName } from './regions.js';
 import { IDEAS, dayOf, findIdea, findStop, guessKind } from './plan.js';
-import { QID } from './fields.js';
+import { MAX, QID } from './fields.js';
 import { fmtDay, nowStamp } from './time.js';
 import { tripDates } from './home.js';
 import { openTripOn } from './timeline.js';
@@ -344,28 +344,31 @@ async function saveSpot(pl, btn) {
     const stop = plannedOn(t, pl), detail = stop ? `Planned for ${fmtDay(dayOf(stop))}` : tripDates(t);
     return `<li><button type="button" class="wt-option" role="checkbox" aria-checked="${onTrip(t, pl)}" data-trip="${esc(t.id)}"><i class="wt-marker spot-save__trip">${ICON.map}</i><span class="wt-option__text"><span class="wt-option__label">${esc(t.name)}</span><span class="wt-option__detail">${esc(detail)}</span></span>${ICON.check}</button></li>`;
   };
-  const newHTML = `<li><button type="button" class="wt-option" data-new><i class="wt-marker spot-save__trip">${ICON.plus}</i><span class="wt-option__text"><span class="wt-option__label">New trip: ${esc(pl.city)}</span><span class="wt-option__detail">Rename it in its settings</span></span></button></li>`;
+  // New trip is named for the spot's city; its pencil turns the row into a field to name it something else first
+  const newHTML = `<li class="spot-save__new"><button type="button" class="wt-option" data-new><i class="wt-marker spot-save__trip">${ICON.plus}</i><span class="wt-option__text"><span class="wt-option__label">New trip: ${esc(pl.city)}</span></span></button><button type="button" class="wt-icon-btn spot-save__rename" data-rename aria-label="Name the new trip" title="Name it">${ICON.edit}</button></li>`;
+  const nameHTML = `<form class="spot-save__name"><i class="wt-marker spot-save__trip">${ICON.plus}</i><input class="wt-input" name="name" value="${esc(pl.city)}" required maxlength="${MAX.tripName}" autocomplete="off" enterkeyhint="done" aria-label="New trip’s name"><button type="submit" class="wt-icon-btn" aria-label="Make the trip" title="Make the trip">${ICON.check}</button></form>`;
   openSheet(`${modalHead(`Save ${esc(pl.name)}`)}
     <p class="wt-modal__text">It goes on the Want to go list of each trip you tick, for everyone on the trip, until someone gives it a day.</p>
     <ul class="wt-options" aria-label="Trips">${myTrips.map(row).join('')}${named() ? '' : newHTML}</ul>`, el => {
     const ul = el.querySelector('.wt-options');
     // A trip whose change is on its way takes no other tap until it's done: a second would save the spot to it twice
     const busy = new Set();
-    ul.addEventListener('click', async e => {
-      const b = e.target.closest('.wt-option');
-      const key = b?.dataset.trip ?? (b?.hasAttribute('data-new') ? 'new' : null);
-      if (!key || busy.has(key)) return;
-      let t = myTrips.find(x => x.id === b.dataset.trip);
+    // Ticks trip t or unticks it; with no t, makes a new trip of that name and ticks it
+    async function change(t, name) {
+      const key = t ? t.id : 'new';
+      if (busy.has(key)) return;
       const stop = t && plannedOn(t, pl);
       if (stop) { toast({ title: `Planned for ${fmtDay(dayOf(stop))}`, detail: `To take it off, delete the stop in ${t.name}.` }); return; }
       busy.add(key);
+      // A new trip's row takes the place, and the focus, of New trip or its field
+      const li = ul.querySelector('.spot-save__new'), made = !t;
       try {
-        if (key === 'new') {
-          const { trip } = await api('/trips', { method: 'POST', body: { name: pl.city } });
+        if (!t) {
+          const { trip } = await api('/trips', { method: 'POST', body: { name } });
           t = { id: trip.id, name: trip.name, start: null, end: null, stops: [], ideas: [] };
           myTrips.push(t);
-          b.closest('li').insertAdjacentHTML('beforebegin', row(t));
-          if (named()) b.closest('li').remove();
+          li.insertAdjacentHTML('beforebegin', row(t));
+          if (named()) li.remove(); else li.outerHTML = newHTML;
         }
         const had = findIdea(t, pl);
         if (had) {
@@ -381,10 +384,36 @@ async function saveSpot(pl, btn) {
       } finally {
         busy.delete(key);
       }
-      // Its row says where it is now; a new trip's row takes the place, and the focus, of the button that made it
+      // Its row says where it is now
       const tb = t && ul.querySelector(`[data-trip="${CSS.escape(t.id)}"]`);
-      if (tb) { tb.setAttribute('aria-checked', String(onTrip(t, pl))); if (key === 'new' && !b.isConnected) tb.focus(); }
+      if (tb) { tb.setAttribute('aria-checked', String(onTrip(t, pl))); if (made) tb.focus(); }
       showSaved();
+    }
+    ul.addEventListener('click', e => {
+      const b = e.target.closest('.wt-option, [data-rename]');
+      if (!b) return;
+      if (b.hasAttribute('data-rename')) {
+        const li = b.closest('li');
+        li.innerHTML = nameHTML;
+        const input = li.querySelector('input');
+        input.focus(); input.select();
+        return;
+      }
+      if (b.hasAttribute('data-new')) return change(null, pl.city);
+      const t = myTrips.find(x => x.id === b.dataset.trip);
+      if (t) change(t);
+    });
+    ul.addEventListener('submit', e => {
+      e.preventDefault();
+      change(null, e.target.elements.name.value.trim() || pl.city);
+    });
+    // Esc puts New trip back as it was, rather than closing the sheet
+    ul.addEventListener('keydown', e => {
+      const form = e.target.closest('.spot-save__name');
+      if (e.key !== 'Escape' || !form) return;
+      e.stopPropagation();
+      form.closest('li').outerHTML = newHTML;
+      ul.querySelector('[data-rename]').focus();
     });
   }, {
     onClose: () => {
