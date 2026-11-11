@@ -540,6 +540,107 @@ test('the search finds a city’s and a state’s spots by their names, and clea
   await expect(spotNames(page)).toHaveCount(7);
 });
 
+test('spots can be narrowed to a type, each saying how many of the spots asked for are of it, and Clear all clears them', async ({ page }) => {
+  await page.goto('#/spots');
+  const type = page.getByRole('combobox', { name: 'Type' });
+  await expect(type.locator('option')).toHaveText(['All types', 'Nature & parks (4)', 'Museums & art (2)', 'Landmarks & views (1)', 'History (2)',
+    'Markets & food (1)', 'Fun & shows (0)']);
+  await expect(type.locator('option', { hasText: 'Fun & shows' })).toHaveAttribute('disabled', ''); // none to show
+  await type.selectOption('museums');
+  await expect(spotNames(page)).toHaveText(['Chihuly Garden and Glass', 'New Mexico Museum of Space History']);
+  await expect(page.locator('[data-filter="kind"] .wt-filter__value')).toHaveText('Museums & art'); // the chip, without the count
+  await expect(page).toHaveURL(/#\/spots\?kind=museums$/);
+  // The counts follow the other filters and the search
+  await page.getByRole('combobox', { name: 'State' }).selectOption('WA');
+  await expect(spotNames(page)).toHaveText(['Chihuly Garden and Glass']);
+  await expect(type.locator('option')).toHaveText(['All types', 'Nature & parks (2)', 'Museums & art (1)', 'Landmarks & views (1)', 'History (1)',
+    'Markets & food (1)', 'Fun & shows (0)']);
+  // Clear all, once two things are set: back to every spot
+  await page.getByRole('button', { name: 'Clear all' }).click();
+  await expect(spotNames(page)).toHaveCount(7);
+  await expect(page).toHaveURL(/#\/spots$/);
+  await expect(type).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Clear all' })).toBeHidden();
+});
+
+test('a set filter clears with its ×, and a list with none to show offers to clear the filters', async ({ page }) => {
+  await page.goto('#/spots');
+  await page.getByRole('combobox', { name: 'State' }).selectOption('WA');
+  await expect(spotNames(page)).toHaveCount(4);
+  await expect(page.getByRole('button', { name: 'Clear all' })).toBeHidden(); // one thing set: its × is enough
+  await page.getByRole('button', { name: 'Clear State' }).click();
+  await expect(spotNames(page)).toHaveCount(7);
+  await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('');
+  await expect(page.getByRole('combobox', { name: 'State' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Clear State' })).toBeHidden();
+
+  await page.goto('#/spots?kind=landmarks&state=NM');
+  await expect(page.getByText('No spots fit these filters yet.')).toBeVisible();
+  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(spotNames(page)).toHaveCount(7);
+  // With a search, Clear filters keeps it
+  await page.goto('#/spots?q=glass&state=NM');
+  await expect(page.getByText('No spots match “glass” with these filters.')).toBeVisible();
+  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(spotNames(page)).toHaveText(['Chihuly Garden and Glass']);
+  await expect(page.getByRole('searchbox', { name: 'Search spots' })).toHaveValue('glass');
+  await page.getByRole('searchbox', { name: 'Search spots' }).fill('nowhere at all');
+  await page.getByRole('button', { name: 'Clear search' }).last().click();
+  await expect(spotNames(page)).toHaveCount(7);
+});
+
+test('spots can be sorted A to Z, and nearest first, saying how far each is; in a city, by the guide or by views', async ({ page, context }) => {
+  await context.grantPermissions(['geolocation']);
+  await context.setGeolocation({ latitude: 47.6062, longitude: -122.3321 }); // downtown Seattle
+  await page.goto('#/spots');
+  const sort = page.getByRole('combobox', { name: 'Sort' }), chip = page.locator('[data-filter="sort"]');
+  await expect(chip.locator('.wt-filter__value')).toHaveText('Most viewed');
+  await expect(sort.locator('option')).toHaveText(['Most viewed', 'Nearest', 'A to Z']);
+  await sort.selectOption('name');
+  await expect(spotNames(page)).toHaveText(['Chihuly Garden and Glass', 'Discovery Park', 'New Mexico Museum of Space History', 'Pike Place Market',
+    'Space Needle', 'Stanley Park', 'White Sands National Park']);
+  await expect(chip).toHaveClass(/is-set/);
+  await expect(page).toHaveURL(/#\/spots\?sort=name$/);
+
+  await sort.selectOption('near');
+  await expect(spotNames(page)).toHaveText(['Pike Place Market', 'Space Needle', 'Chihuly Garden and Glass', 'Discovery Park', 'Stanley Park',
+    'White Sands National Park', 'New Mexico Museum of Space History']);
+  await expect(page.getByRole('link', { name: /^Pike Place Market/ })).toContainText('Seattle, WA · 0.6 mi');
+  await expect(page.getByRole('link', { name: /^Stanley Park/ })).toContainText('Vancouver, BC · 123 mi');
+  await expect(page.getByText('Nearest first, as the crow flies')).toBeVisible();
+  // The address says nearest, not where you are: a link sent asks the one who opens it
+  await expect(page).toHaveURL(/#\/spots\?sort=near$/);
+  await page.reload();
+  await expect(spotNames(page).first()).toHaveText('Pike Place Market');
+
+  // A city: the guide's order first, or by views; without the city, most viewed is the usual order again
+  await page.goto('#/spots?city=seattle');
+  await expect(chip.locator('.wt-filter__value')).toHaveText('Guide’s order');
+  await expect(chip).not.toHaveClass(/is-set/);
+  await sort.selectOption('views');
+  await expect(spotNames(page)).toHaveText(['Space Needle', 'Pike Place Market', 'Chihuly Garden and Glass', 'Discovery Park']);
+  await expect(page).toHaveURL(/#\/spots\?city=seattle&sort=views$/);
+  await page.getByRole('button', { name: 'Clear City' }).click();
+  await expect(chip.locator('.wt-filter__value')).toHaveText('Most viewed');
+  await expect(page).toHaveURL(/#\/spots$/);
+});
+
+test('if the browser can’t say where you are, the order stays as it was, and a toast says why', async ({ page }) => {
+  // Location turned down: what a browser says when you block it (left to itself, headless Chromium may not answer)
+  await page.addInitScript(() => {
+    navigator.geolocation.getCurrentPosition = (ok, fail) => setTimeout(() => fail({ code: 1, PERMISSION_DENIED: 1 }), 50);
+  });
+  await page.goto('#/spots');
+  await expect(spotNames(page)).toHaveCount(7);
+  await page.getByRole('combobox', { name: 'Sort' }).selectOption('near');
+  const why = page.locator('.wt-toast').filter({ hasText: 'Couldn’t tell where you are' }); // an alert: it's an error
+  await expect(why).toBeVisible();
+  await expect(page.locator('[data-filter="sort"] .wt-filter__value')).toHaveText('Most viewed');
+  await expect(page).toHaveURL(/#\/spots$/);
+  await expect(spotNames(page).first()).toHaveText('Space Needle');
+  await expect(why).toContainText('allow location for Dotsie');
+});
+
 test('the search and the filters stay at the top as the spots scroll; on a phone the app bar tucks away going down', async ({ page }) => {
   await page.goto('#/spots');
   await expect(spotNames(page)).toHaveCount(7);

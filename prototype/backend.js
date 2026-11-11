@@ -7,6 +7,7 @@ import { QID } from '../app/web/fields.js';
 import { OVERPASS, nominatimPlaces, nominatimURL, osrmRoute, osrmURL, sightsFrom, sightsQuery, tileBounds, wikiAbout, wikiPlace } from '../app/web/places.js';
 import { dayOf, stopsOf } from '../app/web/plan.js';
 import { regionsMatching } from '../app/web/regions.js';
+import { SPOT_KINDS, SPOT_SORTS, isKind, kmBetween, nearOf, spotKind, spotText } from '../app/web/spotkinds.js';
 import { onEvent } from '../app/web/trips.js';
 import { toast } from '../app/web/notices.js';
 
@@ -295,46 +296,47 @@ export function settingsNoteHTML(trip) {
 }
 
 // ---------- Spots: a few sample places in place of the guide's (the app's come from the spots data, pipeline/guides.py) ----------
-// Written for the prototype, and the views are made up, roughly in proportion; each searches, sorts and filters as the app's
-// /api/spots does. Their photos are the lead photos of their Wikipedia articles, found by name and place as Home's
-// cards find a stop's (see findPlaceAbout), once a visit; with none (offline, or in the tests), the card shows a pin.
+// Written for the prototype, and the views are made up, roughly in proportion; each has its types as Wikidata's would be,
+// and searches, sorts and filters as the app's /api/spots does. Their photos are the lead photos of their Wikipedia
+// articles, found by name and place as Home's cards find a stop's (see findPlaceAbout), once a visit; with none
+// (offline, or in the tests), the card shows a pin.
 const SPOT_CITIES = [
   { id: 'seattle', name: 'Seattle', state: 'WA', country: 'US' },
   { id: 'alamogordo', name: 'Alamogordo', state: 'NM', country: 'US' },
   { id: 'vancouver', name: 'Vancouver', state: 'BC', country: 'CA' },
 ];
 const wiki = title => `https://en.wikipedia.org/wiki/${title}`;
-const spot = (city, id, rank, name, lat, lng, views, oneLiner, paragraphs, practical = [], website = null) =>
-  ({ city, source: 'sample', id, rank, name, lat, lng, views, oneLiner, website, practical,
+const spot = (city, id, rank, name, types, lat, lng, views, oneLiner, paragraphs, practical = [], website = null) =>
+  ({ city, source: 'sample', id, rank, name, types: JSON.stringify(types), lat, lng, views, oneLiner, website, practical,
     paragraphs: paragraphs.map(text => ({ text, sources: [wiki(name.replace(/ /g, '_'))] })), sources: [{ url: wiki(name.replace(/ /g, '_')), kind: 'wikipedia' }] });
 const SPOTS = [
-  spot('seattle', 'space-needle', 2, 'Space Needle', 47.6205, -122.3493, 1900000,
+  spot('seattle', 'space-needle', 2, 'Space Needle', ['observation tower', 'tourist attraction'], 47.6205, -122.3493, 1900000,
     'The 1962 World’s Fair tower, with the city, the Sound and Mount Rainier at your feet.',
     ['Built for the 1962 World’s Fair, the Space Needle rises 605 feet over Seattle Center. A lift takes you up to the observation level in under a minute.',
       'Up top, the views take in downtown, Elliott Bay and, on a clear day, Mount Rainier. The level below has a glass floor that turns.'],
     [{ label: 'Getting there', value: 'Seattle Center, a short ride on the Monorail from Westlake Center.' }], 'https://www.spaceneedle.com/'),
-  spot('seattle', 'pike-place-market', 1, 'Pike Place Market', 47.6097, -122.3422, 1400000,
+  spot('seattle', 'pike-place-market', 1, 'Pike Place Market', ['public market', 'historic district'], 47.6097, -122.3422, 1400000,
     'Fish, flowers and farm stalls over the waterfront, since 1907.',
     ['Pike Place Market opened in 1907, and is one of the oldest public farmers’ markets in the US still running. Its stalls sell produce, flowers, crafts and seafood.',
       'Come early to see it wake up, then take the stairs at the back down to the waterfront.']),
-  spot('seattle', 'chihuly-garden-and-glass', 3, 'Chihuly Garden and Glass', 47.6206, -122.3504, 420000,
+  spot('seattle', 'chihuly-garden-and-glass', 3, 'Chihuly Garden and Glass', ['art museum'], 47.6206, -122.3504, 420000,
     'Dale Chihuly’s glass, in galleries, a glasshouse and a garden under the Space Needle.',
     ['Opened in 2012 beside the Space Needle, the museum shows the work of Dale Chihuly, a glass artist from nearby Tacoma.',
       'The Glasshouse, a tall hall of glass, holds one of his largest hanging pieces; outside, glass grows among the plants.']),
-  spot('seattle', 'discovery-park', 4, 'Discovery Park', 47.6573, -122.4057, 160000,
+  spot('seattle', 'discovery-park', 4, 'Discovery Park', ['urban park'], 47.6573, -122.4057, 160000,
     'Seattle’s biggest park: meadows, forest and beaches on a headland over Puget Sound.',
     ['Discovery Park covers 534 acres of the Magnolia headland, on what was Fort Lawton.',
       'A loop trail runs through forest and meadow, and a path drops to the beach and the West Point Lighthouse.']),
-  spot('alamogordo', 'white-sands', 1, 'White Sands National Park', 32.7872, -106.3257, 900000,
+  spot('alamogordo', 'white-sands', 1, 'White Sands National Park', ['national park'], 32.7872, -106.3257, 900000,
     'Waves of white gypsum, the largest field of such dunes on Earth.',
     ['White Sands holds the world’s largest gypsum dunefield: about 275 square miles of white sand in the Tularosa Basin. It became a national park in 2019.',
       'Dunes Drive runs eight miles into the dunes, with boardwalks and trails along the way. Bring a sled: the slopes are made for it.'],
     [{ label: 'Bring', value: 'Water, sun protection and a sled (the visitor center sells them).' }]),
-  spot('alamogordo', 'museum-of-space-history', 2, 'New Mexico Museum of Space History', 32.9214, -105.9213, 60000,
+  spot('alamogordo', 'museum-of-space-history', 2, 'New Mexico Museum of Space History', ['aerospace museum'], 32.9214, -105.9213, 60000,
     'A golden cube on the hillside, home to the International Space Hall of Fame.',
     ['The museum looks out over Alamogordo from a five-story cube of golden glass, and holds the International Space Hall of Fame.',
       'Rockets stand in the park outside, and the exhibits tell of the rocket and space research done around White Sands.']),
-  spot('vancouver', 'stanley-park', 1, 'Stanley Park', 49.3043, -123.1443, 700000,
+  spot('vancouver', 'stanley-park', 1, 'Stanley Park', ['urban park'], 49.3043, -123.1443, 700000,
     'A forest at the edge of downtown, ringed by the seawall.',
     ['Stanley Park covers about 400 hectares at the tip of the downtown peninsula, most of it forest.',
       'The seawall around it is about 9 km of path for walking and cycling, past beaches, totem poles and views of the North Shore mountains.']),
@@ -355,16 +357,26 @@ async function spots([a, b, ...rest], q) {
   if (a === 'cities') return SPOT_CITIES.map(c => ({ ...c, spots: SPOTS.filter(p => p.city === c.id).length }));
   if (a === 'search') {
     const text = (q.get('q') || '').trim().toLowerCase(), offset = Number(q.get('offset') || 0), limit = Number(q.get('limit') || 50);
+    const kind = spotKind(q.get('kind') || ''), sort = q.get('sort') || '', near = nearOf(q.get('near'));
+    if ((q.get('kind') && !kind) || (sort && !Object.hasOwn(SPOT_SORTS, sort)) || (q.get('near') && !near)) throw new ApiError(400, 'invalid');
     const regions = regionsMatching(text);
-    const hits = SPOTS.filter(p => {
+    const where = SPOTS.filter(p => {
       const c = cityOf(p);
       return (!text || [p.name, p.oneLiner, c.name].some(x => x.toLowerCase().includes(text)) || regions.includes(`${c.country}-${c.state}`))
         && (!q.get('country') || c.country === q.get('country')) && (!q.get('state') || c.state === q.get('state')) && (!q.get('city') || c.id === q.get('city'));
-    }).sort((x, y) => (q.get('city') ? x.rank - y.rank : 0) || y.views - x.views || x.rank - y.rank || x.name.localeCompare(y.name));
+    });
+    // How many of each type, whatever the type asked, for the Type filter's choices
+    const kinds = Object.fromEntries(SPOT_KINDS.map(k => [k.id, where.filter(p => isKind(k, spotText(p.types, p.name))).length]));
+    const byViews = (x, y) => y.views - x.views || x.rank - y.rank || x.name.localeCompare(y.name);
+    const hits = where.filter(p => !kind || isKind(kind, spotText(p.types, p.name))).sort(
+      sort === 'near' && near ? (x, y) => kmBetween(near, x) - kmBetween(near, y) || byViews(x, y)
+      : sort === 'name' ? (x, y) => x.name.localeCompare(y.name) || x.rank - y.rank
+      : (x, y) => (q.get('city') && sort !== 'views' ? x.rank - y.rank : 0) || byViews(x, y));
     const page = hits.slice(offset, offset + limit);
     const photos = await Promise.all(page.map(heroOf));
     return { results: page.map((p, i) => { const c = cityOf(p); return { source: p.source, id: p.id, name: p.name, oneLiner: p.oneLiner, hero: photos[i],
-      rank: p.rank, city: { id: c.id, name: c.name }, state: c.state, country: c.country, lat: p.lat, lng: p.lng, views: p.views }; }), total: hits.length, more: hits.length > offset + limit };
+      rank: p.rank, city: { id: c.id, name: c.name }, state: c.state, country: c.country, lat: p.lat, lng: p.lng, views: p.views }; }),
+      total: hits.length, more: hits.length > offset + limit, kinds };
   }
   const p = SPOTS.find(x => x.city === a && x.source === b && x.id === rest.join('/'));
   if (!p) throw new ApiError(404, 'not_found');

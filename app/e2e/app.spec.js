@@ -197,6 +197,24 @@ test('anyone can browse the spots and read a spot’s guide without signing in',
   await expect(page.getByRole('button', { name: 'Continue as a guest' })).toBeVisible();
 });
 
+// The server filters by type and counts the types in SQL, and sorts nearest first: Testville's Test Lodge is a historic
+// building
+test('the spots can be narrowed to a type and sorted nearest first', async ({ page }) => {
+  await page.goto('/#/spots?city=testville');
+  const type = page.getByRole('combobox', { name: 'Type' });
+  await expect(type.locator('option', { hasText: 'History' })).toHaveText('History (1)');
+  await expect(type.locator('option', { hasText: 'Fun & shows' })).toHaveText('Fun & shows (0)');
+  await type.selectOption('history');
+  await expect(page.locator('.wt-spot-card')).toHaveCount(1);
+  await expect(page).toHaveURL(/#\/spots\?kind=history&city=testville$/);
+  const get = async q => { const res = await page.request.get(`/api/spots/search?${q}`); expect(res.status()).toBe(200); return res.json(); };
+  expect(await get('city=testville&kind=fun')).toMatchObject({ results: [], total: 0, kinds: { history: 1, fun: 0 } });
+  expect((await get('city=testville&sort=near&near=46.78,-121.73')).results.map(r => r.name)).toEqual(['Test Lodge']);
+  expect((await get('city=testville&sort=name')).results.map(r => r.name)).toEqual(['Test Lodge']);
+  expect(await get('city=testville&kind=history&offset=50')).toMatchObject({ results: [], total: 1, more: false }); // past the last page
+  for (const q of ['kind=nope', 'sort=toString', 'sort=near&near=95,1']) expect((await page.request.get(`/api/spots/search?${q}`)).status(), q).toBe(400);
+});
+
 // Saving a spot waits on the server, so a trip ticked while another's change is on its way must not take a second tap
 test('a spot is saved to a trip once, however the taps fall while the server answers', async ({ page }) => {
   await page.goto('/');

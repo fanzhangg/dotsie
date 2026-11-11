@@ -51,8 +51,9 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 
 /* ---------- Spots: a search and filters over a grid of spot cards, as Home's trips; a spot's entry in one column ---------- */
 .spots-list { display: grid; gap: var(--wt-space-4); align-content: start; scroll-margin-top: calc(80px + var(--wt-space-2)); } /* clear of the app bar when a page of the pager scrolls to it */
-.spots-count { margin: calc(-1 * var(--wt-space-2)) 0 calc(-1 * var(--wt-space-2)); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-.spots-count:empty { display: none; }
+.spots-head { display: flex; align-items: center; justify-content: space-between; gap: var(--wt-space-3); margin: calc(-1 * var(--wt-space-3)) 0 calc(-1 * var(--wt-space-2)); }
+.spots-head .wt-filter { margin-right: -10px; } /* its words in line with the cards' edge */
+.spots-count { margin: 0; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .spots-find { display: grid; gap: var(--wt-space-2); }
 /* The search and the filters stay at the top of the list as it scrolls: just under the app bar, frosted like it and out
    to the page's edges, with the bar's hairline moved under them, so the two read as one; on a phone, at the very top
@@ -71,6 +72,9 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 /* The filters: a row of chips (the design system's), scrolling sideways if they don't fit */
 .spots-filters { display: flex; gap: var(--wt-space-2); overflow-x: auto; scrollbar-width: none; }
 .spots-filters::-webkit-scrollbar { display: none; }
+/* While a new search comes, what's shown fades a little (after a moment, so a quick answer doesn't flicker) */
+.spots-grid { transition: opacity var(--wt-duration-fast); }
+.spots-grid.is-busy { opacity: 0.5; }
 .spots-empty { grid-column: 1 / -1; display: grid; justify-items: center; gap: var(--wt-space-3); }
 .spots-empty p { margin: 0; }
 .spots-more { justify-self: center; }

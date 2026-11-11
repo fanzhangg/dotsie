@@ -1,6 +1,7 @@
 /* Spots: the guide's places, open to anyone, signed in or not. #/spots lists them, most viewed first (in the guide's
-   own order once a city is picked), with a search and filters for country, state and city, kept in the address
-   (#/spots?q=…&state=WA&city=seattle&page=2) so it can be reloaded, sent and gone back through.
+   own order once a city is picked), with a search, filters for type, country, state and city, and an order (most
+   viewed, nearest, A to Z), kept in the address (#/spots?q=…&kind=nature&state=WA&city=seattle&sort=near&page=2) so it
+   can be reloaded, sent and gone back through.
    #/spots/<city>/<source>/<id> is one spot's guide entry, a page of its own with no app bar, its sources and other
    pages about it listed at the end. The entries are written by a model from the sources each lists
    (pipeline/guides.py) and published under CC BY-SA 4.0. */
@@ -16,6 +17,7 @@ import { tripDates } from './home.js';
 import { openTripOn } from './timeline.js';
 import { closeSheet, modalHead, openSheet } from './sheets.js';
 import { failToast, toast } from './notices.js';
+import { SPOT_KINDS, kmBetween, spotKind } from './spotkinds.js';
 
 const countryName = (() => {
   let names = null;
@@ -30,9 +32,12 @@ const host = url => { try { return new URL(url).hostname.replace(/^www\./, ''); 
 
 // What's asked and what's shown, kept while you go to a spot and back, or to Plan and back. `query` is the address's
 // part after ?, as this state writes it: a different one (Back, Forward, a link) is asked again.
-const s = { q: '', country: '', state: '', city: '', page: 1, query: null, cities: null, results: [], more: false, total: 0, loaded: false,
-  asked: 0, key: null, scroll: 0, fromList: false, title: 'Spots · Dotsie' };
-let timer = 0;
+// `kinds`: how many of each type the search and the place filters hold, for the Type filter. `sort`: '' for the usual
+// order, else 'views' (in a city), 'near' or 'name'. `near`: where you are, once asked for Nearest ("47.61,-122.33").
+const s = { q: '', kind: '', country: '', state: '', city: '', sort: '', page: 1, query: null, cities: null, kinds: null, near: null,
+  locating: false, results: [], more: false, total: 0, loaded: false, asked: 0, key: null, scroll: 0, fromList: false, title: 'Spots · Dotsie' };
+const FILTERS = ['kind', 'country', 'state', 'city']; // what narrows the list, besides the search
+let timer = 0, busy = 0;
 
 // ---------- The page ----------
 // The app bar, as Home has it: the nav, and the account (or Sign in). The list, and a spot's entry over it, are filled
@@ -69,6 +74,8 @@ export function renderSpots(r) {
   } else if (back) scrollTo(0, s.scroll);
 }
 
+// Under the search and the filters, how many, and across from it the order, where it's in sight however many filters
+// the row holds
 function mount() {
   $app.innerHTML = `
     ${headHTML()}
@@ -79,10 +86,12 @@ function mount() {
             <input type="search" name="q" placeholder="Search spots, cities or states" aria-label="Search spots" autocomplete="off">
             <span class="wt-spinner" hidden></span>
             <button type="button" class="wt-search__clear" aria-label="Clear search" hidden>${ICON.close}</button></label>
-          <div class="spots-filters">${[['country', 'Country'], ['state', 'State'], ['city', 'City']].map(([name, label]) =>
-            `<label class="wt-filter" data-filter="${name}"><span class="wt-filter__value">${label}</span>${ICON.chevronDown}<select name="${name}" aria-label="${label}"></select></label>`).join('')}</div>
+          <div class="spots-filters">${[['kind', 'Type'], ['country', 'Country'], ['state', 'State'], ['city', 'City']].map(([name, label]) =>
+            `<label class="wt-filter" data-filter="${name}"><span class="wt-filter__value">${label}</span>${ICON.chevronDown}<select name="${name}" aria-label="${label}"></select><button type="button" class="wt-filter__clear" data-clear="${name}" aria-label="Clear ${label}" title="Clear" hidden>${ICON.close}</button></label>`).join('')}
+            <button type="button" class="wt-filter wt-filter--action spots-clear" hidden>Clear all</button></div>
         </div>
-        <p class="spots-count" role="status"></p>
+        <div class="spots-head"><p class="spots-count" role="status"></p>
+          <label class="wt-filter wt-filter--plain" data-filter="sort"><span class="wt-filter__value">Most viewed</span>${ICON.chevronUpDown}<select name="sort" aria-label="Sort"></select></label></div>
         <div class="home-grid spots-grid"></div>
         <button type="button" class="wt-btn wt-btn--secondary spots-more" hidden>Show more</button>
         <nav class="wt-pager spots-pager" aria-label="Pages of spots" hidden></nav>
@@ -97,6 +106,15 @@ function mount() {
     clearTimeout(timer);
     timer = setTimeout(() => { writeQuery(); search(); }, 250);
   });
+  // Enter searches now, rather than after the pause, and on a phone puts the keyboard away, to see the spots it found
+  input.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    e.preventDefault();
+    clearTimeout(timer);
+    writeQuery();
+    search();
+    if (coarse.matches) input.blur();
+  });
   list.querySelector('.wt-search__clear').addEventListener('click', e => {
     e.preventDefault();
     input.value = s.q = '';
@@ -105,7 +123,14 @@ function mount() {
     writeQuery();
     search();
   });
-  list.querySelector('.spots-filters').addEventListener('change', e => pick(e.target.name, e.target.value));
+  const filters = list.querySelector('.spots-filters');
+  for (const el of [filters, list.querySelector('.spots-head')]) el.addEventListener('change', e => pick(e.target.name, e.target.value));
+  filters.addEventListener('click', e => {
+    // A set filter's ×: back to every one, with the focus on the filter, as the × is gone
+    const x = e.target.closest('[data-clear]');
+    if (x) { e.preventDefault(); pick(x.dataset.clear, ''); filters.querySelector(`select[name="${x.dataset.clear}"]`)?.focus(); }
+    if (e.target.closest('.spots-clear')) clearAll();
+  });
   list.querySelector('.spots-more').addEventListener('click', () => search('more'));
   list.querySelector('.spots-pager').addEventListener('click', e => {
     const to = e.target.closest('[data-page]');
@@ -117,6 +142,8 @@ function mount() {
   list.addEventListener('click', e => {
     if (e.target.closest('.wt-spot-card__link')) s.fromList = true;
     if (e.target.closest('[data-retry]')) search(s.page);
+    if (e.target.closest('[data-unfilter]')) clearAll({ keepSearch: true });
+    if (e.target.closest('[data-unsearch]')) list.querySelector('.wt-search__clear').click();
   });
   $app.querySelector('.spots-entry').addEventListener('click', e => {
     // Back to the list you came from, as it was; from a link someone sent, to the list
@@ -136,34 +163,43 @@ function stickUnderBar() {
 }
 addEventListener('resize', () => { if ($app.dataset.page === 'spots') stickUnderBar(); });
 const showClear = () => { const b = $app.querySelector('.wt-search__clear'); if (b) b.hidden = !s.q; };
+const coarse = matchMedia('(pointer: coarse)');
 
 // ---------- The address: what's asked, after #/spots? ----------
 function readQuery(query) {
-  const p = new URLSearchParams(query);
-  Object.assign(s, { q: p.get('q') ?? '', country: p.get('country') ?? '', state: p.get('state') ?? '', city: p.get('city') ?? '',
-    page: wide.matches ? Math.max(1, Number.parseInt(p.get('page') ?? '1', 10) || 1) : 1, query });
+  const p = new URLSearchParams(query), sort = p.get('sort') ?? '';
+  Object.assign(s, { q: p.get('q') ?? '', kind: spotKind(p.get('kind') ?? '') ? p.get('kind') : '', country: p.get('country') ?? '',
+    state: p.get('state') ?? '', city: p.get('city') ?? '', page: wide.matches ? Math.max(1, Number.parseInt(p.get('page') ?? '1', 10) || 1) : 1, query });
+  s.sort = sortsFor().some(([v]) => v && v === sort) ? sort : '';
   const input = $app.querySelector('.spots-list [name="q"]');
   if (input) input.value = s.q;
   showClear();
   renderFilters();
+  if (s.sort === 'near' && !s.near) locate(); // a link to the nearest: yours, once the browser says where you are
 }
 // Searching and filtering change the address in place; a page of the pager is a step of its own (push)
 function writeQuery(push = false) {
   const p = new URLSearchParams();
-  for (const k of ['q', 'country', 'state', 'city']) if (s[k].trim()) p.set(k, s[k].trim());
+  for (const k of ['q', ...FILTERS, 'sort']) if (s[k].trim()) p.set(k, s[k].trim());
   if (push && s.page > 1) p.set('page', String(s.page));
   else s.page = push ? s.page : 1;
   s.query = p.toString();
   history[push ? 'pushState' : 'replaceState'](push ? null : history.state, '', `#/spots${s.query ? `?${s.query}` : ''}`);
 }
 
-// ---------- Filters: country, then state, then city ----------
+// ---------- Filters: the type, then country, state and city; and the order ----------
 async function loadCities() {
   try { s.cities = await api('/spots/cities'); } catch { s.cities = null; return; }
   if ($app.dataset.page === 'spots') renderFilters();
 }
+// The orders on offer, the usual one first (as ''): in a city, the guide's; else most viewed. Nearest needs a browser
+// that can say where you are.
+const canLocate = typeof navigator !== 'undefined' && 'geolocation' in navigator;
+const sortsFor = () => [['', s.city ? 'Guide’s order' : 'Most viewed'], ...(s.city ? [['views', 'Most viewed']] : []),
+  ...(canLocate ? [['near', 'Nearest']] : []), ['name', 'A to Z']];
+const order = () => (s.sort === 'near' && !s.near ? '' : s.sort) || (s.city ? 'guide' : 'views');
 function renderFilters() {
-  const root = $app.querySelector('.spots-filters');
+  const root = $app.querySelector('.spots-list');
   if (!root) return;
   const all = s.cities || [];
   const countries = [...new Set(all.map(c => c.country))];
@@ -171,31 +207,92 @@ function renderFilters() {
   const states = [...new Map(inCountry.map(c => [`${c.country}-${c.state}`, c])).values()]
     .sort((a, b) => regionName(a.country, a.state).localeCompare(regionName(b.country, b.state)));
   const cities = inCountry.filter(c => !s.state || c.state === s.state).sort((a, b) => a.name.localeCompare(b.name));
-  const option = (value, text, on) => `<option value="${esc(value)}"${on ? ' selected' : ''}>${esc(text)}</option>`;
+  const option = (value, text, on, off = false) => `<option value="${esc(value)}"${on ? ' selected' : ''}${off ? ' disabled' : ''}>${esc(text)}</option>`;
   const set = (name, html) => { root.querySelector(`[name="${name}"]`).innerHTML = html; };
+  // Each type says how many of the spots asked for are of it, once the list has come; one with none can't be picked
+  set('kind', option('', 'All types') + SPOT_KINDS.map(k => {
+    const n = s.kinds?.[k.id];
+    return option(k.id, n == null ? k.label : `${k.label} (${n})`, k.id === s.kind, n === 0 && k.id !== s.kind);
+  }).join(''));
   set('country', option('', 'All countries') + countries.map(c => option(c, countryName(c), c === s.country)).join(''));
   set('state', option('', 'All states') + states.map(c => option(c.state, regionName(c.country, c.state), c.state === s.state)).join(''));
   set('city', option('', 'All cities') + cities.map(c => option(c.id, s.state ? c.name : `${c.name}, ${c.state}`, c.id === s.city)).join(''));
-  // Each filter shows what it's set to, or its name when it's every one
-  for (const chip of root.querySelectorAll('.wt-filter')) {
-    const select = chip.querySelector('select'), on = !!select.value;
+  set('sort', sortsFor().map(([v, text]) => option(v, text, v === s.sort)).join(''));
+  // Each filter shows what it's set to, with a × to clear it, or its name when it's every one. The order always says
+  // which it is, on grey once it isn't the usual one.
+  for (const chip of root.querySelectorAll('.wt-filter[data-filter]')) {
+    const name = chip.dataset.filter, select = chip.querySelector('select'), on = !!select.value;
     chip.classList.toggle('is-set', on);
-    chip.querySelector('.wt-filter__value').textContent = on ? select.selectedOptions[0].textContent : select.getAttribute('aria-label');
+    chip.querySelector('.wt-filter__value').textContent = name === 'sort' ? (s.locating ? 'Finding you…' : select.selectedOptions[0]?.textContent ?? '')
+      : !on ? select.getAttribute('aria-label') : name === 'kind' ? spotKind(s.kind).label : select.selectedOptions[0].textContent;
+    const x = chip.querySelector('.wt-filter__clear');
+    if (x) x.hidden = !on;
   }
+  root.querySelector('[data-filter="sort"]').toggleAttribute('aria-busy', s.locating);
   // One country so far: nothing to choose, so it stays out of the way until there's a second
   root.querySelector('[data-filter="country"]').hidden = countries.length < 2 && !s.country;
+  // Clear all, once there's more than one thing to clear
+  root.querySelector('.spots-clear').hidden = [s.q.trim(), ...FILTERS.map(k => s[k])].filter(Boolean).length < 2;
 }
 // A wider choice drops the narrower ones it doesn't hold; a city sets its state
 function pick(name, value) {
+  if (name === 'sort') return sortBy(value);
   const city = name === 'city' && value && s.cities?.find(c => c.id === value);
   if (city) Object.assign(s, { city: city.id, state: city.state });
   else s[name] = value;
   const fits = c => (!s.country || c.country === s.country) && (!s.state || c.state === s.state);
   if (name === 'country' && s.state && !s.cities?.some(fits)) s.state = '';
   if (s.city && !s.cities?.some(c => c.id === s.city && fits(c))) s.city = '';
+  if (!s.city && s.sort === 'views') s.sort = ''; // most viewed is the usual order again
   renderFilters();
   writeQuery();
   search();
+}
+// The search and every filter back to every spot; the order stays. keepSearch: the empty list's Clear filters, which
+// leaves what you typed.
+function clearAll({ keepSearch = false } = {}) {
+  if (!keepSearch) {
+    s.q = '';
+    const input = $app.querySelector('.spots-list [name="q"]');
+    if (input) input.value = '';
+    showClear();
+  }
+  for (const k of FILTERS) s[k] = '';
+  if (s.sort === 'views') s.sort = '';
+  renderFilters();
+  writeQuery();
+  search();
+}
+// Nearest asks the browser where you are first, the first time; the list stays as it is until it says
+function sortBy(value) {
+  const before = s.sort;
+  s.sort = value;
+  writeQuery();
+  if (value === 'near' && !s.near) { locate(before); return; }
+  renderFilters();
+  search();
+}
+// Where you are, to a km or so (two decimals): near enough to sort by, and the same for everyone close by, so the
+// answer can be cached. If the browser can't say, the order goes back to what it was, and a toast says why.
+function locate(before = '') {
+  if (s.locating) return;
+  s.locating = true;
+  renderFilters();
+  navigator.geolocation.getCurrentPosition(({ coords }) => {
+    s.locating = false;
+    s.near = `${coords.latitude.toFixed(2)},${coords.longitude.toFixed(2)}`;
+    renderFilters();
+    if (s.sort === 'near') search();
+  }, err => {
+    s.locating = false;
+    if (s.sort === 'near') {
+      s.sort = before;
+      if ($app.dataset.page === 'spots') writeQuery();
+    }
+    renderFilters();
+    toast({ title: 'Couldn’t tell where you are', error: true,
+      detail: err.code === err.PERMISSION_DENIED ? 'To sort by nearest, allow location for Dotsie in your browser.' : 'Try Nearest again in a moment.' });
+  }, { timeout: 15000, maximumAge: 10 * 60_000 });
 }
 
 // ---------- The list ----------
@@ -214,16 +311,27 @@ function pageList(page, pages) {
 async function search(to) {
   const n = ++s.asked, limit = perPage();
   const page = to === 'more' ? s.page + 1 : typeof to === 'number' ? to : 1, offset = (page - 1) * limit;
-  const params = new URLSearchParams({ q: s.q.trim(), country: s.country, state: s.state, city: s.city, offset: String(offset), limit: String(limit) });
+  const sort = order() === 'guide' || (order() === 'views' && !s.city) ? '' : order();
+  const params = new URLSearchParams({ q: s.q.trim(), kind: s.kind, country: s.country, state: s.state, city: s.city, sort,
+    near: sort === 'near' ? s.near : '', offset: String(offset), limit: String(limit) });
   for (const [k, v] of [...params]) if (!v || (k === 'offset' && v === '0')) params.delete(k);
-  const spin = $app.querySelector('.spots-list .wt-spinner');
+  const spin = $app.querySelector('.spots-list .wt-spinner'), grid = $app.querySelector('.spots-grid');
   if (spin) spin.hidden = false;
   if (!s.loaded) showLoading();
+  // What's shown fades a little while what's asked comes, if it takes a moment, so it's clear it's about to change
+  grid?.setAttribute('aria-busy', 'true');
+  clearTimeout(busy);
+  if (s.loaded && to !== 'more') busy = setTimeout(() => grid?.classList.add('is-busy'), 150);
   try {
     const got = await api(`/spots/search?${params}`);
     if (n !== s.asked) return; // a newer search is on its way
+    const fresh = to === undefined && s.loaded;
     Object.assign(s, { page, more: got.more, total: got.total, loaded: true, results: to === 'more' ? [...s.results, ...got.results] : got.results });
+    if (got.kinds && JSON.stringify(got.kinds) !== JSON.stringify(s.kinds)) { s.kinds = got.kinds; renderFilters(); }
     showResults();
+    // A new search from far down the list: back up to its top, under the search and filters, to see what it found
+    const list = $app.querySelector('.spots-list');
+    if (fresh && list && list.getBoundingClientRect().top < 0) list.scrollIntoView({ block: 'start' });
   } catch (err) {
     if (n !== s.asked) return;
     const grid = $app.querySelector('.spots-grid');
@@ -232,7 +340,12 @@ async function search(to) {
     const count = $app.querySelector('.spots-count');
     if (count) count.textContent = '';
   } finally {
-    if (n === s.asked && spin?.isConnected) spin.hidden = true;
+    if (n === s.asked) {
+      if (spin?.isConnected) spin.hidden = true;
+      clearTimeout(busy);
+      grid?.classList.remove('is-busy');
+      grid?.removeAttribute('aria-busy');
+    }
   }
 }
 // The first time, until the spots come: grey cards in their place, so the page doesn't jump when they do
@@ -246,13 +359,19 @@ function showLoading() {
 function showResults() {
   const grid = $app.querySelector('.spots-grid');
   if (!grid) return;
-  const filtered = s.q.trim() || s.country || s.state || s.city, city = s.cities?.find(c => c.id === s.city);
-  grid.innerHTML = s.results.length ? s.results.map(cardHTML).join('')
-    : `<p class="wt-empty spots-empty">${filtered ? (s.q.trim() ? `No spots match “${esc(s.q.trim())}”.` : 'No spots there yet.') + ' Try another name or place.' : 'No spots yet.'}</p>`;
+  const q = s.q.trim(), narrowed = FILTERS.some(k => s[k]), city = s.cities?.find(c => c.id === s.city);
+  // None: why, and the way out, the filters first, since they're what's most often forgotten
+  grid.innerHTML = s.results.length ? s.results.map(cardHTML).join('') : `<div class="wt-empty spots-empty"><p>${
+    q ? `No spots match “${esc(q)}”${narrowed ? ' with these filters' : ''}.` : narrowed ? 'No spots fit these filters yet.' : 'No spots yet.'}${
+    q && !narrowed ? ' Try another name or place.' : ''}</p>${
+    narrowed ? '<button type="button" class="wt-btn wt-btn--secondary" data-unfilter>Clear filters</button>'
+    : q ? '<button type="button" class="wt-btn wt-btn--secondary" data-unsearch>Clear search</button>' : ''}</div>`;
   // How many, which a screen reader hears once, rather than every card again
   $app.querySelector('.spots-count').textContent = s.total ? `${s.total.toLocaleString('en-US')} ${s.total === 1 ? 'spot' : 'spots'}` : '';
-  $app.querySelector('.spots-note').textContent = `${city ? `In the guide’s order for ${city.name}: where to go first, first.`
-    : 'Most viewed first: by how often each place’s Wikipedia article was read in the last year.'} Each guide is written by AI from the sources it lists.`;
+  const how = { guide: `In the guide’s order for ${city?.name ?? 'the city'}: where to go first, first.`,
+    views: 'Most viewed first: by how often each place’s Wikipedia article was read in the last year.',
+    near: 'Nearest first, as the crow flies from where you are.', name: 'A to Z, by name.' }[order()];
+  $app.querySelector('.spots-note').textContent = `${how} Each guide is written by AI from the sources it lists.`;
   const pages = Math.ceil(s.total / perPage()), pager = $app.querySelector('.spots-pager');
   $app.querySelector('.spots-more').hidden = wide.matches || !s.more;
   pager.hidden = !wide.matches || pages < 2;
@@ -262,6 +381,10 @@ function showResults() {
       : `<button type="button" class="wt-pager__page" data-page="${p}" aria-label="Page ${p}"${p === s.page ? ' aria-current="page"' : ''}>${p}</button>`).join('')}
     <button type="button" class="wt-pager__step" data-page="${s.page + 1}" aria-label="Next page"${s.page < pages ? '' : ' disabled'}>${ICON.forward}</button>`;
 }
+// How far, in miles where people go by them, else km: "0.4 mi", "12 mi", "1,050 km"
+const MILES = /-(US|GB|LR|MM)\b/i.test(globalThis.navigator?.language ?? '');
+const distance = km => { const n = Math.max(0.1, MILES ? km / 1.609344 : km); return `${n < 10 ? n.toFixed(1).replace(/\.0$/, '') : Math.round(n).toLocaleString('en-US')} ${MILES ? 'mi' : 'km'}`; };
+const nearOf = () => { const [lat, lng] = (s.near ?? '').split(',').map(Number); return { lat, lng }; };
 const spotHash = p => `#/spots/${encodeURIComponent(p.city.id)}/${encodeURIComponent(p.source)}/${encodeURIComponent(p.id)}`;
 function cardHTML(p) {
   const photo = p.hero?.thumb
@@ -273,7 +396,7 @@ function cardHTML(p) {
     ${photo}
     <span class="wt-spot-card__body"><span class="wt-spot-card__name">${esc(p.name)}</span>
       <span class="wt-spot-card__line">${esc(p.oneLiner)}</span>
-      <span class="wt-spot-card__where">${esc(`${p.city.name}, ${p.state}`)}</span></span></a>${canSave(pl) ? bookmarkHTML(pl) : ''}</div>`;
+      <span class="wt-spot-card__where">${esc(`${p.city.name}, ${p.state}${order() === 'near' && p.lat != null ? ` · ${distance(kmBetween(nearOf(), p))}` : ''}`)}</span></span></a>${canSave(pl) ? bookmarkHTML(pl) : ''}</div>`;
 }
 // A photo that won't load (offline, blocked) gives way: to the card's pin, or to the text
 document.addEventListener('error', e => {
