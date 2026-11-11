@@ -333,6 +333,22 @@ test('the developer pages: a menu of pages, the MCP server’s tools as the serv
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
 });
 
+// Rules or a model: written by hand, reached from Overview and the menu, after Guide preview
+test('rules or a model: how choosing spots by each compares, and how accurate each was', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/developer');
+  await page.getByRole('main').getByRole('link', { name: /^Rules or a model/ }).click();
+  await expect(page).toHaveURL(/\/developer\/choosing$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Choosing spots: rules or a model');
+  const menu = page.getByRole('navigation', { name: 'Developers' });
+  await expect(menu.getByRole('link', { name: 'Rules or a model' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('row', { name: /Model: the guide’s 19 picks/ })).toContainText('63%');
+  await page.getByRole('complementary', { name: 'On this page' }).getByRole('link', { name: 'Accuracy' }).click();
+  await expect(page.getByRole('heading', { level: 2, name: 'Accuracy' })).toBeInViewport();
+  await page.getByRole('link', { name: /^Previous/ }).click();
+  await expect(page).toHaveURL(/\/developer\/guide$/);
+});
+
 // On a wide screen the menu stays on the left, and the page's own headings are on the right
 test('a developer page on a wide screen: the menu beside it, and its headings to jump to', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });

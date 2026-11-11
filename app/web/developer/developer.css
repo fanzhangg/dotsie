@@ -170,3 +170,17 @@ h2[id] { scroll-margin-top: calc(var(--dev-bar, 0px) + var(--wt-space-4)); }
 .guide__review { background: none; border: 1px dashed var(--wt-border-subtle); }
 .guide__foot { font: var(--wt-type-caption); color: var(--wt-text-tertiary); display: grid; gap: var(--wt-space-1); }
 .guide__foot p { margin: 0; }
+
+/* Rules or a model (/developer/choosing): the comparison's first column a label; the accuracy as bars, the rules' grey and the
+   model's in the strongest ink, nothing colored */
+.dev__compare table { table-layout: fixed; }
+.dev__compare th:first-child { width: 22%; }
+.dev__compare td:first-child { white-space: normal; color: var(--wt-text-secondary); }
+.dev__bars { width: 100%; border-collapse: collapse; }
+.dev__bars th { width: 45%; padding: var(--wt-space-1) var(--wt-space-3) var(--wt-space-1) 0; text-align: left; vertical-align: middle; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.dev__bars td { width: 55%; padding: var(--wt-space-1) 0; white-space: nowrap; }
+.dev__bars td > * { vertical-align: middle; }
+/* --f: the share, of the width left after its number */
+.dev__bar { display: inline-block; height: 12px; width: calc((100% - 5.5rem) * var(--f)); min-width: 3px; border-radius: 0 4px 4px 0; background: var(--wt-text-tertiary); }
+.dev__bar--model { background: var(--wt-text-primary); }
+.dev__bar-value { margin-left: var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-primary); font-variant-numeric: tabular-nums; }

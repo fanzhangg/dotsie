@@ -11,7 +11,7 @@
     { items: [['/developer', 'Overview']] },
     { title: 'MCP server', items: [['/developer/mcp', 'Connect an assistant'], ['/developer/tools', 'Tools'], ['/developer/sign-in', 'Sign-in'], ['/developer/changelog', 'Changelog']] },
     { title: 'App', items: [['/developer/api', 'App API']] },
-    { title: 'Data', items: [['/developer/spots', 'Spots data'], ['/developer/guide', 'Guide preview']] },
+    { title: 'Data', items: [['/developer/spots', 'Spots data'], ['/developer/guide', 'Guide preview'], ['/developer/choosing', 'Rules or a model']] },
   ];
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const icon = (name, size = 20) => window.DotsieIcons ? DotsieIcons.svg(name, size) : '';

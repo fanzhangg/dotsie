@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
+  <title>Rules or a model · Developers · Dotsie</title>
+  <meta name="description" content="Choosing Dotsie's spots by rules or by a model: what the two ways share, where they differ, and how accurate each was on Seattle.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/design-system/tokens.css">
+  <link rel="stylesheet" href="/design-system/components.css">
+  <link rel="stylesheet" href="/developer/developer.css">
+</head>
+<body class="wt-base">
+  <!-- Written by hand: the rules from the pilots in issue #90 (pipeline/step*.py, findings-*.json), the model from
+       pipeline/guides.py, and the model's accuracy measured on Seattle's live picks on 2026-11-11. Product-only, like
+       the other pages for developers. -->
+  <main class="dev">
+    <header class="dev__head">
+      <p class="dev__crumb">Data</p>
+      <h1 class="dev__title">Choosing spots: rules or a model</h1>
+      <p class="dev__lede">The <a href="/developer/spots">spots data</a> isn’t filtered. To choose the places worth a trip from it, the first pilots used rules; the <a href="/developer/guide">guide</a> now asks a model.</p>
+    </header>
+
+    <section class="dev__section" aria-labelledby="same">
+      <h2 class="dev__h2" id="same">How they compare</h2>
+      <p class="dev__overline">The same</p>
+      <ul class="dev__prose">
+        <li>Both start from the same data: Wikidata items and NPS pages, with English Wikipedia’s articles and page views.</li>
+        <li>Both are checked against the same lists: Wikivoyage’s sights, and the places Seattle must have and must never have.</li>
+      </ul>
+      <p class="dev__overline">What’s different</p>
+      <div class="dev__table dev__compare">
+        <table>
+          <thead><tr><th></th><th>Rules</th><th>A model</th></tr></thead>
+          <tbody>
+            <tr><td>Is it a sight?</td><td>Wikidata types to keep and to block, and Wikipedia categories for what’s gone</td><td>Haiku reads each place’s description, article intro, categories and what’s nearby</td></tr>
+            <tr><td>Page views</td><td>Decide the tier: a floor per type</td><td>Only order the shortlist; never shown when judging</td></tr>
+            <tr><td>The result</td><td>Two tiers: in Washington, 21 places in tier 1 and 347 in tier 2</td><td>Sonnet picks up to 20 per destination from a shortlist of 70, in order, with a reason each and what it left out</td></tr>
+            <tr><td>A mistake</td><td>Another rule or exception, which can break another place</td><td>A better prompt, asked again of every place</td></tr>
+            <tr><td>Cost</td><td>Nothing, and the same answer every time</td><td>About $0.40 a destination; answers are kept, so a rerun gives the same ones</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="dev__section" aria-labelledby="accuracy">
+      <h2 class="dev__h2" id="accuracy">Accuracy</h2>
+      <p class="dev__intro">Seattle, each list’s share of places that Wikivoyage lists as sights (a “see” listing with a Wikidata item, 74 of them). The same check the rules were measured by: theirs in the pilots, the model’s on the live guide in November 2026.</p>
+      <table class="dev__bars">
+        <caption class="wt-visually-hidden">Share of each Seattle list in Wikivoyage’s sights</caption>
+        <tbody>
+          <tr style="--f: .4"><th scope="row">Rules: top 20 by Wikipedia languages</th><td><span class="dev__bar"></span><span class="dev__bar-value">40%</span></td></tr>
+          <tr style="--f: .6"><th scope="row">Rules: top 20 by languages and views</th><td><span class="dev__bar"></span><span class="dev__bar-value">60%</span></td></tr>
+          <tr style="--f: .57"><th scope="row">Rules: tier 2, hundreds of places</th><td><span class="dev__bar"></span><span class="dev__bar-value">57%</span></td></tr>
+          <tr style="--f: .8"><th scope="row">Rules: tier 1, the most famous few</th><td><span class="dev__bar"></span><span class="dev__bar-value">80%</span></td></tr>
+          <tr style="--f: .63"><th scope="row">Model: the guide’s 19 picks</th><td><span class="dev__bar dev__bar--model"></span><span class="dev__bar-value">63% (12)</span></td></tr>
+          <tr style="--f: .89"><th scope="row">Model: also counting Wikivoyage’s other listings and district pages</th><td><span class="dev__bar dev__bar--model"></span><span class="dev__bar-value">89% (17)</span></td></tr>
+        </tbody>
+      </table>
+      <ul class="dev__prose">
+        <li><strong>On the same check, about as good as the best rules.</strong> 63% against 60% for a top 20 by languages and views, which had only two months of page views. Tier 1’s 80% is a handful of the most famous places.</li>
+        <li><strong>Wikivoyage is a lower bound.</strong> It lists Pike Place Market under Buy, the Underground tour under Do, and Capitol Hill, Fremont and the International District as districts of their own. Counting those, 17 of the 19 picks. The two it doesn’t have: Alki Point (it lists the lighthouse and the beach there) and the University of Washington’s campus.</li>
+        <li><strong>The mistakes are of a different kind.</strong> The rules’ were errors: Bill Gates’s house and the Bluetooth SIG ranked near the top, and an urban legend and a bridge that fell in 1940 made tier 1. The model’s two misses are judgment calls. It picked none of the 7 places Seattle must never have, and 14 of the 37 it must have, with room for 20.</li>
+        <li><strong>Not compared: how much each finds.</strong> The rules kept hundreds of places (61% of Wikivoyage’s sights); the guide keeps at most 20, on purpose.</li>
+        <li><strong>Why the model answers yes or no.</strong> Asked for star ratings, Haiku agreed with Opus 50 to 86% of the time; on “is it a sight?”, 90%. So it isn’t asked to rate: “worth a trip” is decided by comparing the shortlist, with a cap.</li>
+      </ul>
+    </section>
+  </main>
+  <script src="/design-system/icons.js"></script>
+  <script src="/developer/shell.js"></script>
+</body>
+</html>
