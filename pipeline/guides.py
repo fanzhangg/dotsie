@@ -38,8 +38,8 @@ DESTINATIONS = {d["id"]: d for d in json.load(open(os.path.join(HERE, "destinati
 HAIKU, SONNET, OPUS = "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"
 PRICE = {HAIKU: (0.10, 0.50), SONNET: (2.00, 10.00), OPUS: (4.00, 20.00)}  # $ per million input and output tokens
 # Which model each step asks (guides.py --model write=claude-opus-5-5 for another). Whether a place belongs in a guide
-# and how much it's worth are the model's judgement, so Sonnet's.
-MODELS = {"judge": SONNET, "write": SONNET, "pictures": HAIKU}
+# and which comes first are the model's judgement, so Sonnet's.
+MODELS = {"judge": SONNET, "rank": SONNET, "write": SONNET, "pictures": HAIKU}
 NOT_WIKIPEDIA = {"commonswiki", "specieswiki", "metawiki", "mediawikiwiki", "wikidatawiki", "sourceswiki",
                  "wikimaniawiki", "outreachwiki", "incubatorwiki", "foundationwiki"}
 BOT_WIKIS = {"cebwiki", "warwiki", "svwiki", "arzwiki", "azbwiki", "viwiki", "zh_min_nanwiki", "cewiki"}
@@ -310,22 +310,7 @@ def candidates(dbs, dest, rings):
     # point is often its trailhead, the item's the place itself (Zion's two "The Narrows"). Names written alike (case,
     # accents, punctuation, "the"), nothing taken out of them. The place is the record with the most
     # to say (an article, then the most languages), with the others' NPS pages on it.
-    # A number in brackets stays: store.name_key drops it for a tour stop's "(#12)" within a kilometre, but across a
-    # park "Cavalry Barracks (1891)" and "(1897)" are two buildings
-    key = lambda n: " ".join(w for w in re.sub(r"[^a-z0-9]+", " ", unicodedata.normalize("NFKD", n or "").encode(
-        "ascii", "ignore").decode().lower().replace("&", " and ")).split() if w != "the")
-    groups = {}
-    for k, p in places.items():
-        if not p["itself"] and key(p["name"]):
-            groups.setdefault(key(p["name"]), []).append(k)
-    for ks in groups.values():
-        if len(ks) < 2:
-            continue
-        host, *rest = sorted(ks, key=lambda k: (not places[k]["enwiki"], k[0] != "wikidata", -places[k]["langs"], k))
-        for k in rest:
-            places[host]["nps"] += places[k]["nps"]
-            places[host].setdefault("merged", []).append((k[0], k[1], places[k]["name"], "same name in the destination"))
-            del places[k]
+    one_name(places, lambda p: p["name"], "same name in the destination")
     whole = sorted((k for k, p in places.items() if p["itself"]), key=lambda k: k[0] != "wikidata")
     for k in whole[1:]:  # one entry for the park: its item's, or else its NPS page's
         del places[k]
@@ -333,6 +318,31 @@ def candidates(dbs, dest, rings):
     for p in places.values():
         p.setdefault("types", [names.get(q, q) for q in p["type_ids"]])
     return places
+
+
+def name_key(name):
+    """A name written one way across a destination: no case, accents, punctuation or "the". A number in brackets stays:
+    store.name_key drops it for a tour stop's "(#12)" within a kilometre, but across a park "Cavalry Barracks (1891)"
+    and "(1897)" are two buildings."""
+    return " ".join(w for w in re.sub(r"[^a-z0-9]+", " ", unicodedata.normalize("NFKD", name or "").encode(
+        "ascii", "ignore").decode().lower().replace("&", " and ")).split() if w != "the")
+
+
+def one_name(places, name, via):
+    """Places with one name (as name(p) gives it) are one: the record with the most to say (an article, then an item,
+    then the most languages), with the others' NPS pages on it. Changes places, a dict, in place."""
+    groups = {}
+    for k, p in places.items():
+        if not p["itself"] and name_key(name(p)):
+            groups.setdefault(name_key(name(p)), []).append(k)
+    for ks in groups.values():
+        if len(ks) < 2:
+            continue
+        host, *rest = sorted(ks, key=lambda k: (not places[k]["enwiki"], k[0] != "wikidata", -places[k]["langs"], k))
+        for k in rest:
+            places[host]["nps"] += places[k]["nps"]
+            places[host].setdefault("merged", []).append((k[0], k[1], places[k]["name"], via))
+            del places[k]
 
 
 # Destinations that get an entry of their own, first in their guide (a park as a whole: what it is, how to visit it).
@@ -479,7 +489,7 @@ def judge(ask, places, dest=None):
             p["judged"], p["sight"] = a, bool(a["include"])
 
 
-# ---------- 3. Best first ----------
+# ---------- 3. One place once, best first ----------
 
 def shown(p):
     """The name a place is shown by: the one judging gave it ("Door Trail" for the NPS page "Door Trailhead"), or its
@@ -491,9 +501,55 @@ def worth(p):
     return (p.get("judged") or {}).get("worth", 0)
 
 
-def order(sights):
-    """The places that belong, best first: by the worth judging gave each, then by how much it's read."""
-    return sorted(sights, key=lambda p: (-worth(p), -p["views"], -p["langs"], p["name"], p["id"]))
+RANK = """You are writing a travel guide. Its page for {name} is a map of the places a traveller there would want to go, listed best first: the first is where you'd send them first. The places below all belong on it. Use what you know about them as well as what's given.
+
+- order: the numbers of all the places, best first, each once.
+- duplicates: an entry that is the same place as another (two records of one place) goes here instead, with the number of the one it is.{whole}"""
+RANK_SCHEMA = obj({"order": {"type": "array", "items": {"type": "integer"}},
+                   "duplicates": {"type": "array", "items": obj({"n": {"type": "integer"}, "same_as": {"type": "integer"}})}})
+
+
+def rank(ask, dest, sights):
+    """The places that belong, best first, as the model orders them, against each other, and the ones it says are
+    another place. An answer that leaves places out is asked again, saying which; any still left out go last, by the
+    worth judging gave them."""
+    places = sorted(sights, key=lambda p: (shown(p), p["source"], p["id"]))
+    num = {i: p for i, p in enumerate(places, 1)}
+
+    def known(p):  # "0 views" would read as "nobody goes": a place without an article is known from its NPS page
+        if unread(p):
+            return f"no English Wikipedia article{' (an NPS page)' if p['nps'] else ''}"
+        return f"about {p['views']:,} Wikipedia views a month, {p['langs']} languages"
+
+    def near(p):  # which other places on the list are close by: one place in two records, or a trail and its end
+        close = sorted((store.metres(p["lat"], p["lng"], o["lat"], o["lng"]), shown(o)) for o in places if o is not p)
+        return "; ".join(f"{n} ({d:,.0f} m)" for d, n in close if d <= NEAR_M)[:300] or "nothing on the list"
+    lines = "\n".join(f"[{i}] {shown(p)} | {', '.join(p['types'][:3])} | {known(p)} | within 1 km: {near(p)}\n"
+                      f"    {(p.get('judged') or {}).get('reason', '')}" for i, p in num.items())
+    whole = (f"\n\n{dest['name']} itself has its own entry at the top of the page, above these.") if dest.get("kind") in WHOLE else ""
+    system = RANK.format(name=dest["name"], whole=whole)
+
+    def read(a):
+        order, seen = [], set()
+        for n in a["order"]:
+            if n in num and n not in seen:
+                seen.add(n)
+                order.append(n)
+        dup = {d["n"]: d["same_as"] for d in a["duplicates"] if d["n"] in num and d["n"] not in seen
+               and d["same_as"] in num and d["same_as"] != d["n"]}
+        return order, dup, [n for n in num if n not in seen and n not in dup]
+    order, dup, missing = read(ask("rank", "v5", dest["id"], MODELS["rank"], system, "Places:\n\n" + lines,
+                                   RANK_SCHEMA, "high", max_tokens=64000))
+    if missing:  # asked again, with the ones it left out named
+        log(f"{dest['id']}: the order left out {len(missing)} of {len(num)}; asking again")
+        order, dup, missing = read(ask("rank", "v5 again", dest["id"], MODELS["rank"], system,
+                                       "Places:\n\n" + lines + f"\n\nAn earlier order left out {missing}: give the "
+                                       "numbers of all the places.", RANK_SCHEMA, "high", max_tokens=64000))
+    if missing:
+        log(f"{dest['id']}: still left out {len(missing)}: last, by their worth")
+    order += sorted(missing, key=lambda n: (-worth(num[n]), -num[n]["views"], shown(num[n])))
+    gone = {n: s for n, s in dup.items() if n not in order}
+    return [num[n] for n in order], [(num[n], num[s]) for n, s in gone.items()]
 
 
 # ---------- 4. Write ----------
@@ -731,10 +787,15 @@ def run(dest_id, db_path=None, batcher=None):
         log(f"{dest_id}: no record of {dest['name']} itself ({dest['wikidata']}) in the store: no entry of its own")
     log(f"{dest_id}: {len(places)} candidates ({sum(1 for p in places.values() if p['nps'])} with an NPS page)")
     judge(ask, places, dest=dest)
-    sights = [p for p in places.values() if p["sight"]]
+    # Places judging gave one name on the map are one place ("Badwater Basin" for the item and its NPS pages, whose
+    # own names differ)
+    sights = {k: p for k, p in places.items() if p["sight"]}
+    one_name(sights, shown, "same name on the map")
+    sights = list(sights.values())
     judged = sum(1 for p in places.values() if p["judged"])
     log(f"{dest_id}: judged {judged}: sights {len(sights)}")
-    picks = [({"reason": p["judged"]["reason"]}, p) for p in order(sights)
+    ranked, same = rank(ask, dest, sights) if sights else ([], [])
+    picks = [({"reason": p["judged"]["reason"]}, p) for p in ranked
              if not (itself and any(same_name(n, dest["name"]) for n in (p["name"], shown(p))))]
     log(f"{dest_id}: picks: {len(picks)}: {', '.join(p['name'] for _, p in picks)}")
     if itself:  # first: the park as a whole
@@ -756,12 +817,13 @@ def run(dest_id, db_path=None, batcher=None):
     now = store.NOW()
     db.execute("DELETE FROM picks WHERE destination=?", (dest_id,))
     for n, (c, p, e) in enumerate(made, 1):
-        db.execute("INSERT INTO picks VALUES (?,?,?,?,?,?)", (dest_id, p["source"], p["id"], n, c["reason"], MODELS["judge"]))
+        db.execute("INSERT INTO picks VALUES (?,?,?,?,?,?)", (dest_id, p["source"], p["id"], n, c["reason"], MODELS["rank"]))
         db.execute("INSERT OR REPLACE INTO guides VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
             p["source"], p["id"], shown(p), e["one_liner"], json.dumps(e["paragraphs"]), json.dumps(e["practical"]),
             json.dumps(e["sources"]), json.dumps(e["images"]), e["overlap"], MODELS["write"],
             f"write v3, pictures v1 ({MODELS['pictures']})", now))
-    left_out = []
+    left_out = [{"source": p["source"], "id": p["id"], "name": p["name"], "reason": f"The same place as {shown(q)}."}
+                for p, q in same]
     counts = {"candidates": len(places), "judged": judged, "sights": len(sights), "picks": len(made)}
     db.execute("INSERT OR REPLACE INTO destinations VALUES (?,?,?,?,?,?,?,?)", (
         dest_id, dest["name"], dest["kind"], dest["wikidata"], now, json.dumps(counts), json.dumps(left_out),

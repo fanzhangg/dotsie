@@ -56,18 +56,13 @@ def explain(dest_id, names, show_merges=False):
     if show_merges:
         lines += [f"  - {host} ← {m[2]} ({m[0]} {m[1]}, {m[3]})" for host, m in sorted(merged)
                   if m[3] in ("name", "similar name", "same name in the destination")]
-    # The ranking as the model gave it, against the places it was given: ids it didn't answer for, and ids it made up
-    row = home.execute("SELECT prompt, answer FROM llm_answers WHERE step = 'pick' AND key = ? ORDER BY created_at DESC LIMIT 1",
-                       (dest_id,)).fetchone()
-    if row:
-        a = json.loads(row[1])
-        given = {f"{k[0]}/{k[1]}": p for k, p in places.items() if judged[k]}
-        ranked, out = [c["id"] for c in a["picks"]], [c["id"] for c in a.get("left_out", [])]
-        unknown = [i for i in ranked + out if i not in given]
-        missing = [p["name"] for i, p in given.items() if i not in ranked and i not in out]
-        lines.append(f"- ranking ({row[0]}): {len(given)} given, {len(ranked)} ranked ({len(set(ranked))} distinct), "
-                     f"{len(out)} left out; {len(unknown)} ids not given, e.g. {unknown[:5]}; "
-                     f"{len(missing)} given and not answered for, e.g. {missing[:12]}")
+    # The order as the model gave it, against the places it was given (numbered, so no id can be mistyped)
+    given = sum(1 for v in judged.values() if v)
+    for prompt, answer in home.execute("SELECT prompt, answer FROM llm_answers WHERE step = 'rank' AND key = ? "
+                                       "ORDER BY created_at", (dest_id,)):
+        a = json.loads(answer)
+        lines.append(f"- order ({prompt}): about {given} given, {len(set(a['order']))} ordered, "
+                     f"{len(a['duplicates'])} duplicates")
     for name in names:
         seen = set()
         for db in dbs:

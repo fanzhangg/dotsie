@@ -331,11 +331,43 @@ class ThePark(unittest.TestCase):
         self.assertIn(("wikidata", "Q7"), places)
         self.assertEqual(sorted(guides.JUDGE_SCHEMA["required"]), ["include", "name", "reason", "worth"])
 
-    def test_best_first_by_worth_then_by_how_much_it_is_read(self):
-        place = lambda i, worth, views: {"source": "wikidata", "id": i, "name": i, "views": views, "langs": 1,
-                                         "judged": {"worth": worth, "reason": "", "include": True}}
-        self.assertEqual([p["id"] for p in guides.order([place("Q1", 5, 900), place("Q2", 9, 0), place("Q3", 5, 1000)])],
-                         ["Q2", "Q3", "Q1"])  # an NPS page without views first, for its worth
+    def place(self, i, name, worth=5, views=0):
+        return {"source": "wikidata", "id": i, "name": name, "views": views, "langs": 1, "types": [], "nps": [],
+                "lat": 47.5, "lng": -121.5, "judged": {"worth": worth, "reason": f"Why {name}.", "include": True, "name": name}}
+
+    def test_the_model_orders_by_number_and_its_duplicates_are_one_place(self):
+        asked = []
+
+        def ask(step, prompt, key, model, system, content, *a, **k):
+            asked.append(content)
+            return {"order": [2, 3, 2, 9], "duplicates": [{"n": 1, "same_as": 2}]}  # numbers in name order: B, C, A
+        a, b, c = self.place("Q1", "C"), self.place("Q2", "A"), self.place("Q3", "B")
+        ranked, same = guides.rank(ask, DEST, [a, b, c])
+        self.assertEqual([p["id"] for p in ranked], ["Q3", "Q1"])          # [2] B, [3] C; 9 isn't a place; 2 once
+        self.assertEqual([(x["id"], y["id"]) for x, y in same], [("Q2", "Q3")])
+        self.assertEqual(len(asked), 1)
+        self.assertIn("[1] A |", asked[0])
+        self.assertIn("Why A.", asked[0])
+
+    def test_places_the_order_leaves_out_are_asked_for_again_and_then_go_last_by_worth(self):
+        asked = []
+
+        def ask(step, prompt, key, model, system, content, *a, **k):
+            asked.append(prompt)
+            return {"order": [1], "duplicates": []}
+        places = [self.place("Q1", "A"), self.place("Q2", "B", worth=3), self.place("Q3", "C", worth=8)]
+        ranked, same = guides.rank(ask, DEST, places)
+        self.assertEqual(asked, ["v5", "v5 again"])
+        self.assertEqual([p["id"] for p in ranked], ["Q1", "Q3", "Q2"])
+
+    def test_places_given_one_name_on_the_map_are_one(self):
+        a, b = self.place("Q1", "Badwater Basin"), dict(self.place("N1", "Badwater Salt Flat"), source="nps:places")
+        b["judged"] = dict(b["judged"], name="Badwater Basin")
+        b["nps"] = [{"id": "N1"}]
+        places = {("wikidata", "Q1"): dict(a, enwiki="Badwater Basin", itself=False), ("nps:places", "N1"): dict(b, enwiki=None, itself=False)}
+        guides.one_name(places, guides.shown, "same name on the map")
+        self.assertEqual(list(places), [("wikidata", "Q1")])
+        self.assertEqual([n["id"] for n in places[("wikidata", "Q1")]["nps"]], ["N1"])
 
     def test_records_with_one_name_in_the_destination_are_one_place_however_far_apart(self):
         db = fixture()
