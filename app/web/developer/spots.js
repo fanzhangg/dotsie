@@ -89,7 +89,6 @@ function showPlace(p) {
 async function route() {
   const m = location.hash.match(/^#place\/([^/]+)\/(.+)$/);
   $('#list').hidden = !!m;
-  $('#compare').hidden = !!m;
   $('#detail').hidden = !m;
   if (!m) { document.title = 'Spots data · Dotsie'; return; }
   $('#detail').innerHTML = '<span class="wt-spinner"></span>';

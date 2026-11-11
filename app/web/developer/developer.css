@@ -171,7 +171,7 @@ h2[id] { scroll-margin-top: calc(var(--dev-bar, 0px) + var(--wt-space-4)); }
 .guide__foot { font: var(--wt-type-caption); color: var(--wt-text-tertiary); display: grid; gap: var(--wt-space-1); }
 .guide__foot p { margin: 0; }
 
-/* Spots data: rules or a model. The comparison's first column a label; the accuracy as bars, the rules' grey and the
+/* Rules or a model (/developer/choosing): the comparison's first column a label; the accuracy as bars, the rules' grey and the
    model's in the strongest ink, nothing colored */
 .dev__compare table { table-layout: fixed; }
 .dev__compare th:first-child { width: 22%; }

@@ -126,10 +126,6 @@ test('an email account: create it, sign out, sign back in', async ({ page }) => 
 test('anyone can search the spots data and follow a place to the same place in another source', async ({ page }) => {
   await page.goto('/developer/spots');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
-  // Below the search, choosing spots by rules or by a model, and how accurate each was; it goes while a place is open
-  const compare = page.locator('#compare');
-  await expect(compare.getByRole('heading', { level: 2 })).toHaveText([/^Choosing spots: rules or a model/, /^Accuracy/]);
-  await expect(compare.getByRole('row', { name: /Model: the guide’s 19 picks/ })).toContainText('63%');
   await page.getByLabel('State').selectOption('ZZ');
   const results = page.locator('#results').getByRole('button');
   // by the start of each word, in any order, through the names' full-text index
@@ -142,9 +138,8 @@ test('anyone can search the spots data and follow a place to the same place in a
   await expect(results.first()).toContainText('hotel, historic building'); // the one read most on Wikipedia first
 
   await results.filter({ hasText: 'NPS place' }).click();
-  await expect(page.locator('#detail').getByRole('heading', { level: 2 })).toHaveText('Test Lodge');
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText('Test Lodge');
   await expect(page.getByText('National Park Service place ID (P8649)')).toBeVisible();
-  await expect(compare).toBeHidden();
   await page.getByRole('button', { name: /Test Lodge Wikidata · shares National Park Service place ID/ }).click();
   await expect(page.getByText('12,345 in the last 12 months')).toBeVisible();
 
@@ -318,6 +313,22 @@ test('the developer pages: a menu of pages, the MCP server’s tools as the serv
   await page.goto('/developer');
   await page.getByRole('link', { name: 'Search the spots data' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
+});
+
+// Rules or a model: written by hand, reached from Overview and the menu, after Guide preview
+test('rules or a model: how choosing spots by each compares, and how accurate each was', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/developer');
+  await page.getByRole('main').getByRole('link', { name: /^Rules or a model/ }).click();
+  await expect(page).toHaveURL(/\/developer\/choosing$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Choosing spots: rules or a model');
+  const menu = page.getByRole('navigation', { name: 'Developers' });
+  await expect(menu.getByRole('link', { name: 'Rules or a model' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('row', { name: /Model: the guide’s 19 picks/ })).toContainText('63%');
+  await page.getByRole('complementary', { name: 'On this page' }).getByRole('link', { name: 'Accuracy' }).click();
+  await expect(page.getByRole('heading', { level: 2, name: 'Accuracy' })).toBeInViewport();
+  await page.getByRole('link', { name: /^Previous/ }).click();
+  await expect(page).toHaveURL(/\/developer\/guide$/);
 });
 
 // On a wide screen the menu stays on the left, and the page's own headings are on the right
