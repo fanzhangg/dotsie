@@ -383,6 +383,32 @@ test('a spot can be saved to several trips, a new one too, and unticking one tak
   await expect(days(page).getByRole('tab', { name: /^Want to go/ })).toHaveAccessibleName('Want to go, 2 places');
 });
 
+test('the new trip can be named in place before it’s made, and Esc puts the row back', async ({ page }) => {
+  await page.goto('#/spots/seattle/sample/space-needle');
+  await page.getByRole('button', { name: 'Save to a trip' }).click();
+  // the pencil turns New trip into a field holding the city's name, selected, so typing replaces it
+  await sheet(page).getByRole('button', { name: 'Name the new trip' }).click();
+  const name = sheet(page).getByRole('textbox', { name: 'New trip’s name' });
+  await expect(name).toBeFocused();
+  await expect(name).toHaveValue('Seattle');
+  await page.keyboard.press('Escape');
+  await expect(sheet(page)).toBeVisible();
+  await expect(name).toHaveCount(0);
+  await expect(sheet(page).getByRole('button', { name: 'Name the new trip' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await name.fill('Pacific Northwest 2027');
+  await name.press('Enter');
+  await expect(tripBox(page, 'Pacific Northwest 2027')).toHaveAttribute('aria-checked', 'true');
+  await expect(tripBox(page, 'Pacific Northwest 2027')).toBeFocused();
+  // no trip is called Seattle yet, so New trip stays, as it was
+  await expect(sheet(page).getByRole('button', { name: 'New trip: Seattle' })).toBeVisible();
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await expect(toast(page)).toContainText('Pacific Northwest 2027');
+  await sheetGone(page);
+  await page.goto('#/');
+  await expect(cards(page).getByText('Pacific Northwest 2027')).toBeVisible();
+});
+
 test('a spot already planned on a trip is saved to it: ticked, with its day, and not taken off its day from here', async ({ page }) => {
   // White Sands has the museum on Saturday
   await page.goto('#/spots/alamogordo/sample/museum-of-space-history');
