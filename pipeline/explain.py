@@ -34,6 +34,8 @@ def explain(dest_id, names):
         if not a:
             return None
         a = a[-1][1]
+        if "is_sight" not in a:  # judged by its draw alone (v5)
+            return a["draw"] >= 1
         return a["is_sight"] and a["exists"] and a["visitable"] != "no" and not (a.get("part_of") and a["part_of"] != p["name"])
 
     judged = {k: sight(p) for k, p in places.items()}
@@ -69,6 +71,9 @@ def explain(dest_id, names):
                         out.append(f"its NPS page is on {p['name']} ({key[0]} {key[1]})")
                     out.append(f"views {p['views']}, {p['langs']} languages")
                     for prompt, a in answers(f"{key[0]}/{key[1]}"):
+                        if "is_sight" not in a:
+                            out.append(f"judged ({prompt}): draw {a['draw']}; {a['reason'][:300]}")
+                            continue
                         out.append(f"judged ({prompt}): sight {a['is_sight']}, exists {a['exists']}, visitable {a['visitable']}, "
                                    f"part of {a['part_of']!r}; evidence: {a['evidence'][:300]}")
                     if judged[key] is None:

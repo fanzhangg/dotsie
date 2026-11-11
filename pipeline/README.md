@@ -13,6 +13,7 @@ record goes in as the source gave it, and records are linked only through identi
 | `destinations.json` | The destinations with a guide: cities, counties and national parks, each with its Wikidata item, its outline's ID (Census place or county, NPS unit), its state and how many picks at most |
 | `destinations.py` | Adds every national park, or a state's counties, to `destinations.json`; and plans a guides run, one job per state |
 | `explain.py` | Why a place is or isn't in a destination's guide, step by step, from the stores |
+| `eval_guides.py` | How the live guides agree with Wikivoyage's "see" and "do" listings: recall, and the share of picks it lists |
 | `load_d1.sh` | Loads the SQL files both workflows leave in R2 into D1, one state at a time |
 | `states.json` | The 50 states and DC, with their Wikidata items |
 | `../.github/workflows/spots-data.yml` | Runs both every month on GitHub Actions and keeps the results in R2 |
@@ -68,25 +69,17 @@ Commons. `guides.py` makes them for a destination in `destinations.json`, from i
    is, how to visit it, which parts are worth the time), from its Wikidata item, article and NPS pages. It isn't
    judged or picked, and another Wikidata item with the park's name (Denali has two) isn't picked again. A city
    isn't one of its own sights.
-2. Is it a sight (Haiku): somewhere people go to see or experience (a scenic drive, a trail, a heritage railway
-   count), still there, open to visitors, not part of a bigger place nearby that is one visit (a peak isn't "part
-   of" its range, nor anything of the destination itself). Never a sight: a person, a species, an interpretive sign
-   or numbered tour stop, an activity with no place. A trailhead or a pull-off is judged as the trail or view it
-   serves (Badlands' trails are NPS places named "Door Trailhead"), and when unsure it's a sight: a minor one is ranked
-   low later, one left out here is lost. Each also gets a
-   draw, 1 to 5: how far out of their way a visitor would go. Asked of every candidate nobody reads about on
-   Wikipedia (no article: NPS pages, features without one), then of the most read, 40 at a time, until there are
-   enough sights for the shortlist: in Seattle about a fifth of the questions (43% of its candidates were sights).
-3. Shortlist: 70 sights to choose from: the most read on English Wikipedia, and up to 20 that nobody reads about, by
-   their draw (Death Valley's Mesquite Flat dunes and Joshua Tree's Keys View have NPS pages and no article). A place
-   Wikidata puts in the park (P3018) is a candidate wherever its one point is: Skyline Drive's falls just outside
-   Shenandoah's outline.
-4. Pick (Sonnet): what a visitor with a few days shouldn't miss, up to `cap`, compared with each other, with what it
-   left out and why. Better a minor place ranked last than a real one left out; fewer only when the shortlist runs out.
-   Each is a place on a map (not a person, an event or a placeless activity), once (not a trail and the place it's for
-   as two), under the name a map gives it: "Lamar Valley" for the NPS page "Lamar Valley - Wildlife Watching". In a park, not the park again under another name, nor the one place it's named for when that is
-   the whole park (the Grand Canyon, Isle Royale): the park's own entry covers that. Its peaks, glaciers and ruins are
-   chosen as anywhere else, and a scenic drive or loop doesn't stand in for the stops along it worth a trip of their own.
+   What is objective is decided in code: a place is inside (or Wikidata puts it in the park, P3018, wherever its one
+   point is: Skyline Drive's falls just outside Shenandoah's outline), has a point, and isn't a person, a species,
+   an event or a building that's gone (its Wikidata "instance of", `NOT_PLACES`). An NPS page under a place's name
+   within 2 km is that place ("Hike the Harding Icefield Trail" is the Harding Icefield). What is judgement is the
+   model's, told what the list is for and not given rules: a minor place is ranked low, one left out is lost.
+2. How worth a visit (Haiku): every candidate gets a draw, 0 to 5, and a reason. 0 is not somewhere to go (not a
+   place, gone, or for something else, like an office); anything from 1 up is a sight.
+3. Shortlist: the 70 sights with the best draw, the most read on English Wikipedia first among equals.
+4. Pick (Sonnet): ranks up to `cap` from the shortlist for a page that is a ranked map, the best first, each place
+   once, under the name a map gives it, with what it left out and why. A longer list is better than a short one. In
+   a park, not the park again under another name: it has its own entry.
 5. Write (Sonnet): each entry from the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages),
    each paragraph with its sources. The share of its 8-word phrases also in the sources is kept, to spot copying.
 6. Pictures (Haiku, looking at them): a lead photo and up to two more, each after the paragraph it shows, with author
@@ -130,6 +123,10 @@ item and its 7-digit Census place (state and place FIPS codes, `5363000` for Sea
 Why a place is or isn't in a guide: the workflow's `explain` (parts of names, such as `Kuwohi,Skyline Drive`) runs
 `explain.py` for the destinations named, into the run's summary: whether it's inside the outline, a candidate, how it
 was judged, whether it was on the shortlist, picked or left out. It asks no model and changes nothing.
+
+How good the guides are, measured rather than by a few examples: `python3 eval_guides.py [ids…] --json out.json`
+compares the live guides on dotsie.app with the "see" and "do" listings of each destination's English Wikivoyage
+article (a reference, never a source). Run it before and after a change to the prompts or the rules, and compare.
 
 On this machine, with `ANTHROPIC_API_KEY` in `pipeline/.env` and the destinations' stores in `data/`:
 
