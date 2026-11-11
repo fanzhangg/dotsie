@@ -306,6 +306,22 @@ def candidates(dbs, dest, rings):
             places.setdefault(k, p)
     hosted = {(n["source"], n["id"]) for p in places.values() for n in p["nps"] if p["source"] == "wikidata"}
     places = {k: p for k, p in places.items() if k not in hosted}
+    # Records with the same name in one destination are one place, however far apart their points are: an NPS page's
+    # point is often its trailhead, the item's the place itself (Zion's two "The Narrows"). The name as store.py writes
+    # names alike (case, accents, punctuation, "the"), nothing taken out of it. The place is the record with the most
+    # to say (an article, then the most languages), with the others' NPS pages on it.
+    groups = {}
+    for k, p in places.items():
+        if not p["itself"] and store.name_key(p["name"]):
+            groups.setdefault(store.name_key(p["name"]), []).append(k)
+    for ks in groups.values():
+        if len(ks) < 2:
+            continue
+        host, *rest = sorted(ks, key=lambda k: (not places[k]["enwiki"], k[0] != "wikidata", -places[k]["langs"], k))
+        for k in rest:
+            places[host]["nps"] += places[k]["nps"]
+            places[host].setdefault("merged", []).append((k[0], k[1], places[k]["name"], "same name in the destination"))
+            del places[k]
     whole = sorted((k for k, p in places.items() if p["itself"]), key=lambda k: k[0] != "wikidata")
     for k in whole[1:]:  # one entry for the park: its item's, or else its NPS page's
         del places[k]
@@ -314,8 +330,6 @@ def candidates(dbs, dest, rings):
         p.setdefault("types", [names.get(q, q) for q in p["type_ids"]])
     return places
 
-
-GUESSED = "('name', 'similar name')"  # the store's links by name (store.py's name_links), not by an identifier
 
 # Destinations that get an entry of their own, first in their guide (a park as a whole: what it is, how to visit it).
 # A city doesn't: Seattle isn't one of Seattle's sights.
@@ -357,15 +371,15 @@ def candidates_in(db, dest, area):
         if source == "nps:parks" and (raw.get("parkCode") or "").upper() == dest.get("nps_unit"):
             continue  # the park itself: its pages are the park's own entry's, below
         rec = {"source": source, "id": rid, "name": name, "url": url, "text": nps_text(raw)}
-        # Links run either way (website links start from Wikidata). Only an identifier the two share makes them one place
-        # here: the store's guesses by name ("name", "similar name") are left to the ranking, which sees what's near what
-        same = [("wikidata", q) for (q,) in db.execute(
-            f"SELECT id_b FROM links WHERE source_a=? AND id_a=? AND source_b='wikidata' AND via NOT IN {GUESSED} "
-            f"UNION SELECT id_a FROM links WHERE source_b=? AND id_b=? AND source_a='wikidata' AND via NOT IN {GUESSED}",
-            (source, rid, source, rid))]
-        host = next((places[k] for k in same if k in places), None)
+        # The store's links run either way (website links start from Wikidata): an identifier the two share, or the
+        # same name within a kilometre (store.py's name_links, measured on Washington's records)
+        same = [(("wikidata", q), via) for q, via in db.execute(
+            "SELECT id_b, via FROM links WHERE source_a=? AND id_a=? AND source_b='wikidata' "
+            "UNION SELECT id_a, via FROM links WHERE source_b=? AND id_b=? AND source_a='wikidata'", (source, rid, source, rid))]
+        host, via = next(((places[k], v) for k, v in same if k in places), (None, None))
         if host:
             host["nps"].append(rec)
+            host.setdefault("merged", []).append((source, rid, name, via))
         else:
             places[(source, rid)] = {"itself": False, "source": source, "id": rid, "name": name, "lat": lat, "lng": lng, "enwiki": None,
                                      "type_ids": [], "types": [f"NPS {source.split(':')[1]}"], "description": "",
@@ -417,12 +431,10 @@ JUDGE = """You are writing a travel guide. Its page for a destination is a map o
 - reason: one or two sentences: what decides it.
 - include: whether it belongs on that map.
 - worth: how far out of their way a traveller in the destination would go for it, from 1 (only if passing by) to 10 (a reason to travel to the destination at all). The page is listed by it.
-- same_as: if it is the same place as one of the nearby places listed (two records of one place), that place's name, copied exactly; otherwise null.
 - name: what the place is called on a map."""
 JUDGE_SCHEMA = obj({"reason": {"type": "string"}, "include": {"type": "boolean"},
-                    "worth": {"type": "integer", "enum": list(range(1, 11))},
-                    "same_as": {"type": ["string", "null"]}, "name": {"type": "string"}})
-NEAR_M = 1000  # how far the nearby places a candidate is shown with reach: another record of it can be this far off
+                    "worth": {"type": "integer", "enum": list(range(1, 11))}, "name": {"type": "string"}})
+NEAR_M = 1000  # how far the nearby places a candidate is shown with reach
 
 
 def unread(p):
@@ -455,7 +467,7 @@ def judge(ask, places, dest=None):
         return "no article" if unread(p) else f"about {p['views']:,} views a month"
 
     def one(p):
-        return p, ask("judge", "v7", f"{p['source']}/{p['id']}", MODELS["judge"], JUDGE, describe(p), JUDGE_SCHEMA, "low")
+        return p, ask("judge", "v8", f"{p['source']}/{p['id']}", MODELS["judge"], JUDGE, describe(p), JUDGE_SCHEMA, "low")
 
     batched = getattr(ask, "batcher", None) is not None
     with ThreadPoolExecutor(max(1, len(places)) if batched else 8) as pool:  # in batches, all of them in one
@@ -463,7 +475,7 @@ def judge(ask, places, dest=None):
             p["judged"], p["sight"] = a, bool(a["include"])
 
 
-# ---------- 3. One place once, best first ----------
+# ---------- 3. Best first ----------
 
 def shown(p):
     """The name a place is shown by: the one judging gave it ("Door Trail" for the NPS page "Door Trailhead"), or its
@@ -476,24 +488,8 @@ def worth(p):
 
 
 def order(sights):
-    """The places that belong, each once, best first: by the worth judging gave each, then by how much it's read.
-    Two records judging said are one place (same_as, a place within NEAR_M) are one: the one that named the other
-    gives way, or, when each named the other, the one worth less. Returns the places, and the ones that gave way with
-    the place each is."""
-    def target(p):
-        name = ((p.get("judged") or {}).get("same_as") or "").strip()
-        return next((q for q in sights if q is not p and name in (q["name"], shown(q))
-                     and store.metres(p["lat"], p["lng"], q["lat"], q["lng"]) <= NEAR_M), None) if name else None
-    key = lambda p: (-worth(p), -p["views"], -p["langs"], p["name"], p["id"])
-    gone = {}
-    for p in sorted(sights, key=key, reverse=True):  # the least worth first: it gives way
-        q = target(p)
-        if q is None or id(p) in gone or id(q) in gone:
-            continue
-        loser, winner = (p, q) if target(q) is not p or key(p) > key(q) else (q, p)
-        gone[id(loser)] = (loser, winner)
-    kept = sorted((p for p in sights if id(p) not in gone), key=key)
-    return kept, list(gone.values())
+    """The places that belong, best first: by the worth judging gave each, then by how much it's read."""
+    return sorted(sights, key=lambda p: (-worth(p), -p["views"], -p["langs"], p["name"], p["id"]))
 
 
 # ---------- 4. Write ----------
@@ -734,8 +730,7 @@ def run(dest_id, db_path=None, batcher=None):
     sights = [p for p in places.values() if p["sight"]]
     judged = sum(1 for p in places.values() if p["judged"])
     log(f"{dest_id}: judged {judged}: sights {len(sights)}")
-    kept, same = order(sights)
-    picks = [({"reason": p["judged"]["reason"]}, p) for p in kept
+    picks = [({"reason": p["judged"]["reason"]}, p) for p in order(sights)
              if not (itself and any(same_name(n, dest["name"]) for n in (p["name"], shown(p))))]
     log(f"{dest_id}: picks: {len(picks)}: {', '.join(p['name'] for _, p in picks)}")
     if itself:  # first: the park as a whole
@@ -762,8 +757,7 @@ def run(dest_id, db_path=None, batcher=None):
             p["source"], p["id"], shown(p), e["one_liner"], json.dumps(e["paragraphs"]), json.dumps(e["practical"]),
             json.dumps(e["sources"]), json.dumps(e["images"]), e["overlap"], MODELS["write"],
             f"write v3, pictures v1 ({MODELS['pictures']})", now))
-    left_out = [{"source": p["source"], "id": p["id"], "name": p["name"], "reason": f"The same place as {shown(q)}."}
-                for p, q in same]
+    left_out = []
     counts = {"candidates": len(places), "judged": judged, "sights": len(sights), "picks": len(made)}
     db.execute("INSERT OR REPLACE INTO destinations VALUES (?,?,?,?,?,?,?,?)", (
         dest_id, dest["name"], dest["kind"], dest["wikidata"], now, json.dumps(counts), json.dumps(left_out),

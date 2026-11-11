@@ -48,16 +48,6 @@ class Candidates(unittest.TestCase):
         self.assertEqual(museum["nps"][0]["text"], "A  museum .")
 
 
-    def test_a_link_the_store_guessed_by_name_doesnt_make_two_records_one_place(self):
-        db = fixture()
-        db.execute("DELETE FROM links")
-        db.execute("INSERT INTO links VALUES ('nps:places', 'N1', 'wikidata', 'Q1', 'name')")
-        with mock.patch.object(guides, "labels", lambda qids: {}):
-            places = guides.candidates(db, DEST, [SQUARE])
-        self.assertIn(("nps:places", "N1"), places)                 # its own record: the ranking sees they're 0 m apart
-        self.assertEqual(places[("wikidata", "Q1")]["nps"], [])
-
-
 class Asking(unittest.TestCase):
     def test_an_answer_is_kept_and_asked_again_only_when_its_input_changes(self):
         db = fixture()
@@ -339,27 +329,35 @@ class ThePark(unittest.TestCase):
         with mock.patch.object(guides, "labels", lambda qids: {}):
             places = guides.candidates(db, DEST, [SQUARE])
         self.assertIn(("wikidata", "Q7"), places)
-        self.assertEqual(sorted(guides.JUDGE_SCHEMA["required"]), ["include", "name", "reason", "same_as", "worth"])
+        self.assertEqual(sorted(guides.JUDGE_SCHEMA["required"]), ["include", "name", "reason", "worth"])
 
     def test_best_first_by_worth_then_by_how_much_it_is_read(self):
         place = lambda i, worth, views: {"source": "wikidata", "id": i, "name": i, "views": views, "langs": 1,
-                                         "lat": 47.5 + int(i[1:]) * 0.1, "lng": -121.5,
-                                         "judged": {"worth": worth, "same_as": None, "reason": "", "include": True}}
-        kept, same = guides.order([place("Q1", 5, 900), place("Q2", 9, 0), place("Q3", 5, 1000)])
-        self.assertEqual([p["id"] for p in kept], ["Q2", "Q3", "Q1"])  # an NPS page without views first, for its worth
-        self.assertEqual(same, [])
+                                         "judged": {"worth": worth, "reason": "", "include": True}}
+        self.assertEqual([p["id"] for p in guides.order([place("Q1", 5, 900), place("Q2", 9, 0), place("Q3", 5, 1000)])],
+                         ["Q2", "Q3", "Q1"])  # an NPS page without views first, for its worth
 
-    def test_two_records_judging_says_are_one_place_are_one(self):
-        place = lambda i, name, worth, same_as, lat=47.5: {"source": "wikidata", "id": i, "name": name, "views": 0, "langs": 0,
-                                                          "lat": lat, "lng": -121.5, "judged": {"worth": worth, "same_as": same_as}}
-        icefield, trail = place("Q1", "Icefield", 8, None), place("N1", "Hike the Icefield Trail", 6, "Icefield")
-        far = place("N2", "Icefield", 3, "Icefield", lat=48.5)  # says so, but 100 km off: another place
-        kept, same = guides.order([icefield, trail, far])
-        self.assertEqual([p["id"] for p in kept], ["Q1", "N2"])
-        self.assertEqual([(a["id"], b["id"]) for a, b in same], [("N1", "Q1")])
-        a, b = place("A", "Falls", 4, "Falls Trail"), place("B", "Falls Trail", 7, "Falls")  # each names the other
-        kept, same = guides.order([a, b])
-        self.assertEqual([p["id"] for p in kept], ["B"])
+    def test_records_with_one_name_in_the_destination_are_one_place_however_far_apart(self):
+        db = fixture()
+        db.executemany("INSERT INTO records (source, id, name, lat, lng, url, raw) VALUES (?,?,?,?,?,?,?)", [
+            ("wikidata", "Q9", "The Narrows", 47.5, -121.5, None, item("Q9", "The Narrows")),
+            ("nps:places", "N9", "The Narrows", 47.9, -121.9, "https://www.nps.gov/n9", json.dumps({"listingDescription": "Wade."})),
+            ("nps:thingstodo", "T9", "Hike the Narrows", 47.9, -121.9, "https://www.nps.gov/t9", json.dumps({}))])
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates(db, DEST, [SQUARE])
+        self.assertEqual([n["id"] for n in places[("wikidata", "Q9")]["nps"]], ["N9"])
+        self.assertEqual(places[("wikidata", "Q9")]["merged"], [("nps:places", "N9", "The Narrows", "same name in the destination")])
+        self.assertNotIn(("nps:places", "N9"), places)
+        self.assertIn(("nps:thingstodo", "T9"), places)  # another name: whether it's the same place isn't the code's
+
+    def test_a_link_the_store_made_by_name_makes_two_records_one_place(self):
+        db = fixture()
+        db.execute("DELETE FROM links")
+        db.execute("INSERT INTO links VALUES ('nps:places', 'N1', 'wikidata', 'Q1', 'name')")
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates(db, DEST, [SQUARE])
+        self.assertNotIn(("nps:places", "N1"), places)
+        self.assertEqual(places[("wikidata", "Q1")]["merged"], [("nps:places", "N1", "Test Museum", "name")])
 
     def test_a_long_answer_is_asked_for_by_streaming(self):
         streamed = []
