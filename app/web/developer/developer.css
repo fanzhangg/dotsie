@@ -171,32 +171,16 @@ h2[id] { scroll-margin-top: calc(var(--dev-bar, 0px) + var(--wt-space-4)); }
 .guide__foot { font: var(--wt-type-caption); color: var(--wt-text-tertiary); display: grid; gap: var(--wt-space-1); }
 .guide__foot p { margin: 0; }
 
-/* Picking and writing spots (/developer/pipeline): the steps on a rail as the trip's timeline has one (a ring for
-   code, a filled dot for a model), and bars for the numbers. Greys and the strongest ink only: a model's step is the
-   black one, nothing is colored */
-.pipe__key { display: flex; align-items: center; gap: var(--wt-space-2); margin: 0; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-.pipe__key .pipe__dot { margin: 0; }
-.pipe__key .pipe__dot--model { margin-left: var(--wt-space-3); }
-.pipe__steps { list-style: none; margin: 0; padding: 0; display: grid; }
-.pipe__step { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: var(--wt-space-3); padding-bottom: var(--wt-space-4); }
-.pipe__step::before { content: ''; position: absolute; left: 11px; top: 20px; bottom: 4px; width: 2px; background: var(--wt-border-rail); }
-.pipe__step:last-child { padding-bottom: 0; }
-.pipe__step:last-child::before { display: none; }
-.pipe__dot { display: inline-block; flex: none; width: 12px; height: 12px; border-radius: 50%; box-sizing: border-box; border: 2px solid var(--wt-text-tertiary); background: var(--wt-surface-page); }
-.pipe__step > .pipe__dot { justify-self: center; margin-top: 5px; }
-.pipe__dot--model { border-color: var(--wt-text-primary); background: var(--wt-text-primary); }
-.pipe__name { margin: 0; font: var(--wt-type-name); color: var(--wt-text-primary); }
-.pipe__what { margin: 2px 0 0; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-.pipe__model { margin-left: var(--wt-space-1); padding: 1px var(--wt-space-2); border-radius: var(--wt-radius-pill); background: var(--wt-surface-sunken); font: var(--wt-type-caption); color: var(--wt-text-secondary); vertical-align: 1px; }
-.pipe__figure { margin: 0; display: grid; gap: var(--wt-space-2); }
-.pipe__bars { width: 100%; border-collapse: collapse; }
-.pipe__bars th { width: 40%; padding: var(--wt-space-1) var(--wt-space-3) var(--wt-space-1) 0; text-align: left; vertical-align: middle; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
-.pipe__bars td { width: 60%; padding: var(--wt-space-1) 0; }
-.pipe__bars td > * { vertical-align: middle; }
-/* --f: the bar's share of the longest, which leaves room for its number */
-.pipe__bar { display: inline-block; height: 12px; width: calc((100% - 7rem) * var(--f)); min-width: 3px; border-radius: 0 4px 4px 0; background: var(--wt-text-tertiary); }
-.pipe__bar--model { background: var(--wt-text-primary); }
-.pipe__value { margin-left: var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-primary); font-variant-numeric: tabular-nums; }
-.pipe__compare table { table-layout: fixed; }
-.pipe__compare th:first-child { width: 22%; }
-.pipe__compare td:first-child { white-space: normal; color: var(--wt-text-secondary); }
+/* Spots data: rules or a model. The comparison's first column a label; the accuracy as bars, the rules' grey and the
+   model's in the strongest ink, nothing colored */
+.dev__compare table { table-layout: fixed; }
+.dev__compare th:first-child { width: 22%; }
+.dev__compare td:first-child { white-space: normal; color: var(--wt-text-secondary); }
+.dev__bars { width: 100%; border-collapse: collapse; }
+.dev__bars th { width: 45%; padding: var(--wt-space-1) var(--wt-space-3) var(--wt-space-1) 0; text-align: left; vertical-align: middle; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+.dev__bars td { width: 55%; padding: var(--wt-space-1) 0; white-space: nowrap; }
+.dev__bars td > * { vertical-align: middle; }
+/* --f: the share, of the width left after its number */
+.dev__bar { display: inline-block; height: 12px; width: calc((100% - 5.5rem) * var(--f)); min-width: 3px; border-radius: 0 4px 4px 0; background: var(--wt-text-tertiary); }
+.dev__bar--model { background: var(--wt-text-primary); }
+.dev__bar-value { margin-left: var(--wt-space-2); font: var(--wt-type-caption); color: var(--wt-text-primary); font-variant-numeric: tabular-nums; }

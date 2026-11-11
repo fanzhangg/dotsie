@@ -126,6 +126,10 @@ test('an email account: create it, sign out, sign back in', async ({ page }) => 
 test('anyone can search the spots data and follow a place to the same place in another source', async ({ page }) => {
   await page.goto('/developer/spots');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
+  // Below the search, choosing spots by rules or by a model, and how accurate each was; it goes while a place is open
+  const compare = page.locator('#compare');
+  await expect(compare.getByRole('heading', { level: 2 })).toHaveText([/^Choosing spots: rules or a model/, /^Accuracy/]);
+  await expect(compare.getByRole('row', { name: /Model: the guide’s 19 picks/ })).toContainText('63%');
   await page.getByLabel('State').selectOption('ZZ');
   const results = page.locator('#results').getByRole('button');
   // by the start of each word, in any order, through the names' full-text index
@@ -138,8 +142,9 @@ test('anyone can search the spots data and follow a place to the same place in a
   await expect(results.first()).toContainText('hotel, historic building'); // the one read most on Wikipedia first
 
   await results.filter({ hasText: 'NPS place' }).click();
-  await expect(page.getByRole('heading', { level: 2 })).toHaveText('Test Lodge');
+  await expect(page.locator('#detail').getByRole('heading', { level: 2 })).toHaveText('Test Lodge');
   await expect(page.getByText('National Park Service place ID (P8649)')).toBeVisible();
+  await expect(compare).toBeHidden();
   await page.getByRole('button', { name: /Test Lodge Wikidata · shares National Park Service place ID/ }).click();
   await expect(page.getByText('12,345 in the last 12 months')).toBeVisible();
 
@@ -312,23 +317,6 @@ test('the developer pages: a menu of pages, the MCP server’s tools as the serv
   await expect(page).toHaveURL(/\/developer\/tools#tool-add_stop$/);
   await page.goto('/developer');
   await page.getByRole('link', { name: 'Search the spots data' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
-});
-
-// Picking and writing spots: written by hand, reached from Overview and the menu, its steps marked code or a model
-test('picking and writing spots: from Overview, with each step marked code or a model', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/developer');
-  await page.getByRole('link', { name: /^Picking and writing spots/ }).click();
-  await expect(page).toHaveURL(/\/developer\/pipeline$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Picking and writing spots');
-  const menu = page.getByRole('navigation', { name: 'Developers' });
-  await expect(menu.getByRole('link', { name: 'Picking and writing' })).toHaveAttribute('aria-current', 'page');
-  await expect(page.locator('.pipe__step--model .pipe__name')).toHaveText([/Is it a sight\? Haiku/, /Pick Sonnet/, /Write Sonnet/]);
-  const contents = page.getByRole('complementary', { name: 'On this page' });
-  await contents.getByRole('link', { name: 'Writing a spot' }).click();
-  await expect(page.getByRole('heading', { level: 2, name: 'Writing a spot' })).toBeInViewport();
-  await page.getByRole('link', { name: /^Next/ }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
 });
 
