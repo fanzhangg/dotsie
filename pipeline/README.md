@@ -80,8 +80,9 @@ Commons. `guides.py` makes them for a destination in `destinations.json`, from i
    Wikidata puts in the park (P3018) is a candidate wherever its one point is: Skyline Drive's falls just outside
    Shenandoah's outline.
 4. Pick (Sonnet): what a visitor with a few days shouldn't miss, at most `cap`, compared with each other, with what it
-   left out and why. In a park, not the park again under another name, nor what the park essentially is (its canyon,
-   range or lake): the park's own entry covers that.
+   left out and why. In a park, not the park again under another name, nor the one place it's named for when that is
+   the whole park (the Grand Canyon, Isle Royale): the park's own entry covers that. Its peaks, glaciers and ruins are
+   chosen as anywhere else, and a scenic drive or loop doesn't stand in for the stops along it worth a trip of their own.
 5. Write (Sonnet): each entry from the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages),
    each paragraph with its sources. The share of its 8-word phrases also in the sources is kept, to spot copying.
 6. Pictures (Haiku, looking at them): a lead photo and up to two more, each after the paragraph it shows, with author

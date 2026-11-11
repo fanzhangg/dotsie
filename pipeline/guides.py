@@ -500,7 +500,7 @@ PICK = """You are the editor of a travel guide. A visitor has a few days in {nam
 
 - Choose at most {cap}. Choose fewer if fewer are truly worth it: an empty slot is better than a filler.
 - Judge each place by what it is and what a visitor would get from going, not by how often its Wikipedia page is read. The views and languages are shown as one hint of how well known a place is; the shortlist is ordered by them.
-- Places a visitor would see on the way to or inside another pick (a sculpture at a museum, a bridge you cross) aren't picks of their own.
+- Places a visitor would see on the way to or inside another pick (a sculpture at a museum, a bridge you cross) aren't picks of their own. A drive, loop road or long trail doesn't count as covering the places along it, though: a stop worth a trip of its own is a pick of its own.
 - rank: 1 for the first place you'd send someone, and so on.
 - reason: one sentence on why a visitor should go.
 - left_out: up to 10 places on the shortlist a reader might expect to see and that you didn't choose, each with one sentence on why not.{whole}"""
@@ -515,9 +515,10 @@ def pick(ask, dest, shortlist):
         return f"about {p['views']:,} Wikipedia views a month, {p['langs']} languages"
     lines = [f"[{p['source']}/{p['id']}] {p['name']} | {', '.join(p['types'][:3])} | {known(p)}\n    {p['lead'][:450]}"
              for p in shortlist]
-    whole = (f"\n- {dest['name']} as a whole has an entry of its own already. Don't choose it again under another name, or "
-             "what the park essentially is (the canyon, range, mountain, lake or island it is named for or made of): choose "
-             "the places in it.") if dest.get("kind") in WHOLE else ""
+    whole = (f"\n- {dest['name']} as a whole has an entry of its own already. Don't choose it again under another name, or the "
+             "one place it is named for when that is the whole park (the Grand Canyon, Isle Royale, the Teton Range). Every "
+             "place on the shortlist is in the park; that doesn't make it part of the park's entry: choose among them as you "
+             "would anywhere, its peaks, glaciers, lakes and ruins too.") if dest.get("kind") in WHOLE else ""
     return ask("pick", "v1", dest["id"], MODELS["pick"], PICK.format(name=dest["name"], cap=dest["cap"], whole=whole),
                "Shortlist:\n\n" + "\n".join(lines), PICK_SCHEMA, "high")
 
