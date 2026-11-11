@@ -327,15 +327,6 @@ class ThePark(unittest.TestCase):
         ask = lambda *a: {"reason": "", "include": True, "name": "Somewhere"}
         guides.judge(ask, {k: p for k, p in places.items() if not p["itself"]}, dest=self.PARK)  # no point fails it
 
-    def test_the_pick_is_told_the_park_has_its_own_entry_and_a_city_isnt(self):
-        prompts = []
-        ask = lambda step, prompt, key, model, system, *a, **k: prompts.append(system) or {"picks": [], "left_out": []}
-        guides.pick(ask, self.PARK, [])
-        guides.pick(ask, DEST, [])
-        self.assertIn("Test National Park itself has its own entry at the top of the page", prompts[0])
-        self.assertEqual(prompts[1], guides.PICK.format(name=DEST["name"], whole=""))
-        self.assertNotIn("own entry", prompts[1])
-
     def test_a_place_is_shown_by_the_name_judging_gave_it_or_else_its_record_s(self):
         self.assertEqual(guides.shown({"name": "Door Trailhead", "judged": {"name": "Door Trail"}}), "Door Trail")
         self.assertEqual(guides.shown({"name": "Door Trailhead", "judged": {"name": " "}}), "Door Trailhead")
@@ -348,16 +339,27 @@ class ThePark(unittest.TestCase):
         with mock.patch.object(guides, "labels", lambda qids: {}):
             places = guides.candidates(db, DEST, [SQUARE])
         self.assertIn(("wikidata", "Q7"), places)
-        self.assertEqual(sorted(guides.JUDGE_SCHEMA["required"]), ["include", "name", "reason"])
+        self.assertEqual(sorted(guides.JUDGE_SCHEMA["required"]), ["include", "name", "reason", "same_as", "worth"])
 
-    def test_the_ranking_sees_which_places_are_near_each_other(self):
-        contents = []
-        ask = lambda step, prompt, key, model, system, content, *a, **k: contents.append(content) or {"picks": [], "left_out": []}
-        place = lambda i, name, lat: {"source": "wikidata", "id": i, "name": name, "types": [], "views": 10, "langs": 1,
-                                      "lead": "", "nps": [], "lat": lat, "lng": -121.5}
-        guides.pick(ask, DEST, [place("Q1", "Icefield", 47.5), place("Q2", "Icefield Trail", 47.505), place("Q3", "Far", 47.9)])
-        self.assertIn("Icefield |  | about 10 Wikipedia views a month, 1 languages | within 1 km: Icefield Trail (556 m)", contents[0])
-        self.assertIn("Far |  | about 10 Wikipedia views a month, 1 languages | within 1 km: nothing on the list", contents[0])
+    def test_best_first_by_worth_then_by_how_much_it_is_read(self):
+        place = lambda i, worth, views: {"source": "wikidata", "id": i, "name": i, "views": views, "langs": 1,
+                                         "lat": 47.5 + int(i[1:]) * 0.1, "lng": -121.5,
+                                         "judged": {"worth": worth, "same_as": None, "reason": "", "include": True}}
+        kept, same = guides.order([place("Q1", 5, 900), place("Q2", 9, 0), place("Q3", 5, 1000)])
+        self.assertEqual([p["id"] for p in kept], ["Q2", "Q3", "Q1"])  # an NPS page without views first, for its worth
+        self.assertEqual(same, [])
+
+    def test_two_records_judging_says_are_one_place_are_one(self):
+        place = lambda i, name, worth, same_as, lat=47.5: {"source": "wikidata", "id": i, "name": name, "views": 0, "langs": 0,
+                                                          "lat": lat, "lng": -121.5, "judged": {"worth": worth, "same_as": same_as}}
+        icefield, trail = place("Q1", "Icefield", 8, None), place("N1", "Hike the Icefield Trail", 6, "Icefield")
+        far = place("N2", "Icefield", 3, "Icefield", lat=48.5)  # says so, but 100 km off: another place
+        kept, same = guides.order([icefield, trail, far])
+        self.assertEqual([p["id"] for p in kept], ["Q1", "N2"])
+        self.assertEqual([(a["id"], b["id"]) for a, b in same], [("N1", "Q1")])
+        a, b = place("A", "Falls", 4, "Falls Trail"), place("B", "Falls Trail", 7, "Falls")  # each names the other
+        kept, same = guides.order([a, b])
+        self.assertEqual([p["id"] for p in kept], ["B"])
 
     def test_a_long_answer_is_asked_for_by_streaming(self):
         streamed = []
@@ -378,15 +380,6 @@ class ThePark(unittest.TestCase):
         self.assertEqual(asker.direct(params), "message")
         self.assertEqual(streamed[0]["fallbacks"], "default")
         self.assertEqual(asker.direct(dict(params, max_tokens=16000)), "plain")
-
-    def test_a_place_without_an_article_isnt_shown_as_unread_in_the_pick(self):
-        contents = []
-        ask = lambda step, prompt, key, model, system, content, *a, **k: contents.append(content) or {"picks": [], "left_out": []}
-        dunes = {"source": "nps:places", "id": "N5", "name": "Dunes", "types": ["NPS places"], "views": 0, "langs": 0,
-                 "lead": "Dunes.", "nps": [{"id": "N5"}], "judged": {"draw": 5}}
-        guides.pick(ask, self.PARK, [dunes])
-        self.assertIn("no English Wikipedia article (an NPS page)", contents[0])
-        self.assertNotIn("0 Wikipedia views", contents[0])
 
     def test_another_item_for_the_park_isnt_picked_again(self):
         self.assertTrue(guides.same_name("Denali National Park", "Denali  national park"))

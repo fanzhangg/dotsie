@@ -38,8 +38,8 @@ DESTINATIONS = {d["id"]: d for d in json.load(open(os.path.join(HERE, "destinati
 HAIKU, SONNET, OPUS = "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"
 PRICE = {HAIKU: (0.10, 0.50), SONNET: (2.00, 10.00), OPUS: (4.00, 20.00)}  # $ per million input and output tokens
 # Which model each step asks (guides.py --model write=claude-opus-5-5 for another). Whether a place belongs in a guide
-# and how it ranks are the model's judgement, so both are Sonnet's.
-MODELS = {"judge": SONNET, "pick": SONNET, "write": SONNET, "pictures": HAIKU}
+# and how much it's worth are the model's judgement, so Sonnet's.
+MODELS = {"judge": SONNET, "write": SONNET, "pictures": HAIKU}
 NOT_WIKIPEDIA = {"commonswiki", "specieswiki", "metawiki", "mediawikiwiki", "wikidatawiki", "sourceswiki",
                  "wikimaniawiki", "outreachwiki", "incubatorwiki", "foundationwiki"}
 BOT_WIKIS = {"cebwiki", "warwiki", "svwiki", "arzwiki", "azbwiki", "viwiki", "zh_min_nanwiki", "cewiki"}
@@ -412,12 +412,17 @@ def candidates_in(db, dest, area):
 # The code decides only what the destination is (inside its outline, or in the park by Wikidata) and which records are
 # one place (the store's links). Whether a place belongs in the guide, what it's called and how it ranks is the model's,
 # from the data and what it knows, told what the guide is for and nothing about what to expect.
-JUDGE = """You are writing a travel guide. Its page for a destination is a map of the places a traveller there would want to go, ranked. For the candidate you're given, decide from what Wikidata, Wikipedia and the National Park Service say about it, and from what you know, whether it belongs on that map.
+JUDGE = """You are writing a travel guide. Its page for a destination is a map of the places a traveller there would want to go, listed best first. For the candidate you're given, decide from what Wikidata, Wikipedia and the National Park Service say about it, and from what you know:
 
 - reason: one or two sentences: what decides it.
-- include: whether it belongs on the map.
+- include: whether it belongs on that map.
+- worth: how far out of their way a traveller in the destination would go for it, from 1 (only if passing by) to 10 (a reason to travel to the destination at all). The page is listed by it.
+- same_as: if it is the same place as one of the nearby places listed (two records of one place), that place's name, copied exactly; otherwise null.
 - name: what the place is called on a map."""
-JUDGE_SCHEMA = obj({"reason": {"type": "string"}, "include": {"type": "boolean"}, "name": {"type": "string"}})
+JUDGE_SCHEMA = obj({"reason": {"type": "string"}, "include": {"type": "boolean"},
+                    "worth": {"type": "integer", "enum": list(range(1, 11))},
+                    "same_as": {"type": ["string", "null"]}, "name": {"type": "string"}})
+NEAR_M = 1000  # how far the nearby places a candidate is shown with reach: another record of it can be this far off
 
 
 def unread(p):
@@ -426,7 +431,7 @@ def unread(p):
 
 
 def judge(ask, places, dest=None):
-    """Every candidate, asked whether it belongs in the guide."""
+    """Every candidate, asked whether it belongs in the guide and how much it's worth."""
     grid = {}
     for p in places.values():
         grid.setdefault((round(p["lat"], 2), round(p["lng"], 2)), []).append(p)
@@ -440,7 +445,7 @@ def judge(ask, places, dest=None):
             f"Name: {p['name']}",
             f"Wikidata: {p['description'] or '(no description)'}; instance of: {', '.join(p['types']) or '(none)'}",
             f"English Wikipedia: {read(p)}; Wikipedias in {p['langs']} languages",
-            f"Nearby places within 300 m: {'; '.join(f'{n} ({d:.0f} m)' for d, n in near if d <= 300)[:1500] or '(none)'}",
+            f"Nearby places within {NEAR_M:,} m: {'; '.join(f'{n} ({d:.0f} m)' for d, n in near if d <= NEAR_M)[:1500] or '(none)'}",
             f"Wikipedia categories: {'; '.join(p['categories'][:15]) or '(none)'}",
             "Wikipedia intro: " + (p["lead"] if p["docs"].get("wikipedia") else "(none)"),
             *[f"NPS page: {n['text'][:800]}" for n in p["nps"]],
@@ -450,7 +455,7 @@ def judge(ask, places, dest=None):
         return "no article" if unread(p) else f"about {p['views']:,} views a month"
 
     def one(p):
-        return p, ask("judge", "v6", f"{p['source']}/{p['id']}", MODELS["judge"], JUDGE, describe(p), JUDGE_SCHEMA, "low")
+        return p, ask("judge", "v7", f"{p['source']}/{p['id']}", MODELS["judge"], JUDGE, describe(p), JUDGE_SCHEMA, "low")
 
     batched = getattr(ask, "batcher", None) is not None
     with ThreadPoolExecutor(max(1, len(places)) if batched else 8) as pool:  # in batches, all of them in one
@@ -458,17 +463,7 @@ def judge(ask, places, dest=None):
             p["judged"], p["sight"] = a, bool(a["include"])
 
 
-# ---------- 3. Rank ----------
-
-PICK = """You are writing a travel guide. Its page for {name} is a map of the places a traveller there would want to go, ranked: the first is where you'd send them first. Rank every place below. Use what you know about them as well as what's given. When two entries are one place, rank one of them and put the other in left_out.{whole}
-
-- rank: 1 for the first place, and so on.
-- reason: one sentence on why a traveller should go.
-- left_out: entries you didn't rank, each with why."""
-PICK_SCHEMA = obj({"picks": {"type": "array", "items": obj({"id": {"type": "string"}, "rank": {"type": "integer"},
-                                                             "reason": {"type": "string"}})},
-                   "left_out": {"type": "array", "items": obj({"id": {"type": "string"}, "reason": {"type": "string"}})}})
-
+# ---------- 3. One place once, best first ----------
 
 def shown(p):
     """The name a place is shown by: the one judging gave it ("Door Trail" for the NPS page "Door Trailhead"), or its
@@ -476,21 +471,29 @@ def shown(p):
     return ((p.get("judged") or {}).get("name") or "").strip() or p["name"]
 
 
-def pick(ask, dest, sights):
-    def known(p):  # "0 views" would read as "nobody goes": a place without an article is known from its NPS page
-        if unread(p):
-            return f"no English Wikipedia article{' (an NPS page)' if p['nps'] else ''}"
-        return f"about {p['views']:,} Wikipedia views a month, {p['langs']} languages"
+def worth(p):
+    return (p.get("judged") or {}).get("worth", 0)
 
-    def near(p):  # which other places on the list are close by: one place in two records, or a trail and its end
-        close = sorted((store.metres(p["lat"], p["lng"], o["lat"], o["lng"]), shown(o)) for o in sights if o is not p)
-        return "; ".join(f"{n} ({d:,.0f} m)" for d, n in close if d <= 1000)[:300] or "nothing on the list"
-    lines = [f"[{p['source']}/{p['id']}] {shown(p)} | {', '.join(p['types'][:3])} | {known(p)} | within 1 km: {near(p)}"
-             f"\n    {(p.get('judged') or {}).get('reason', '')} {p['lead'][:300]}" for p in sorted(sights, key=shown)]
-    whole = (f"\n\n{dest['name']} itself has its own entry at the top of the page: don't rank it again under another "
-             "name.") if dest.get("kind") in WHOLE else ""
-    return ask("pick", "v4", dest["id"], MODELS["pick"], PICK.format(name=dest["name"], whole=whole),
-               "Places:\n\n" + "\n".join(lines), PICK_SCHEMA, "high", max_tokens=64000)  # every place, ranked: a long answer
+
+def order(sights):
+    """The places that belong, each once, best first: by the worth judging gave each, then by how much it's read.
+    Two records judging said are one place (same_as, a place within NEAR_M) are one: the one that named the other
+    gives way, or, when each named the other, the one worth less. Returns the places, and the ones that gave way with
+    the place each is."""
+    def target(p):
+        name = ((p.get("judged") or {}).get("same_as") or "").strip()
+        return next((q for q in sights if q is not p and name in (q["name"], shown(q))
+                     and store.metres(p["lat"], p["lng"], q["lat"], q["lng"]) <= NEAR_M), None) if name else None
+    key = lambda p: (-worth(p), -p["views"], -p["langs"], p["name"], p["id"])
+    gone = {}
+    for p in sorted(sights, key=key, reverse=True):  # the least worth first: it gives way
+        q = target(p)
+        if q is None or id(p) in gone or id(q) in gone:
+            continue
+        loser, winner = (p, q) if target(q) is not p or key(p) > key(q) else (q, p)
+        gone[id(loser)] = (loser, winner)
+    kept = sorted((p for p in sights if id(p) not in gone), key=key)
+    return kept, list(gone.values())
 
 
 # ---------- 4. Write ----------
@@ -731,14 +734,9 @@ def run(dest_id, db_path=None, batcher=None):
     sights = [p for p in places.values() if p["sight"]]
     judged = sum(1 for p in places.values() if p["judged"])
     log(f"{dest_id}: judged {judged}: sights {len(sights)}")
-    chosen = pick(ask, dest, sights) if sights else {"picks": [], "left_out": []}
-    by_key = {f"{p['source']}/{p['id']}": p for p in sights}
-    picks, seen = [], set()
-    for c in sorted(chosen["picks"], key=lambda c: c["rank"]):
-        p = by_key.get(c["id"])
-        if p and c["id"] not in seen and not (itself and any(same_name(n, dest["name"]) for n in (p["name"], shown(p)))):
-            seen.add(c["id"])
-            picks.append((c, p))
+    kept, same = order(sights)
+    picks = [({"reason": p["judged"]["reason"]}, p) for p in kept
+             if not (itself and any(same_name(n, dest["name"]) for n in (p["name"], shown(p))))]
     log(f"{dest_id}: picks: {len(picks)}: {', '.join(p['name'] for _, p in picks)}")
     if itself:  # first: the park as a whole
         picks = [({"reason": None}, itself)] + picks
@@ -759,13 +757,13 @@ def run(dest_id, db_path=None, batcher=None):
     now = store.NOW()
     db.execute("DELETE FROM picks WHERE destination=?", (dest_id,))
     for n, (c, p, e) in enumerate(made, 1):
-        db.execute("INSERT INTO picks VALUES (?,?,?,?,?,?)", (dest_id, p["source"], p["id"], n, c["reason"], MODELS["pick"]))
+        db.execute("INSERT INTO picks VALUES (?,?,?,?,?,?)", (dest_id, p["source"], p["id"], n, c["reason"], MODELS["judge"]))
         db.execute("INSERT OR REPLACE INTO guides VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
             p["source"], p["id"], shown(p), e["one_liner"], json.dumps(e["paragraphs"]), json.dumps(e["practical"]),
             json.dumps(e["sources"]), json.dumps(e["images"]), e["overlap"], MODELS["write"],
             f"write v3, pictures v1 ({MODELS['pictures']})", now))
-    left_out = [{"source": by_key[c["id"]]["source"], "id": by_key[c["id"]]["id"], "name": by_key[c["id"]]["name"], "reason": c["reason"]}
-                for c in chosen["left_out"] if c["id"] in by_key]
+    left_out = [{"source": p["source"], "id": p["id"], "name": p["name"], "reason": f"The same place as {shown(q)}."}
+                for p, q in same]
     counts = {"candidates": len(places), "judged": judged, "sights": len(sights), "picks": len(made)}
     db.execute("INSERT OR REPLACE INTO destinations VALUES (?,?,?,?,?,?,?,?)", (
         dest_id, dest["name"], dest["kind"], dest["wikidata"], now, json.dumps(counts), json.dumps(left_out),

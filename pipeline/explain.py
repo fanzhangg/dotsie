@@ -82,7 +82,9 @@ def explain(dest_id, names):
                     out.append(f"views {p['views']}, {p['langs']} languages")
                     for prompt, a in answers(f"{key[0]}/{key[1]}"):
                         if "include" in a:
-                            out.append(f"judged ({prompt}): belongs {a['include']}, as {a['name']!r}; {a['reason'][:300]}")
+                            out.append(f"judged ({prompt}): belongs {a['include']}, as {a['name']!r}"
+                                       + (f", worth {a['worth']}, same as {a.get('same_as')!r}" if "worth" in a else "")
+                                       + f"; {a['reason'][:300]}")
                             continue
                         if "is_sight" not in a:
                             out.append(f"judged ({prompt}): draw {a['draw']}; {a['reason'][:300]}")
