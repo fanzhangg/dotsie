@@ -3,12 +3,13 @@
 For a destination in destinations.json: a city (its Census place), a county (its Census county) or a national park (its
 NPS boundary), whichever it names (destinations.py adds parks and counties):
   1. Candidates: places in it with an English Wikipedia article or an NPS page, from its state's store and the stores of
-     any other states it reaches into (a park across a state line). An NPS record and a Wikidata item the store links
-     (a shared identifier) are one place.
-  2. Does it belong (Sonnet): every candidate, asked whether it belongs on the guide's map, with a reason and the
-     name a map gives it. The code decides only what the destination is and which records are one place; how many
-     places it has, and which, is the model's, told what the guide is for and nothing about what to expect.
-  3. Rank (Sonnet): every place that belongs, against each other, the best first, each place once.
+     any other states it reaches into (a park across a state line). Records are one place when the data says so: an
+     identifier they share, the store's name links (one name within a kilometre), or one name in the destination.
+  2. Does it belong (Sonnet): every candidate, asked whether it belongs on the guide's map, with a reason, a worth
+     (1-10) and the name a map gives it. The code decides only what the destination is and which records are one
+     place; how many places it has, and which, is the model's, told what the guide is for and nothing about what to
+     expect. Places given one name on the map are one.
+  3. Rank (Sonnet): every place that belongs, against each other, by number, the best first; duplicates by number.
   4. Write (Sonnet): for each place ranked, a one-liner and two or three paragraphs in English, in a travel guide's voice, from
      the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages), each paragraph with its
      sources; practical facts kept apart. Wording shared with the sources is measured.

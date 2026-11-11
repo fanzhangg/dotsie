@@ -47,7 +47,7 @@ async function showPicks(dest) {
   const d = await api(`/${encodeURIComponent(dest)}`);
   document.title = `${d.name} · Guide preview · Dotsie`;
   const c = d.counts ?? {};
-  const how = c.candidates ? `Chosen from ${c.candidates.toLocaleString('en-US')} places with a Wikipedia article or an NPS page: ${c.sights} judged to belong${c.shortlist && c.shortlist < c.sights ? `, the ${c.shortlist} most read of them shortlisted` : ''}, then ranked. ` : '';
+  const how = c.candidates ? `Chosen from ${c.candidates.toLocaleString('en-US')} places with a Wikipedia article or an NPS page: ${c.sights} judged to belong${c.shortlist && c.shortlist < c.sights ? `, the ${c.shortlist} most read of them shortlisted` : ''}, then ranked against each other. ` : '';
   $('#guide').innerHTML = head([[null, 'Data'], ['#', 'Guide preview']], d.name,
     `${esc(plural(d.picks.length, 'place'))} worth going to. ${esc(how)}${esc(REVIEW)} Built ${esc(day(d.builtAt))}.`) +
     `<ol class="guide__picks">${d.picks.map(p => `<li><a class="guide__pick" href="#${esc(d.id)}/${esc(p.source)}/${esc(p.id)}">
