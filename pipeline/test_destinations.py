@@ -33,7 +33,7 @@ class Plan(unittest.TestCase):
     def test_the_summary_says_what_it_would_cost(self):
         text = destinations.markdown(destinations.plan("parks", DESTS))
         self.assertIn("2 destinations in 2 states", text)
-        self.assertIn("about $1 ($2 without batches, $5 with Opus writing)", text)
+        self.assertIn("about $2 ($4 without batches)", text)
         self.assertIn("- WY: yellowstone (also reads ID, MT)", text)
 
 
@@ -58,7 +58,7 @@ class Parks(unittest.TestCase):
                 mock.patch.object(destinations, "most_linked", lambda prop, codes: {"YELL": "Q351", "NPSA": "Q1"}):
             self.assertEqual(destinations.parks(), [
                 {"id": "yellowstone", "name": "Yellowstone National Park", "state": "WY", "other_states": ["ID", "MT"],
-                 "kind": "national park", "wikidata": "Q351", "nps_unit": "YELL", "cap": 15}])
+                 "kind": "national park", "wikidata": "Q351", "nps_unit": "YELL"}])
 
 
 if __name__ == "__main__":

@@ -35,11 +35,11 @@
         <table>
           <thead><tr><th></th><th>Rules</th><th>A model</th></tr></thead>
           <tbody>
-            <tr><td>Is it a sight?</td><td>Wikidata types to keep and to block, and Wikipedia categories for what’s gone</td><td>Haiku reads each place’s description, article intro, categories and what’s nearby</td></tr>
-            <tr><td>Page views</td><td>Decide the tier: a floor per type</td><td>Only order the shortlist; never shown when judging</td></tr>
-            <tr><td>The result</td><td>Two tiers: in Washington, 21 places in tier 1 and 347 in tier 2</td><td>Sonnet picks up to 20 per destination from a shortlist of 70, in order, with a reason each and what it left out</td></tr>
+            <tr><td>Is it a sight?</td><td>Wikidata types to keep and to block, and Wikipedia categories for what’s gone</td><td>Sonnet reads each place’s description, article intro, categories, page views and what’s nearby, and says whether it belongs in the guide</td></tr>
+            <tr><td>Page views</td><td>Decide the tier: a floor per type</td><td>One more fact the model is shown; they decide nothing</td></tr>
+            <tr><td>The result</td><td>Two tiers: in Washington, 21 places in tier 1 and 347 in tier 2</td><td>Sonnet ranks every place judged to belong, with a reason each: no cap, no shortlist, as many as the model finds</td></tr>
             <tr><td>A mistake</td><td>Another rule or exception, which can break another place</td><td>A better prompt, asked again of every place</td></tr>
-            <tr><td>Cost</td><td>Nothing, and the same answer every time</td><td>About $0.40 a destination; answers are kept, so a rerun gives the same ones</td></tr>
+            <tr><td>Cost</td><td>Nothing, and the same answer every time</td><td>Every candidate is asked of Sonnet; answers are kept, so a rerun gives the same ones</td></tr>
           </tbody>
         </table>
       </div>
@@ -47,7 +47,7 @@
 
     <section class="dev__section" aria-labelledby="accuracy">
       <h2 class="dev__h2" id="accuracy">Accuracy</h2>
-      <p class="dev__intro">Seattle, each list’s share of places that Wikivoyage lists as sights (a “see” listing with a Wikidata item, 74 of them). The same check the rules were measured by: theirs in the pilots, the model’s on the live guide in November 2026.</p>
+      <p class="dev__intro">Seattle, each list’s share of places that Wikivoyage lists as sights (a “see” listing with a Wikidata item, 74 of them). The same check the rules were measured by: theirs in the pilots, the model’s on the live guide in November 2026, when it still picked up to 20 from a shortlist of 70. <code>pipeline/eval_guides.py</code> measures every guide this way.</p>
       <table class="dev__bars">
         <caption class="wt-visually-hidden">Share of each Seattle list in Wikivoyage’s sights</caption>
         <tbody>
@@ -63,8 +63,9 @@
         <li><strong>On the same check, about as good as the best rules.</strong> 63% against 60% for a top 20 by languages and views, which had only two months of page views. Tier 1’s 80% is a handful of the most famous places.</li>
         <li><strong>Wikivoyage is a lower bound.</strong> It lists Pike Place Market under Buy, the Underground tour under Do, and Capitol Hill, Fremont and the International District as districts of their own. Counting those, 17 of the 19 picks. The two it doesn’t have: Alki Point (it lists the lighthouse and the beach there) and the University of Washington’s campus.</li>
         <li><strong>The mistakes are of a different kind.</strong> The rules’ were errors: Bill Gates’s house and the Bluetooth SIG ranked near the top, and an urban legend and a bridge that fell in 1940 made tier 1. The model’s two misses are judgment calls. It picked none of the 7 places Seattle must never have, and 14 of the 37 it must have, with room for 20.</li>
-        <li><strong>Not compared: how much each finds.</strong> The rules kept hundreds of places (61% of Wikivoyage’s sights); the guide keeps at most 20, on purpose.</li>
-        <li><strong>Why the model answers yes or no.</strong> Asked for star ratings, Haiku agreed with Opus 50 to 86% of the time; on “is it a sight?”, 90%. So it isn’t asked to rate: “worth a trip” is decided by comparing the shortlist, with a cap.</li>
+        <li><strong>Not compared: how much each finds.</strong> The rules kept hundreds of places (61% of Wikivoyage’s sights); the guide then kept at most 20. It now keeps every place the model says belongs.</li>
+        <li><strong>Why the model answers yes or no.</strong> Asked for star ratings, Haiku agreed with Opus 50 to 86% of the time; on “is it a sight?”, 90%. So it isn’t asked to rate: it says whether a place belongs in the guide, and then ranks those that do against each other.</li>
+        <li><strong>No expectations built in.</strong> Each rule added to a prompt overreached in the next run (glaciers dropped as “what the park is made of”, Badlands’ trails as trailheads). The code now only decides what a destination is and which records are one place; how many places it has, and which, is the model’s.</li>
       </ul>
     </section>
   </main>
