@@ -24,7 +24,7 @@ Entries are written under CC BY-SA 4.0, adapted from the sources each lists. Eac
 Run: python3 guides.py --destination seattle [yellowstone …]   (needs data/<ST>.sqlite for each destination's states,
      and ANTHROPIC_API_KEY). One destination failing doesn't stop the others; the run then ends with an error.
 """
-import argparse, base64, hashlib, json, os, re, sqlite3, statistics, threading, time, urllib.parse, urllib.request, zlib
+import argparse, base64, hashlib, json, os, re, sqlite3, statistics, threading, time, unicodedata, urllib.parse, urllib.request, zlib
 from concurrent.futures import Future, ThreadPoolExecutor
 
 import anthropic
@@ -307,13 +307,17 @@ def candidates(dbs, dest, rings):
     hosted = {(n["source"], n["id"]) for p in places.values() for n in p["nps"] if p["source"] == "wikidata"}
     places = {k: p for k, p in places.items() if k not in hosted}
     # Records with the same name in one destination are one place, however far apart their points are: an NPS page's
-    # point is often its trailhead, the item's the place itself (Zion's two "The Narrows"). The name as store.py writes
-    # names alike (case, accents, punctuation, "the"), nothing taken out of it. The place is the record with the most
+    # point is often its trailhead, the item's the place itself (Zion's two "The Narrows"). Names written alike (case,
+    # accents, punctuation, "the"), nothing taken out of them. The place is the record with the most
     # to say (an article, then the most languages), with the others' NPS pages on it.
+    # A number in brackets stays: store.name_key drops it for a tour stop's "(#12)" within a kilometre, but across a
+    # park "Cavalry Barracks (1891)" and "(1897)" are two buildings
+    key = lambda n: " ".join(w for w in re.sub(r"[^a-z0-9]+", " ", unicodedata.normalize("NFKD", n or "").encode(
+        "ascii", "ignore").decode().lower().replace("&", " and ")).split() if w != "the")
     groups = {}
     for k, p in places.items():
-        if not p["itself"] and store.name_key(p["name"]):
-            groups.setdefault(store.name_key(p["name"]), []).append(k)
+        if not p["itself"] and key(p["name"]):
+            groups.setdefault(key(p["name"]), []).append(k)
     for ks in groups.values():
         if len(ks) < 2:
             continue

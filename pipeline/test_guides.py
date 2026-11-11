@@ -350,6 +350,16 @@ class ThePark(unittest.TestCase):
         self.assertNotIn(("nps:places", "N9"), places)
         self.assertIn(("nps:thingstodo", "T9"), places)  # another name: whether it's the same place isn't the code's
 
+    def test_a_number_in_brackets_keeps_two_records_apart_across_a_park(self):
+        db = fixture()
+        db.executemany("INSERT INTO records (source, id, name, lat, lng, url, raw) VALUES (?,?,?,?,?,?,?)", [
+            ("nps:places", "B1", "Cavalry Barracks (1891)", 47.5, -121.5, "https://www.nps.gov/b1", json.dumps({})),
+            ("nps:places", "B2", "Cavalry Barracks (1897)", 47.9, -121.9, "https://www.nps.gov/b2", json.dumps({}))])
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates(db, DEST, [SQUARE])
+        self.assertIn(("nps:places", "B1"), places)
+        self.assertIn(("nps:places", "B2"), places)
+
     def test_a_link_the_store_made_by_name_makes_two_records_one_place(self):
         db = fixture()
         db.execute("DELETE FROM links")
