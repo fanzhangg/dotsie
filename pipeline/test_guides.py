@@ -5,7 +5,7 @@ from unittest import mock
 import guides, store
 
 SQUARE = [(47.0, -122.0), (47.0, -121.0), (48.0, -121.0), (48.0, -122.0), (47.0, -122.0)]
-DEST = {"id": "testville", "name": "Testville", "state": "ZZ", "kind": "big city", "wikidata": "Q100", "cap": 5}
+DEST = {"id": "testville", "name": "Testville", "state": "ZZ", "kind": "big city", "wikidata": "Q100"}
 
 
 def item(qid, enwiki=None, p31=("Q33506",), deprecated=()):
@@ -46,6 +46,16 @@ class Candidates(unittest.TestCase):
         self.assertEqual(museum["lead"], "Test Museum is a museum.")
         self.assertEqual([n["id"] for n in museum["nps"]], ["N1"])
         self.assertEqual(museum["nps"][0]["text"], "A  museum .")
+
+
+    def test_a_link_the_store_guessed_by_name_doesnt_make_two_records_one_place(self):
+        db = fixture()
+        db.execute("DELETE FROM links")
+        db.execute("INSERT INTO links VALUES ('nps:places', 'N1', 'wikidata', 'Q1', 'name')")
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates(db, DEST, [SQUARE])
+        self.assertIn(("nps:places", "N1"), places)                 # its own record: the ranking sees they're 0 m apart
+        self.assertEqual(places[("wikidata", "Q1")]["nps"], [])
 
 
 class Asking(unittest.TestCase):
@@ -171,48 +181,16 @@ class Judging(unittest.TestCase):
                                         "views": 1000 - i, "langs": 1, "types": [], "description": "", "categories": [], "lead": "", "docs": {}, "nps": []}
                 for i in range(n)}
 
-    def ask(self, asked):
-        def ask(step, prompt, key, model, system, content, schema, effort):
-            asked.append(key)
-            return {"evidence": "", "is_sight": int(key.split("Q")[1]) % 2 == 0, "exists": True, "visitable": "yes", "part_of": None}
-        return ask
-
-    def test_most_read_first_until_the_shortlist_is_full_with_the_same_shortlist_as_asking_all(self):
-        lazy, everything, asked = self.places(30), self.places(30), []
-        with mock.patch.object(guides, "JUDGE_ROUND", 4):
-            guides.judge(self.ask(asked), lazy, need=5)
-            guides.judge(self.ask([]), everything, need=1000)
-        self.assertEqual(len(asked), 12)                               # three rounds of 4: 6 sights, enough for 5
-        self.assertEqual(set(asked[:4]), {f"wikidata/Q{i}" for i in range(4)})  # a round at a time, most read first
-        top = lambda ps: [p["id"] for p in sorted((p for p in ps.values() if p["sight"]), key=guides.rank)[:5]]
-        self.assertEqual(top(lazy), top(everything))
-        self.assertFalse(lazy[("wikidata", "Q20")]["sight"])         # never asked: not a sight here
-
-    def test_places_nobody_reads_about_are_all_judged_and_their_draw_gets_them_a_place(self):
-        places = self.places(100)
-        for i in range(90, 100):  # ten with no views: NPS pages
-            places[("wikidata", f"Q{i}")]["views"] = 0
-        asked = []
+    def test_every_candidate_is_asked_and_what_belongs_is_the_models_answer(self):
+        places, asked = self.places(30), []
 
         def ask(step, prompt, key, model, system, content, schema, effort):
             asked.append(key)
-            n = int(key.split("Q")[1])
-            return {"evidence": "", "is_sight": True, "exists": True, "visitable": "yes", "part_of": None, "draw": 5 if n == 99 else 2}
-        with mock.patch.object(guides, "JUDGE_ROUND", 10), mock.patch.object(guides, "SHORTLIST", 8), mock.patch.object(guides, "UNREAD", 3):
-            guides.judge(ask, places)
-            short = guides.shortlist_of([p for p in places.values() if p["sight"]])
-        self.assertTrue({f"wikidata/Q{i}" for i in range(90, 100)} <= set(asked))  # all ten unread
-        self.assertEqual(len(asked), 10 + 10)                                    # and one round of the read: 5 needed
-        self.assertEqual([p["id"] for p in short][:5], ["Q0", "Q1", "Q2", "Q3", "Q4"])
-        self.assertEqual(short[5]["id"], "Q99")                                  # the best draw first among the unread
-        self.assertEqual(len(short), 8)
-
-    def test_a_place_isnt_part_of_the_destination_itself(self):
-        places = self.places(2)
-        places[("wikidata", "Q1")]["name"] = "Testville"
-        ask = lambda *a: {"evidence": "", "is_sight": True, "exists": True, "visitable": "yes", "part_of": "Testville", "draw": 3}
+            return {"reason": "", "include": int(key.split("Q")[1]) % 3 != 0, "name": ""}
         guides.judge(ask, places, dest=DEST)
-        self.assertTrue(places[("wikidata", "Q0")]["sight"])                    # "part of Testville" doesn't count
+        self.assertEqual(len(asked), 30)
+        self.assertEqual(sum(p["sight"] for p in places.values()), 20)
+        self.assertFalse(places[("wikidata", "Q3")]["sight"])
 
     def test_answers_from_before_models_were_kept_apart_are_kept_under_their_model(self):
         db = fixture()
@@ -346,7 +324,7 @@ class ThePark(unittest.TestCase):
             places = guides.candidates([db], self.PARK, [SQUARE])
         self.assertNotIn(("wikidata", "Q56"), places)
         self.assertEqual((places[("wikidata", "Q999")]["lat"], places[("wikidata", "Q999")]["lng"]), (47.5, -121.5))
-        ask = lambda *a: {"evidence": "", "is_sight": True, "exists": True, "visitable": "yes", "part_of": None, "draw": 3}
+        ask = lambda *a: {"reason": "", "include": True, "name": "Somewhere"}
         guides.judge(ask, {k: p for k, p in places.items() if not p["itself"]}, dest=self.PARK)  # no point fails it
 
     def test_the_pick_is_told_the_park_has_its_own_entry_and_a_city_isnt(self):
@@ -354,9 +332,32 @@ class ThePark(unittest.TestCase):
         ask = lambda step, prompt, key, model, system, *a: prompts.append(system) or {"picks": [], "left_out": []}
         guides.pick(ask, self.PARK, [])
         guides.pick(ask, DEST, [])
-        self.assertIn("Test National Park as a whole has an entry of its own", prompts[0])
-        self.assertEqual(prompts[1], guides.PICK.format(name=DEST["name"], cap=DEST["cap"], whole=""))
-        self.assertNotIn("entry of its own", prompts[1])
+        self.assertIn("Test National Park itself has its own entry at the top of the page", prompts[0])
+        self.assertEqual(prompts[1], guides.PICK.format(name=DEST["name"], whole=""))
+        self.assertNotIn("own entry", prompts[1])
+
+    def test_a_place_is_shown_by_the_name_judging_gave_it_or_else_its_record_s(self):
+        self.assertEqual(guides.shown({"name": "Door Trailhead", "judged": {"name": "Door Trail"}}), "Door Trail")
+        self.assertEqual(guides.shown({"name": "Door Trailhead", "judged": {"name": " "}}), "Door Trailhead")
+        self.assertEqual(guides.shown({"name": "Test National Park"}), "Test National Park")  # the park itself
+
+    def test_no_kind_of_place_is_left_out_by_the_code_whether_it_belongs_is_the_models(self):
+        db = fixture()
+        db.execute("INSERT INTO records (source, id, name, lat, lng, url, raw) VALUES (?,?,?,?,?,?,?)",
+                   ("wikidata", "Q7", "A Ranger", 47.5, -121.5, None, item("Q7", "A Ranger", p31=("Q5",))))
+        with mock.patch.object(guides, "labels", lambda qids: {}):
+            places = guides.candidates(db, DEST, [SQUARE])
+        self.assertIn(("wikidata", "Q7"), places)
+        self.assertEqual(sorted(guides.JUDGE_SCHEMA["required"]), ["include", "name", "reason"])
+
+    def test_the_ranking_sees_which_places_are_near_each_other(self):
+        contents = []
+        ask = lambda step, prompt, key, model, system, content, *a: contents.append(content) or {"picks": [], "left_out": []}
+        place = lambda i, name, lat: {"source": "wikidata", "id": i, "name": name, "types": [], "views": 10, "langs": 1,
+                                      "lead": "", "nps": [], "lat": lat, "lng": -121.5}
+        guides.pick(ask, DEST, [place("Q1", "Icefield", 47.5), place("Q2", "Icefield Trail", 47.505), place("Q3", "Far", 47.9)])
+        self.assertIn("Icefield |  | about 10 Wikipedia views a month, 1 languages | within 1 km: Icefield Trail (556 m)", contents[0])
+        self.assertIn("Far |  | about 10 Wikipedia views a month, 1 languages | within 1 km: nothing on the list", contents[0])
 
     def test_a_place_without_an_article_isnt_shown_as_unread_in_the_pick(self):
         contents = []
@@ -364,7 +365,7 @@ class ThePark(unittest.TestCase):
         dunes = {"source": "nps:places", "id": "N5", "name": "Dunes", "types": ["NPS places"], "views": 0, "langs": 0,
                  "lead": "Dunes.", "nps": [{"id": "N5"}], "judged": {"draw": 5}}
         guides.pick(ask, self.PARK, [dunes])
-        self.assertIn("no English Wikipedia article (an NPS page), judged a draw of 5 out of 5", contents[0])
+        self.assertIn("no English Wikipedia article (an NPS page)", contents[0])
         self.assertNotIn("0 Wikipedia views", contents[0])
 
     def test_another_item_for_the_park_isnt_picked_again(self):

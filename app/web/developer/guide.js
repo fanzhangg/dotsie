@@ -47,9 +47,9 @@ async function showPicks(dest) {
   const d = await api(`/${encodeURIComponent(dest)}`);
   document.title = `${d.name} · Guide preview · Dotsie`;
   const c = d.counts ?? {};
-  const how = c.candidates ? `Chosen from ${c.candidates.toLocaleString('en-US')} places with a Wikipedia article or an NPS page: ${c.sights} judged sights, the ${c.shortlist} most read of them shortlisted. ` : '';
+  const how = c.candidates ? `Chosen from ${c.candidates.toLocaleString('en-US')} places with a Wikipedia article or an NPS page: ${c.sights} judged to belong${c.shortlist && c.shortlist < c.sights ? `, the ${c.shortlist} most read of them shortlisted` : ''}, then ranked. ` : '';
   $('#guide').innerHTML = head([[null, 'Data'], ['#', 'Guide preview']], d.name,
-    `${esc(plural(d.picks.length, 'place'))} worth a special trip. ${esc(how)}${esc(REVIEW)} Built ${esc(day(d.builtAt))}.`) +
+    `${esc(plural(d.picks.length, 'place'))} worth going to. ${esc(how)}${esc(REVIEW)} Built ${esc(day(d.builtAt))}.`) +
     `<ol class="guide__picks">${d.picks.map(p => `<li><a class="guide__pick" href="#${esc(d.id)}/${esc(p.source)}/${esc(p.id)}">
         ${p.hero ? `<img src="${esc(p.hero.thumb)}" alt="" loading="lazy">` : '<span class="guide__nophoto"></span>'}
         <span class="guide__pick-text"><span class="guide__rank">${p.rank}</span> <span class="wt-option__label">${esc(p.name)}</span>

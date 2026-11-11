@@ -13,6 +13,7 @@ record goes in as the source gave it, and records are linked only through identi
 | `destinations.json` | The destinations with a guide: cities, counties and national parks, each with its Wikidata item, its outline's ID (Census place or county, NPS unit), its state and how many picks at most |
 | `destinations.py` | Adds every national park, or a state's counties, to `destinations.json`; and plans a guides run, one job per state |
 | `explain.py` | Why a place is or isn't in a destination's guide, step by step, from the stores |
+| `eval_guides.py` | How the live guides agree with Wikivoyage's "see" and "do" listings: recall, and the share of picks it lists |
 | `load_d1.sh` | Loads the SQL files both workflows leave in R2 into D1, one state at a time |
 | `states.json` | The 50 states and DC, with their Wikidata items |
 | `../.github/workflows/spots-data.yml` | Runs both every month on GitHub Actions and keeps the results in R2 |
@@ -64,27 +65,25 @@ Commons. `guides.py` makes them for a destination in `destinations.json`, from i
    outline is its Census place, a county's its Census county (both from TIGERweb), a park's its NPS boundary (the
    NPS Land Resources Division's); all of their parts, islands included. A park across a state line (Yellowstone,
    the Great Smokies) also reads the stores of its `other_states`; its guide is kept in its own state's store.
-   A park is also an entry of its own, the first in its guide and beyond its `cap`: the park as a whole (what it
+   A park is also an entry of its own, the first in its guide: the park as a whole (what it
    is, how to visit it, which parts are worth the time), from its Wikidata item, article and NPS pages. It isn't
    judged or picked, and another Wikidata item with the park's name (Denali has two) isn't picked again. A city
    isn't one of its own sights.
-2. Is it a sight (Haiku): somewhere people go to see or experience (a scenic drive, a trail, a heritage railway
-   count), still there, open to visitors, not part of a bigger place nearby that is one visit (a peak isn't "part
-   of" its range, nor anything of the destination itself). Never a sight: an interpretive sign or numbered tour stop,
-   a trailhead, parking area or information page as such, a species, an activity with no place. Each also gets a
-   draw, 1 to 5: how far out of their way a visitor would go. Asked of every candidate nobody reads about on
-   Wikipedia (no article: NPS pages, features without one), then of the most read, 40 at a time, until there are
-   enough sights for the shortlist: in Seattle about a fifth of the questions (43% of its candidates were sights).
-3. Shortlist: 70 sights to choose from: the most read on English Wikipedia, and up to 20 that nobody reads about, by
-   their draw (Death Valley's Mesquite Flat dunes and Joshua Tree's Keys View have NPS pages and no article). A place
-   Wikidata puts in the park (P3018) is a candidate wherever its one point is: Skyline Drive's falls just outside
-   Shenandoah's outline.
-4. Pick (Sonnet): what a visitor with a few days shouldn't miss, at most `cap`, compared with each other, with what it
-   left out and why. In a park, not the park again under another name, nor what the park essentially is (its canyon,
-   range or lake): the park's own entry covers that.
-5. Write (Sonnet): each entry from the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages),
+   That is all the code decides: what the destination is (inside its outline, or in the park by Wikidata's P3018,
+   wherever its one point is: Skyline Drive's falls just outside Shenandoah's outline; with a point to put on the
+   map) and which records are one place (an identifier they share; the store's guesses by name are left to the
+   ranking). Nothing about which kinds of place belong or how many a destination has: that is the model's, from
+   the data and what it knows.
+2. Does it belong (Sonnet): every candidate, with what Wikidata, Wikipedia (its intro, categories and page views) and
+   the NPS say about it and what is within 300 m, is asked whether it belongs on the guide's map of places a
+   traveller would want to go, with a reason and the name a map gives it ("Door Trail" for the NPS page "Door
+   Trailhead"). The prompt says what the guide is for and nothing about what to expect.
+3. Rank (Sonnet): every place that belongs, against each other, the best first, with a reason each. It sees which of
+   them are within 1 km of each other, and ranks one place once (two records of one place: one is left out). In a
+   park, not the park again under another name: it has its own entry. No cap: as many as belong.
+4. Write (Sonnet): each entry from the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages),
    each paragraph with its sources. The share of its 8-word phrases also in the sources is kept, to spot copying.
-6. Pictures (Haiku, looking at them): a lead photo and up to two more, each after the paragraph it shows, with author
+5. Pictures (Haiku, looking at them): a lead photo and up to two more, each after the paragraph it shows, with author
    and licence.
 
 Entries are adapted from the sources each lists and published under CC BY-SA 4.0. They aren't updated on their own:
@@ -92,18 +91,15 @@ run the Spots guides workflow (Actions → Spots guides → Run workflow) when y
 destinations: ids (`seattle,yellowstone`), `parks`, `counties`, `cities`, a state's code (`WA`: every destination kept
 in Washington's store) or `all`. It runs a job per state, four at a time, each state's destinations one after another
 (they write the same store); one that fails doesn't stop the others. The run's summary lists what it will make and
-what that costs. Answers whose input didn't change are reused, so a second run costs little. Seattle's first run, with
-Opus picking, writing and choosing pictures, cost $2.34 (judge $0.24, pick $0.12, write $1.26, pictures $0.72). Sonnet
-costs half of Opus a token and Haiku a fortieth, and asking only the candidates the shortlist needs cuts the judging
-to about a fifth, so with the models in `guides.py`'s `MODELS` a destination comes to about $0.80, and all the national
-parks to about $50. A step can ask another model for a run (the workflow's `models`, such as `write=claude-opus-5-5`);
+what that costs. Answers whose input didn't change are reused, so a second run costs little. Every candidate is asked
+of Sonnet (about $0.0017 each in batches) and every place that belongs is written ($0.012 each), so a destination
+comes to about $1 in batches, a big park (Yellowstone: 673 candidates) a few. A step can ask another model for a run (the workflow's `models`, such as `write=claude-opus-5-5`);
 each model's answers are kept apart, and the run's summary shows the entries more than one model wrote side by side,
 to compare before choosing.
 
-The workflow asks in Message Batches (its `batch`, on by default; `guides.py --batch`), at half price: about $0.40 a
-destination, $25 for the national parks. A job's destinations then run at once, so each step's questions from all of
-them go in one batch, and a job waits about as many times as there are steps: judging (once, 200 candidates at a time,
-where it would ask 40), picking, writing and the pictures. Most batches end within the hour, all within a day. A job
+The workflow asks in Message Batches (its `batch`, on by default; `guides.py --batch`), at half price (the costs
+above). A job's destinations then run at once, so each step's questions from all of them go in one batch, and a job
+waits about as many times as there are steps: judging (every candidate at once), ranking, writing and the pictures. Most batches end within the hour, all within a day. A job
 that runs out of time saves its store with the batches still out noted in it (`llm_batches`), and running it again
 (Re-run failed jobs) takes their answers instead of paying for them twice. A question a batch can't answer (the model
 declined, the request failed or expired) is asked again on its own, where a declined one can fall back to another model. The result is at `/developer/guide`, for review, and on the app's Spots page
@@ -117,14 +113,18 @@ python3 destinations.py parks          # national parks the file doesn't have ye
 python3 destinations.py counties WA    # every county in Washington (39)
 ```
 
-They're added as found, never changed after: edit an entry by hand (its cap, its name, its state). A park's state is
+They're added as found, never changed after: edit an entry by hand (its name, its state). A park's state is
 the one its centre is in, which can be wrong for a small park on a state line: Gateway Arch's centre is in the
 Mississippi, on Illinois' side, so its entry was set to Missouri by hand. A city is added by hand, with its Wikidata
 item and its 7-digit Census place (state and place FIPS codes, `5363000` for Seattle).
 
 Why a place is or isn't in a guide: the workflow's `explain` (parts of names, such as `Kuwohi,Skyline Drive`) runs
 `explain.py` for the destinations named, into the run's summary: whether it's inside the outline, a candidate, how it
-was judged, whether it was on the shortlist, picked or left out. It asks no model and changes nothing.
+was judged, whether it was ranked or left out. It asks no model and changes nothing.
+
+How good the guides are, measured rather than by a few examples: `python3 eval_guides.py [ids…] --json out.json`
+compares the live guides on dotsie.app with the "see" and "do" listings of each destination's English Wikivoyage
+article (a reference, never a source). Run it before and after a change to the prompts or the rules, and compare.
 
 On this machine, with `ANTHROPIC_API_KEY` in `pipeline/.env` and the destinations' stores in `data/`:
 

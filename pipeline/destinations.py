@@ -4,7 +4,7 @@
   python3 destinations.py counties WA    every county in a state
   python3 destinations.py plan "parks,WA" [--markdown]   which guides a run makes, one job per state (Spots guides)
 
-A destination already in the file is left as it is (edit it there: its cap, its name), so running this again only adds
+A destination already in the file is left as it is (edit it there: its name), so running this again only adds
 what's missing. Each one gets what guides.py needs: its outline's ID (`nps_unit` or `census_county`), its Wikidata item
 (left out of its own guide), its state (whose store keeps its guide) and, for a park across a state line, the
 `other_states` whose stores hold the rest of its places.
@@ -25,7 +25,6 @@ NPS_BOUNDARIES = ("https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/ser
 HERE = os.path.dirname(os.path.abspath(__file__))
 FILE = os.path.join(HERE, "destinations.json")
 STATES = {s["code"] for s in json.load(open(os.path.join(HERE, "states.json")))}
-CAP = {"national park": 15, "county": 20}
 NPS_CENTROIDS = NPS_BOUNDARIES.replace("/FeatureServer/2/", "/FeatureServer/0/")
 STATE_LAYER = TIGERWEB + "State_County/MapServer/0/query?"
 COUNTY_LAYER = TIGERWEB + "State_County/MapServer/1/query?"
@@ -89,7 +88,7 @@ def parks():
         others = sorted(set(re.findall(r"\b[A-Z]{2}\b", a["STATE"] or "")) & STATES - {state})
         out.append({"id": slug(re.sub(r"\s+National Parks?\b.*$", "", a["UNIT_NAME"])), "name": a["UNIT_NAME"], "state": state,
                     **({"other_states": others} if others else {}), "kind": "national park", "wikidata": qids[a["UNIT_CODE"]],
-                    "nps_unit": a["UNIT_CODE"], "cap": CAP["national park"]})
+                    "nps_unit": a["UNIT_CODE"]})
     return out
 
 
@@ -104,7 +103,7 @@ def counties(state):
             print(f"  {a['NAME']}: left out (no Wikidata item)")
             continue
         out.append({"id": slug(f"{a['NAME']} {state}"), "name": a["NAME"], "state": state, "kind": "county",
-                    "wikidata": qids[a["GEOID"]], "census_county": a["GEOID"], "cap": CAP["county"]})
+                    "wikidata": qids[a["GEOID"]], "census_county": a["GEOID"]})
     return out
 
 
@@ -136,12 +135,13 @@ def plan(spec, dests):
 
 
 def markdown(jobs):
-    """A plan for the workflow's summary, with what a first run would cost: about $0.80 a destination with guides.py's
-    models (Haiku and Sonnet), half that in batches, $2.50 with Opus writing (Seattle's was $2.34)."""
+    """A plan for the workflow's summary, with what a first run would cost. Every candidate is asked of Sonnet whether it
+    belongs and every place that does is written, so a destination costs about $1 in batches, a big park ($0.0017 a
+    candidate judged, $0.012 an entry written) a few; twice that without batches."""
     n = sum(len(j["ids"]) for j in jobs)
     lines = [f"### {n} destinations in {len(jobs)} states", "",
-             f"A first run costs about $0.40 a destination in batches with the default models, so about ${n * 0.4:,.0f} "
-             f"(${n * 0.8:,.0f} without batches, ${n * 2.5:,.0f} with Opus writing); one whose answers are kept costs little.", ""]
+             f"A first run costs about $1 a destination in batches (more for a big park), so about ${n:,.0f} "
+             f"(${n * 2:,.0f} without batches); one whose answers are kept costs little.", ""]
     for j in jobs:
         also = f" (also reads {', '.join(j['stores'][1:])})" if j["stores"][1:] else ""
         lines.append(f"- {j['state']}: {', '.join(j['ids'])}{also}")
