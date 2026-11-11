@@ -47,6 +47,18 @@ def explain(dest_id, names):
         "SELECT left_out FROM destinations WHERE id = ?", (dest_id,)).fetchone() or ["[]"])[0] or "[]")}
     lines = [f"## {dest['name']}: {len(places)} candidates, {sum(1 for v in judged.values() if v)} judged sights "
              f"(of {sum(1 for v in judged.values() if v is not None)} judged)"]
+    # The ranking as the model gave it, against the places it was given: ids it didn't answer for, and ids it made up
+    row = home.execute("SELECT prompt, answer FROM llm_answers WHERE step = 'pick' AND key = ? ORDER BY created_at DESC LIMIT 1",
+                       (dest_id,)).fetchone()
+    if row:
+        a = json.loads(row[1])
+        given = {f"{k[0]}/{k[1]}": p for k, p in places.items() if judged[k]}
+        ranked, out = [c["id"] for c in a["picks"]], [c["id"] for c in a.get("left_out", [])]
+        unknown = [i for i in ranked + out if i not in given]
+        missing = [p["name"] for i, p in given.items() if i not in ranked and i not in out]
+        lines.append(f"- ranking ({row[0]}): {len(given)} given, {len(ranked)} ranked ({len(set(ranked))} distinct), "
+                     f"{len(out)} left out; {len(unknown)} ids not given, e.g. {unknown[:5]}; "
+                     f"{len(missing)} given and not answered for, e.g. {missing[:12]}")
     for name in names:
         seen = set()
         for db in dbs:
