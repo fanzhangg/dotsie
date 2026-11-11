@@ -329,7 +329,7 @@ class ThePark(unittest.TestCase):
 
     def test_the_pick_is_told_the_park_has_its_own_entry_and_a_city_isnt(self):
         prompts = []
-        ask = lambda step, prompt, key, model, system, *a: prompts.append(system) or {"picks": [], "left_out": []}
+        ask = lambda step, prompt, key, model, system, *a, **k: prompts.append(system) or {"picks": [], "left_out": []}
         guides.pick(ask, self.PARK, [])
         guides.pick(ask, DEST, [])
         self.assertIn("Test National Park itself has its own entry at the top of the page", prompts[0])
@@ -352,16 +352,36 @@ class ThePark(unittest.TestCase):
 
     def test_the_ranking_sees_which_places_are_near_each_other(self):
         contents = []
-        ask = lambda step, prompt, key, model, system, content, *a: contents.append(content) or {"picks": [], "left_out": []}
+        ask = lambda step, prompt, key, model, system, content, *a, **k: contents.append(content) or {"picks": [], "left_out": []}
         place = lambda i, name, lat: {"source": "wikidata", "id": i, "name": name, "types": [], "views": 10, "langs": 1,
                                       "lead": "", "nps": [], "lat": lat, "lng": -121.5}
         guides.pick(ask, DEST, [place("Q1", "Icefield", 47.5), place("Q2", "Icefield Trail", 47.505), place("Q3", "Far", 47.9)])
         self.assertIn("Icefield |  | about 10 Wikipedia views a month, 1 languages | within 1 km: Icefield Trail (556 m)", contents[0])
         self.assertIn("Far |  | about 10 Wikipedia views a month, 1 languages | within 1 km: nothing on the list", contents[0])
 
+    def test_a_long_answer_is_asked_for_by_streaming(self):
+        streamed = []
+
+        class Stream:
+            def __init__(self, **params):
+                streamed.append(params)
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def get_final_message(self):
+                return "message"
+        asker = guides.Asker.__new__(guides.Asker)
+        asker.client = types.SimpleNamespace(beta=types.SimpleNamespace(messages=types.SimpleNamespace(
+            stream=Stream, create=lambda **p: "plain")))
+        params = {"model": guides.SONNET, "max_tokens": 64000}
+        self.assertEqual(asker.direct(params), "message")
+        self.assertEqual(streamed[0]["fallbacks"], "default")
+        self.assertEqual(asker.direct(dict(params, max_tokens=16000)), "plain")
+
     def test_a_place_without_an_article_isnt_shown_as_unread_in_the_pick(self):
         contents = []
-        ask = lambda step, prompt, key, model, system, content, *a: contents.append(content) or {"picks": [], "left_out": []}
+        ask = lambda step, prompt, key, model, system, content, *a, **k: contents.append(content) or {"picks": [], "left_out": []}
         dunes = {"source": "nps:places", "id": "N5", "name": "Dunes", "types": ["NPS places"], "views": 0, "langs": 0,
                  "lead": "Dunes.", "nps": [{"id": "N5"}], "judged": {"draw": 5}}
         guides.pick(ask, self.PARK, [dunes])
