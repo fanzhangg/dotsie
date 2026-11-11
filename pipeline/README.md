@@ -12,8 +12,8 @@ record goes in as the source gave it, and records are linked only through identi
 | `guides.py` | A destination's picks and their guidebook entries, written by Claude from the store, kept in the store |
 | `destinations.json` | The destinations with a guide: cities, counties and national parks, each with its Wikidata item, its outline's ID (Census place or county, NPS unit), its state and how many picks at most |
 | `destinations.py` | Adds every national park, or a state's counties, to `destinations.json`; and plans a guides run, one job per state |
-| `itineraries.py` | Road trips through a destination with a guide: which picks on which day, where to sleep, the drives, and the writing, planned and written by Claude, checked by code. See [Road trips](#road-trips) |
-| `roads/<id>.json` | A park's junctions and the roads between them, with the NPS's drive times and opening dates, its bases for the night, and the trips to make |
+| `itineraries.py` | The road trip a destination's guide recommends: how many days, the way in and out, the season, which picks on which day and where to sleep, planned and written by Claude, checked by code. See [Road trips](#road-trips) |
+| `roads/<id>.json` | A park's junctions and the roads between them, with the NPS's drive times and opening dates, its gateways and its bases for the night |
 | `explain.py` | Why a place is or isn't in a destination's guide, step by step, from the stores |
 | `load_d1.sh` | Loads the SQL files both workflows leave in R2 into D1, one state at a time |
 | `states.json` | The 50 states and DC, with their Wikidata items |
@@ -138,38 +138,39 @@ python3 guides.py --destination olympic mount-rainier --batch           # in bat
 
 ## Road trips
 
-`itineraries.py` turns a destination's guide into road trips: days of stops, how long at each, the drives between them
-and where to sleep, with a few paragraphs a day. A model is good at choosing and writing and bad at geography, so the
+`itineraries.py` makes the one road trip a destination's guide recommends, not one for every length: the guide has an
+opinion. The model decides how many days the place deserves (1 to 7, no filler), the gateways in and out, the best
+time of year, and the days: stops, how long at each, and where to sleep. Then it writes the trip up. Two questions a
+destination, about $0.10 to $0.20 with Sonnet. A model is good at choosing and writing and bad at geography, so the
 code does the geography:
 
 1. Places: the guide's picks as the app serves them (`/api/developer/spots/guides/<id>`), the roads file's
    `extra_stops`, and the NPS tours that are at none of them; each with the NPS tours and things to do about it, whose
    durations say how long people spend.
-2. Roads: `roads/<id>.json` has the park's junctions and the NPS's average drive time and opening dates for each road
-   between them (Yellowstone's from its [directions](https://www.nps.gov/yell/planyourvisit/directions.htm) and
-   [park roads](https://www.nps.gov/yell/planyourvisit/parkroads.htm) pages). A place goes at a junction, or along the road
-   it's nearest, at the share of the road's time its point is along it (an estimate). Roads closed on any day of a trip
-   are left out of it.
-3. Plan (Sonnet): the places, the bases and their lodging, and the drive time between every two of them. The plan is
-   checked: every place known, each day's driving under 4 hours and the whole day under 10, every road open. What's
-   wrong goes back to the model, at most three times.
-4. Write (Sonnet): an introduction, each day, and practical facts, from the guide's entries, the NPS pages and
-   Wikivoyage's article only, each paragraph with its sources. A citation that isn't in the dossier is flagged, and the
-   share of 8-word phrases also in the sources is kept, as in the guide.
+2. Roads: `roads/<id>.json` has the park's junctions (its gateways marked) and the NPS's average drive time and opening
+   dates for each road between them (Yellowstone's from its [directions](https://www.nps.gov/yell/planyourvisit/directions.htm)
+   and [park roads](https://www.nps.gov/yell/planyourvisit/parkroads.htm) pages). A place goes at a junction, or along
+   the road it's nearest, at the share of the road's time its point is along it (an estimate).
+3. Plan (Sonnet): the places, the gateways, the bases and their lodging, each road's opening dates, the drive time
+   between every two of them, and Wikivoyage on getting there and the climate. The plan is checked: every place known,
+   a gateway at each end, no road used that isn't open all through the chosen season, each day's driving under 4 hours
+   and the whole day under 10. What's wrong goes back to the model, at most three times.
+4. Write (Sonnet): an introduction (why this long, when, the shape of the trip), each day, and practical facts, from the
+   guide's entries, the NPS pages and Wikivoyage's article only, each paragraph with its sources. A citation that
+   isn't in the dossier is flagged, and the share of 8-word phrases also in the sources is kept, as in the guide.
 
 ```bash
-python3 itineraries.py --destination yellowstone                    # every trip in roads/yellowstone.json
-python3 itineraries.py --destination yellowstone --trip 3-days-west
+python3 itineraries.py --destination yellowstone [olympic …]
 python3 itineraries.py --destination yellowstone --manual           # asks no model: see below
 ```
 
-Each trip goes in `data/itineraries/<id>/<trip>.json`, and all of them in `review.html` for review. Nothing reaches the
-app yet. With `--manual`, each question to the model is written to `manual/<step>-<trip>.request.json` (system prompt,
-dossier, schema and a hash), and the run carries on once `<step>-<trip>.answer.json` holds an answer with that hash.
-It's for trying a prompt by hand, or a review run without a key; those answers are kept apart from the model's.
+The trip goes in `data/itineraries/<id>/trip.json`, and `review.html` shows it for review. Nothing reaches the app yet.
+With `--manual`, each question to the model is written to `manual/<step>-<id>.request.json` (system prompt, dossier,
+schema and a hash), and the run carries on once `<step>-<id>.answer.json` holds an answer with that hash. It's for
+trying a prompt by hand, or a review run without a key; those answers are kept apart from the model's.
 
-A new park needs its roads file: its junctions (the NPS API's places have their points), the drive times and opening
-dates from its pages, its bases, and the trips to make.
+A new park needs its roads file: its junctions and gateways (the NPS API's places have their points), the drive times
+and opening dates from its pages, and its bases.
 
 ## Running it
 

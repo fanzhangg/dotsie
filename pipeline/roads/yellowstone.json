@@ -53,10 +53,5 @@
   },
   "extra_stops": [
     {"nps_place": "Lamar Valley - Wildlife Watching", "name": "Lamar Valley", "why": "Not in the guide's picks, but the park's best-known place to watch wildlife (bison, wolves) from the road: added for road trips until the guide's picks are looked at again."}
-  ],
-  "trips": [
-    {"id": "2-days-west", "days": 2, "start": "west_entrance", "end": "west_entrance", "first_day": "2027-07-14", "for": "a weekend from West Yellowstone"},
-    {"id": "3-days-west", "days": 3, "start": "west_entrance", "end": "west_entrance", "first_day": "2027-07-14", "for": "a first visit, in and out through West Yellowstone"},
-    {"id": "5-days-north-to-south", "days": 5, "start": "north_entrance", "end": "south_entrance", "first_day": "2027-07-14", "for": "the whole park, from Gardiner, MT, leaving south toward Grand Teton"}
   ]
 }
