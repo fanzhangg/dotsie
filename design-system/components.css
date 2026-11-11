@@ -1,4 +1,4 @@
-/* Dotsie design system — components v15.5.0
+/* Dotsie design system — components v15.6.0
  * Requires tokens.css. Every color, font, radius and duration comes from a token; no literal colors.
  * Naming: .wt-<component>, .wt-<component>__<part>, .wt-<component>--<variant>, .is-<state>. */
 
@@ -970,9 +970,9 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 
 /* ---------- Filter: one choice of a list's, as a chip ---------- */
 /* Its name ("State") while it's every one, or what it's set to ("Washington") on the grey of a highlighted row, with
-   a chevron, or once set a × (__clear) in its place. The select is over the whole chip, unseen, so a tap opens the
-   phone's own picker, and its 16px type keeps an iPhone from zooming in; the × is over the select. --action is a
-   chip that's a button on the row (Clear all): no border, in link ink; --plain, one with no chip around it. */
+   a chevron, or once set a × (__clear) in its place. A button (__open) is over the whole chip, unseen, and drops its
+   choices down under it (.wt-filter-menu, below); the × is over it. --action is a chip that's a button on the row
+   (Clear all): no border, in link ink; --plain, one with no chip around it. */
 .wt-filter {
   position: relative; flex: none; display: inline-flex; align-items: center; gap: var(--wt-space-1); max-width: 100%; height: 36px;
   padding: 0 10px 0 14px; border: 1px solid var(--wt-border-default); border-radius: var(--wt-radius-pill); background: var(--wt-surface-raised);
@@ -981,9 +981,13 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
 .wt-filter[hidden] { display: none; }
 .wt-filter__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .wt-filter .wt-icon { flex: none; width: 16px; height: 16px; color: var(--wt-text-tertiary); }
-.wt-filter select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; font-size: 16px; -webkit-appearance: none; appearance: none; }
+.wt-filter__open { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: inherit; background: none; cursor: pointer; }
 .wt-filter.is-set { color: var(--wt-text-primary); background: var(--wt-surface-current); border-color: transparent; }
-.wt-filter:has(> select:focus) { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+.wt-filter:has(> .wt-filter__open:focus-visible) { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+/* Open: in primary ink, its chevron turned up (an order's ⇕ stays as it is) */
+.wt-filter:has(> .wt-filter__open[aria-expanded="true"]) { color: var(--wt-text-primary); }
+.wt-filter:not(.wt-filter--plain):has(> .wt-filter__open[aria-expanded="true"]) > .wt-icon { transform: rotate(180deg); }
+.wt-filter > .wt-icon { transition: transform var(--wt-duration-fast); }
 @media (hover: hover) { .wt-filter:hover { color: var(--wt-text-primary); } }
 .wt-filter__clear {
   position: relative; z-index: 1; flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; margin: 0 -6px 0 -2px; padding: 0;
@@ -1002,6 +1006,22 @@ input.wt-input:is([type="date"], [type="time"], [type="datetime-local"]) { min-w
   .wt-filter__clear:hover { color: var(--wt-text-primary); background: var(--wt-surface-hover); }
   .wt-filter--action:hover { color: var(--wt-text-link); background: var(--wt-surface-hover); }
 }
+
+/* Filter menu: a filter's choices, dropped down under it (a .wt-menu, placed by script in the positioned box the row
+   is in). On a phone as wide as the page's column, with rows a finger's size; on a computer under the filter, at
+   least 280px. A long list has a search at its top, which stays put while the choices scroll under it. A choice that
+   can't be picked (none to show) is in tertiary ink; a count of what's behind it is its __meta. */
+.wt-menu.wt-filter-menu {
+  z-index: var(--wt-z-float); right: auto; display: flex; flex-direction: column; max-height: 420px; padding: 0; overflow: hidden;
+  font: var(--wt-type-body); color: var(--wt-text-primary); white-space: normal;
+}
+.wt-filter-menu__search { flex: none; width: auto; min-height: 40px; margin: var(--wt-space-2) var(--wt-space-2) 0; }
+.wt-filter-menu .wt-options { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--wt-space-1); }
+.wt-filter-menu .wt-results__msg { padding: var(--wt-space-3) var(--wt-space-2); }
+.wt-filter-menu .wt-option:disabled { color: var(--wt-text-tertiary); cursor: default; }
+.wt-filter-menu .wt-option:disabled .wt-option__meta { color: inherit; }
+@media (hover: hover) { .wt-filter-menu .wt-option:disabled:hover { background: none; } }
+@media (max-width: 767.98px) { .wt-filter-menu .wt-option { min-height: var(--wt-size-touch); } }
 
 /* ---------- Pager: pages of a long list, on a computer ---------- */
 /* Back, the pages (the first, the last, and the ones around this one, with … between), then forward. This page is
