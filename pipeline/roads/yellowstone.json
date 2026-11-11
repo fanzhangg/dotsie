@@ -1,0 +1,62 @@
+{
+  "destination": "yellowstone",
+  "sources": {
+    "drive_times": "https://www.nps.gov/yell/planyourvisit/directions.htm",
+    "opening_dates": "https://www.nps.gov/yell/planyourvisit/parkroads.htm"
+  },
+  "note": "Junctions and the roads between them, as the NPS lists them: average drive times in minutes from the directions page (a range where it gives one), and the 2027 projected opening dates for regular vehicles from the park roads page. Coordinates are the NPS API's places and visitor centers at each junction. NPS: 'Average drive times listed below may be significantly longer due to wildlife on the roadway, weather, or infrastructure improvement projects.'",
+  "nodes": {
+    "west_entrance": {"name": "West Entrance (West Yellowstone, MT)", "lat": 44.65834, "lng": -111.09927, "gateway": true},
+    "madison": {"name": "Madison Junction", "lat": 44.64326, "lng": -110.86039},
+    "old_faithful": {"name": "Old Faithful", "lat": 44.45861, "lng": -110.82923},
+    "grant_village": {"name": "Grant Village", "lat": 44.39359, "lng": -110.55635},
+    "south_entrance": {"name": "South Entrance", "lat": 44.13574, "lng": -110.66684, "gateway": true},
+    "lake_village": {"name": "Lake Village", "lat": 44.55108, "lng": -110.40073},
+    "east_entrance": {"name": "East Entrance", "lat": 44.48985, "lng": -110.00111, "gateway": true},
+    "canyon_village": {"name": "Canyon Village", "lat": 44.73471, "lng": -110.49185},
+    "norris": {"name": "Norris Junction", "lat": 44.73782, "lng": -110.69696},
+    "tower": {"name": "Tower-Roosevelt Junction", "lat": 44.91611, "lng": -110.41746},
+    "northeast_entrance": {"name": "Northeast Entrance", "lat": 45.00343, "lng": -110.00186, "gateway": true},
+    "mammoth": {"name": "Mammoth Hot Springs", "lat": 44.97637, "lng": -110.69954},
+    "north_entrance": {"name": "North Entrance (Gardiner, MT)", "lat": 45.02532, "lng": -110.70080, "gateway": true}
+  },
+  "segments": [
+    {"a": "west_entrance", "b": "madison", "minutes": [30, 30], "open": ["04-16", "10-31"]},
+    {"a": "madison", "b": "old_faithful", "minutes": [35, 45], "open": ["04-16", "10-31"]},
+    {"a": "old_faithful", "b": "grant_village", "minutes": [40, 40], "open": ["05-14", "10-31"], "via": "Craig Pass and West Thumb"},
+    {"a": "south_entrance", "b": "grant_village", "minutes": [50, 50], "open": ["05-14", "10-31"]},
+    {"a": "grant_village", "b": "lake_village", "minutes": [45, 45], "open": ["05-14", "10-31"], "via": "West Thumb"},
+    {"a": "east_entrance", "b": "lake_village", "minutes": [60, 60], "open": ["05-07", "10-31"], "via": "Sylvan Pass and Fishing Bridge"},
+    {"a": "lake_village", "b": "canyon_village", "minutes": [35, 35], "open": ["05-07", "10-31"], "via": "Hayden Valley"},
+    {"a": "canyon_village", "b": "norris", "minutes": [30, 30], "open": ["04-16", "10-31"]},
+    {"a": "canyon_village", "b": "tower", "minutes": [50, 60], "open": ["05-28", "10-11"], "via": "Dunraven Pass"},
+    {"a": "northeast_entrance", "b": "tower", "minutes": [60, 60], "open": ["01-01", "12-31"], "via": "Lamar Valley"},
+    {"a": "tower", "b": "mammoth", "minutes": [40, 40], "open": ["01-01", "12-31"]},
+    {"a": "north_entrance", "b": "mammoth", "minutes": [15, 15], "open": ["01-01", "12-31"]},
+    {"a": "mammoth", "b": "norris", "minutes": [45, 45], "open": ["04-16", "10-31"]},
+    {"a": "norris", "b": "madison", "minutes": [30, 30], "open": ["04-16", "10-31"]}
+  ],
+  "bases": [
+    {"node": "west_entrance", "name": "West Yellowstone, MT", "lodging": [], "town": true},
+    {"node": "north_entrance", "name": "Gardiner, MT", "lodging": [], "town": true},
+    {"node": "old_faithful", "name": "Old Faithful", "lodging": ["Old Faithful Inn", "Old Faithful Snow Lodge & Cabins", "Old Faithful Lodge Cabins"]},
+    {"node": "canyon_village", "name": "Canyon Village", "lodging": ["Canyon Lodge and Cabins", "Canyon Campground"]},
+    {"node": "lake_village", "name": "Lake Village", "lodging": ["Lake Lodge Cabins", "Bridge Bay Campground", "Fishing Bridge RV Park"]},
+    {"node": "mammoth", "name": "Mammoth Hot Springs", "lodging": ["Mammoth Hot Springs Hotel & Cabins", "Mammoth Campground"]},
+    {"node": "grant_village", "name": "Grant Village", "lodging": ["Grant Village Lodge", "Grant Village Campground"]},
+    {"node": "tower", "name": "Tower-Roosevelt", "lodging": ["Roosevelt Lodge", "Tower Fall Campground"]},
+    {"node": "madison", "name": "Madison", "lodging": ["Madison Campground"]}
+  ],
+  "access": {
+    "wikidata/Q923693": {"node": "lake_village", "why": "The lake's point is its middle; Lake Village and Bridge Bay are on its shore."},
+    "wikidata/Q1542533": {"node": "canyon_village", "why": "The canyon's rim drives start at Canyon Village; driving them is part of the visit."}
+  },
+  "extra_stops": [
+    {"nps_place": "Lamar Valley - Wildlife Watching", "name": "Lamar Valley", "why": "Not in the guide's picks, but the park's best-known place to watch wildlife (bison, wolves) from the road: added for road trips until the guide's picks are looked at again."}
+  ],
+  "trips": [
+    {"id": "2-days-west", "days": 2, "start": "west_entrance", "end": "west_entrance", "first_day": "2027-07-14", "for": "a weekend from West Yellowstone"},
+    {"id": "3-days-west", "days": 3, "start": "west_entrance", "end": "west_entrance", "first_day": "2027-07-14", "for": "a first visit, in and out through West Yellowstone"},
+    {"id": "5-days-north-to-south", "days": 5, "start": "north_entrance", "end": "south_entrance", "first_day": "2027-07-14", "for": "the whole park, from Gardiner, MT, leaving south toward Grand Teton"}
+  ]
+}
