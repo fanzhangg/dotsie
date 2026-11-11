@@ -401,7 +401,9 @@ JUDGE = """You check candidate places for a travel guide to a US destination. De
 
 A sight is a place people go to see or experience it: a landmark, building, museum, gallery, park, garden, natural feature, viewpoint, market, neighbourhood or district, artwork, stadium or campus; or an experience people come for there, such as a scenic drive or road, a trail, a scenic or heritage railway, a boat trip or a cave tour. Businesses that serve people (restaurants, bars, cafés, shops, hotels), places for everyday use (offices, schools, hospitals, stations, homes), organizations and events are not sights. When the item is an institution that runs a place people go to (a university and its campus, a team and its stadium, a society and its museum), judge that place.
 
-Not sights either: an interpretive sign, exhibit panel, marker or numbered stop on a tour; a trailhead, parking area, pull-off or information page as such (when the record is really about the trail or viewpoint it serves, judge that); a plant, animal or other species; an activity with no place of its own (stargazing, birding).
+Not sights either: a person, family or people (it has to be a place on a map); a plant, animal or other species; an interpretive sign, exhibit panel, marker or numbered stop on a tour; an activity with no place of its own (stargazing, birding). A record named for a trailhead, parking area, pull-off or information page is about the trail, view or place it serves: judge that ("Door Trailhead" is the Door Trail), and only a car park or a page with nothing to go to is not a sight.
+
+When unsure, count it as a sight: a minor one is ranked low later, a real one left out here is lost.
 
 Fields, in order:
 - evidence: the facts that decide the fields below.
@@ -463,7 +465,7 @@ def judge(ask, places, need=None, dest=None):
         ])
 
     def one(p):
-        return p, ask("judge", "v3", f"{p['source']}/{p['id']}", MODELS["judge"], JUDGE, describe(p), JUDGE_SCHEMA, "low")
+        return p, ask("judge", "v4", f"{p['source']}/{p['id']}", MODELS["judge"], JUDGE, describe(p), JUDGE_SCHEMA, "low")
 
     # The places nobody reads about first, all of them (their draw ranks them), then the most read, a round at a time,
     # until there are enough sights for the shortlist: only those can be shortlisted, so the rest needn't be asked
@@ -498,14 +500,24 @@ def judge(ask, places, need=None, dest=None):
 
 PICK = """You are the editor of a travel guide. A visitor has a few days in {name}, and only time for the places that are worth a special trip on their own. From the shortlist below, choose the places they shouldn't miss.
 
-- Choose at most {cap}. Choose fewer if fewer are truly worth it: an empty slot is better than a filler.
+- Choose up to {cap}. When unsure, choose a place and rank it lower: leaving out a real sight is worse than ranking a minor one last. Choose fewer only when the shortlist runs out of places worth a visit.
+- Every pick is a place on a map, not a person, an event or an activity with no place of its own.
 - Judge each place by what it is and what a visitor would get from going, not by how often its Wikipedia page is read. The views and languages are shown as one hint of how well known a place is; the shortlist is ordered by them.
 - Places a visitor would see on the way to or inside another pick (a sculpture at a museum, a bridge you cross) aren't picks of their own. A drive, loop road or long trail doesn't count as covering the places along it, though: a stop worth a trip of its own is a pick of its own.
+- The same place only once: two records of one place, or a trail and the place it is for (the Harding Icefield Trail and the Harding Icefield): choose the one a visitor would look for.
 - rank: 1 for the first place you'd send someone, and so on.
+- name: what the place is called on a map, usually its name as given. An activity's title becomes the place it is at: "Lamar Valley", not "Lamar Valley - Wildlife Watching"; "Wind Cave tour", not "Take a Cave Tour"; "South Unit Scenic Drive", not "Drive the South Unit Scenic Drive".
 - reason: one sentence on why a visitor should go.
 - left_out: up to 10 places on the shortlist a reader might expect to see and that you didn't choose, each with one sentence on why not.{whole}"""
-PICK_SCHEMA = obj({"picks": {"type": "array", "items": obj({"id": {"type": "string"}, "rank": {"type": "integer"}, "reason": {"type": "string"}})},
+PICK_SCHEMA = obj({"picks": {"type": "array", "items": obj({"id": {"type": "string"}, "rank": {"type": "integer"},
+                                                             "name": {"type": "string"}, "reason": {"type": "string"}})},
                    "left_out": {"type": "array", "items": obj({"id": {"type": "string"}, "reason": {"type": "string"}})}})
+
+
+def shown(c, p):
+    """The name a pick is shown by: the pick's, the place's own name without an NPS activity title's verbs ("Take a Cave
+    Tour"), or the record's when the pick gives none (the park itself, an older answer)."""
+    return (c.get("name") or "").strip() or p["name"]
 
 
 def pick(ask, dest, shortlist):
@@ -519,7 +531,7 @@ def pick(ask, dest, shortlist):
              "one place it is named for when that is the whole park (the Grand Canyon, Isle Royale, the Teton Range). Every "
              "place on the shortlist is in the park; that doesn't make it part of the park's entry: choose among them as you "
              "would anywhere, its peaks, glaciers, lakes and ruins too.") if dest.get("kind") in WHOLE else ""
-    return ask("pick", "v1", dest["id"], MODELS["pick"], PICK.format(name=dest["name"], cap=dest["cap"], whole=whole),
+    return ask("pick", "v2", dest["id"], MODELS["pick"], PICK.format(name=dest["name"], cap=dest["cap"], whole=whole),
                "Shortlist:\n\n" + "\n".join(lines), PICK_SCHEMA, "high")
 
 
@@ -765,7 +777,7 @@ def run(dest_id, db_path=None, batcher=None):
     chosen = pick(ask, dest, shortlist)
     by_key = {f"{p['source']}/{p['id']}": p for p in shortlist}
     picks = [(c, by_key[c["id"]]) for c in sorted(chosen["picks"], key=lambda c: c["rank"])
-             if c["id"] in by_key and not (itself and same_name(by_key[c["id"]]["name"], dest["name"]))][:dest["cap"]]
+             if c["id"] in by_key and not (itself and any(same_name(n, dest["name"]) for n in (by_key[c["id"]]["name"], shown(c, by_key[c["id"]]))))][:dest["cap"]]
     log(f"{dest_id}: picks: {len(picks)}: {', '.join(p['name'] for _, p in picks)}")
     if itself:  # first, and beyond the cap: the park as a whole
         picks = [({"reason": None}, itself)] + picks
@@ -788,7 +800,7 @@ def run(dest_id, db_path=None, batcher=None):
     for n, (c, p, e) in enumerate(made, 1):
         db.execute("INSERT INTO picks VALUES (?,?,?,?,?,?)", (dest_id, p["source"], p["id"], n, c["reason"], MODELS["pick"]))
         db.execute("INSERT OR REPLACE INTO guides VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
-            p["source"], p["id"], p["name"], e["one_liner"], json.dumps(e["paragraphs"]), json.dumps(e["practical"]),
+            p["source"], p["id"], shown(c, p), e["one_liner"], json.dumps(e["paragraphs"]), json.dumps(e["practical"]),
             json.dumps(e["sources"]), json.dumps(e["images"]), e["overlap"], MODELS["write"],
             f"write v3, pictures v1 ({MODELS['pictures']})", now))
     left_out = [{"source": by_key[c["id"]]["source"], "id": by_key[c["id"]]["id"], "name": by_key[c["id"]]["name"], "reason": c["reason"]}
@@ -800,8 +812,8 @@ def run(dest_id, db_path=None, batcher=None):
     db.commit()
     summary = {"destination": dest["name"], "counts": counts, "spent_this_run": {k: round(v, 3) for k, v in ask.spent.items()},
                "seconds": round(time.time() - t0),
-               "picks": [{"rank": i, "name": p["name"], "one_liner": e["one_liner"], "overlap": e["overlap"],
-                          "hero": bool(e["images"]["hero"]), "inline": len(e["images"]["inline"])} for i, (_, p, e) in enumerate(made, 1)]}
+               "picks": [{"rank": i, "name": shown(c, p), "one_liner": e["one_liner"], "overlap": e["overlap"],
+                          "hero": bool(e["images"]["hero"]), "inline": len(e["images"]["inline"])} for i, (c, p, e) in enumerate(made, 1)]}
     no_pictures = [p["name"] for _, p, e in made if e.get("pictures_failed")]
     if no_pictures:  # run the destination again for them: only the pictures are asked again
         summary["pictures_failed"] = no_pictures

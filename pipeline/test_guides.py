@@ -358,6 +358,17 @@ class ThePark(unittest.TestCase):
         self.assertEqual(prompts[1], guides.PICK.format(name=DEST["name"], cap=DEST["cap"], whole=""))
         self.assertNotIn("entry of its own", prompts[1])
 
+    def test_a_pick_is_shown_by_the_pick_s_name_or_else_its_record_s(self):
+        p = {"name": "Take a Cave Tour"}
+        self.assertEqual(guides.shown({"name": "Wind Cave tour"}, p), "Wind Cave tour")
+        self.assertEqual(guides.shown({"name": " "}, p), "Take a Cave Tour")
+        self.assertEqual(guides.shown({"reason": None}, p), "Take a Cave Tour")  # the park itself
+
+    def test_judging_takes_a_trailhead_for_its_trail_and_a_person_isnt_a_place(self):
+        self.assertIn('"Door Trailhead" is the Door Trail', guides.JUDGE)
+        self.assertIn("a person, family or people", guides.JUDGE)
+        self.assertIn("name", guides.PICK_SCHEMA["properties"]["picks"]["items"]["required"])
+
     def test_a_place_without_an_article_isnt_shown_as_unread_in_the_pick(self):
         contents = []
         ask = lambda step, prompt, key, model, system, content, *a: contents.append(content) or {"picks": [], "left_out": []}

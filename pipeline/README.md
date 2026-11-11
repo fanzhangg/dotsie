@@ -70,8 +70,10 @@ Commons. `guides.py` makes them for a destination in `destinations.json`, from i
    isn't one of its own sights.
 2. Is it a sight (Haiku): somewhere people go to see or experience (a scenic drive, a trail, a heritage railway
    count), still there, open to visitors, not part of a bigger place nearby that is one visit (a peak isn't "part
-   of" its range, nor anything of the destination itself). Never a sight: an interpretive sign or numbered tour stop,
-   a trailhead, parking area or information page as such, a species, an activity with no place. Each also gets a
+   of" its range, nor anything of the destination itself). Never a sight: a person, a species, an interpretive sign
+   or numbered tour stop, an activity with no place. A trailhead or a pull-off is judged as the trail or view it
+   serves (Badlands' trails are NPS places named "Door Trailhead"), and when unsure it's a sight: a minor one is ranked
+   low later, one left out here is lost. Each also gets a
    draw, 1 to 5: how far out of their way a visitor would go. Asked of every candidate nobody reads about on
    Wikipedia (no article: NPS pages, features without one), then of the most read, 40 at a time, until there are
    enough sights for the shortlist: in Seattle about a fifth of the questions (43% of its candidates were sights).
@@ -79,8 +81,10 @@ Commons. `guides.py` makes them for a destination in `destinations.json`, from i
    their draw (Death Valley's Mesquite Flat dunes and Joshua Tree's Keys View have NPS pages and no article). A place
    Wikidata puts in the park (P3018) is a candidate wherever its one point is: Skyline Drive's falls just outside
    Shenandoah's outline.
-4. Pick (Sonnet): what a visitor with a few days shouldn't miss, at most `cap`, compared with each other, with what it
-   left out and why. In a park, not the park again under another name, nor the one place it's named for when that is
+4. Pick (Sonnet): what a visitor with a few days shouldn't miss, up to `cap`, compared with each other, with what it
+   left out and why. Better a minor place ranked last than a real one left out; fewer only when the shortlist runs out.
+   Each is a place on a map (not a person, an event or a placeless activity), once (not a trail and the place it's for
+   as two), under the name a map gives it: "Lamar Valley" for the NPS page "Lamar Valley - Wildlife Watching". In a park, not the park again under another name, nor the one place it's named for when that is
    the whole park (the Grand Canyon, Isle Royale): the park's own entry covers that. Its peaks, glaciers and ruins are
    chosen as anywhere else, and a scenic drive or loop doesn't stand in for the stops along it worth a trip of their own.
 5. Write (Sonnet): each entry from the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages),
