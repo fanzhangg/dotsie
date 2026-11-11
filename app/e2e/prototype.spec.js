@@ -1,7 +1,7 @@
 // The shared frontend (app/web), run by the prototype on its seeded trips: White Sands, NM (Alex's, Nov 20–22, with
 // Sam), Big Bend in spring (Jo's, with Alex and Sam) and Utah’s parks (Alex's, with Jo: saved places only, no stops).
 // You're Alex unless ?as= says otherwise. Each test starts from a fresh browser, so from the seed.
-import { expect, question, sheet, test, toast } from './fixtures.js';
+import { expect, filterChip, filterMenu, pickFilter, question, sheet, test, toast } from './fixtures.js';
 
 const trip = (page, id, as) => page.goto(`${as ? `?as=${as}` : ''}#/trip/${id}`);
 const plan = page => page.getByRole('region', { name: 'Plan' });
@@ -503,26 +503,28 @@ test('spots can be searched and narrowed to a country, a state and a city', asyn
   await expect(page.getByText('No spots match “nowhere at all”.')).toBeVisible();
   await page.getByRole('searchbox', { name: 'Search spots' }).fill('');
 
-  await page.getByRole('combobox', { name: 'Country' }).selectOption('US');
+  await pickFilter(page, 'country', 'United States');
   await expect(spotNames(page)).toHaveCount(6);
-  await page.getByRole('combobox', { name: 'State' }).selectOption('NM');
+  await pickFilter(page, 'state', 'New Mexico');
   await expect(spotNames(page)).toHaveText(['White Sands National Park', 'New Mexico Museum of Space History']);
   // The cities follow the state; picking a city sets its state
-  await expect(page.getByRole('combobox', { name: 'City' }).locator('option')).toHaveText(['All cities', 'Alamogordo']);
-  await page.getByRole('combobox', { name: 'State' }).selectOption('');
-  await page.getByRole('combobox', { name: 'City' }).selectOption('seattle');
-  await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('WA');
+  await filterChip(page, 'city').locator('.wt-filter__open').click();
+  await expect(filterMenu(page).locator('.wt-option__label')).toHaveText(['All cities', 'Alamogordo']);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Clear State' }).click();
+  await pickFilter(page, 'city', 'Seattle, WA');
+  await expect(filterChip(page, 'state').locator('.wt-filter__value')).toHaveText('Washington');
   // In a city, the guide's own order, not the views'
   await expect(spotNames(page)).toHaveText(['Pike Place Market', 'Space Needle', 'Chihuly Garden and Glass', 'Discovery Park']);
   await expect(page.getByText('In the guide’s order for Seattle')).toBeVisible();
   // The address keeps what's asked, so a reload (or a link) shows the same
   await expect(page).toHaveURL(/#\/spots\?country=US&state=WA&city=seattle$/);
   await page.reload();
-  await expect(page.getByRole('combobox', { name: 'City' })).toHaveValue('seattle');
+  await expect(filterChip(page, 'city').locator('.wt-filter__value')).toHaveText('Seattle');
   await expect(spotNames(page)).toHaveCount(4);
   // Another country drops a state and city it doesn't have
-  await page.getByRole('combobox', { name: 'Country' }).selectOption('CA');
-  await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('');
+  await pickFilter(page, 'country', 'Canada');
+  await expect(filterChip(page, 'state')).not.toHaveClass(/is-set/);
   await expect(spotNames(page)).toHaveText(['Stanley Park']);
 });
 
@@ -542,36 +544,39 @@ test('the search finds a city’s and a state’s spots by their names, and clea
 
 test('spots can be narrowed to a type, each saying how many of the spots asked for are of it, and Clear all clears them', async ({ page }) => {
   await page.goto('#/spots');
-  const type = page.getByRole('combobox', { name: 'Type' });
-  await expect(type.locator('option')).toHaveText(['All types', 'Nature & parks (4)', 'Museums & art (2)', 'Landmarks & views (1)', 'History (2)',
-    'Markets & food (1)', 'Fun & shows (0)']);
-  await expect(type.locator('option', { hasText: 'Fun & shows' })).toHaveAttribute('disabled', ''); // none to show
-  await type.selectOption('museums');
+  const type = filterChip(page, 'kind'), options = filterMenu(page).getByRole('radio');
+  await type.locator('.wt-filter__open').click();
+  await expect(options).toHaveText(['All types', 'Nature & parks4', 'Museums & art2', 'Landmarks & views1', 'History2', 'Markets & food1', 'Fun & shows0']);
+  await expect(options.filter({ hasText: 'Fun & shows' })).toBeDisabled(); // none to show
+  await page.keyboard.press('Escape');
+  await pickFilter(page, 'kind', 'Museums & art');
   await expect(spotNames(page)).toHaveText(['Chihuly Garden and Glass', 'New Mexico Museum of Space History']);
   await expect(page.locator('[data-filter="kind"] .wt-filter__value')).toHaveText('Museums & art'); // the chip, without the count
   await expect(page).toHaveURL(/#\/spots\?kind=museums$/);
   // The counts follow the other filters and the search
-  await page.getByRole('combobox', { name: 'State' }).selectOption('WA');
+  await pickFilter(page, 'state', 'Washington');
   await expect(spotNames(page)).toHaveText(['Chihuly Garden and Glass']);
-  await expect(type.locator('option')).toHaveText(['All types', 'Nature & parks (2)', 'Museums & art (1)', 'Landmarks & views (1)', 'History (1)',
-    'Markets & food (1)', 'Fun & shows (0)']);
+  await type.locator('.wt-filter__open').click();
+  await expect(options).toHaveText(['All types', 'Nature & parks2', 'Museums & art1', 'Landmarks & views1', 'History1', 'Markets & food1', 'Fun & shows0']);
+  await expect(options.filter({ hasText: 'Museums & art' })).toHaveAttribute('aria-checked', 'true');
+  await page.keyboard.press('Escape');
   // Clear all, once two things are set: back to every spot
   await page.getByRole('button', { name: 'Clear all' }).click();
   await expect(spotNames(page)).toHaveCount(7);
   await expect(page).toHaveURL(/#\/spots$/);
-  await expect(type).toHaveValue('');
+  await expect(type).not.toHaveClass(/is-set/);
   await expect(page.getByRole('button', { name: 'Clear all' })).toBeHidden();
 });
 
 test('a set filter clears with its ×, and a list with none to show offers to clear the filters', async ({ page }) => {
   await page.goto('#/spots');
-  await page.getByRole('combobox', { name: 'State' }).selectOption('WA');
+  await pickFilter(page, 'state', 'Washington');
   await expect(spotNames(page)).toHaveCount(4);
   await expect(page.getByRole('button', { name: 'Clear all' })).toBeHidden(); // one thing set: its × is enough
   await page.getByRole('button', { name: 'Clear State' }).click();
   await expect(spotNames(page)).toHaveCount(7);
-  await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('');
-  await expect(page.getByRole('combobox', { name: 'State' })).toBeFocused();
+  await expect(filterChip(page, 'state').locator('.wt-filter__value')).toHaveText('State');
+  await expect(filterChip(page, 'state').locator('.wt-filter__open')).toBeFocused();
   await expect(page.getByRole('button', { name: 'Clear State' })).toBeHidden();
 
   await page.goto('#/spots?kind=landmarks&state=NM');
@@ -593,16 +598,18 @@ test('spots can be sorted A to Z, and nearest first, saying how far each is; in 
   await context.grantPermissions(['geolocation']);
   await context.setGeolocation({ latitude: 47.6062, longitude: -122.3321 }); // downtown Seattle
   await page.goto('#/spots');
-  const sort = page.getByRole('combobox', { name: 'Sort' }), chip = page.locator('[data-filter="sort"]');
+  const chip = filterChip(page, 'sort');
   await expect(chip.locator('.wt-filter__value')).toHaveText('Most viewed');
-  await expect(sort.locator('option')).toHaveText(['Most viewed', 'Nearest', 'A to Z']);
-  await sort.selectOption('name');
+  await chip.locator('.wt-filter__open').click();
+  await expect(filterMenu(page).getByRole('radio')).toHaveText(['Most viewed', 'Nearest', 'A to Z']);
+  await expect(filterMenu(page).getByRole('radio', { name: 'Most viewed' })).toHaveAttribute('aria-checked', 'true');
+  await filterMenu(page).getByRole('radio', { name: 'A to Z' }).click();
   await expect(spotNames(page)).toHaveText(['Chihuly Garden and Glass', 'Discovery Park', 'New Mexico Museum of Space History', 'Pike Place Market',
     'Space Needle', 'Stanley Park', 'White Sands National Park']);
   await expect(chip).toHaveClass(/is-set/);
   await expect(page).toHaveURL(/#\/spots\?sort=name$/);
 
-  await sort.selectOption('near');
+  await pickFilter(page, 'sort', 'Nearest');
   await expect(spotNames(page)).toHaveText(['Pike Place Market', 'Space Needle', 'Chihuly Garden and Glass', 'Discovery Park', 'Stanley Park',
     'White Sands National Park', 'New Mexico Museum of Space History']);
   await expect(page.getByRole('link', { name: /^Pike Place Market/ })).toContainText('Seattle, WA · 0.6 mi');
@@ -617,12 +624,56 @@ test('spots can be sorted A to Z, and nearest first, saying how far each is; in 
   await page.goto('#/spots?city=seattle');
   await expect(chip.locator('.wt-filter__value')).toHaveText('Guide’s order');
   await expect(chip).not.toHaveClass(/is-set/);
-  await sort.selectOption('views');
+  await pickFilter(page, 'sort', 'Most viewed');
   await expect(spotNames(page)).toHaveText(['Space Needle', 'Pike Place Market', 'Chihuly Garden and Glass', 'Discovery Park']);
   await expect(page).toHaveURL(/#\/spots\?city=seattle&sort=views$/);
   await page.getByRole('button', { name: 'Clear City' }).click();
   await expect(chip.locator('.wt-filter__value')).toHaveText('Most viewed');
   await expect(page).toHaveURL(/#\/spots$/);
+});
+
+test('a filter drops its choices down just under it, the phone’s width on a phone; a tap outside or Esc closes it as it was', async ({ page }) => {
+  await page.goto('#/spots');
+  await expect(spotNames(page)).toHaveCount(7);
+  const chip = filterChip(page, 'state'), open = chip.locator('.wt-filter__open'), menu = filterMenu(page);
+  await open.click();
+  await expect(open).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu.getByRole('radio', { name: 'All states' })).toBeFocused(); // the one it's set to
+  // On a phone, under the row of filters and across the column, whichever filter it's from
+  const c = await chip.boundingBox(), m = await menu.boundingBox(), vw = page.viewportSize().width;
+  expect(m.y).toBeGreaterThanOrEqual(c.y + c.height);
+  expect(m.y).toBeLessThan(c.y + c.height + 12);
+  expect(m.x).toBeGreaterThanOrEqual(0);
+  expect(m.x + m.width).toBeLessThanOrEqual(vw);
+  expect(m.width).toBeGreaterThan(vw - 40);
+  // ↓ ↑ move between the choices; Return picks one
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('radio').nth(1)).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(open).toBeFocused();
+  await expect(open).toHaveAttribute('aria-expanded', 'false');
+  // A tap outside closes it with nothing changed; a tap on another filter opens that one instead
+  await open.click();
+  await page.getByRole('searchbox', { name: 'Search spots' }).click();
+  await expect(menu).toHaveCount(0);
+  await open.click();
+  await filterChip(page, 'kind').locator('.wt-filter__open').click();
+  await expect(menu).toHaveCount(1);
+  await expect(menu.getByRole('radiogroup')).toHaveAttribute('aria-label', 'Type');
+  await page.keyboard.press('Escape');
+  await expect(spotNames(page)).toHaveCount(7);
+  await expect(page).toHaveURL(/#\/spots$/);
+  // On a computer, under the filter itself, lined up with it
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open.click();
+  const c2 = await chip.boundingBox(), m2 = await menu.boundingBox();
+  expect(Math.min(Math.abs(m2.x - c2.x), Math.abs(m2.x + m2.width - c2.x - c2.width))).toBeLessThan(2); // lined up with it
+  expect(m2.y).toBeGreaterThanOrEqual(c2.y + c2.height);
+  expect(m2.width).toBeLessThan(400);
+  await menu.getByRole('radio', { name: 'Washington' }).click();
+  await expect(spotNames(page)).toHaveCount(4);
+  await expect(menu).toHaveCount(0);
 });
 
 test('if the browser can’t say where you are, the order stays as it was, and a toast says why', async ({ page }) => {
@@ -632,7 +683,7 @@ test('if the browser can’t say where you are, the order stays as it was, and a
   });
   await page.goto('#/spots');
   await expect(spotNames(page)).toHaveCount(7);
-  await page.getByRole('combobox', { name: 'Sort' }).selectOption('near');
+  await pickFilter(page, 'sort', 'Nearest');
   const why = page.locator('.wt-toast').filter({ hasText: 'Couldn’t tell where you are' }); // an alert: it's an error
   await expect(why).toBeVisible();
   await expect(page.locator('[data-filter="sort"] .wt-filter__value')).toHaveText('Most viewed');
@@ -646,15 +697,15 @@ test('the search and the filters stay at the top as the spots scroll; on a phone
   await expect(spotNames(page)).toHaveCount(7);
   const bar = page.locator('.wt-app-bar'), search = page.getByRole('searchbox', { name: 'Search spots' });
   // A filter shows what it's set to
-  await page.getByRole('combobox', { name: 'State' }).selectOption('WA');
+  await pickFilter(page, 'state', 'Washington');
   await expect(page.locator('.wt-filter.is-set .wt-filter__value')).toHaveText('Washington');
-  await page.getByRole('combobox', { name: 'State' }).selectOption('');
+  await pickFilter(page, 'state', 'All states');
   await expect(page.locator('[data-filter="state"] .wt-filter__value')).toHaveText('State');
   await expect(spotNames(page)).toHaveCount(7);
   await page.mouse.wheel(0, 400);
   await expect(bar).not.toBeInViewport();
   await expect(search).toBeInViewport();
-  await expect(page.getByRole('combobox', { name: 'State' })).toBeInViewport();
+  await expect(filterChip(page, 'state')).toBeInViewport();
   await page.mouse.wheel(0, -60);
   await expect(bar).toBeInViewport();
   // On a computer, the bar stays
@@ -668,7 +719,7 @@ test('the search and the filters stay at the top as the spots scroll; on a phone
 
 test('a spot opens its guide entry, a page of its own with its sources and links at the end, and back goes to the list as it was', async ({ page }) => {
   await page.goto('#/spots');
-  await page.getByRole('combobox', { name: 'State' }).selectOption('NM');
+  await pickFilter(page, 'state', 'New Mexico');
   await page.getByRole('link', { name: /White Sands National Park/ }).click();
   await expect(page).toHaveTitle('White Sands National Park · Spots · Dotsie');
   // No app bar: the page is the guide
@@ -686,6 +737,6 @@ test('a spot opens its guide entry, a page of its own with its sources and links
   await expect(entry.locator('.wt-guide__foot')).toContainText('Written by AI from the sources above, and published under CC BY-SA 4.0.');
   await page.getByRole('link', { name: 'All spots' }).click();
   await expect(page.getByRole('navigation', { name: 'Pages' })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('NM');
+  await expect(filterChip(page, 'state').locator('.wt-filter__value')).toHaveText('New Mexico');
   await expect(spotNames(page)).toHaveText(['White Sands National Park', 'New Mexico Museum of Space History']);
 });

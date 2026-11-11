@@ -47,6 +47,7 @@ const headHTML = () => appBarHTML('spots', me
   : '<a class="wt-btn wt-btn--secondary" href="#/">Sign in</a>');
 
 export function renderSpots(r) {
+  closeMenu(false);
   if (!$app.querySelector('.spots')) mount();
   else $app.querySelector('.wt-app-bar').outerHTML = headHTML(); // signed in or out since
   if (!me) myTrips = null;
@@ -87,11 +88,11 @@ function mount() {
             <span class="wt-spinner" hidden></span>
             <button type="button" class="wt-search__clear" aria-label="Clear search" hidden>${ICON.close}</button></label>
           <div class="spots-filters">${[['kind', 'Type'], ['country', 'Country'], ['state', 'State'], ['city', 'City']].map(([name, label]) =>
-            `<label class="wt-filter" data-filter="${name}"><span class="wt-filter__value">${label}</span>${ICON.chevronDown}<select name="${name}" aria-label="${label}"></select><button type="button" class="wt-filter__clear" data-clear="${name}" aria-label="Clear ${label}" title="Clear" hidden>${ICON.close}</button></label>`).join('')}
+            `<div class="wt-filter" data-filter="${name}"><span class="wt-filter__value">${label}</span>${ICON.chevronDown}${openHTML(name)}<button type="button" class="wt-filter__clear" data-clear="${name}" aria-label="Clear ${label}" title="Clear" hidden>${ICON.close}</button></div>`).join('')}
             <button type="button" class="wt-filter wt-filter--action spots-clear" hidden>Clear all</button></div>
         </div>
         <div class="spots-head"><p class="spots-count" role="status"></p>
-          <label class="wt-filter wt-filter--plain" data-filter="sort"><span class="wt-filter__value">Most viewed</span>${ICON.chevronUpDown}<select name="sort" aria-label="Sort"></select></label></div>
+          <div class="wt-filter wt-filter--plain" data-filter="sort"><span class="wt-filter__value">Most viewed</span>${ICON.chevronUpDown}${openHTML('sort')}</div></div>
         <div class="home-grid spots-grid"></div>
         <button type="button" class="wt-btn wt-btn--secondary spots-more" hidden>Show more</button>
         <nav class="wt-pager spots-pager" aria-label="Pages of spots" hidden></nav>
@@ -124,13 +125,17 @@ function mount() {
     search();
   });
   const filters = list.querySelector('.spots-filters');
-  for (const el of [filters, list.querySelector('.spots-head')]) el.addEventListener('change', e => pick(e.target.name, e.target.value));
+  for (const el of [filters, list.querySelector('.spots-head')]) el.addEventListener('click', e => {
+    const open = e.target.closest('.wt-filter__open');
+    if (open) toggleMenu(open.closest('.wt-filter'));
+  });
   filters.addEventListener('click', e => {
     // A set filter's ×: back to every one, with the focus on the filter, as the × is gone
     const x = e.target.closest('[data-clear]');
-    if (x) { e.preventDefault(); pick(x.dataset.clear, ''); filters.querySelector(`select[name="${x.dataset.clear}"]`)?.focus(); }
-    if (e.target.closest('.spots-clear')) clearAll();
+    if (x) { e.preventDefault(); closeMenu(false); pick(x.dataset.clear, ''); filters.querySelector(`[data-filter="${x.dataset.clear}"] .wt-filter__open`)?.focus(); }
+    if (e.target.closest('.spots-clear')) { closeMenu(false); clearAll(); }
   });
+  filters.addEventListener('scroll', () => { if (menu) place(); }, { passive: true });
   list.querySelector('.spots-more').addEventListener('click', () => search('more'));
   list.querySelector('.spots-pager').addEventListener('click', e => {
     const to = e.target.closest('[data-page]');
@@ -207,24 +212,26 @@ function renderFilters() {
   const states = [...new Map(inCountry.map(c => [`${c.country}-${c.state}`, c])).values()]
     .sort((a, b) => regionName(a.country, a.state).localeCompare(regionName(b.country, b.state)));
   const cities = inCountry.filter(c => !s.state || c.state === s.state).sort((a, b) => a.name.localeCompare(b.name));
-  const option = (value, text, on, off = false) => `<option value="${esc(value)}"${on ? ' selected' : ''}${off ? ' disabled' : ''}>${esc(text)}</option>`;
-  const set = (name, html) => { root.querySelector(`[name="${name}"]`).innerHTML = html; };
+  const o = (value, text, { meta = null, off = false } = {}) => ({ value, text, meta, off });
   // Each type says how many of the spots asked for are of it, once the list has come; one with none can't be picked
-  set('kind', option('', 'All types') + SPOT_KINDS.map(k => {
-    const n = s.kinds?.[k.id];
-    return option(k.id, n == null ? k.label : `${k.label} (${n})`, k.id === s.kind, n === 0 && k.id !== s.kind);
-  }).join(''));
-  set('country', option('', 'All countries') + countries.map(c => option(c, countryName(c), c === s.country)).join(''));
-  set('state', option('', 'All states') + states.map(c => option(c.state, regionName(c.country, c.state), c.state === s.state)).join(''));
-  set('city', option('', 'All cities') + cities.map(c => option(c.id, s.state ? c.name : `${c.name}, ${c.state}`, c.id === s.city)).join(''));
-  set('sort', sortsFor().map(([v, text]) => option(v, text, v === s.sort)).join(''));
+  choices = {
+    kind: [o('', 'All types'), ...SPOT_KINDS.map(k => {
+      const n = s.kinds?.[k.id];
+      return o(k.id, k.label, { meta: n, off: n === 0 && k.id !== s.kind });
+    })],
+    country: [o('', 'All countries'), ...countries.map(c => o(c, countryName(c)))],
+    state: [o('', 'All states'), ...states.map(c => o(c.state, regionName(c.country, c.state)))],
+    city: [o('', 'All cities'), ...cities.map(c => o(c.id, s.state ? c.name : `${c.name}, ${c.state}`))],
+    sort: sortsFor().map(([v, text]) => o(v, text)),
+  };
   // Each filter shows what it's set to, with a × to clear it, or its name when it's every one. The order always says
   // which it is, on grey once it isn't the usual one.
   for (const chip of root.querySelectorAll('.wt-filter[data-filter]')) {
-    const name = chip.dataset.filter, select = chip.querySelector('select'), on = !!select.value;
+    const name = chip.dataset.filter, now = choices[name].find(c => c.value === s[name]) ?? choices[name][0], on = !!now?.value;
+    const text = name === 'sort' ? (s.locating ? 'Finding you…' : now?.text ?? '') : on ? now.text : FILTER_NAMES[name];
     chip.classList.toggle('is-set', on);
-    chip.querySelector('.wt-filter__value').textContent = name === 'sort' ? (s.locating ? 'Finding you…' : select.selectedOptions[0]?.textContent ?? '')
-      : !on ? select.getAttribute('aria-label') : name === 'kind' ? spotKind(s.kind).label : select.selectedOptions[0].textContent;
+    chip.querySelector('.wt-filter__value').textContent = text;
+    chip.querySelector('.wt-filter__open').setAttribute('aria-label', on || name === 'sort' ? `${FILTER_NAMES[name]}: ${text}` : text);
     const x = chip.querySelector('.wt-filter__clear');
     if (x) x.hidden = !on;
   }
@@ -233,6 +240,105 @@ function renderFilters() {
   root.querySelector('[data-filter="country"]').hidden = countries.length < 2 && !s.country;
   // Clear all, once there's more than one thing to clear
   root.querySelector('.spots-clear').hidden = [s.q.trim(), ...FILTERS.map(k => s[k])].filter(Boolean).length < 2;
+  if (menu) listMenu(); // what it offers may have changed under it: the types' counts, say
+}
+
+// ---------- A filter's menu: its choices, dropped down under it ----------
+// Tapping a filter drops its choices down under it, rather than the phone's own picker, whose wheel or popover is hard
+// to aim at in a list of hundreds of cities, and opens wherever the phone puts it. On a phone the menu is as wide as
+// the page, just under the row of filters; on a computer, under the filter. A long list (State, City) has a search at
+// its top, which on a computer has the focus. Picking one applies it and closes the menu; Esc, a tap outside or
+// tabbing away closes it with nothing changed. ↑ ↓ move between choices, and from the search to them; Return in the
+// search picks the first that matches. See "Filter" in the design system.
+const FILTER_NAMES = { kind: 'Type', country: 'Country', state: 'State', city: 'City', sort: 'Sort' };
+const PLURALS = { kind: 'types', country: 'countries', state: 'states', city: 'cities' };
+const SEARCH_FROM = 12; // choices, for a search at the top
+let choices = { kind: [], country: [], state: [], city: [], sort: [] };
+let menu = null; // the open one: { name, chip, el }
+const fold = t => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+function openHTML(name) {
+  return `<button type="button" class="wt-filter__open" aria-label="${FILTER_NAMES[name]}" aria-haspopup="true" aria-expanded="false"></button>`;
+}
+function toggleMenu(chip) {
+  const was = menu?.chip === chip;
+  closeMenu(was);
+  if (was) return;
+  const name = chip.dataset.filter, host = chip.closest('.spots-band, .spots-head');
+  const el = document.createElement('div');
+  el.className = 'wt-menu wt-filter-menu';
+  el.innerHTML = `${choices[name].length > SEARCH_FROM ? `<label class="wt-input wt-input-group wt-search wt-filter-menu__search">${ICON.search}<input type="search" aria-label="Search ${PLURALS[name]}" placeholder="Search ${PLURALS[name]}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="60"></label>` : ''}<ul class="wt-options" role="radiogroup" aria-label="${FILTER_NAMES[name]}"></ul>`;
+  host.append(el);
+  menu = { name, chip, el };
+  chip.querySelector('.wt-filter__open').setAttribute('aria-expanded', 'true');
+  chip.scrollIntoView({ block: 'nearest', inline: 'nearest' }); // the whole of it in the row, for the menu to hang from
+  listMenu();
+  place();
+  const search = el.querySelector('input'), on = el.querySelector('[aria-checked="true"]') || el.querySelector('[data-value]:not(:disabled)');
+  if (on) el.querySelector('.wt-options').scrollTop = on.offsetTop - el.querySelector('.wt-options').clientHeight / 2 + on.offsetHeight / 2;
+  // A computer's keyboard is there to type with; on a phone the search waits for a tap, so the keyboard doesn't cover the list
+  (search && wide.matches ? search : on)?.focus({ preventScroll: true });
+  search?.addEventListener('input', listMenu);
+  el.addEventListener('keydown', menuKeys);
+  el.addEventListener('click', e => {
+    const b = e.target.closest('[data-value]');
+    if (!b || b.disabled) return;
+    closeMenu();
+    pick(name, b.dataset.value);
+  });
+  el.addEventListener('focusout', e => {
+    if (menu?.el === el && e.relatedTarget && !el.contains(e.relatedTarget) && !chip.contains(e.relatedTarget)) closeMenu(false);
+  });
+  document.addEventListener('pointerdown', outside, true);
+  visualViewport?.addEventListener('resize', place);
+  addEventListener('resize', place);
+}
+function closeMenu(refocus = true) {
+  if (!menu) return;
+  const { chip, el } = menu;
+  menu = null;
+  el.remove();
+  document.removeEventListener('pointerdown', outside, true);
+  visualViewport?.removeEventListener('resize', place);
+  removeEventListener('resize', place);
+  const open = chip.querySelector('.wt-filter__open');
+  open.setAttribute('aria-expanded', 'false');
+  if (refocus) open.focus({ preventScroll: true });
+}
+function outside(e) { if (menu && !menu.el.contains(e.target) && !menu.chip.contains(e.target)) closeMenu(false); }
+// The choices, those that match the search if it has anything in it, the one it's set to ticked
+function listMenu() {
+  const { name, el } = menu, input = el.querySelector('input'), q = fold(input?.value ?? '');
+  const shown = choices[name].filter(c => !q || (c.value && fold(c.text).includes(q)));
+  el.querySelector('.wt-options').innerHTML = shown.map(c => `<li><button type="button" class="wt-option" role="radio" data-value="${esc(c.value)}" aria-checked="${c.value === s[name]}"${c.off ? ' disabled' : ''}><span class="wt-option__text"><span class="wt-option__label">${esc(c.text)}</span></span>${c.meta != null ? `<span class="wt-option__meta">${c.meta}</span>` : ''}${ICON.check}</button></li>`).join('')
+    || `<li class="wt-results__msg"><b>No ${PLURALS[name]} match “${esc(input.value.trim())}”</b>Try fewer letters.</li>`;
+}
+// Under the filter it hangs from, its top 4px below, lined up with one of its edges; on a phone, across the page's column. It goes no lower than the
+// screen (or what the keyboard leaves of it), and scrolls inside.
+function place() {
+  if (!menu) return;
+  const { chip, el } = menu, host = el.parentElement, cs = getComputedStyle(host);
+  const h = host.getBoundingClientRect(), c = chip.getBoundingClientRect();
+  const min = parseFloat(cs.paddingLeft) || 0, max = h.width - (parseFloat(cs.paddingRight) || 0);
+  const width = wide.matches ? Math.min(Math.max(c.width, 280), max - min) : max - min;
+  el.style.width = `${width}px`;
+  // From the filter's left edge, or, where that would run past the column, back from its right edge
+  const from = c.left - h.left + width <= max ? c.left - h.left : c.right - h.left - width;
+  el.style.left = `${Math.max(min, Math.min(from, max - width))}px`;
+  el.style.top = `${c.bottom - h.top + 4}px`;
+  const bottom = (visualViewport?.height ?? innerHeight) + (visualViewport?.offsetTop ?? 0);
+  el.style.maxHeight = `${Math.max(160, Math.min(420, bottom - c.bottom - 4 - 12))}px`;
+}
+function menuKeys(e) {
+  const { el } = menu, input = el.querySelector('input');
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); return; }
+  const all = [...el.querySelectorAll('[data-value]:not(:disabled)')];
+  if (e.key === 'Enter' && e.target === input) { e.preventDefault(); all[0]?.click(); return; }
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  e.preventDefault();
+  const i = all.indexOf(document.activeElement), down = e.key === 'ArrowDown';
+  if (i < 0) { all[down ? 0 : all.length - 1]?.focus(); return; }
+  if (!down && i === 0 && input) { input.focus(); return; }
+  all[(i + (down ? 1 : all.length - 1)) % all.length].focus();
 }
 // A wider choice drops the narrower ones it doesn't hold; a city sets its state
 function pick(name, value) {
