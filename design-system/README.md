@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 15.4.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 15.5.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -907,6 +907,9 @@ One choice of a list's, as a chip, in a row of them over the list it narrows (Co
 - It says its name ("State") while it's every one, and what it's set to ("Washington") once it's set, with `.is-set`: primary ink on `--wt-surface-current`, the grey of a highlighted row. So the row says at a glance what the list is narrowed to.
 - The `select` covers the whole chip, unseen: a tap opens the phone's own picker (a menu on a computer), and its 16px type keeps an iPhone from zooming in. Keep the `select`'s first option "All states": that's what the picker lists. Set `__value` from the `select` whenever it changes.
 - 36px high, a pill with a hairline. A row of them can scroll sideways rather than wrap.
+- **`__clear`**, a × button after the `select`, shown once it's set (`hidden` while it's every one): it takes the chevron's place and sits over the `select`, so a tap clears the filter rather than opening the picker. Label it "Clear State", and put the focus back on the `select` after.
+- **`--action`**: a `button.wt-filter`, no border, in link ink, for an action on the row (Clear all, once two things are set).
+- **`--plain`**: no chip around it, for a choice beside a list rather than over it, such as its order (Most viewed, with `chevron-up-down`), across from how many there are.
 
 ### Pager `.wt-pager`
 
@@ -1152,6 +1155,10 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 15.5.0
+
+- New: `.wt-filter__clear`, a set filter's ×; `.wt-filter--action` (Clear all) and `.wt-filter--plain` (a list's order). See [Filter](#filter-wt-filter). The focus ring is the `select`'s now, not the chip's whenever anything in it has focus.
 
 ### Added in 15.4.0
 

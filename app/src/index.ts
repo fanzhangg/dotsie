@@ -4,6 +4,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { createAuth, isLocal, type Auth } from './auth';
 import { QID } from '../web/fields.js';
 import { regionsMatching } from '../web/regions.js';
+import { SPOT_KINDS, SPOT_SORTS, kindSQL, nearOf, spotKind } from '../web/spotkinds.js';
 import { findAbout, findPlaceAbout, findRoute, findSights, ROUTE_MODES, searchPlaces, SIGHT_ZOOM, type RouteMode } from './maps';
 import { AUTHORIZE_PATH, authorizeDecision, authorizePage, listConnections, mcpURL, oauthApi, oauthProvider, oauthSpec } from './oauth';
 import { mcpSpec } from './mcp';
@@ -247,14 +248,19 @@ app.get('/spots/cities', async c => {
      group by d.id order by d.country, d.state, d.name`).all();
   return c.json(results, 200, SPOTS_CACHE);
 });
-// Spots that match q, in a country, state or city, most viewed first (in a city, the guide's order), `limit` (at most
-// 50) at a time, with how many there are in all, for a pager. A place two cities picked shows once, in the city that ranked it
-// higher (SQLite takes a row's other columns from its min()).
+// Spots that match q, in a country, state or city, and of a type, most viewed first (in a city, the guide's order),
+// `limit` (at most 50) at a time, with how many there are in all, for a pager, and how many of each type there are
+// among them (whatever the type asked), for the Type filter's choices. sort: views, name, or near (with near=lat,lng),
+// nearest first. A place two cities picked shows once, in the city that ranked it higher (SQLite takes a row's other
+// columns from its min()).
+const SPOT_TEXT = `lower(coalesce(pl.types, '') || ' "' || g.name || '"')`; // spotText's, in SQL
 app.get('/spots/search', async c => {
   const q = (c.req.query('q') ?? '').trim(), country = c.req.query('country') ?? '', state = c.req.query('state') ?? '';
   const city = c.req.query('city') ?? '', offset = Number(c.req.query('offset') ?? 0), limit = Number(c.req.query('limit') ?? PAGE);
+  const kindId = c.req.query('kind') ?? '', kind = spotKind(kindId), sort = c.req.query('sort') ?? '', near = nearOf(c.req.query('near'));
   if (!Number.isInteger(limit) || limit < 1 || limit > PAGE || q.length > 100 || (country && !COUNTRY.test(country)) || (state && !STATE.test(state)) || (city && !DESTINATION.test(city))
-    || !Number.isInteger(offset) || offset < 0 || offset > 5000) bad();
+    || !Number.isInteger(offset) || offset < 0 || offset > 5000 || (kindId && !kind) || (sort && !Object.hasOwn(SPOT_SORTS, sort))
+    || (c.req.query('near') && !near)) bad();
   const where: string[] = [], args: (string | number)[] = [];
   // q: in its name or one line, or its city's name, or its state's name or code ("washington", "WA")
   if (q) {
@@ -266,25 +272,41 @@ app.get('/spots/search', async c => {
   if (country) { where.push('d.country = ?'); args.push(country); }
   if (state) { where.push('d.state = ?'); args.push(state); }
   if (city) { where.push('d.id = ?'); args.push(city); }
-  const { results } = await c.env.DB.prepare(
-    `select g.source, g.id, g.name, g.one_liner, g.images, min(p.rank) as rank, d.id as city, d.name as city_name, d.state, d.country, pl.lat, pl.lng,
-       ${VIEWS} as views, count(*) over () as total from spot_guides g
+  const from = `from spot_guides g
        join spot_picks p on p.source = g.source and p.id = g.id
        join spot_destinations d on d.id = p.destination
-       left join places pl on pl.source = g.source and pl.id = g.id
-     ${where.length ? 'where ' + where.join(' and ') : ''}
-     group by g.source, g.id order by ${city ? 'rank, ' : ''}views desc nulls last, rank, g.name limit ? offset ?`,
-  ).bind(...args, limit, offset).all<{ source: string; id: string; name: string; one_liner: string; images: string | null; rank: number;
-    city: string; city_name: string; state: string; country: string; lat: number | null; lng: number | null; views: number | null; total: number }>();
-  // Past the last page there's no row to say how many there are: ask
-  const total = results[0]?.total ?? (offset ? (await c.env.DB.prepare(
-    `select count(distinct g.source || ' ' || g.id) as n from spot_guides g join spot_picks p on p.source = g.source and p.id = g.id
-       join spot_destinations d on d.id = p.destination ${where.length ? 'where ' + where.join(' and ') : ''}`).bind(...args).first<number>('n')) ?? 0 : 0);
+       left join places pl on pl.source = g.source and pl.id = g.id`;
+  const matching = (more: string[]) => (more.length ? 'where ' + more.join(' and ') : '');
+  const only = kind ? [...where, kindSQL(kind, SPOT_TEXT)] : where;
+  // Nearest: by the squared distance on a map drawn true at where you are, which orders them as the real distance does
+  // nearby, and well enough across a country; SQLite in D1 has no trigonometry to do better. Places with no point last.
+  const order = sort === 'near' && near
+    ? { sql: 'pl.lat is null, (pl.lat - ?) * (pl.lat - ?) + (pl.lng - ?) * (pl.lng - ?) * ?, views desc nulls last, g.name',
+        args: [near.lat, near.lat, near.lng, near.lng, Math.cos(near.lat * Math.PI / 180) ** 2] }
+    : sort === 'name' ? { sql: 'g.name collate nocase, rank', args: [] }
+    : { sql: `${city && sort !== 'views' ? 'rank, ' : ''}views desc nulls last, rank, g.name`, args: [] };
+  const [{ results }, counts] = await Promise.all([
+    c.env.DB.prepare(
+      `select g.source, g.id, g.name, g.one_liner, g.images, min(p.rank) as rank, d.id as city, d.name as city_name, d.state, d.country, pl.lat, pl.lng,
+         ${VIEWS} as views, count(*) over () as total ${from}
+       ${matching(only)}
+       group by g.source, g.id order by ${order.sql} limit ? offset ?`,
+    ).bind(...args, ...order.args, limit, offset).all<{ source: string; id: string; name: string; one_liner: string; images: string | null; rank: number;
+      city: string; city_name: string; state: string; country: string; lat: number | null; lng: number | null; views: number | null; total: number }>(),
+    // How many of each type, whatever the type asked: each place once
+    c.env.DB.prepare(`select ${[`count(distinct g.source || ' ' || g.id) as n`, ...SPOT_KINDS.map(k =>
+      `count(distinct case when ${kindSQL(k, SPOT_TEXT)} then g.source || ' ' || g.id end) as ${k.id}`)].join(', ')} ${from} ${matching(where)}`)
+      .bind(...args).first<Record<string, number>>(),
+  ]);
+  const kinds = Object.fromEntries(SPOT_KINDS.map(k => [k.id, counts?.[k.id] ?? 0]));
+  // Past the last page there's no row to say how many there are: count them
+  const total = results[0]?.total ?? (offset ? (kind ? (await c.env.DB.prepare(
+    `select count(distinct g.source || ' ' || g.id) as n ${from} ${matching(only)}`).bind(...args).first<number>('n')) ?? 0 : counts?.n ?? 0) : 0);
   return c.json({
     results: results.map(r => ({ source: r.source, id: r.id, name: r.name, oneLiner: r.one_liner,
       hero: json<Images>(r.images, { hero: null, inline: [] }).hero, rank: r.rank, city: { id: r.city, name: r.city_name },
       state: r.state, country: r.country, lat: r.lat, lng: r.lng, views: r.views })),
-    total, more: offset + results.length < total,
+    total, more: offset + results.length < total, kinds,
   }, 200, SPOTS_CACHE);
 });
 // One spot's entry, as the guide preview has it
