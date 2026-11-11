@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 15.5.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 15.6.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -896,18 +896,34 @@ The top of Home and Spots, in one row: the app's pages on the left, the account 
 ### Filter `.wt-filter`
 
 ```html
-<label class="wt-filter is-set">
+<div class="wt-filter is-set">
   <span class="wt-filter__value">Washington</span>${chevronDownIcon}
-  <select aria-label="State"><option value="">All states</option><option value="WA" selected>Washington</option></select>
-</label>
+  <button type="button" class="wt-filter__open" aria-label="State: Washington" aria-haspopup="true" aria-expanded="false"></button>
+  <button type="button" class="wt-filter__clear" aria-label="Clear State">${closeIcon}</button>
+</div>
+
+<!-- Its menu, while open: in the positioned box the row is in, placed by script under the chip -->
+<div class="wt-menu wt-filter-menu" style="top: …; left: …; width: …; max-height: …">
+  <label class="wt-input wt-input-group wt-search wt-filter-menu__search">${searchIcon}
+    <input type="search" aria-label="Search states" placeholder="Search states"></label>   <!-- a long list only -->
+  <ul class="wt-options" role="radiogroup" aria-label="State">
+    <li><button type="button" class="wt-option" role="radio" aria-checked="false">
+      <span class="wt-option__text"><span class="wt-option__label">All states</span></span>${checkIcon}</button></li>
+    <li><button type="button" class="wt-option" role="radio" aria-checked="true">
+      <span class="wt-option__text"><span class="wt-option__label">Washington</span></span>${checkIcon}</button></li>
+  </ul>
+</div>
 ```
 
 One choice of a list's, as a chip, in a row of them over the list it narrows (Country, State, City over the spots).
 
 - It says its name ("State") while it's every one, and what it's set to ("Washington") once it's set, with `.is-set`: primary ink on `--wt-surface-current`, the grey of a highlighted row. So the row says at a glance what the list is narrowed to.
-- The `select` covers the whole chip, unseen: a tap opens the phone's own picker (a menu on a computer), and its 16px type keeps an iPhone from zooming in. Keep the `select`'s first option "All states": that's what the picker lists. Set `__value` from the `select` whenever it changes.
+- **`__open`**, a button over the whole chip, unseen, drops its choices down as a menu (`.wt-filter-menu`), not the phone's own picker, whose popover or wheel is hard to aim at in a long list and opens wherever the phone puts it. Its label is the filter's name, and what it's set to once it is ("State: Washington"); `aria-expanded` while it's open, when the chip is in primary ink with its chevron turned up. Set `__value` whenever the choice changes.
+- **The menu** (`.wt-menu.wt-filter-menu`) hangs 4px under the chip, in the positioned box the row is in (the row itself can scroll sideways, so it can't hold it). On a phone it's as wide as the page's column, with 44px rows; on a computer at least 280px, from the chip's left edge, or back from its right where that would run past the column. It goes no lower than the screen, or what the keyboard leaves of it, and scrolls inside. Its options are `.wt-option`s in a radiogroup, as a picker's: the first is "All states", the one it's set to ticked. A count of what a choice holds goes in `__meta` ("4"), and one that can't be picked (none to show) is `disabled`, in tertiary ink.
+- **Picking** applies it and closes the menu, with the focus back on the chip. Esc, a tap outside or on the chip again, or tabbing away closes it with nothing changed. ↑ ↓ move between choices. The focus goes to the ticked one when it opens.
+- **A long list** (more than 12: State, City) has a search at the top (`.wt-filter-menu__search`), which stays put as the choices scroll. On a computer it has the focus; on a phone it waits for a tap, so the keyboard doesn't come up over the list. It matches anywhere in a choice's name, accents aside; Return picks the first that matches, and ↓ goes to it. None: "No cities match “…”".
 - 36px high, a pill with a hairline. A row of them can scroll sideways rather than wrap.
-- **`__clear`**, a × button after the `select`, shown once it's set (`hidden` while it's every one): it takes the chevron's place and sits over the `select`, so a tap clears the filter rather than opening the picker. Label it "Clear State", and put the focus back on the `select` after.
+- **`__clear`**, a × button after the `select`, shown once it's set (`hidden` while it's every one): it takes the chevron's place and sits over the `select`, so a tap clears the filter rather than opening the picker. Label it "Clear State", and put the focus back on `__open` after.
 - **`--action`**: a `button.wt-filter`, no border, in link ink, for an action on the row (Clear all, once two things are set).
 - **`--plain`**: no chip around it, for a choice beside a list rather than over it, such as its order (Most viewed, with `chevron-up-down`), across from how many there are.
 
@@ -1155,6 +1171,10 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 15.6.0
+
+- New: `.wt-filter__open`, the button over a filter chip that drops its choices down, in place of a `select` (the phone's own picker), and `.wt-filter-menu` (a `.wt-menu` placed under the chip by script), with `__search` for a long list. A `disabled` `.wt-option` in it is in tertiary ink. See [Filter](#filter-wt-filter). A filter chip is a `div` now, not a `label`.
 
 ### Added in 15.5.0
 

@@ -51,7 +51,8 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 
 /* ---------- Spots: a search and filters over a grid of spot cards, as Home's trips; a spot's entry in one column ---------- */
 .spots-list { display: grid; gap: var(--wt-space-4); align-content: start; scroll-margin-top: calc(80px + var(--wt-space-2)); } /* clear of the app bar when a page of the pager scrolls to it */
-.spots-head { display: flex; align-items: center; justify-content: space-between; gap: var(--wt-space-3); margin: calc(-1 * var(--wt-space-3)) 0 calc(-1 * var(--wt-space-2)); }
+/* position: the order's menu hangs from it, as the filters' from .spots-band (see .wt-filter-menu) */
+.spots-head { position: relative; display: flex; align-items: center; justify-content: space-between; gap: var(--wt-space-3); margin: calc(-1 * var(--wt-space-3)) 0 calc(-1 * var(--wt-space-2)); }
 .spots-head .wt-filter { margin-right: -10px; } /* its words in line with the cards' edge */
 .spots-count { margin: 0; font: var(--wt-type-caption); color: var(--wt-text-secondary); }
 .spots-find { display: grid; gap: var(--wt-space-2); }

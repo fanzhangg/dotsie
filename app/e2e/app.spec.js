@@ -1,6 +1,6 @@
 // What only the product has: signing in, the server's API and the live socket between two people. Each test makes
 // its own accounts and trips, so they run on a database that isn't empty.
-import { expect, question, sheet, test, toast } from './fixtures.js';
+import { expect, filterChip, filterMenu, pickFilter, question, sheet, test, toast } from './fixtures.js';
 
 const plan = page => page.getByRole('region', { name: 'Plan' });
 const stop = (page, name) => plan(page).getByRole('button', { name: new RegExp(`^\\w+ ${name}`) }).first();
@@ -201,10 +201,10 @@ test('anyone can browse the spots and read a spot’s guide without signing in',
 // building
 test('the spots can be narrowed to a type and sorted nearest first', async ({ page }) => {
   await page.goto('/#/spots?city=testville');
-  const type = page.getByRole('combobox', { name: 'Type' });
-  await expect(type.locator('option', { hasText: 'History' })).toHaveText('History (1)');
-  await expect(type.locator('option', { hasText: 'Fun & shows' })).toHaveText('Fun & shows (0)');
-  await type.selectOption('history');
+  await filterChip(page, 'kind').locator('.wt-filter__open').click();
+  await expect(filterMenu(page).getByRole('radio', { name: /^History/ })).toHaveText('History1');
+  await expect(filterMenu(page).getByRole('radio', { name: /^Fun & shows/ })).toBeDisabled();
+  await filterMenu(page).getByRole('radio', { name: /^History/ }).click();
   await expect(page.locator('.wt-spot-card')).toHaveCount(1);
   await expect(page).toHaveURL(/#\/spots\?kind=history&city=testville$/);
   const get = async q => { const res = await page.request.get(`/api/spots/search?${q}`); expect(res.status()).toBe(200); return res.json(); };
@@ -254,11 +254,33 @@ test('a spot is saved to a trip once, however the taps fall while the server ans
   await expect(toast(page)).toContainText('On 3 trips');
 });
 
+// A long list of cities, as the real guide has (hundreds): the menu searches it. The server's cities, with 20 more.
+test('a filter with a long list of choices searches them', async ({ page }) => {
+  await page.route('**/api/spots/cities', async route => {
+    const real = await (await route.fetch()).json();
+    await route.fulfill({ json: [...real, ...Array.from({ length: 20 }, (_, i) => ({ id: `fake${i}`, name: `Fakeville ${i}`, state: 'ZZ', country: 'US', spots: 1 }))] });
+  });
+  await page.goto('/#/spots');
+  await filterChip(page, 'city').locator('.wt-filter__open').click();
+  const search = filterMenu(page).getByRole('searchbox', { name: 'Search cities' }), options = filterMenu(page).getByRole('radio');
+  await expect(search).toBeVisible();
+  await search.fill('pageto');
+  await expect(options).toHaveText(['Pagetown, ZZ']);
+  await search.fill('nowhere');
+  await expect(filterMenu(page)).toContainText('No cities match “nowhere”');
+  // Return picks the first that matches
+  await search.fill('pagetown');
+  await search.press('Enter');
+  await expect(filterMenu(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/spots\?state=ZZ&city=pagetown$/);
+  await expect(filterChip(page, 'city').locator('.wt-filter__value')).toHaveText('Pagetown');
+});
+
 // e2e/places.sql loads Pagetown's 31 picks
 test('on a computer, spots come in pages of 24; on a phone, 30 then Show more', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/#/spots');
-  await page.getByRole('combobox', { name: 'City' }).selectOption('pagetown');
+  await pickFilter(page, 'city', 'Pagetown, ZZ');
   const names = page.locator('.wt-spot-card__name'), pager = page.getByRole('navigation', { name: 'Pages of spots' });
   await expect(names).toHaveCount(24);
   await expect(pager.getByRole('button', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page');

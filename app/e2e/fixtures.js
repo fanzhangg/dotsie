@@ -46,3 +46,13 @@ export const sheet = page => page.locator('#sheets').getByRole('dialog');
 export const question = page => page.getByRole('alertdialog');
 // A toast says what just happened
 export const toast = page => page.getByRole('status');
+// Spots' filters (kind, country, state, city) and order (sort): a chip, which drops its choices down as a menu.
+// pickFilter opens it and picks the choice of that name (a type's count after it is left out).
+export const filterChip = (page, name) => page.locator(`[data-filter="${name}"]`);
+export const filterMenu = page => page.locator('.wt-filter-menu');
+export async function pickFilter(page, name, choice) {
+  await filterChip(page, name).locator('.wt-filter__open').click();
+  const exact = choice.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await filterMenu(page).getByRole('radio', { name: new RegExp(`^${exact}( \\d+)?$`) }).click();
+  await expect(filterMenu(page)).toHaveCount(0);
+}
