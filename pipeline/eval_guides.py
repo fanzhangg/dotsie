@@ -12,6 +12,8 @@ both have a point, is within 2 km of it.
 - see recall: the share of Wikivoyage's "see" listings the guide picked. A guide with a cap of 15 can't have them all
   where Wikivoyage lists 40, so it's read next to the number of listings.
 - do recall: the same for "do" listings (hikes, drives, tours).
+- first 10, first 20: how good the order is: of the listings (see or do) the first 10 (20) picks could hold, the share
+  they do.
 - in Wikivoyage: the share of the guide's picks that are a listing of either kind. Wikivoyage doesn't list every
   place worth going to, so it isn't precision, but a guide far below the others has picked what nobody lists.
 
@@ -128,9 +130,13 @@ def evaluate(guide, ls):
     listed = [p for p in picks if any(same(p, l) for l in ls)]
     see = [i for i, l in enumerate(ls) if l["kind"] == "see"]
     do = [i for i, l in enumerate(ls) if l["kind"] == "do"]
-    share = lambda xs: round(sum(1 for i in xs if i in found) / len(xs), 2) if xs else None
+    share = lambda xs, f=found: round(sum(1 for i in xs if i in f) / len(xs), 2) if xs else None
+    # How good the top of the order is: Wikivoyage's listings found among the first k picks, of as many as k could hold
+    def at(k):
+        top = {i for i, l in enumerate(ls) if any(same(p, l) for p in picks[:k])}
+        return round(len(top) / min(k, len(ls)), 2) if ls else None
     return {"id": guide["id"], "picks": len(picks), "see": len(see), "do": len(do),
-            "see_recall": share(see), "do_recall": share(do),
+            "see_recall": share(see), "do_recall": share(do), "at_10": at(10), "at_20": at(20),
             "in_wikivoyage": round(len(listed) / len(picks), 2) if picks else None,
             "missed_see": [ls[i]["name"] for i in see if i not in found],
             "not_listed": [p["name"] for p in picks if p not in listed]}
@@ -158,9 +164,10 @@ def main(argv):
               f"in Wikivoyage {r['in_wikivoyage']}", file=sys.stderr)
     avg = lambda k: round(sum(r[k] for r in rows if r[k] is not None) / max(1, sum(1 for r in rows if r[k] is not None)), 3)
     total = {"guides": len(rows), "picks": sum(r["picks"] for r in rows), "see_recall": avg("see_recall"),
-             "do_recall": avg("do_recall"), "in_wikivoyage": avg("in_wikivoyage")}
+             "do_recall": avg("do_recall"), "in_wikivoyage": avg("in_wikivoyage"), "at_10": avg("at_10"), "at_20": avg("at_20")}
     print(f"\n{total['guides']} guides, {total['picks']} picks: see recall {total['see_recall']}, do recall "
-          f"{total['do_recall']}, in Wikivoyage {total['in_wikivoyage']} (averages over guides)")
+          f"{total['do_recall']}, in Wikivoyage {total['in_wikivoyage']}, listings in the first 10 {total['at_10']}, "
+          f"first 20 {total['at_20']} (averages over guides)")
     if a.json:
         json.dump({"total": total, "guides": rows}, open(a.json, "w"), indent=1)
 

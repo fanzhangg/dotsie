@@ -16,10 +16,10 @@ on:
         type: boolean
         default: true
       models:
-        description: 'Another model for a step, e.g. "write=claude-opus-5-5" (default: judge and pictures Haiku, pick and write Sonnet)'
+        description: 'Another model for a step, e.g. "write=claude-opus-5-5" (default: judge and write Sonnet, pictures Haiku)'
         default: ""
       explain:
-        description: 'Only explain, from the stores, why places are or aren''t in the guides: parts of names, e.g. "Kuwohi,Skyline Drive". Asks no model, changes nothing'
+        description: 'Only explain, from the stores, why places are or aren''t in the guides: parts of names, e.g. "Kuwohi,Skyline Drive", or "merges" for every pair of records taken as one place by their names. Asks no model, changes nothing'
         default: ""
 
 # The same group as Spots data: both update the stores in R2.
@@ -94,7 +94,9 @@ jobs:
         if: ${{ inputs.explain != '' }}
         env:
           EXPLAIN: ${{ inputs.explain }}
-        run: python3 explain.py --destination $IDS --names "$EXPLAIN" | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          if [ "$EXPLAIN" = merges ]; then set -- --merges; else set -- --names "$EXPLAIN"; fi
+          python3 explain.py --destination $IDS "$@" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Pick and write
         if: ${{ inputs.explain == '' }}
         env:

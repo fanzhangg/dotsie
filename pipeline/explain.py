@@ -14,7 +14,7 @@ import guides, store
 from guides import DESTINATIONS, Area, boundary, candidates, store_path
 
 
-def explain(dest_id, names):
+def explain(dest_id, names, show_merges=False):
     dest = DESTINATIONS[dest_id]
     dbs = [sqlite3.connect(f"file:{store_path(st)}?mode=ro", uri=True)
            for st in [dest["state"], *dest.get("other_states", [])] if os.path.exists(store_path(st))]
@@ -47,6 +47,22 @@ def explain(dest_id, names):
         "SELECT left_out FROM destinations WHERE id = ?", (dest_id,)).fetchone() or ["[]"])[0] or "[]")}
     lines = [f"## {dest['name']}: {len(places)} candidates, {sum(1 for v in judged.values() if v)} judged sights "
              f"(of {sum(1 for v in judged.values() if v is not None)} judged)"]
+    # Records taken as one place, and why: to check before trusting it (python3 explain.py ... --merges)
+    merged = [(p["name"], m) for p in places.values() for m in p.get("merged", [])]
+    vias = {}
+    for _, m in merged:
+        vias[m[3]] = vias.get(m[3], 0) + 1
+    lines.append(f"- records taken as one place: {len(merged)} ({', '.join(f'{v} {n}' for v, n in sorted(vias.items())) or 'none'})")
+    if show_merges:
+        lines += [f"  - {host} ← {m[2]} ({m[0]} {m[1]}, {m[3]})" for host, m in sorted(merged)
+                  if m[3] in ("name", "similar name", "same name in the destination")]
+    # The order as the model gave it, against the places it was given (numbered, so no id can be mistyped)
+    given = sum(1 for v in judged.values() if v)
+    for prompt, answer in home.execute("SELECT prompt, answer FROM llm_answers WHERE step = 'rank' AND key = ? "
+                                       "ORDER BY created_at", (dest_id,)):
+        a = json.loads(answer)
+        lines.append(f"- order ({prompt}): about {given} given, {len(set(a['order']))} ordered, "
+                     f"{len(a['duplicates'])} duplicates")
     for name in names:
         seen = set()
         for db in dbs:
@@ -70,7 +86,9 @@ def explain(dest_id, names):
                     out.append(f"views {p['views']}, {p['langs']} languages")
                     for prompt, a in answers(f"{key[0]}/{key[1]}"):
                         if "include" in a:
-                            out.append(f"judged ({prompt}): belongs {a['include']}, as {a['name']!r}; {a['reason'][:300]}")
+                            out.append(f"judged ({prompt}): belongs {a['include']}, as {a['name']!r}"
+                                       + (f", worth {a['worth']}, same as {a.get('same_as')!r}" if "worth" in a else "")
+                                       + f"; {a['reason'][:300]}")
                             continue
                         if "is_sight" not in a:
                             out.append(f"judged ({prompt}): draw {a['draw']}; {a['reason'][:300]}")
@@ -94,7 +112,8 @@ def explain(dest_id, names):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--destination", required=True, nargs="+", choices=sorted(DESTINATIONS))
-    ap.add_argument("--names", required=True, help="comma-separated parts of names")
+    ap.add_argument("--names", default="", help="comma-separated parts of names")
+    ap.add_argument("--merges", action="store_true", help="also list every pair of records taken as one place by their names")
     a = ap.parse_args()
     for d in a.destination:
-        print(explain(d, [n.strip() for n in a.names.split(",") if n.strip()]) + "\n")
+        print(explain(d, [n.strip() for n in a.names.split(",") if n.strip()], a.merges) + "\n")

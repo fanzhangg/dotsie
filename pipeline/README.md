@@ -71,16 +71,26 @@ Commons. `guides.py` makes them for a destination in `destinations.json`, from i
    isn't one of its own sights.
    That is all the code decides: what the destination is (inside its outline, or in the park by Wikidata's P3018,
    wherever its one point is: Skyline Drive's falls just outside Shenandoah's outline; with a point to put on the
-   map) and which records are one place (an identifier they share; the store's guesses by name are left to the
-   ranking). Nothing about which kinds of place belong or how many a destination has: that is the model's, from
-   the data and what it knows.
+   map) and which records are one place. Nothing about which kinds of place belong or how many a destination has:
+   that is the model's, from the data and what it knows.
+   Records are one place when the data says so: an identifier they share; the store's name links (the same name
+   within a kilometre, or nearly the same, `store.py`'s `name_links`); or the same name anywhere in the destination,
+   written alike (case, accents, punctuation, "the"; a number in brackets stays: "Cavalry Barracks (1891)" and
+   "(1897)" are two), since an NPS page's point is often its trailhead, kilometres from the item's (Zion's two "The
+   Narrows"). The place is the record with an article, the others' NPS pages on it. The workflow's explain
+   `merges` lists every pair taken by name, to check: across the parks, 523 by the store's links, 10 nearly the
+   same, 47 by one name in a park.
 2. Does it belong (Sonnet): every candidate, with what Wikidata, Wikipedia (its intro, categories and page views) and
-   the NPS say about it and what is within 300 m, is asked whether it belongs on the guide's map of places a
-   traveller would want to go, with a reason and the name a map gives it ("Door Trail" for the NPS page "Door
-   Trailhead"). The prompt says what the guide is for and nothing about what to expect.
-3. Rank (Sonnet): every place that belongs, against each other, the best first, with a reason each. It sees which of
-   them are within 1 km of each other, and ranks one place once (two records of one place: one is left out). In a
-   park, not the park again under another name: it has its own entry. No cap: as many as belong.
+   the NPS say about it and what is within 1 km, is asked whether it belongs on the guide's map of places a
+   traveller would want to go, with a reason, a worth (1 to 10: how far out of their way a traveller would go) and
+   the name a map gives it ("Door Trail" for the NPS page "Door Trailhead"). The prompt says what the guide is for
+   and nothing about what to expect. Places given one name on the map are one place, as above (Death Valley's
+   Badwater Basin, from an item and NPS pages whose own names differ).
+3. Rank (Sonnet): every place that belongs, against each other, the best first, each with its judging reason. The
+   places are numbered and the answer is the order of the numbers, short whatever the park's size, with any
+   duplicates by number. An order that leaves places out is asked again, saying which; any still left out go last,
+   by worth. Ranked against each other the places came out better at the top than sorted by worth: Wikivoyage's
+   listings among the first 10 of 8 parks, 0.80 against 0.70. No cap: as many as belong.
 4. Write (Sonnet): each entry from the store's dossier only (Wikipedia wikitext, the official site's page, NPS pages),
    each paragraph with its sources. The share of its 8-word phrases also in the sources is kept, to spot copying.
 5. Pictures (Haiku, looking at them): a lead photo and up to two more, each after the paragraph it shows, with author
