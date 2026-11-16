@@ -18,6 +18,7 @@
    home      the trip cards
    spots     the guide's places, for anyone
    map       the trip's map, its camera and pins
+   pins      where crowded map pins merge (the guides mockup uses it too)
    timeline  the day's list and the day bar
    sheet     the plan's sheet: its height and dragging
    sights    what's worth seeing nearby, and its card

@@ -4,14 +4,14 @@
    of pages on the left (a drawer behind a button on a phone), the page's own headings on the right ("On this page", on
    a wide screen), and the pages before and after it at the bottom. The menu is MENU, here only: each page's HTML has
    just its <main>, and this script, loaded after it, builds the rest around it.
-   A page that fills itself in later (developer.js, spots.js, guide.js) calls DevShell.update() once it has, for the
+   A page that fills itself in later (developer.js, spots.js, guide.js, plans.js) calls DevShell.update() once it has, for the
    contents and the copy buttons. Product-only, like the pages. */
 (() => {
   const MENU = [
     { items: [['/developer', 'Overview']] },
     { title: 'MCP server', items: [['/developer/mcp', 'Connect an assistant'], ['/developer/tools', 'Tools'], ['/developer/sign-in', 'Sign-in'], ['/developer/changelog', 'Changelog']] },
     { title: 'App', items: [['/developer/api', 'App API']] },
-    { title: 'Data', items: [['/developer/spots', 'Spots data'], ['/developer/guide', 'Guide preview'], ['/developer/choosing', 'Rules or a model']] },
+    { title: 'Data', items: [['/developer/spots', 'Spots data'], ['/developer/guide', 'Guide preview'], ['/developer/plans', 'Trip plans'], ['/developer/choosing', 'Rules or a model']] },
   ];
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const icon = (name, size = 20) => window.DotsieIcons ? DotsieIcons.svg(name, size) : '';

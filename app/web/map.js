@@ -13,6 +13,7 @@ import { coveredBottom, coveredTop, inView, onListScroll, setListTop } from './s
 import { drawSights, sightOpen } from './sights.js';
 import { closeSheet } from './sheets.js';
 import { boundsOf, frame, latLng, project, tilesUnder, unproject } from './geo.js';
+import { mergePins, pinReach, showMerged } from './pins.js';
 import { ROUTE_HIT, ROUTE_SOURCE, blankStyle, firstLabelLayer, osmStyle, pictureStyle, routeLayers } from './mapstyle.js';
 
 // ---------- Trip screen: map + one day of the plan ----------
@@ -641,16 +642,6 @@ const pinHTML = (s, nums, cls = '') => {
   return `<div class="wt-pin ${cls}" role="img" aria-label="${n ? `${n}. ` : ''}${esc(s.name)}, ${KINDS[kindOf(s)].label}" style="--wt-kind-color: ${kindColor(s)}">`
     + `${n ? `<b class="wt-pin__num">${n}</b>` : '<i class="wt-pin__dot"></i>'}</div>`;
 };
-// Numbers as one label, for a merged pin's aria-label: runs as ranges, "2–4, 7". Past three runs the rest is "…"; it
-// never joins numbers that aren't in a row into one range, which would claim stops that aren't there.
-function numLabel(nums) {
-  const runs = [];
-  for (const x of [...new Set(nums)].sort((a, b) => a - b)) {
-    const r = runs.at(-1);
-    if (r && x === r[1] + 1) r[1] = x; else runs.push([x, x]);
-  }
-  return runs.slice(0, 3).map(([a, b]) => (a === b ? `${a}` : `${a}–${b}`)).join(', ') + (runs.length > 3 ? ', …' : '');
-}
 let draftNums = []; // the number of the stop being edited, so its pin keeps it
 // Where pins crowd, they merge: a pin that would touch another joins it, and they show as one (.wt-pin--cluster): the
 // first one's pin in front, round and with its number as ever, and the next ones' pins stacked behind it in their
@@ -666,8 +657,6 @@ export let pins = []; // for each pin on the map: { ll, nums, sel, muted, stops,
 // In front where they overlap: the stop being edited, a selected pin, the rest, then quiet ones; the sights are behind all
 // of them (see sights.js)
 export const PIN_Z = { draft: 40, sel: 30, pin: 20, quiet: 10 };
-const PIN_GAP = 4; // px of map between two pins
-const PIN_FAN = 4; // each pin stacked behind a merged pin, further up and right
 function addPin(place, html, z, { nums = [], sel = false, muted = false, stops = [], tap = null, idea = false } = {}) {
   const p = { ll: latLng(place), nums, sel, muted, stops, idea, r: 12, members: null, hidden: false };
   p.marker = addMarker(p.ll, { html, z, tap: tap && (() => onMapTap(() => (p.members ? openMerged(p.members) : tap()))) });
@@ -675,40 +664,12 @@ function addPin(place, html, z, { nums = [], sel = false, muted = false, stops =
   p.own = p.el && { aria: p.el.getAttribute('aria-label'), color: p.el.style.getPropertyValue('--wt-kind-color') };
   pins.push(p);
 }
-// How far a pin reaches from its center: half its width, and a merged pin's stack, included
-function pinReach(members) {
-  const muted = members.every(m => m.muted);
-  const w = members[0].sel ? 32 : muted ? 20 : 24;
-  return w / 2 + Math.min(members.length - 1, 2) * PIN_FAN;
-}
 function fitPins() {
   if (!map || !pins.length) return;
   // During a flight, where it's going: the pins settle once instead of flickering through every zoom on the way
   const flying = camTarget && performance.now() < camTarget.until;
   const z = flying ? camTarget.zoom : map.getZoom();
-  const first = p => (p.nums.length ? Math.min(...p.nums) : Infinity);
-  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-  const merged = [];
-  for (const p of pins.filter(q => !q.sel).sort((a, b) => first(a) - first(b))) {
-    const pt = project(p.ll, z), r = pinReach([p]);
-    // Want to go's places merge with each other, never with the plan's stops: a stack is one kind of place
-    const m = merged.find(c => c.idea === p.idea && dist(pt, c.pt) < r + c.r + PIN_GAP);
-    if (m) { m.members.push(p); m.r = pinReach(m.members); } else merged.push({ pt, r, idea: p.idea, members: [p] });
-  }
-  for (let again = true; again;) {
-    again = false;
-    for (let i = 0; i < merged.length && !again; i++) {
-      for (let j = i + 1; j < merged.length; j++) {
-        const a = merged[i], b = merged[j];
-        if (a.idea !== b.idea || dist(a.pt, b.pt) >= a.r + b.r + PIN_GAP) continue;
-        a.members.push(...b.members);
-        a.r = pinReach(a.members);
-        merged.splice(j, 1);
-        again = true;
-        break;
-      }
-    }
-  }
+  const merged = mergePins(pins, z);
   for (const p of pins.filter(q => q.sel)) { showMerged(p, null); hidePin(p, false); p.r = pinReach([p]); }
   for (const { members, r } of merged) {
     const [lead, ...rest] = members;
@@ -717,22 +678,6 @@ function fitPins() {
     for (const p of rest) hidePin(p, true);
     hidePin(lead, false);
   }
-}
-// A pin alone, or as the pin for its merged stops: its own number, the next ones' pins stacked behind, in their
-// colors (grey for one that's over), muted only when they all are
-function showMerged(p, members) {
-  p.members = members;
-  const el = p.el;
-  if (!el || !p.own) return;
-  const muted = members ? members.every(m => m.muted) : p.muted;
-  el.classList.toggle('wt-pin--cluster', !!members);
-  el.classList.toggle('wt-pin--deep', !!members && members.length > 2);
-  el.classList.toggle('wt-pin--muted', muted);
-  if (!members) return el.setAttribute('aria-label', p.own.aria);
-  const stops = [...new Set(members.flatMap(m => m.stops))], label = numLabel(members.flatMap(m => m.nums));
-  members.slice(1, 3).forEach((m, i) => el.style.setProperty(`--wt-pin-behind-${i + 1}`, m.muted ? 'var(--wt-kind-past)' : m.own?.color || 'var(--wt-kind-place)'));
-  if (members[0].idea) return el.setAttribute('aria-label', `${stops.length} places on Want to go here: ${stops.map(s => s.name).join(', ')}`);
-  el.setAttribute('aria-label', `${label}. ${stops.length} stops here: ${stops.map(s => s.name).join(', ')}`);
 }
 function hidePin(p, hidden) {
   if (p.hidden === hidden) return;

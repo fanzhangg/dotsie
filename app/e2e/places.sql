@@ -26,6 +26,17 @@ INSERT INTO spot_guides VALUES ('wikidata', 'Q1', 'ZZ', 'Test Lodge', 'Sleep und
   '{"hero":{"file":"Test Lodge.jpg","author":"A. Photographer","licence":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Test_Lodge.jpg","thumb":"data:image/gif;base64,R0lGODlhAQABAAAAACw=","width":960,"height":640,"caption":"The lodge from the meadow"},"inline":[{"file":"Test fireplace.jpg","author":"B. Builder","licence":"CC0","page":"https://commons.wikimedia.org/wiki/File:Test_fireplace.jpg","thumb":"data:image/gif;base64,R0lGODlhAQABAAAAACw=","width":960,"height":640,"caption":"The stone fireplace","after_paragraph":2}]}',
   0.012, 'claude-opus-5-5', 'write v3, pictures v1', '2026-11-09T12:00:00Z');
 
+-- A trip plan for Testville, for the trip plans page's test: one day, Test Lodge and lunch beside it, and an article
+DELETE FROM trip_plan_spots WHERE plan_id IN (SELECT plan_id FROM trip_plans WHERE destination = 'testville');
+DELETE FROM trip_plans WHERE destination = 'testville';
+INSERT INTO trip_plans VALUES ('testville-first-visit-1d', 'testville', '1 day in Testville', 'a first visit: someone new to the town',
+  '[{"day":1,"theme":"The lodge","intro":"A slow day at the lodge.","items":[{"kind":"stop","spot_id":"wikidata/Q1","start":"09:00","minutes":90,"why":"Quiet before the tours.","leg":null},{"kind":"lunch","spot_id":"wikidata/Q1","start":"12:00","minutes":60,"why":"The dining room is in the lodge.","leg":{"mode":"walk","minutes":4,"coords":[[46.78,-121.73],[46.7801,-121.7302]]}}]}]',
+  '[{"spot_id":"wikidata/Q2","why":"Only on a game day."}]',
+  '{"wikidata/Q1":{"source":"wikidata","id":"Q1","name":"Test Lodge","lat":46.78,"lng":-121.73,"kind":"attraction","area":"Around Test Lodge","facts":{"visit_minutes":90}},"wikidata/Q2":{"source":"wikidata","id":"Q2","name":"Test Stadium","lat":46.79,"lng":-121.72,"kind":"attraction","area":"Around Test Stadium","facts":{"visit_minutes":120}}}',
+  '{"headline":"A Day at Test Lodge","dek":"Logs, stone and a long lunch.","intro":["Start early."],"days":[{"day":1,"heading":"Beams and a fireplace","parts":[{"kind":"text","text":"Walk in under the beams."},{"kind":"spot","spot_id":"wikidata/Q1"}]}],"good_to_know":["Bring a jacket."],"closing":"That is the lodge."}',
+  1, '2026-11-09', '2026-11-09T12:00:00Z');
+INSERT INTO trip_plan_spots VALUES ('testville-first-visit-1d', 'wikidata', 'Q1', 1, '09:00');
+
 -- Pagetown: 31 picks with nothing but a name, for the Spots page's pages (24 on a computer) and Show more (30 on a phone)
 DELETE FROM spot_picks WHERE destination = 'pagetown';
 DELETE FROM spot_destinations WHERE id = 'pagetown';
