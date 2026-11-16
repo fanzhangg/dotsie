@@ -1,0 +1,145 @@
+# Suggested trip plans for destinations of the guide, written from their picks and entries (docs/guides-and-plans.md)
+# and loaded into D1 for /developer/plans. Runs after each successful Spots guides run, for the destinations below, or
+# by hand. Per destination: knowledge.py (fact cards), plan.py (drafted, checked in code, sent back to fix), compose.py
+# (real routes for each leg, day intros), story.py (the plan as an article) and export_plans.py, which leaves out a plan
+# that still fails its checks. Model answers are kept in the state's store in R2, as the guides' are, so a run asks
+# again only what changed. One-time setup is in pipeline/README.md.
+name: Trip plans
+
+on:
+  workflow_run:
+    workflows: [Spots guides]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      destinations:
+        description: 'Ids from pipeline/destinations.json with a guide, comma-separated'
+        default: seattle
+
+# The same group as Spots data and Spots guides: all three update the stores in R2.
+concurrency:
+  group: spots-data
+  cancel-in-progress: false
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: auto
+  R2: https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+  BUCKET: ${{ vars.SPOTS_BUCKET || 'waythread-spots' }}
+  # The destinations a run after Spots guides plans for: the cities so far, as a plan is days in a city on foot
+  PLANNED: seattle
+
+defaults:
+  run:
+    working-directory: pipeline
+
+jobs:
+  # One job per state: a state's destinations keep their answers in the same store, so they run one after another in it
+  plan:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      jobs: ${{ steps.plan.outputs.jobs }}
+      states: ${{ steps.plan.outputs.states }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        env:
+          WANT: ${{ inputs.destinations || env.PLANNED }}
+        run: |
+          jobs=$(python3 destinations.py plan "$WANT")
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+          echo "states=$(echo "$jobs" | python3 -c 'import json,sys; print(json.dumps([j["state"] for j in json.load(sys.stdin)]))')" >> "$GITHUB_OUTPUT"
+
+  plans:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        job: ${{ fromJSON(needs.plan.outputs.jobs) }}
+    env:
+      ST: ${{ matrix.job.state }}
+      IDS: ${{ join(matrix.job.ids, ' ') }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install anthropic==2.6.0
+      - name: Check setup
+        run: |
+          [ -n "$ANTHROPIC_API_KEY" ] || { echo "::error::Add the ANTHROPIC_API_KEY repository secret (see pipeline/README.md)."; exit 1; }
+      # The checks and the export, with no model: a broken check would let a bad plan through
+      - run: python3 -m unittest test_plan test_plans
+      - name: The state's store
+        run: |
+          mkdir -p data
+          aws s3 cp --only-show-errors --endpoint-url "$R2" "s3://$BUCKET/stores/$ST.sqlite.gz" "data/$ST.sqlite.gz" \
+            || { echo "::error::No store for $ST: run Spots data, then Spots guides, for it first"; exit 1; }
+          gunzip "data/$ST.sqlite.gz"
+      - name: Plan, compose, tell and export
+        run: |
+          failed=""
+          : > "data/$ST.plans.sql"
+          for id in $IDS; do
+            echo "::group::$id"
+            if PLAN_DESTINATION=$id python3 knowledge.py && PLAN_DESTINATION=$id python3 plan.py && PLAN_DESTINATION=$id python3 compose.py \
+              && PLAN_DESTINATION=$id python3 story.py && PLAN_DESTINATION=$id python3 export_plans.py --sql "out/plans/$id/plans.d1.sql"; then
+              cat "out/plans/$id/plans.d1.sql" >> "data/$ST.plans.sql"
+              PLAN_DESTINATION=$id python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import glob, json, os
+          from planning import DEST, OUT
+          print(f"### {DEST['name']}")
+          for p in sorted(glob.glob(os.path.join(OUT, "plan-*.json"))):
+              c = json.load(open(p))
+              stops = sum(1 for d in c["days"] for i in d["items"] if i["kind"] == "stop")
+              story = os.path.join(OUT, f"story-{c['id']}.json")
+              head = json.load(open(story))["headline"] if os.path.exists(story) else "no article"
+              print(f"- {c['id']}: {stops} places in {len(c['days'])} days, {c['rounds']} rounds, {len(c['checks']['errors'])} errors left: {head}")
+          EOF
+            else
+              failed="$failed $id"; echo "### $id: failed (see the log)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            echo "::endgroup::"
+          done
+          [ -z "$failed" ] || { echo "::error::No plans for:$failed"; exit 1; }
+      # Saved even when a step above failed partway: the answers it got cost money to ask again
+      - name: Save the store to R2
+        if: ${{ always() && hashFiles(format('pipeline/data/{0}.sqlite', matrix.job.state)) != '' }}
+        run: |
+          gzip -kf "data/$ST.sqlite"
+          ./r2put.sh "data/$ST.sqlite.gz" "stores/$ST.sqlite.gz"
+      # The destinations that made it, for the load job below
+      - name: The plans as SQL for D1
+        if: ${{ always() && hashFiles(format('pipeline/data/{0}.plans.sql', matrix.job.state)) != '' }}
+        run: |
+          [ -s "data/$ST.plans.sql" ] || { echo "Nothing to load"; exit 0; }
+          gzip -kf "data/$ST.plans.sql"
+          ./r2put.sh "data/$ST.plans.sql.gz" "d1/$ST.plans.sql.gz"
+
+  load:
+    needs: [plan, plans]
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - name: Load each state's plans into D1
+        working-directory: app
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          STATES: ${{ needs.plan.outputs.states }}
+        run: ../pipeline/load_d1.sh plans.sql.gz $(echo "$STATES" | python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))')

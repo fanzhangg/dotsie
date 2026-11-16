@@ -14,9 +14,11 @@ record goes in as the source gave it, and records are linked only through identi
 | `destinations.py` | Adds every national park, or a state's counties, to `destinations.json`; and plans a guides run, one job per state |
 | `explain.py` | Why a place is or isn't in a destination's guide, step by step, from the stores |
 | `eval_guides.py` | How the live guides agree with Wikivoyage's "see" and "do" listings: recall, and the share of picks it lists |
+| `knowledge.py`, `plan.py`, `compose.py`, `story.py`, `export_plans.py` | Suggested trip plans for a destination with a guide, from its picks and entries: see [Trip plans](../docs/trip-plans.md). `planning.py` is what they share |
 | `load_d1.sh` | Loads the SQL files both workflows leave in R2 into D1, one state at a time |
 | `states.json` | The 50 states and DC, with their Wikidata items |
 | `../.github/workflows/spots-data.yml` | Runs both every month on GitHub Actions and keeps the results in R2 |
+| `../.github/workflows/trip-plans.yml` | Runs the trip plans after each Spots guides run (or by hand), a job per state, keeps their answers in the state's store in R2, and loads the plans into D1 |
 | `../.github/workflows/spots-guides.yml` | Runs `guides.py` by hand for the destinations you name, a job per state, saves the answers in each state's store in R2, and loads the guides into D1 |
 
 The other scripts here (`step*.py`, `llm_*.py`, `sources.py`) are the earlier pilots in #90: rule-based
@@ -33,7 +35,7 @@ scoring and model ratings tried on Washington, Seattle, Portland and Santa Fe.
 | `categories` | English Wikipedia categories per article |
 | `pageviews` | English Wikipedia views per article per month, for the last 12 months |
 | `properties` | Wikidata property labels, to read the raw claims |
-| `llm_answers` | Every model answer `guides.py` used, by step, place and prompt version, with a hash of what it was asked: asked again only when that changes |
+| `llm_answers` | Every model answer `guides.py` and the trip plans used, by step, place and prompt version, with a hash of what it was asked: asked again only when that changes |
 | `destinations`, `picks`, `guides` | Written by `guides.py`: each destination's picks in order (with the model's reason, and what it left out), and each pick's entry |
 
 A run fetches only what changed since the last one: Wikidata items and Wikipedia articles whose revision
@@ -165,7 +167,7 @@ python3 store.py --state DC --limit 20
    secret `NPS_API_KEY` (the public `DEMO_KEY` allows only 50 requests a day).
 4. `CLOUDFLARE_ACCOUNT_ID` is already a repository variable for the deploy workflow; this one uses it too.
 5. Run the workflow once with `months` set to 12, to fill R2 with a year of page views.
-6. For the guide, add an [Anthropic API key](https://console.anthropic.com/settings/keys) as the secret `ANTHROPIC_API_KEY`.
+6. For the guide and the trip plans, add an [Anthropic API key](https://console.anthropic.com/settings/keys) as the secret `ANTHROPIC_API_KEY`.
 
 ## Every state at once
 

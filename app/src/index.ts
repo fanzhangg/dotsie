@@ -221,6 +221,45 @@ async function guideEntry(env: Env, dest: string, source: string, id: string) {
 app.get('/developer/spots/guides/:destination/:source/:id', async c =>
   c.json(await guideEntry(c.env, c.req.param('destination'), c.req.param('source'), c.req.param('id'))));
 
+// ---------- Trip plans: suggested days for a guide's destination, for review ----------
+// Written from a destination's picks and entries (pipeline/plan.py and the steps around it), loaded by the Trip plans
+// workflow and shown at /developer/plans. A plan names its places by source and id; their one-liners and photos come
+// from spot_guides, so a plan never holds guide text of its own.
+const PLAN_ID = /^[a-z0-9-]{1,80}$/;
+type PlanRow = { plan_id: string; destination: string; title: string; traveler: string; days: string; ideas: string; places: string;
+  story: string | null; stops: number; built: string; loaded_at: string };
+// Every plan, with its destination's name and its article's headline
+app.get('/developer/spots/plans', async c => {
+  const { results } = await c.env.DB.prepare(
+    `select t.plan_id as planId, t.destination, d.name as destinationName, t.title, t.traveler, t.stops,
+       json_array_length(t.days) as days, json_extract(t.story, '$.headline') as headline, t.built, t.loaded_at as loadedAt
+     from trip_plans t left join spot_destinations d on d.id = t.destination order by d.name, t.plan_id`).all();
+  return c.json(results);
+});
+// One plan whole, with each of its places' one-liner and lead photo from the guide
+app.get('/developer/spots/plans/:planId', async c => {
+  const planId = c.req.param('planId');
+  if (!PLAN_ID.test(planId)) bad();
+  const t = await c.env.DB.prepare(
+    'select t.*, d.name as destination_name from trip_plans t left join spot_destinations d on d.id = t.destination where t.plan_id = ?')
+    .bind(planId).first<PlanRow & { destination_name: string | null }>();
+  if (!t) throw new Error(ERR.notFound);
+  const places = json<Record<string, { source: string; id: string } & Record<string, unknown>>>(t.places, {});
+  const keys = Object.values(places).slice(0, 90);
+  const { results } = keys.length ? await c.env.DB.prepare(
+    `select source, id, one_liner, images from spot_guides where ${keys.map(() => '(source = ? and id = ?)').join(' or ')}`)
+    .bind(...keys.flatMap(k => [k.source, k.id])).all<{ source: string; id: string; one_liner: string; images: string | null }>() : { results: [] };
+  const entry = new Map(results.map(r => [`${r.source}/${r.id}`, r]));
+  return c.json({
+    planId: t.plan_id, destination: { id: t.destination, name: t.destination_name ?? t.destination }, title: t.title, traveler: t.traveler,
+    days: json(t.days, []), ideas: json(t.ideas, []), story: json(t.story, null), stops: t.stops, built: t.built, loadedAt: t.loaded_at,
+    places: Object.fromEntries(Object.entries(places).map(([k, p]) => {
+      const e = entry.get(k);
+      return [k, { ...p, oneLiner: e?.one_liner ?? null, hero: e ? json<Images>(e.images, { hero: null, inline: [] }).hero : null }];
+    })),
+  });
+});
+
 // ---------- Spots: the guide's places, for anyone, signed in or not (the app's Spots page, #/spots) ----------
 // The same picks and entries as the guide preview above, across every destination. Read-only. Most viewed first:
 // `views` is the place's English Wikipedia views over the last 12 months (see VIEWS), the one measure of how much people

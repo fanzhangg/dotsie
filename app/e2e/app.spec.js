@@ -355,7 +355,27 @@ test('the developer pages: a menu of pages, the MCP server’s tools as the serv
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spots data');
 });
 
-// Rules or a model: written by hand, reached from Overview and the menu, after Guide preview
+// The trip plans page reads /api/developer/spots/plans; e2e/places.sql loads a plan for Testville
+test('anyone can read a trip plan day by day, its article, and follow a place to its guide entry', async ({ page }) => {
+  await page.goto('/developer');
+  await page.getByRole('main').getByRole('link', { name: /^Trip plans/ }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Trip plans');
+  await page.getByRole('link', { name: /A Day at Test Lodge Testville · 1 day · 1 place · for a first visit/ }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('A Day at Test Lodge');
+  const plan = page.locator('#plans');
+  await expect(plan.getByRole('heading', { level: 2, name: 'Day 1 · Beams and a fireplace' })).toBeVisible(); // the article's name for the day
+  await expect(plan.locator('.plan__item').first()).toContainText('Sleep under the beams loggers cut in 1917.'); // the entry's one-liner
+  await expect(plan.locator('.plan__item').nth(1)).toContainText('4 min on foot from the place before');
+  await expect(plan).toContainText('Only on a game day.'); // left out, as an idea
+  await plan.getByText('Read it as an article').click();
+  await expect(plan.getByText('Walk in under the beams.')).toBeVisible();
+
+  await plan.locator('.plan__item').first().getByRole('link', { name: 'Test Lodge' }).click();
+  await expect(page).toHaveURL(/\/developer\/guide#testville\/wikidata\/Q1$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Test Lodge');
+});
+
+// Rules or a model: written by hand, reached from Overview and the menu, after Trip plans
 test('rules or a model: how choosing spots by each compares, and how accurate each was', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/developer');
@@ -368,7 +388,7 @@ test('rules or a model: how choosing spots by each compares, and how accurate ea
   await page.getByRole('complementary', { name: 'On this page' }).getByRole('link', { name: 'Accuracy' }).click();
   await expect(page.getByRole('heading', { level: 2, name: 'Accuracy' })).toBeInViewport();
   await page.getByRole('link', { name: /^Previous/ }).click();
-  await expect(page).toHaveURL(/\/developer\/guide$/);
+  await expect(page).toHaveURL(/\/developer\/plans$/);
 });
 
 // On a wide screen the menu stays on the left, and the page's own headings are on the right

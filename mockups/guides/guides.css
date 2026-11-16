@@ -1,0 +1,172 @@
+/* Layout only, as the design system asks: color, type and shape come from its tokens and components. One column, the
+   width of the app's side panel on a computer and the whole screen on a phone. */
+body { margin: 0; background: var(--wt-surface-page); }
+#app { max-width: 560px; min-height: 100dvh; margin: 0 auto; background: var(--wt-surface-sheet); display: flex; flex-direction: column; }
+@media (min-width: 768px) { #app { box-shadow: 0 0 0 1px var(--wt-border-default); } }
+
+/* ---------- A destination: its plans, then its places ---------- */
+.g-head { padding: var(--wt-space-6) var(--wt-space-4) var(--wt-space-4); display: grid; gap: var(--wt-space-1); }
+.g-head__over { margin: 0; color: var(--wt-text-tertiary); font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; }
+.g-head h1 { margin: 0; font: var(--wt-type-display); letter-spacing: var(--wt-tracking-display); }
+.g-head__text { margin: 0; color: var(--wt-text-secondary); font: var(--wt-type-body); }
+.g-page { display: grid; align-content: start; gap: var(--wt-space-6); padding: 0 var(--wt-space-4) var(--wt-space-8); }
+.g-group { display: grid; gap: var(--wt-space-2); }
+.g-group__title { margin: 0; padding: 0 var(--wt-space-1); color: var(--wt-text-secondary); font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; }
+.g-group__hint { margin: 0 0 var(--wt-space-1); padding: 0 var(--wt-space-1); color: var(--wt-text-tertiary); font: var(--wt-type-caption); }
+.g-cards { display: grid; gap: var(--wt-space-3); }
+
+/* A place: marker, name, its one-liner. A list on a card, like the timeline's surface */
+.g-places { list-style: none; margin: 0; padding: var(--wt-space-1) 0; background: var(--wt-surface-raised); border-radius: var(--wt-radius-lg); }
+.g-place { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: start; gap: 0 var(--wt-space-1); width: 100%;
+  padding: var(--wt-space-3) var(--wt-space-3) var(--wt-space-3) var(--wt-space-1); border: 0; background: none; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.g-place:hover { background: var(--wt-surface-hover); }
+.g-place:focus-visible { outline: 2px solid var(--wt-focus-ring, currentColor); outline-offset: -2px; }
+.g-place__marker { grid-row: 1 / span 3; align-self: start; justify-self: center; margin-top: 1px; }
+.g-place__name { grid-column: 2; font: var(--wt-type-name); color: var(--wt-text-primary); }
+.g-place__line { grid-column: 2; color: var(--wt-text-secondary); font: var(--wt-type-caption); }
+.g-place__meta { grid-column: 2; color: var(--wt-text-tertiary); font: var(--wt-type-caption); }
+.g-place__photo { grid-row: 1 / span 3; grid-column: 3; width: 56px; height: 56px; object-fit: cover; border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); }
+.g-places li + li .g-place { box-shadow: inset 0 1px 0 var(--wt-border-default); }
+
+/* ---------- A plan: the header, what it's for, the day tabs, the day ---------- */
+.g-plan-top { background: var(--wt-surface-raised); }
+.g-plan-top .wt-trip-head { position: static; box-shadow: none; background: none; backdrop-filter: none; }
+.g-plan-about { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-4); }
+.g-plan-about h1 { margin: 0; font: var(--wt-type-display); letter-spacing: var(--wt-tracking-display); }
+.g-plan-about p { margin: 0; color: var(--wt-text-secondary); font: var(--wt-type-body); }
+.g-plan-top .wt-day-bar { padding: 0 var(--wt-space-2); box-shadow: inset 0 -1px 0 var(--wt-border-default); }
+.g-day { flex: 1; background: var(--wt-surface-raised); padding-bottom: var(--wt-space-8); }
+.g-day__intro { margin: 0; padding: var(--wt-space-4) var(--wt-space-4) var(--wt-space-2); color: var(--wt-text-secondary); font: var(--wt-type-body); }
+.g-day .wt-tl { padding: var(--wt-space-2) var(--wt-space-3) 0 var(--wt-space-1); }
+.g-day .wt-tl-stop { cursor: pointer; }
+.g-note { padding: var(--wt-space-4) var(--wt-space-4) 0; margin: 0; color: var(--wt-text-tertiary); font: var(--wt-type-caption); }
+.g-ideas { padding: var(--wt-space-6) var(--wt-space-3) 0; }
+
+/* ---------- A place's guide, in a modal sheet ---------- */
+.g-sheet { max-height: min(88dvh, 820px); overflow-y: auto; }
+.g-sheet .wt-about__photo { height: 200px; }
+.g-sheet .wt-about__text { -webkit-line-clamp: unset; line-clamp: unset; font: var(--wt-type-name); color: var(--wt-text-primary); }
+.g-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--wt-space-1) var(--wt-space-4); margin: 0 0 var(--wt-space-4);
+  padding: var(--wt-space-3); background: var(--wt-surface-sunken); border-radius: var(--wt-radius-md); font: var(--wt-type-caption); }
+.g-facts dt { color: var(--wt-text-tertiary); }
+.g-facts dd { margin: 0; color: var(--wt-text-primary); }
+.g-sub { margin: 0 0 var(--wt-space-2); font: var(--wt-type-heading); }
+.g-tips { margin: 0 0 var(--wt-space-4); padding-left: var(--wt-space-5); display: grid; gap: var(--wt-space-1); font: var(--wt-type-body); color: var(--wt-text-secondary); }
+.g-sheet .wt-tl-links { display: flex; flex-wrap: wrap; gap: var(--wt-space-2); margin-bottom: var(--wt-space-4); }
+.g-in { margin: 0 0 var(--wt-space-4); padding: 0; list-style: none; display: grid; gap: var(--wt-space-1); font: var(--wt-type-body); }
+.g-in a { color: var(--wt-text-link); }
+.g-credit { margin: 0 0 var(--wt-space-4); color: var(--wt-text-tertiary); font: var(--wt-type-caption); }
+.g-credit a { color: inherit; }
+
+#toast { --wt-toast-top: var(--wt-space-4); }
+
+/* The day tabs and day headings are links here (each day has its own address), so they lose a link's underline */
+a.wt-day-tab, a.wt-tl-day { text-decoration: none; }
+
+/* ---------- A plan as an article ----------
+   Read like a blog post: one column of text, the headline and one photo at the top, and the places as quiet cards in
+   the flow. Color only in the stops' numbers; links and one button, at the end. */
+#app[data-page="story"] { max-width: 720px; background: var(--wt-surface-raised); }
+.g-hero { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-4) var(--wt-space-4) 0; }
+/* The bar at the top, as a place's guide has its head: Back, and where you are */
+.g-bar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: var(--wt-space-1); min-height: var(--wt-size-trip-head, 44px);
+  padding: var(--wt-space-1) var(--wt-space-2); background: var(--wt-surface-raised); box-shadow: 0 1px 0 var(--wt-border-default); }
+.g-bar__title { color: var(--wt-text-secondary); font: var(--wt-type-context); }
+.g-story__title { margin: 0; font: 700 clamp(30px, 6vw, 42px) / 1.12 var(--wt-font-sans); letter-spacing: var(--wt-tracking-display); text-wrap: balance; }
+.g-story__dek { margin: 0; color: var(--wt-text-secondary); font: 400 19px / 28px var(--wt-font-sans); text-wrap: pretty; }
+.g-story__by { margin: 0; color: var(--wt-text-tertiary); font: var(--wt-type-caption); }
+.g-hero__photo { margin: var(--wt-space-3) 0 0; display: grid; gap: var(--wt-space-2); }
+.g-hero__photo img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--wt-radius-md); background: var(--wt-surface-sunken); display: block; }
+.g-hero__photo figcaption, .g-map__credit { color: var(--wt-text-tertiary); font: var(--wt-type-caption); }
+.g-hero__photo a, .g-map__credit a { color: inherit; }
+.g-story__body { display: grid; gap: var(--wt-space-10); padding: var(--wt-space-8) var(--wt-space-4) var(--wt-space-8); }
+.g-story__h2 { margin: 0; font: 700 24px / 30px var(--wt-font-sans); letter-spacing: var(--wt-tracking-display); text-wrap: balance; }
+/* A day's chapter opens with the day, so you always know which one you're in, then its heading and what it asks of you */
+.g-chapter__head { display: grid; gap: var(--wt-space-1); padding-top: var(--wt-space-6); border-top: 1px solid var(--wt-border-default); scroll-margin-top: 56px; }
+.g-chapter__day { margin: 0; color: var(--wt-text-primary); font: 700 15px / 20px var(--wt-font-sans); }
+.g-chapter__sum { margin: var(--wt-space-1) 0 0; color: var(--wt-text-tertiary); font: var(--wt-type-caption); }
+/* Reading type: a long article reads better a little larger than the app's running text */
+.g-prose { display: grid; gap: var(--wt-space-5); }
+.g-prose > p { margin: 0; font: 400 17px / 28px var(--wt-font-sans); color: var(--wt-text-primary); text-wrap: pretty; }
+.g-prose--lede > p:first-child { font-size: 19px; line-height: 30px; }
+.g-chapter { display: grid; gap: var(--wt-space-5); }
+
+/* The plan: one map and each day's places, numbered as the cards are */
+.g-glance { display: grid; gap: var(--wt-space-4); padding-top: var(--wt-space-6); border-top: 1px solid var(--wt-border-default); }
+.g-map { margin: 0; display: grid; gap: var(--wt-space-1); }
+.g-map__canvas { position: relative; isolation: isolate; aspect-ratio: 16 / 10; border-radius: var(--wt-radius-md); overflow: hidden; background: var(--wt-surface-map); }
+.g-map__canvas svg { width: 100%; height: 100%; }
+.g-map .wt-pin { cursor: pointer; }
+.g-glance .wt-day-bar { margin: 0 calc(-1 * var(--wt-space-1)); box-shadow: inset 0 -1px 0 var(--wt-border-default); }
+.g-glance__head { margin: 0 0 var(--wt-space-2); font: var(--wt-type-heading); }
+.g-glance__head span { display: block; color: var(--wt-text-tertiary); font: var(--wt-type-caption); }
+.g-glance__stops { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+/* A place in the plan's list: tap it to select it on the map, as a row on the trip screen; the selected one is grey,
+   as a selected row is, and says where to read about it */
+.g-glance__stops li { display: flex; align-items: center; gap: var(--wt-space-2); border-radius: var(--wt-radius-sm); margin: 0 calc(-1 * var(--wt-space-2)); padding: 0 var(--wt-space-2); }
+.g-glance__stops li.is-selected { background: var(--wt-surface-current); }
+.g-glance__pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--wt-space-2); min-height: 32px; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--wt-text-secondary); font: var(--wt-type-caption); text-align: left; }
+.g-glance__pick span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-glance__pick:hover, .is-selected .g-glance__pick { color: var(--wt-text-primary); }
+.g-glance__read { display: none; flex: none; width: 32px; height: 32px; color: var(--wt-text-secondary); }
+.is-selected .g-glance__read { display: inline-grid; place-items: center; }
+/* Whole trip, at the map's bottom right, as on the trip screen */
+.g-map__fit { position: absolute; right: var(--wt-space-3); bottom: var(--wt-space-3); z-index: 2; }
+.g-glance__sched { justify-self: start; gap: var(--wt-space-2); }
+.g-card__name a:hover { color: var(--wt-text-link); }
+
+/* A stop's number, as its pin shows it */
+.g-num { flex: none; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--wt-kind-color);
+  color: var(--wt-marker-ink); font: 600 11px / 1 var(--wt-font-sans); font-variant-numeric: tabular-nums; }
+
+/* A place, in the flow of the text: a photo and a caption, with no box around it */
+.g-card { margin: var(--wt-space-2) 0; display: grid; gap: var(--wt-space-3); scroll-margin: var(--wt-space-10); }
+@media (min-width: 600px) { .g-card { grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: var(--wt-space-4); align-items: start; } }
+.g-card__photo { display: block; border-radius: var(--wt-radius-md); overflow: hidden; background: var(--wt-surface-sunken); }
+.g-card__photo img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; }
+.g-card__body { display: grid; gap: var(--wt-space-1); min-width: 0; }
+.g-card__meta { margin: 0; color: var(--wt-text-tertiary); font: var(--wt-type-caption); }
+.g-card__head { display: flex; align-items: flex-start; gap: var(--wt-space-3); }
+.g-card__meta b { color: var(--wt-text-secondary); font-weight: 600; }
+.g-card__name { flex: 1; min-width: 0; margin: 0; font: 600 18px / 24px var(--wt-font-sans); }
+.g-card__name a { color: var(--wt-text-primary); text-decoration: none; }
+.g-card__name a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.g-card__line { margin: 0; color: var(--wt-text-secondary); font: 400 16px / 24px var(--wt-font-sans); }
+.g-card__facts { margin: 0; color: var(--wt-text-tertiary); font: var(--wt-type-caption); }
+.g-card.is-flash .g-card__name a { animation: g-flash 1.6s var(--wt-ease-out, ease-out); }
+@keyframes g-flash { from { background: var(--wt-surface-current); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .g-card.is-flash .g-card__name a { animation: none; } }
+/* Save, a small outlined button beside the card's name; once saved, filled, as a chosen chip is */
+.g-save { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 var(--wt-space-3) 0 var(--wt-space-2);
+  border: 1px solid var(--wt-border-strong, var(--wt-border-default)); border-radius: var(--wt-radius-pill, 999px);
+  background: var(--wt-surface-raised); color: var(--wt-text-primary); font: 600 13px / 1 var(--wt-font-sans); cursor: pointer; }
+.g-save:hover { background: var(--wt-surface-hover); }
+.g-save[aria-pressed="true"] { border-color: transparent; background: var(--wt-surface-current); }
+.g-save:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+
+.g-know ul { margin: var(--wt-space-3) 0 0; padding-left: var(--wt-space-5); display: grid; gap: var(--wt-space-2); font: 400 16px / 25px var(--wt-font-sans); color: var(--wt-text-primary); }
+.g-closing { margin: 0; font: 400 19px / 30px var(--wt-font-sans); color: var(--wt-text-primary); text-wrap: pretty; }
+
+/* Make it my trip, floating at the bottom, as a place's guide has Save: always in reach, over the article, beside the
+   trip's dates. The dates are a button over a date picker you don't see */
+.g-float { position: sticky; bottom: 0; z-index: 3; display: flex; align-items: center; gap: var(--wt-space-3);
+  padding: var(--wt-space-3) var(--wt-space-4) calc(var(--wt-space-3) + env(safe-area-inset-bottom, 0px));
+  background: var(--wt-surface-raised); box-shadow: 0 -1px 0 var(--wt-border-default); }
+.g-float .wt-btn--primary { flex: 1; gap: var(--wt-space-2); height: 48px; border-radius: var(--wt-radius-pill, 999px); font-size: 16px; }
+.g-float__dates { position: relative; flex: none; display: inline-flex; align-items: center; gap: var(--wt-space-2); height: 48px; padding: 0 var(--wt-space-3);
+  border-radius: var(--wt-radius-pill, 999px); background: var(--wt-surface-sunken); color: var(--wt-text-primary); font: 600 15px / 1 var(--wt-font-sans); cursor: pointer; white-space: nowrap; }
+.g-float__dates:hover { background: var(--wt-surface-hover); }
+.g-float__dates .wt-icon { width: 18px; height: 18px; color: var(--wt-text-secondary); }
+.g-float__picker { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0; cursor: pointer; }
+.g-float__dates:has(.g-float__picker:focus-visible) { outline: 2px solid var(--wt-focus-ring, currentColor); outline-offset: 2px; }
+@media (min-width: 600px) { .g-float .wt-btn--primary { flex: none; margin-left: auto; min-width: 220px; } }
+
+/* Saved places, in a sheet */
+.g-saved { display: flex; align-items: center; gap: var(--wt-space-2); padding-right: var(--wt-space-3); }
+.g-saved .g-place { flex: 1; min-width: 0; }
+.g-place__saved { display: inline-flex; align-items: center; gap: 2px; margin-left: var(--wt-space-2); color: var(--wt-text-secondary); font: var(--wt-type-caption); vertical-align: 1px; }
+.g-head__saved { justify-self: start; margin-top: var(--wt-space-2); }
+.g-sheet-prose { display: grid; gap: var(--wt-space-3); margin-bottom: var(--wt-space-4); }
+.g-sheet-prose { gap: var(--wt-space-4); }
+.g-sheet-prose p { margin: 0; font: 400 17px / 28px var(--wt-font-sans); color: var(--wt-text-primary); text-wrap: pretty; }
