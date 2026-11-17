@@ -295,7 +295,7 @@ export function settingsNoteHTML(trip) {
     ${first ? `Trip days highlight what's happening now: <a href="${base}?today=${dayOf(first)}&now=14:10#/trip/${trip.id}">preview day 1 at 2:10 PM</a>.` : ''}</div>`;
 }
 
-// ---------- Spots: a few sample places in place of the guide's (the app's come from the spots data, pipeline/guides.py) ----------
+// ---------- Spots: a few sample places in place of the guide's (the app's come from the spots data, pipeline/guides.py), and a trip plan of them ----------
 // Written for the prototype, and the views are made up, roughly in proportion; each has its types as Wikidata's would be,
 // and searches, sorts and filters as the app's /api/spots does. Their photos are the lead photos of their Wikipedia
 // articles, found by name and place as Home's cards find a stop's (see findPlaceAbout), once a visit; with none
@@ -353,7 +353,75 @@ const heroOf = p => {
   return heroes.get(p.id);
 };
 const cityOf = p => SPOT_CITIES.find(c => c.id === p.city);
+// A trip plan made from the sample spots, in place of the guide's (the app's come from pipeline/plan.py), with its article
+const facts = (visit_minutes, hours, more = {}) => ({ visit_minutes, hours, book_ahead: false, admission: null, ...more });
+const stated = (open, close, closed_days = []) => ({ kind: 'stated', open, close, closed_days });
+const PLANS = [{
+  planId: 'seattle-first-visit-2d', city: 'seattle', title: '2 days in Seattle', traveler: 'a first visit: someone new to the city, at an easy pace',
+  places: {
+    'pike-place-market': { kind: 'shopping', area: 'Downtown', facts: facts(90, stated('09:00', '18:00'), { admission: 'free' }) },
+    'space-needle': { kind: 'viewpoint', area: 'Seattle Center', facts: facts(75, stated('10:00', '21:00'), { book_ahead: true, admission: 'paid' }) },
+    'chihuly-garden-and-glass': { kind: 'museum', area: 'Seattle Center', facts: facts(75, stated('10:00', '19:00'), { admission: 'paid' }) },
+    'discovery-park': { kind: 'nature', area: 'Magnolia', facts: facts(150, { kind: 'always' }, { admission: 'free' }) },
+  },
+  days: [
+    { day: 1, theme: 'The market and Seattle Center', intro: 'Downtown in the morning, then the tower and the glass.', items: [
+      { kind: 'stop', spot_id: 'sample/pike-place-market', start: '10:00', minutes: 90, why: 'At its best in the morning.', leg: null },
+      { kind: 'lunch', spot_id: 'sample/pike-place-market', start: '11:30', minutes: 60, why: 'Lunch at the market.', leg: null },
+      { kind: 'stop', spot_id: 'sample/space-needle', start: '13:00', minutes: 75, why: 'Clearer in the afternoon.', leg: { mode: 'drive', minutes: 10, coords: null } },
+      { kind: 'stop', spot_id: 'sample/chihuly-garden-and-glass', start: '14:30', minutes: 75, why: 'Next door to the tower.', leg: { mode: 'walk', minutes: 3, coords: null } },
+    ] },
+    { day: 2, theme: 'A headland over the Sound', intro: 'A long walk at the city’s edge.', items: [
+      { kind: 'stop', spot_id: 'sample/discovery-park', start: '10:00', minutes: 150, why: 'A morning outdoors.', leg: null },
+    ] },
+  ],
+  ideas: [],
+  story: {
+    headline: 'Two Days in Seattle, From the Market to the Sound',
+    dek: 'For a first visit: fish and flowers in the morning, a tower and its glass in the afternoon, then a day of meadows and beaches.',
+    intro: ['Seattle’s best-known sights sit close together, so two days go a long way. The first keeps to the market and Seattle Center; the second heads out to the city’s biggest park.'],
+    days: [
+      { day: 1, heading: 'The market, the tower and the glass', parts: [
+        { kind: 'text', text: 'Start at Pike Place Market while the stalls are still setting out, and have lunch there before you go.' },
+        { kind: 'spot', spot_id: 'sample/pike-place-market' },
+        { kind: 'text', text: 'In the afternoon, ride up the Space Needle, then walk next door for Chihuly’s glass.' },
+        { kind: 'spot', spot_id: 'sample/space-needle' },
+        { kind: 'spot', spot_id: 'sample/chihuly-garden-and-glass' },
+      ] },
+      { day: 2, heading: 'Meadows and beaches', parts: [
+        { kind: 'text', text: 'Give the second day to Discovery Park: forest, meadow and a path down to the lighthouse.' },
+        { kind: 'spot', spot_id: 'sample/discovery-park' },
+      ] },
+    ],
+    good_to_know: ['Book the Space Needle ahead on a sunny weekend.', 'The park’s beach path is steep on the way back up.'],
+    closing: 'Two days, and you’ve seen the city from its market, its tower and its shore.',
+  },
+}];
+async function planWhole(plan) {
+  const c = SPOT_CITIES.find(x => x.id === plan.city), ids = Object.keys(plan.places);
+  const photos = await Promise.all(ids.map(id => heroOf(SPOTS.find(x => x.id === id))));
+  return {
+    planId: plan.planId, destination: { ...c }, title: plan.title, traveler: plan.traveler, days: plan.days, ideas: plan.ideas, story: plan.story,
+    stops: plan.days.flatMap(d => d.items).filter(i => i.kind === 'stop').length, built: '2026-11-16', loadedAt: '2026-11-16T12:00:00Z',
+    places: Object.fromEntries(ids.map((id, i) => {
+      const p = SPOTS.find(x => x.id === id);
+      return [`sample/${id}`, { source: 'sample', id, name: p.name, lat: p.lat, lng: p.lng, ...plan.places[id], oneLiner: p.oneLiner, hero: photos[i], wikipedia: p.name, website: p.website }];
+    })),
+  };
+}
 async function spots([a, b, ...rest], q) {
+  if (a === 'plans' && b) {
+    const plan = PLANS.find(x => x.planId === b);
+    if (!plan) throw new ApiError(404, 'not_found');
+    return planWhole(plan);
+  }
+  if (a === 'plans') {
+    return Promise.all(PLANS.filter(x => !q.get('city') || x.city === q.get('city')).map(async x => {
+      const p = await planWhole(x);
+      return { planId: p.planId, destination: p.destination, title: p.title, traveler: p.traveler, headline: p.story.headline, dek: p.story.dek,
+        days: p.days.length, stops: p.stops, photos: Object.values(p.places).map(pl => pl.hero).filter(Boolean).slice(0, 3) };
+    }));
+  }
   if (a === 'cities') return SPOT_CITIES.map(c => ({ ...c, spots: SPOTS.filter(p => p.city === c.id).length }));
   if (a === 'search') {
     const text = (q.get('q') || '').trim().toLowerCase(), offset = Number(q.get('offset') || 0), limit = Number(q.get('limit') || 50);

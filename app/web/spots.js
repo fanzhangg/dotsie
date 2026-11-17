@@ -10,7 +10,7 @@ import { api } from './backend.js';
 import { me } from './signin.js';
 import { MAPS_APPS, mapsApp, placeURL } from './routes.js';
 import { regionName } from './regions.js';
-import { IDEAS, dayOf, findIdea, findStop, guessKind } from './plan.js';
+import { IDEAS, KINDS, dayOf, findIdea, findStop, guessKind } from './plan.js';
 import { MAX, QID } from './fields.js';
 import { fmtDay, nowStamp } from './time.js';
 import { tripDates } from './home.js';
@@ -18,6 +18,7 @@ import { openTripOn } from './timeline.js';
 import { closeSheet, modalHead, openSheet } from './sheets.js';
 import { failToast, toast } from './notices.js';
 import { SPOT_KINDS, kmBetween, spotKind } from './spotkinds.js';
+import { planCardHTML } from './tripplans.js';
 
 const countryName = (() => {
   let names = null;
@@ -35,8 +36,10 @@ const host = url => { try { return new URL(url).hostname.replace(/^www\./, ''); 
 // `kinds`: how many of each type the search and the place filters hold, for the Type filter. `sort`: '' for the usual
 // order, else 'views' (in a city), 'near' or 'name'. `near`: where you are, once asked for Nearest ("47.61,-122.33").
 const s = { q: '', kind: '', country: '', state: '', city: '', sort: '', page: 1, query: null, cities: null, kinds: null, near: null,
-  locating: false, results: [], more: false, total: 0, loaded: false, asked: 0, key: null, scroll: 0, fromList: false, title: 'Spots · Dotsie' };
+  locating: false, plans: null, results: [], more: false, total: 0, loaded: false, asked: 0, key: null, scroll: 0, fromList: false, title: 'Spots · Dotsie' };
 const FILTERS = ['kind', 'country', 'state', 'city']; // what narrows the list, besides the search
+// A spot opened from a page of the app (a trip plan's card): its Back goes back there
+export const openSpotFromPage = () => { s.fromList = true; };
 let timer = 0, busy = 0;
 
 // ---------- The page ----------
@@ -91,6 +94,8 @@ function mount() {
             `<div class="wt-filter" data-filter="${name}"><span class="wt-filter__value">${label}</span>${ICON.chevronDown}${openHTML(name)}<button type="button" class="wt-filter__clear" data-clear="${name}" aria-label="Clear ${label}" title="Clear" hidden>${ICON.close}</button></div>`).join('')}
             <button type="button" class="wt-filter wt-filter--action spots-clear" hidden>Clear all</button></div>
         </div>
+        <section class="spots-plans" aria-labelledby="spots-plans-title" hidden><h2 class="spots-plans__title" id="spots-plans-title">Trip plans</h2>
+          <div class="home-grid spots-plans__grid"></div></section>
         <div class="spots-head"><p class="spots-count" role="status"></p>
           <div class="wt-filter wt-filter--plain" data-filter="sort"><span class="wt-filter__value">Most viewed</span>${ICON.chevronUpDown}${openHTML('sort')}</div></div>
         <div class="home-grid spots-grid"></div>
@@ -151,11 +156,12 @@ function mount() {
     if (e.target.closest('[data-unsearch]')) list.querySelector('.wt-search__clear').click();
   });
   $app.querySelector('.spots-entry').addEventListener('click', e => {
-    // Back to the list you came from, as it was; from a link someone sent, to the list
+    // Back to the list (or the trip plan) you came from, as it was; from a link someone sent, to the list
     if (e.target.closest('.wt-guide__back') && s.fromList) { e.preventDefault(); s.fromList = false; history.back(); }
   });
   s.query = s.key = null; // asked again: renderSpots reads the address, and shows the spot afresh
   if (!s.cities) loadCities(); else renderFilters();
+  if (!s.plans) loadPlans(); else showPlans();
   if (s.results.length) showResults(); // as it was, while it's asked again
   markSaved();
 }
@@ -401,6 +407,22 @@ function locate(before = '') {
   }, { timeout: 15000, maximumAge: 10 * 60_000 });
 }
 
+// ---------- Trip plans: days of a city's spots, strung together (tripplans.js) ----------
+// Above the spots, while nothing's searched for or a type picked: every plan, or the place filters' (a city's, a
+// state's), as cards like Home's trips
+async function loadPlans() {
+  try { s.plans = await api('/spots/plans'); } catch { s.plans = null; return; }
+  showPlans();
+}
+function showPlans() {
+  const el = $app.querySelector('.spots-plans');
+  if (!el) return;
+  const shown = s.q.trim() || s.kind ? [] : (s.plans ?? []).filter(p => (!s.city || p.destination.id === s.city)
+    && (!s.state || p.destination.state === s.state) && (!s.country || p.destination.country === s.country));
+  el.hidden = !shown.length;
+  el.querySelector('.spots-plans__grid').innerHTML = shown.map(planCardHTML).join('');
+}
+
 // ---------- The list ----------
 // On a phone, a list that grows: Show more adds the next 30 under what you've scrolled through. On a computer, pages of
 // 24 cards (rows of 2, 3 or 4) with a pager under them, so the page you're on, and how many there are, is clear.
@@ -465,6 +487,7 @@ function showLoading() {
 function showResults() {
   const grid = $app.querySelector('.spots-grid');
   if (!grid) return;
+  showPlans();
   const q = s.q.trim(), narrowed = FILTERS.some(k => s[k]), city = s.cities?.find(c => c.id === s.city);
   // None: why, and the way out, the filters first, since they're what's most often forgotten
   grid.innerHTML = s.results.length ? s.results.map(cardHTML).join('') : `<div class="wt-empty spots-empty"><p>${
@@ -542,7 +565,7 @@ async function showEntry({ city, source, id }) {
 // on several trips, and a trip's name can read as a place's ("Saved to Yosemite National Park").
 // Signed out, it asks you to sign in first.
 let myTrips = null; // your trips, as Home's cards have them (with each one's stops and Want to go places), once asked this visit
-async function loadMyTrips() {
+export async function loadMyTrips() {
   const today = nowStamp().slice(0, 10);
   const list = await api('/trips');
   myTrips = list.filter(t => !t.end || t.end.slice(0, 10) >= today)
@@ -552,17 +575,18 @@ async function loadMyTrips() {
 // A spot as a place, from its card or its page: the place and only the place, as on any Want to go list
 const cardPlace = p => ({ key: `${p.city.id}/${p.source}/${p.id}`, name: p.name, city: p.city.name, address: `${p.city.name}, ${p.state}`, lat: p.lat, lng: p.lng, source: p.source, id: p.id });
 const pagePlace = g => ({ key: `${g.destination.id}/${g.source}/${g.id}`, name: g.name, city: g.destination.name, address: `${g.destination.name}, ${g.destination.state}`, lat: g.lat, lng: g.lng, source: g.source, id: g.id });
-const ideaOf = pl => ({
-  name: pl.name, address: pl.address, lat: pl.lat, lng: pl.lng, kind: guessKind(pl.name) === 'place' ? 'attraction' : guessKind(pl.name),
+export const ideaOf = pl => ({
+  name: pl.name, address: pl.address, lat: pl.lat, lng: pl.lng, kind: KINDS[pl.kind] ? pl.kind : guessKind(pl.name) === 'place' ? 'attraction' : guessKind(pl.name),
   wikidata: pl.source === 'wikidata' && QID.test(pl.id) ? pl.id : null,
 });
 const onTrip = (t, pl) => !!(findIdea(t, pl) || findStop(t, pl));
 // Planned, and not on Want to go too: the stop, whose day the trip's row says
 const plannedOn = (t, pl) => (findIdea(t, pl) ? null : findStop(t, pl));
-const savedIn = pl => (myTrips || []).filter(t => onTrip(t, pl));
+export const savedIn = pl => (myTrips || []).filter(t => onTrip(t, pl));
 const canSave = pl => pl.lat != null && pl.lng != null;
 
-async function saveSpot(pl, btn) {
+// after(): what to redraw once a trip has it or doesn't, on this page or another's (a trip plan's, tripplans.js)
+export async function saveSpot(pl, btn, after = showSaved) {
   if (!me) { toast({ title: 'Sign in to save places to a trip', detail: 'Your trips, and who’s on them, are in your account.' }, 'Sign in', () => { location.hash = '#/'; }); return; }
   btn.disabled = true;
   try { await loadMyTrips(); } catch (err) { if (err.status !== 401) failToast(err, 'Couldn’t load your trips'); return; } finally { btn.disabled = false; }
@@ -616,7 +640,7 @@ async function saveSpot(pl, btn) {
       // Its row says where it is now
       const tb = t && ul.querySelector(`[data-trip="${CSS.escape(t.id)}"]`);
       if (tb) { tb.setAttribute('aria-checked', String(onTrip(t, pl))); if (made) tb.focus(); }
-      showSaved();
+      after();
     }
     ul.addEventListener('click', e => {
       const b = e.target.closest('.wt-option, [data-rename]');

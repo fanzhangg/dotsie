@@ -94,7 +94,7 @@ export function routeCells(cell) {
 // Stadia's style, drawn by MapLibre from its vector tiles, so the routes can go under its names; OpenStreetMap's pictures
 // when Stadia won't serve this site; Stadia's pictures for a trip saved for offline with those. MapLibre loads the first
 // time a trip opens. The map's credits live in trip settings rather than over the map.
-const CREDIT = {
+export const CREDIT = {
   stadia: '© <a href="https://stadiamaps.com/">Stadia Maps</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   osm: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 };
@@ -102,7 +102,8 @@ export let mapCredit = CREDIT.stadia;
 // Served with the app (see vendor/README.md), next to this file wherever the page is: the prototype's is in another folder
 export const MAPLIBRE = new URL('vendor/maplibre/maplibre-gl.js', import.meta.url).href;
 let glLoaded = null;
-const loadGL = () => (glLoaded ??= new Promise((done, fail) => {
+// Resolves to whether MapLibre loaded. The plan's map in its article (planmap.js) draws with it too.
+export const loadGL = () => (glLoaded ??= new Promise((done, fail) => {
   if (window.maplibregl) return done();
   const s = document.createElement('script');
   s.src = MAPLIBRE;
@@ -129,7 +130,7 @@ function sharedFetch({ url, type }) {
   let got = glFetches.get(url);
   if (!got) {
     got = fetch(url).then(r => {
-      if (r.status === 401 || r.status === 403) glRefused?.();
+      if (r.status === 401 || r.status === 403) { glRefused?.(); for (const f of glRefusals) f(); }
       return r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`));
     });
     glFetches.set(url, got);
@@ -138,12 +139,12 @@ function sharedFetch({ url, type }) {
   return got.then(buf => ({ data: type === 'json' ? JSON.parse(new TextDecoder().decode(buf)) : buf.slice(0) }));
 }
 const getJSON = url => fetch(url).then(r => (r.ok ? r.json() : null), () => null);
-const glStyleURL = dark => `https://tiles.stadiamaps.com/styles/alidade_smooth${dark ? '_dark' : ''}.json`;
+export const glStyleURL = dark => `https://tiles.stadiamaps.com/styles/alidade_smooth${dark ? '_dark' : ''}.json`;
 export const isGLStyle = url => url.endsWith('.json'); // a saved trip's map: the vector style, or the pictures' address
 // A style, ready for MapLibre: { url, style, tiles (the tiles' address), minzoom, maxzoom, fonts, files (what else it reads) }.
 // Its tile source's description is read once here, and everything Stadia serves for it goes through sharedFetch.
 const glStyles = {};
-const glStyle = url => (glStyles[url] ??= getJSON(url).then(async style => {
+export const glStyle = url => (glStyles[url] ??= getJSON(url).then(async style => {
   const src = Object.values(style?.sources || {}).find(s => s.type === 'vector');
   const tj = src?.url ? await getJSON(src.url) : src;
   if (!tj?.tiles?.length) return null;
@@ -176,6 +177,8 @@ export let basemap = null;
 // Stadia gives anyone its style and fonts but refuses its tiles to a site not registered with it: a refused tile puts
 // OpenStreetMap's map in its place
 let glRefused = null;
+// And the other maps' own (planmap.js): each puts OpenStreetMap's map in its place
+export const glRefusals = new Set();
 // Each other day's map is fetched behind the one on screen (see preloadTrip), a few tiles at a time, each once a visit;
 // after that the browser's cache has them. Skipped when the browser asks to save data.
 export const TILE_PRELOAD_PARALLEL = 4;

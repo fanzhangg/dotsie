@@ -1,5 +1,7 @@
 # Guides mockup
 
+Now in the app: a city's trip plans are on the Spots page, each an article at `#/plans/<id>` ([app/web/tripplans.js](../../app/web/tripplans.js), [the UX design](../../docs/ux-design.md#trip-plans)), on the plans as they are in D1. This mockup stays as where it started, on an older copy of Seattle's plan.
+
 What guides could look like in Dotsie: a destination's places and suggested plans, each plan told as an article
 that reads like a blog post, laid out as a place's guide is: a bar with Back at the top, and its one button, Make
 it my trip, floating at the bottom beside the trip's dates. Which day you're on is always clear: the bar names the day you're reading, each day

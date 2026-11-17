@@ -3,7 +3,8 @@
 Suggested days for a destination of the guide: a first visit of three days to Seattle so far. A plan is made from the
 destination's picks and their guide entries ([pipeline/guides.py](../pipeline/guides.py)), and only ever points at
 them: it holds places, times and the way between them, never guide text, so an entry written again shows in every plan
-it's in. Reviewed at `/developer/plans` before any of it reaches the app.
+it's in. Reviewed at `/developer/plans`, and shown in the app: a city's plans above its spots on the Spots page, each
+an article at `#/plans/<id>` that anyone can read and anyone signed in can make their own trip ([the UX design](ux-design.md#trip-plans)).
 
 ## Two lines
 
@@ -61,7 +62,8 @@ don't give, a place shut some weekdays and a short visit are warnings: kept, but
 | `out/plans/<destination>/` | Each step's JSON, and `plans.html` to review them on this machine |
 | D1 (`app/migrations/0008_trip_plans.sql`) | `trip_plans`: a plan whole (days, ideas, its places' fact cards, its article); `trip_plan_spots`: which plans a place is in. Replaced a destination at a time |
 | `/developer/plans` | Each plan day by day, with its article, each place linked to its entry in the guide preview |
-| [mockups/guides](../mockups/guides) | What a plan could look like in the app: the article, with the trip map one day at a time |
+| `/api/spots/plans` | The plans for the app: a city's as cards on the Spots page, and each whole for its article at `#/plans/<id>` ([app/web/tripplans.js](../app/web/tripplans.js)) |
+| [mockups/guides](../mockups/guides) | Where the app's article started: the design tried out on Seattle's plans before it was in the app |
 
 ## Running it
 
@@ -84,5 +86,3 @@ The checks, the repair rounds and the export have tests that need no model: `pyt
 
 - A city on foot first. A park or a road trip needs other limits: longer drives, and a day that starts at a trailhead.
 - A plan's `why` for each stop is the model's and isn't checked.
-- Copying a plan into someone's trip: the mockup does it in the prototype; the app has no Want to go list to take a
-  plan's ideas yet.

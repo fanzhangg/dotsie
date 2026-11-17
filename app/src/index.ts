@@ -237,28 +237,60 @@ app.get('/developer/spots/plans', async c => {
   return c.json(results);
 });
 // One plan whole, with each of its places' one-liner and lead photo from the guide
-app.get('/developer/spots/plans/:planId', async c => {
-  const planId = c.req.param('planId');
+app.get('/developer/spots/plans/:planId', async c => c.json(await planWhole(c.env, c.req.param('planId'))));
+
+// A plan whole: its days, Want to go places and article, and each of its places' fact card with the guide's one-liner,
+// lead photo and pages (its Wikipedia article and website, from places)
+async function planWhole(env: Env, planId: string) {
   if (!PLAN_ID.test(planId)) bad();
-  const t = await c.env.DB.prepare(
-    'select t.*, d.name as destination_name from trip_plans t left join spot_destinations d on d.id = t.destination where t.plan_id = ?')
-    .bind(planId).first<PlanRow & { destination_name: string | null }>();
+  const t = await env.DB.prepare(
+    `select t.*, d.name as destination_name, d.state as destination_state, d.country as destination_country from trip_plans t
+     left join spot_destinations d on d.id = t.destination where t.plan_id = ?`)
+    .bind(planId).first<PlanRow & { destination_name: string | null; destination_state: string | null; destination_country: string | null }>();
   if (!t) throw new Error(ERR.notFound);
   const places = json<Record<string, { source: string; id: string } & Record<string, unknown>>>(t.places, {});
   const keys = Object.values(places).slice(0, 90);
-  const { results } = keys.length ? await c.env.DB.prepare(
-    `select source, id, one_liner, images from spot_guides where ${keys.map(() => '(source = ? and id = ?)').join(' or ')}`)
-    .bind(...keys.flatMap(k => [k.source, k.id])).all<{ source: string; id: string; one_liner: string; images: string | null }>() : { results: [] };
+  const { results } = keys.length ? await env.DB.prepare(
+    `select g.source, g.id, g.one_liner, g.images, pl.wikipedia, pl.website from spot_guides g
+     left join places pl on pl.source = g.source and pl.id = g.id
+     where ${keys.map(() => '(g.source = ? and g.id = ?)').join(' or ')}`)
+    .bind(...keys.flatMap(k => [k.source, k.id])).all<{ source: string; id: string; one_liner: string; images: string | null;
+      wikipedia: string | null; website: string | null }>() : { results: [] };
   const entry = new Map(results.map(r => [`${r.source}/${r.id}`, r]));
-  return c.json({
-    planId: t.plan_id, destination: { id: t.destination, name: t.destination_name ?? t.destination }, title: t.title, traveler: t.traveler,
-    days: json(t.days, []), ideas: json(t.ideas, []), story: json(t.story, null), stops: t.stops, built: t.built, loadedAt: t.loaded_at,
+  return {
+    planId: t.plan_id, destination: { id: t.destination, name: t.destination_name ?? t.destination, state: t.destination_state, country: t.destination_country }, title: t.title,
+    traveler: t.traveler, days: json(t.days, []), ideas: json(t.ideas, []), story: json(t.story, null), stops: t.stops, built: t.built, loadedAt: t.loaded_at,
     places: Object.fromEntries(Object.entries(places).map(([k, p]) => {
       const e = entry.get(k);
-      return [k, { ...p, oneLiner: e?.one_liner ?? null, hero: e ? json<Images>(e.images, { hero: null, inline: [] }).hero : null }];
+      return [k, { ...p, oneLiner: e?.one_liner ?? null, hero: e ? json<Images>(e.images, { hero: null, inline: [] }).hero : null,
+        wikipedia: e?.wikipedia ?? null, website: e?.website ?? null }];
     })),
+  };
+}
+// Plans for the Spots page's cards, in a city or everywhere: what each is and who it's for, its article's headline and
+// dek, and the lead photos of its first three places with one
+async function planCards(env: Env, city: string) {
+  const { results } = await env.DB.prepare(
+    `select t.plan_id, t.destination, d.name as destination_name, d.state, d.country, t.title, t.traveler, t.stops, t.days,
+       json_extract(t.story, '$.headline') as headline, json_extract(t.story, '$.dek') as dek
+     from trip_plans t join spot_destinations d on d.id = t.destination ${city ? 'where t.destination = ?' : ''}
+     order by d.name, t.plan_id limit 100`).bind(...(city ? [city] : [])).all<{ plan_id: string; destination: string; destination_name: string;
+      state: string; country: string; title: string; traveler: string; stops: number; days: string; headline: string | null; dek: string | null }>();
+  const firsts = results.map(r => {
+    const ids = json<{ items: { kind: string; spot_id: string }[] }[]>(r.days, []).flatMap(d => d.items).filter(i => i.kind === 'stop').map(i => i.spot_id);
+    return [...new Set(ids)].slice(0, 6);
   });
-});
+  const keys = [...new Set(firsts.flat())].map(k => k.split('/')).filter(k => k.length === 2).slice(0, 90);
+  const { results: photos } = keys.length ? await env.DB.prepare(
+    `select source, id, images from spot_guides where ${keys.map(() => '(source = ? and id = ?)').join(' or ')}`)
+    .bind(...keys.flat()).all<{ source: string; id: string; images: string | null }>() : { results: [] };
+  const hero = new Map(photos.map(p => [`${p.source}/${p.id}`, json<Images>(p.images, { hero: null, inline: [] }).hero]));
+  return results.map((r, i) => ({
+    planId: r.plan_id, destination: { id: r.destination, name: r.destination_name, state: r.state, country: r.country }, title: r.title,
+    traveler: r.traveler, headline: r.headline, dek: r.dek, days: json<unknown[]>(r.days, []).length, stops: r.stops,
+    photos: firsts[i].map(k => hero.get(k)).filter(Boolean).slice(0, 3),
+  }));
+}
 
 // ---------- Spots: the guide's places, for anyone, signed in or not (the app's Spots page, #/spots) ----------
 // The same picks and entries as the guide preview above, across every destination. Read-only. Most viewed first:
@@ -349,6 +381,14 @@ app.get('/spots/search', async c => {
   }, 200, SPOTS_CACHE);
 });
 // One spot's entry, as the guide preview has it
+// Trip plans, for the Spots page's cards (in a city, with ?city=) and each plan's article (#/plans/<id>): the same plans
+// as /developer/plans shows
+app.get('/spots/plans', async c => {
+  const city = c.req.query('city') ?? '';
+  if (city && !DESTINATION.test(city)) bad();
+  return c.json(await planCards(c.env, city), 200, SPOTS_CACHE);
+});
+app.get('/spots/plans/:planId', async c => c.json(await planWhole(c.env, c.req.param('planId')), 200, SPOTS_CACHE));
 app.get('/spots/:city/:source/:id', async c =>
   c.json(await guideEntry(c.env, c.req.param('city'), c.req.param('source'), c.req.param('id')), 200, SPOTS_CACHE));
 
