@@ -781,9 +781,18 @@ test('Guides is a page of its own in the nav, worked as Spots is: a search and f
   await expect(page).toHaveURL(/#\/guides\?state=WA&city=seattle$/);
   await expect(filterChip(page, 'city').locator('.wt-filter__value')).toHaveText('Seattle');
   await expect(names).toHaveText(['2 days in Seattle']);
-  // Spots has only its places
+  // Spots, from Guides, is Spots: its own search and its places, and only them
   await nav.getByRole('link', { name: 'Spots' }).click();
+  await expect(page).toHaveTitle('Spots · Dotsie');
+  await expect(nav.getByRole('link', { name: 'Spots' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('searchbox', { name: 'Search spots' })).toBeVisible();
+  await expect(page.locator('.wt-spot-card').first()).toBeVisible();
   await expect(page.locator('.wt-trip-card, .spots-plans')).toHaveCount(0);
+  // and back to Guides, then Spots again
+  await nav.getByRole('link', { name: 'Guides' }).click();
+  await expect(names).toHaveCount(2);
+  await nav.getByRole('link', { name: 'Spots' }).click();
+  await expect(page.getByRole('searchbox', { name: 'Search spots' })).toBeVisible();
 });
 
 test('a trip plan reads as an article: the plan at a glance day by day with its times, then a chapter a day with a card for each place', async ({ page }) => {

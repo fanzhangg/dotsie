@@ -51,7 +51,8 @@ const headHTML = () => appBarHTML('spots', me
 
 export function renderSpots(r) {
   closeMenu(false);
-  if (!$app.querySelector('.spots')) mount();
+  // Spots' own page, not Guides', which is laid out with Spots' classes but has no entry to show a spot in
+  if (!$app.querySelector('.spots-entry')) mount();
   else $app.querySelector('.wt-app-bar').outerHTML = headHTML(); // signed in or out since
   if (!me) myTrips = null;
   // A spot is a page of its own, to read: no app bar, one column (see #app[data-page="spot"] in styles.css)
