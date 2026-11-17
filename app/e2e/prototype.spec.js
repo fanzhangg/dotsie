@@ -16,6 +16,7 @@ async function editNote(page, name, note) {
   await sheet(page).getByRole('textbox', { name: 'Note' }).fill(note);
   await sheet(page).getByRole('button', { name: 'Save' }).click();
   await expect(sheet(page)).toBeHidden();
+  await sheetGone(page); // its history entry too, or a reload next can be cut short by it
 }
 
 test('home lists your trips', async ({ page }) => {
@@ -739,4 +740,113 @@ test('a spot opens its guide entry, a page of its own with its sources and links
   await expect(page.getByRole('navigation', { name: 'Pages' })).toBeVisible();
   await expect(filterChip(page, 'state').locator('.wt-filter__value')).toHaveText('New Mexico');
   await expect(spotNames(page)).toHaveText(['White Sands National Park', 'New Mexico Museum of Space History']);
+});
+
+// Guides: the prototype's sample trip plans of its spots (see PLANS in prototype/backend.js)
+const planURL = '#/guides/seattle-first-visit-2d';
+const article = page => page.locator('article.plan-article');
+const glance = page => page.getByRole('region', { name: 'The plan, day by day' });
+test('Guides is a page of its own in the nav, worked as Spots is: a search and filters kept in the address, and a guide’s Back comes back to the list as it was', async ({ page }) => {
+  await page.goto('#/');
+  const nav = page.getByRole('navigation', { name: 'Pages' });
+  await nav.getByRole('link', { name: 'Guides' }).click();
+  await expect(page).toHaveTitle('Guides · Dotsie');
+  await expect(nav.getByRole('link', { name: 'Guides' })).toHaveAttribute('aria-current', 'page');
+  const names = page.locator('.wt-spot-card__name');
+  await expect(names).toHaveText(['1 day in Alamogordo', '2 days in Seattle']);
+  await expect(page.getByRole('status').filter({ hasText: 'guides' })).toHaveText('2 guides');
+  // A guide before it has an article says who it's for
+  await expect(page.getByRole('link', { name: /1 day in Alamogordo/ })).toContainText('For a day trip');
+  await expect(page.getByRole('link', { name: /2 days in Seattle/ })).toContainText('Seattle, WA · 2 days · 4 places');
+  // The search finds a guide by its city's or state's name, and says when there's none
+  await page.getByRole('searchbox', { name: 'Search guides' }).fill('washington');
+  await expect(names).toHaveText(['2 days in Seattle']);
+  await expect(page).toHaveURL(/#\/guides\?q=washington$/);
+  await page.getByRole('searchbox', { name: 'Search guides' }).fill('nowhere at all');
+  await expect(page.getByText('No guides match “nowhere at all”.')).toBeVisible();
+  await page.getByRole('button', { name: 'Clear search' }).first().click();
+  await expect(names).toHaveCount(2);
+  // The filters, as Spots has them: State, then City
+  await pickFilter(page, 'state', 'New Mexico');
+  await expect(names).toHaveText(['1 day in Alamogordo']);
+  await expect(page).toHaveURL(/#\/guides\?state=NM$/);
+  await pickFilter(page, 'state', 'Washington');
+  await pickFilter(page, 'city', 'Seattle');
+  await expect(page).toHaveURL(/#\/guides\?state=WA&city=seattle$/);
+  await page.getByRole('link', { name: /2 days in Seattle/ }).click();
+  await expect(page).toHaveURL(new RegExp(`${planURL}$`));
+  // No app bar: the page is the article
+  await expect(nav).toBeHidden();
+  await page.getByRole('link', { name: 'All guides' }).click();
+  await expect(page).toHaveURL(/#\/guides\?state=WA&city=seattle$/);
+  await expect(filterChip(page, 'city').locator('.wt-filter__value')).toHaveText('Seattle');
+  await expect(names).toHaveText(['2 days in Seattle']);
+  // Spots has only its places
+  await nav.getByRole('link', { name: 'Spots' }).click();
+  await expect(page.locator('.wt-trip-card, .spots-plans')).toHaveCount(0);
+});
+
+test('a trip plan reads as an article: the plan at a glance day by day with its times, then a chapter a day with a card for each place', async ({ page }) => {
+  await page.goto(planURL);
+  await expect(page).toHaveTitle('Two Days in Seattle, From the Market to the Sound · Guides · Dotsie');
+  await expect(article(page).getByText('Seattle, Washington', { exact: true })).toBeVisible();
+  await expect(article(page).getByText('2 days · 4 places · For a first visit')).toBeVisible();
+  // The day tabs, the open day's map, and its places numbered as their pins, with their times
+  const tabs = glance(page).getByRole('tablist', { name: 'Days' });
+  await expect(tabs.getByRole('tab', { selected: true })).toHaveText('Day 1');
+  await expect(glance(page).getByRole('tabpanel', { name: 'Day 1' }).locator('.plan-stop')).toHaveText([/^1\s*Pike Place Market\s*10:00 AM$/, /^2\s*Space Needle\s*1:00 PM$/, /^3\s*Chihuly Garden and Glass\s*2:30 PM$/]);
+  await expect(glance(page).getByRole('tabpanel', { name: 'Day 1' })).toContainText('3 places · 3 min on foot · 10 min by car');
+  await tabs.getByRole('tab', { name: 'Day 2' }).click();
+  await expect(glance(page).getByRole('tabpanel', { name: 'Day 2' }).locator('.plan-stop')).toHaveText([/^1\s*Discovery Park\s*10:00 AM$/]);
+  await expect(glance(page).getByRole('tabpanel', { name: 'Day 1' })).toBeHidden();
+  // A place in the list selected offers its card, which comes into view
+  await glance(page).getByRole('button', { name: /Discovery Park 10:00 AM/ }).click();
+  await expect(glance(page).getByRole('button', { name: /Discovery Park 10:00 AM/ })).toHaveAttribute('aria-pressed', 'true');
+  await glance(page).getByRole('button', { name: 'Read about Discovery Park' }).click();
+  await expect(page.locator('#plan-card-sample\\/discovery-park')).toBeInViewport();
+  // The chapters: the day, its heading and what it asks of you, the text, and a card where each place comes up
+  await expect(article(page).getByRole('heading', { level: 2 })).toHaveText(['The market, the tower and the glass', 'Meadows and beaches', 'Good to know']);
+  const card = page.locator('#plan-card-sample\\/space-needle');
+  await expect(card).toContainText('Day 1 · Afternoon');
+  await expect(card).toContainText('The 1962 World’s Fair tower');
+  await expect(card).toContainText('About 1 hr 15 min · 10 AM–9 PM · Book ahead');
+  await expect(article(page).locator('.wt-guide__foot')).toContainText('CC BY-SA 4.0');
+});
+
+test('a place in a trip plan opens its guide entry, whose Back comes back to the plan where you were', async ({ page }) => {
+  await page.goto(planURL);
+  await page.getByRole('link', { name: 'Chihuly Garden and Glass' }).click();
+  await expect(page.locator('article.wt-guide').getByRole('heading', { level: 1 })).toHaveText('Chihuly Garden and Glass');
+  await page.getByRole('link', { name: 'All spots' }).click();
+  await expect(page).toHaveURL(new RegExp(`${planURL}$`));
+  await expect(page.getByRole('link', { name: 'Chihuly Garden and Glass' })).toBeInViewport();
+});
+
+test('a place in a trip plan saves to a trip with its bookmark, as a spot card’s does', async ({ page }) => {
+  await page.goto(planURL);
+  await page.getByRole('button', { name: 'Save Discovery Park to a trip' }).click();
+  await tripBox(page, 'White Sands, NM').click();
+  await expect(tripBox(page, 'White Sands, NM')).toHaveAttribute('aria-checked', 'true');
+  await sheet(page).getByRole('button', { name: 'Close' }).click();
+  await expect(toast(page)).toContainText('Saved to Want to go');
+  await expect(page.getByRole('button', { name: 'Saved to White Sands, NM. Change' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('Make it my trip makes the plan a trip from the first day picked, each place at its time, and opens it', async ({ page }) => {
+  await page.goto(planURL);
+  // The coming Friday by default (today is Friday, Nov 20: the next one), and any day picked moves the plan with it
+  const dates = page.getByLabel('First day of the trip');
+  await expect(page.locator('.plan-make__dates')).toHaveText('Nov 27–28');
+  await dates.fill('2026-11-30');
+  await expect(page.locator('.plan-make__dates')).toHaveText('Nov 30 – Dec 1');
+  await page.getByRole('button', { name: 'Make it my trip' }).click();
+  await expect(page).toHaveURL(/#\/trip\/\w+$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('2 days in Seattle');
+  await expect(days(page).getByRole('tab', { selected: true })).toHaveAccessibleName('Mon, Nov 30');
+  await expect(plan(page).locator('.wt-tl-stop .wt-tl-name')).toHaveText(['Pike Place Market', 'Lunch', 'Space Needle', 'Chihuly Garden and Glass']);
+  await days(page).getByRole('tab', { name: 'Tue, Dec 1' }).click();
+  await expect(plan(page).locator('.wt-tl-stop .wt-tl-name').last()).toHaveText('Discovery Park');
+  // Each place's pages are links on its stop: its spot's page first
+  await stop(page, 'Discovery Park').click();
+  await expect(plan(page).getByRole('link', { name: /^Spot/ })).toHaveAttribute('href', /#\/spots\/seattle\/sample\/discovery-park$/);
 });

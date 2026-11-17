@@ -10,13 +10,13 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 #app[data-page="trip"] { max-width: none; }
 @media (min-width: 520px) { #app:not([data-page="trip"]) { box-shadow: 0 0 0 1px var(--wt-border-default); } }
 
-/* ---------- Wide screens: Home's trips and the spots are a grid of cards on the page; sign-in is a card ---------- */
+/* ---------- Wide screens: Home's trips, the spots and the guides are a grid of cards on the page; sign-in is a card ---------- */
 @media (min-width: 768px) {
-  #app:is([data-page="home"], [data-page="spots"]) { --wt-app-bar-surface: var(--wt-surface-page); --spots-gutter: var(--wt-space-6); max-width: 1040px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
+  #app:is([data-page="home"], [data-page="spots"], [data-page="guides"]) { --wt-app-bar-surface: var(--wt-surface-page); --spots-gutter: var(--wt-space-6); max-width: 1040px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
   /* The bar spans the page's column, its edges with the cards', on the page's color */
-  #app:is([data-page="home"], [data-page="spots"]) .wt-app-bar { min-height: 80px; margin: 0 calc(-1 * var(--wt-space-6)) var(--wt-space-2); padding-left: var(--wt-space-6); padding-right: var(--wt-space-6); }
-  #app:is([data-page="home"], [data-page="spots"]) .home { padding: 0 0 var(--wt-space-10); }
-  #app:is([data-page="home"], [data-page="spots"]) .home-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--wt-space-4); }
+  #app:is([data-page="home"], [data-page="spots"], [data-page="guides"]) .wt-app-bar { min-height: 80px; margin: 0 calc(-1 * var(--wt-space-6)) var(--wt-space-2); padding-left: var(--wt-space-6); padding-right: var(--wt-space-6); }
+  #app:is([data-page="home"], [data-page="spots"], [data-page="guides"]) .home { padding: 0 0 var(--wt-space-10); }
+  #app:is([data-page="home"], [data-page="spots"], [data-page="guides"]) .home-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--wt-space-4); }
   #app[data-page="home"] .home-grid--small { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
   .spots-find { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--wt-space-3); }
   #app[data-page="home"] .home-guest { justify-self: start; width: auto; }
@@ -28,7 +28,7 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 /* ---------- Home: the app bar (the page, the nav, the account), the trips under CURRENT, UPCOMING, WISHLIST and PAST, and New trip ----------
    On the grey of the trip's list sheet, with white cards on it. New trip floats at the bottom of the screen: across the
    column on a phone, a pill as wide as its words, centred, from 768px wide. */
-#app:is([data-page="home"], [data-page="spots"]) { display: flex; flex-direction: column; background: var(--wt-surface-sheet); }
+#app:is([data-page="home"], [data-page="spots"], [data-page="guides"]) { display: flex; flex-direction: column; background: var(--wt-surface-sheet); }
 .home-head { display: flex; align-items: center; justify-content: space-between; gap: var(--wt-space-3); padding: var(--wt-space-6) var(--wt-space-4) var(--wt-space-4); }
 .home-head h1 { margin: 0; font: var(--wt-type-display); letter-spacing: var(--wt-tracking-display); }
 .home-head__actions { display: flex; align-items: center; gap: var(--wt-space-2); margin-right: calc(-1 * var(--wt-space-2)); }
@@ -45,7 +45,7 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 /* New trip floats at the bottom (.wt-float-bar), on the page's grey; the page leaves it room at its end */
 #app[data-page="home"] .home { padding-bottom: var(--wt-float-bar-room); }
 .home-new { --wt-float-bar-surface: var(--wt-surface-sheet); }
-/* The app bar (the design system's) tops Home and Spots; on sign-in, the nav sits under the app's name */
+/* The app bar (the design system's) tops Home, Spots and Guides; on sign-in, the nav sits under the app's name */
 .wt-app-bar + .home { padding-top: var(--wt-space-2); }
 .signin-nav { padding: 0 var(--wt-space-4) var(--wt-space-3); }
 
@@ -68,7 +68,7 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
   transition: top var(--wt-duration-base) var(--wt-ease-out);
 }
 @media (max-width: 767.98px) { #app:has(.wt-app-bar.is-tucked) .spots-band { top: 0; padding-top: calc(var(--wt-space-2) + env(safe-area-inset-top)); } }
-#app[data-page="spots"] .wt-app-bar.is-scrolled { box-shadow: none; }
+#app:is([data-page="spots"], [data-page="guides"]) .wt-app-bar.is-scrolled { box-shadow: none; }
 .wt-app-bar.is-scrolled + .spots .spots-band { box-shadow: 0 1px 0 var(--wt-border-default); }
 /* The filters: a row of chips (the design system's), scrolling sideways if they don't fit */
 .spots-filters { display: flex; gap: var(--wt-space-2); overflow-x: auto; scrollbar-width: none; }
@@ -94,6 +94,78 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 .wt-guide.has-save { padding-bottom: calc(var(--wt-float-bar-room) + var(--wt-space-3)); }
 @media (min-width: 768px) { #app[data-page="spot"] { --spot-gutter: var(--wt-space-10); max-width: 680px; } .spot-save { --wt-float-bar-width: 680px; } }
 :is(.spots-list, .spots-entry, .spots-more, .spots-pager)[hidden] { display: none; }
+
+/* ---------- Guides: laid out as Spots, with its classes (guides.js). A guide: an article, laid out as a spot's page is
+   (.wt-guide), with Make it my trip floating at the bottom ---------- */
+#app[data-page="plan"] { --spot-gutter: var(--wt-space-4); }
+#app[data-page="plan"] .home { padding: 0 var(--spot-gutter); }
+.plan .wt-guide__top--photo { margin: 0 calc(-1 * var(--spot-gutter)); }
+@media (min-width: 768px) { #app[data-page="plan"] { --spot-gutter: var(--wt-space-10); max-width: 680px; } .plan-make { --wt-float-bar-width: 680px; } }
+.plan-by { margin: 0; font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+/* The plan at a glance: the day tabs, the open day's map, and its places numbered as its pins */
+.plan-glance { display: grid; gap: var(--wt-space-3); }
+.plan-glance .wt-day-bar { margin: 0 calc(-1 * var(--wt-space-1)); box-shadow: inset 0 -1px 0 var(--wt-border-default); }
+.plan-map__canvas { position: relative; isolation: isolate; aspect-ratio: 4 / 3; border-radius: var(--wt-radius-md); overflow: hidden; background: var(--wt-surface-map); }
+@media (min-width: 600px) { .plan-map__canvas { aspect-ratio: 16 / 10; } }
+.plan-map__sketch { position: absolute; inset: 0; aspect-ratio: auto; }
+.plan-map__sketch svg { width: 100%; height: 100%; }
+.plan-map__canvas .wt-pin { cursor: pointer; }
+/* Whole day, at the map's bottom right, as on the trip screen */
+.plan-map__fit { position: absolute; right: var(--wt-space-3); bottom: var(--wt-space-3); z-index: 2; }
+.plan-glance__day[hidden] { display: none; }
+.plan-glance__head { margin: 0 0 var(--wt-space-2); font: var(--wt-type-heading); color: var(--wt-text-primary); }
+.plan-glance__head span { display: block; font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+.plan-stops { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+/* A place in the plan's list: tap it to select it on the map, as a row on the trip screen; the selected one is grey,
+   as a selected row is, and offers its card */
+.plan-stops li { display: flex; align-items: center; gap: var(--wt-space-1); margin: 0 calc(-1 * var(--wt-space-2)); padding: 0 var(--wt-space-2); border-radius: var(--wt-radius-sm); }
+.plan-stops li.is-selected { background: var(--wt-surface-current); }
+.plan-stop { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--wt-space-2); min-height: var(--wt-size-touch); padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--wt-text-primary); font: var(--wt-type-body); text-align: left; }
+.plan-stop__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-stop__time { flex: none; font: var(--wt-type-caption); color: var(--wt-text-secondary); font-variant-numeric: tabular-nums; }
+.plan-stop:focus-visible { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; border-radius: var(--wt-radius-sm); }
+.plan-stop__read { display: none; flex: none; color: var(--wt-text-secondary); }
+.is-selected .plan-stop__read { display: inline-grid; place-items: center; }
+/* A stop's number, as its pin shows it */
+.plan-num { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--wt-kind-color);
+  color: var(--wt-marker-ink); font: 600 12px / 1 var(--wt-font-sans); font-variant-numeric: tabular-nums; }
+/* A day: "Day 2" over its heading and what it asks of you, after a hairline */
+.plan-chapter { display: grid; gap: var(--wt-space-4); }
+.plan-chapter__head { display: grid; gap: var(--wt-space-1); padding-top: var(--wt-space-6); border-top: 1px solid var(--wt-border-default); }
+.plan-chapter__day { margin: 0; font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; color: var(--wt-text-secondary); }
+.plan-chapter__name { margin: 0; font: var(--wt-type-headline); font-size: 24px; line-height: 30px; color: var(--wt-text-primary); text-wrap: balance; }
+.plan-chapter__sum { margin: 0; font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+/* A place, in the flow of the text: a photo and a caption, with no box around it */
+.plan-card { margin: var(--wt-space-2) 0; display: grid; gap: var(--wt-space-3); scroll-margin: var(--wt-space-10); }
+@media (min-width: 600px) { .plan-card:has(.plan-card__photo) { grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: var(--wt-space-4); align-items: start; } }
+.plan-card__photo { display: block; border-radius: var(--wt-radius-md); overflow: hidden; background: var(--wt-surface-map); }
+.plan-card__photo img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; }
+.plan-card__body { display: grid; gap: var(--wt-space-1); min-width: 0; }
+.plan-card__meta, .plan-card__facts { font: var(--wt-type-caption); color: var(--wt-text-tertiary); }
+.plan-card__meta b { color: var(--wt-text-secondary); font-weight: 600; }
+.plan-card__head { display: flex; align-items: flex-start; gap: var(--wt-space-2); }
+.plan-card__name { flex: 1; min-width: 0; padding-top: 8px; font: var(--wt-type-name); font-size: 18px; line-height: 24px; color: var(--wt-text-primary); text-decoration: none; }
+@media (hover: hover) { .plan-card__name:hover { text-decoration: underline; text-underline-offset: 3px; } }
+.plan-card__save { flex: none; margin: 0 calc(-1 * var(--wt-space-2)) 0 0; color: var(--wt-text-secondary); }
+.plan-card__save[aria-pressed="true"] { color: var(--wt-text-primary); }
+.plan-card__save[aria-pressed="true"] .wt-icon { fill: currentColor; }
+.plan-card__line { font: var(--wt-type-body); font-size: 16px; line-height: 24px; color: var(--wt-text-secondary); }
+.plan-card.is-flash .plan-card__name { animation: plan-flash 1.6s var(--wt-ease-out, ease-out); }
+@keyframes plan-flash { from { background: var(--wt-surface-current); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .plan-card.is-flash .plan-card__name { animation: none; } }
+.plan-know { margin: 0; padding-left: var(--wt-space-5); display: grid; gap: var(--wt-space-2); font: var(--wt-type-body); font-size: 16px; line-height: 1.6; color: var(--wt-text-primary); }
+.plan-closing { margin: 0; font: var(--wt-type-body); font-size: 17px; line-height: 1.65; color: var(--wt-text-primary); }
+.plan-note { margin: 0 0 var(--wt-space-1); font: var(--wt-type-caption); color: var(--wt-text-secondary); }
+/* Make it my trip: the trip's first day beside it, a grey pill over a date picker you don't see */
+.plan-make { --wt-float-bar-gutter: var(--spot-gutter); gap: var(--wt-space-2); }
+.plan-make__dates { position: relative; flex: none; display: inline-flex; align-items: center; gap: var(--wt-space-2); min-height: var(--wt-size-touch); padding: 0 var(--wt-space-4);
+  border-radius: var(--wt-radius-pill); background: var(--wt-surface-sunken); color: var(--wt-text-primary); font: var(--wt-type-name); white-space: nowrap; cursor: pointer; }
+@media (hover: hover) { .plan-make__dates:hover { background: var(--wt-surface-hover); } }
+.plan-make__dates .wt-icon { width: 18px; height: 18px; color: var(--wt-text-secondary); }
+.plan-make__picker { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0; cursor: pointer; }
+.plan-make__dates:has(.plan-make__picker:focus-visible) { outline: 2px solid var(--wt-border-focus); outline-offset: 2px; }
+.plan-make .wt-btn .wt-spinner { width: 16px; height: 16px; }
 
 /* ---------- Sign in: one choice per step ---------- */
 .signin { display: grid; gap: var(--wt-space-3); padding: var(--wt-space-1) var(--wt-space-4) var(--wt-space-8); }

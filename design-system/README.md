@@ -1,6 +1,6 @@
 # Dotsie Design System
 
-Version 15.6.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
+Version 15.7.0. The design system behind Dotsie, a minimal, phone-first trip planner that also works on a computer. It's three plain files, with no build step, and the logo:
 
 | File | What it holds |
 | --- | --- |
@@ -210,7 +210,7 @@ Four weights, each with a job: **700** the app name (sign-in) only; **600** head
 
 Line icons on a 24px grid with a 2px stroke and round ends, drawn in the text color:
 
-`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed) `bookmark` (Want to go: save a place for later, and the list it's on) `trash` (take a place off Want to go)
+`back` `forward` `close` `plus` `edit` `check` `car` `external` `link` (a stop has links) `search` `pin` `home` `settings` `chevron-down` `chevron-up-down` `calendar` (jump to a day) `directions` `map` `list` `fit` `alert` (something failed) `bookmark` (Want to go: save a place for later, and the list it's on) `trash` (take a place off Want to go) `book` (Guides, in the nav)
 
 Offline: `download` (saving, and Save for offline), `saved` (saved on this device) and `cloud-off` (no connection).
 
@@ -882,16 +882,17 @@ Put cards on `--wt-surface-sheet`, as the list is: the card is white and set apa
   <nav class="wt-nav" aria-label="Pages">
     <a class="wt-nav__link" href="#/" aria-current="page">${mapIcon}Plan</a>
     <a class="wt-nav__link" href="#/spots">${starIcon}Spots</a>
+    <a class="wt-nav__link" href="#/guides">${bookIcon}Guides</a>
   </nav>
   <div class="wt-app-bar__end">${accountButton}</div>
 </header>
 ```
 
-The top of Home and Spots, in one row: the app's pages on the left, the account on the right. Actions on the page (New trip) go in the page, not here.
+The top of Home, Spots and Guides, in one row: the app's pages on the left, the account on the right. Actions on the page (New trip) go in the page, not here.
 
 - **The bar** stays at the top as the page scrolls (`position: sticky`), 64px high (80px from 768px wide), frosted over what passes under it in the page's color (`--wt-surface-sheet`, or set `--wt-app-bar-surface`). Add `.is-scrolled` once the page has scrolled, for a hairline under it. The page's name is a hidden `h1`: the nav already shows it.
 - **On a phone it tucks away** while the page scrolls down, and comes back as soon as it scrolls up: add `.is-tucked` (it slides up out of view on `--wt-duration-base`). Anything else stuck under it moves up to the top meanwhile. From 768px wide it stays.
-- **`.wt-nav`** is the app's pages, as pills of an icon (18px) and a word, in `--wt-type-context`. The page you're on (`aria-current="page"`) is raised white with `--wt-shadow-hairline`, in primary ink, set apart by its surface as a card is; the others are in secondary ink, a grey pill when pointed at. Plan is `map`, Spots is `star`. For pages, not filters. Sign-in shows it under the wordmark.
+- **`.wt-nav`** is the app's pages, as pills of an icon (18px) and a word, in `--wt-type-context`. The page you're on (`aria-current="page"`) is raised white with `--wt-shadow-hairline`, in primary ink, set apart by its surface as a card is; the others are in secondary ink, a grey pill when pointed at. Plan is `map`, Spots is `star`, Guides is `book`. For pages, not filters. Sign-in shows it under the wordmark.
 
 ### Filter `.wt-filter`
 
@@ -1171,6 +1172,10 @@ Say what can go here, in the user's words. No illustrations.
   - **Patch:** fixes.
   - **Minor:** new tokens, components or variants.
   - **Major:** renamed or removed tokens or classes. Note each rename here.
+
+### Added in 15.7.0
+
+- New: the `book` icon, for Guides in the nav (icons 4.4.0).
 
 ### Added in 15.6.0
 

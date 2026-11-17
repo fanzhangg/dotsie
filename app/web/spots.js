@@ -10,7 +10,7 @@ import { api } from './backend.js';
 import { me } from './signin.js';
 import { MAPS_APPS, mapsApp, placeURL } from './routes.js';
 import { regionName } from './regions.js';
-import { IDEAS, dayOf, findIdea, findStop, guessKind } from './plan.js';
+import { IDEAS, KINDS, dayOf, findIdea, findStop, guessKind } from './plan.js';
 import { MAX, QID } from './fields.js';
 import { fmtDay, nowStamp } from './time.js';
 import { tripDates } from './home.js';
@@ -18,6 +18,7 @@ import { openTripOn } from './timeline.js';
 import { closeSheet, modalHead, openSheet } from './sheets.js';
 import { failToast, toast } from './notices.js';
 import { SPOT_KINDS, kmBetween, spotKind } from './spotkinds.js';
+import { FILTER_NAMES, chipHTML, closeMenu, menuOpen, openHTML, place, relistMenu, toggleMenu } from './filters.js';
 
 const countryName = (() => {
   let names = null;
@@ -37,6 +38,8 @@ const host = url => { try { return new URL(url).hostname.replace(/^www\./, ''); 
 const s = { q: '', kind: '', country: '', state: '', city: '', sort: '', page: 1, query: null, cities: null, kinds: null, near: null,
   locating: false, results: [], more: false, total: 0, loaded: false, asked: 0, key: null, scroll: 0, fromList: false, title: 'Spots · Dotsie' };
 const FILTERS = ['kind', 'country', 'state', 'city']; // what narrows the list, besides the search
+// A spot opened from a page of the app (a trip plan's card): its Back goes back there
+export const openSpotFromPage = () => { s.fromList = true; };
 let timer = 0, busy = 0;
 
 // ---------- The page ----------
@@ -88,7 +91,7 @@ function mount() {
             <span class="wt-spinner" hidden></span>
             <button type="button" class="wt-search__clear" aria-label="Clear search" hidden>${ICON.close}</button></label>
           <div class="spots-filters">${[['kind', 'Type'], ['country', 'Country'], ['state', 'State'], ['city', 'City']].map(([name, label]) =>
-            `<div class="wt-filter" data-filter="${name}"><span class="wt-filter__value">${label}</span>${ICON.chevronDown}${openHTML(name)}<button type="button" class="wt-filter__clear" data-clear="${name}" aria-label="Clear ${label}" title="Clear" hidden>${ICON.close}</button></div>`).join('')}
+            chipHTML(name, label)).join('')}
             <button type="button" class="wt-filter wt-filter--action spots-clear" hidden>Clear all</button></div>
         </div>
         <div class="spots-head"><p class="spots-count" role="status"></p>
@@ -127,7 +130,7 @@ function mount() {
   const filters = list.querySelector('.spots-filters');
   for (const el of [filters, list.querySelector('.spots-head')]) el.addEventListener('click', e => {
     const open = e.target.closest('.wt-filter__open');
-    if (open) toggleMenu(open.closest('.wt-filter'));
+    if (open) openMenu(open.closest('.wt-filter'));
   });
   filters.addEventListener('click', e => {
     // A set filter's ×: back to every one, with the focus on the filter, as the × is gone
@@ -135,7 +138,7 @@ function mount() {
     if (x) { e.preventDefault(); closeMenu(false); pick(x.dataset.clear, ''); filters.querySelector(`[data-filter="${x.dataset.clear}"] .wt-filter__open`)?.focus(); }
     if (e.target.closest('.spots-clear')) { closeMenu(false); clearAll(); }
   });
-  filters.addEventListener('scroll', () => { if (menu) place(); }, { passive: true });
+  filters.addEventListener('scroll', () => { if (menuOpen()) place(); }, { passive: true });
   list.querySelector('.spots-more').addEventListener('click', () => search('more'));
   list.querySelector('.spots-pager').addEventListener('click', e => {
     const to = e.target.closest('[data-page]');
@@ -151,7 +154,7 @@ function mount() {
     if (e.target.closest('[data-unsearch]')) list.querySelector('.wt-search__clear').click();
   });
   $app.querySelector('.spots-entry').addEventListener('click', e => {
-    // Back to the list you came from, as it was; from a link someone sent, to the list
+    // Back to the list (or the trip plan) you came from, as it was; from a link someone sent, to the list
     if (e.target.closest('.wt-guide__back') && s.fromList) { e.preventDefault(); s.fromList = false; history.back(); }
   });
   s.query = s.key = null; // asked again: renderSpots reads the address, and shows the spot afresh
@@ -240,106 +243,13 @@ function renderFilters() {
   root.querySelector('[data-filter="country"]').hidden = countries.length < 2 && !s.country;
   // Clear all, once there's more than one thing to clear
   root.querySelector('.spots-clear').hidden = [s.q.trim(), ...FILTERS.map(k => s[k])].filter(Boolean).length < 2;
-  if (menu) listMenu(); // what it offers may have changed under it: the types' counts, say
+  relistMenu(); // what it offers may have changed under it: the types' counts, say
 }
 
-// ---------- A filter's menu: its choices, dropped down under it ----------
-// Tapping a filter drops its choices down under it, rather than the phone's own picker, whose wheel or popover is hard
-// to aim at in a list of hundreds of cities, and opens wherever the phone puts it. On a phone the menu is as wide as
-// the page, just under the row of filters; on a computer, under the filter. A long list (State, City) has a search at
-// its top, which on a computer has the focus. Picking one applies it and closes the menu; Esc, a tap outside or
-// tabbing away closes it with nothing changed. ↑ ↓ move between choices, and from the search to them; Return in the
-// search picks the first that matches. See "Filter" in the design system.
-const FILTER_NAMES = { kind: 'Type', country: 'Country', state: 'State', city: 'City', sort: 'Sort' };
-const PLURALS = { kind: 'types', country: 'countries', state: 'states', city: 'cities' };
-const SEARCH_FROM = 12; // choices, for a search at the top
+// ---------- A filter's menu (filters.js) ----------
 let choices = { kind: [], country: [], state: [], city: [], sort: [] };
-let menu = null; // the open one: { name, chip, el }
-const fold = t => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
-function openHTML(name) {
-  return `<button type="button" class="wt-filter__open" aria-label="${FILTER_NAMES[name]}" aria-haspopup="true" aria-expanded="false"></button>`;
-}
-function toggleMenu(chip) {
-  const was = menu?.chip === chip;
-  closeMenu(was);
-  if (was) return;
-  const name = chip.dataset.filter, host = chip.closest('.spots-band, .spots-head');
-  const el = document.createElement('div');
-  el.className = 'wt-menu wt-filter-menu';
-  el.innerHTML = `${choices[name].length > SEARCH_FROM ? `<label class="wt-input wt-input-group wt-search wt-filter-menu__search">${ICON.search}<input type="search" aria-label="Search ${PLURALS[name]}" placeholder="Search ${PLURALS[name]}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="60"></label>` : ''}<ul class="wt-options" role="radiogroup" aria-label="${FILTER_NAMES[name]}"></ul>`;
-  host.append(el);
-  menu = { name, chip, el };
-  chip.querySelector('.wt-filter__open').setAttribute('aria-expanded', 'true');
-  chip.scrollIntoView({ block: 'nearest', inline: 'nearest' }); // the whole of it in the row, for the menu to hang from
-  listMenu();
-  place();
-  const search = el.querySelector('input'), on = el.querySelector('[aria-checked="true"]') || el.querySelector('[data-value]:not(:disabled)');
-  if (on) el.querySelector('.wt-options').scrollTop = on.offsetTop - el.querySelector('.wt-options').clientHeight / 2 + on.offsetHeight / 2;
-  // A computer's keyboard is there to type with; on a phone the search waits for a tap, so the keyboard doesn't cover the list
-  (search && wide.matches ? search : on)?.focus({ preventScroll: true });
-  search?.addEventListener('input', listMenu);
-  el.addEventListener('keydown', menuKeys);
-  el.addEventListener('click', e => {
-    const b = e.target.closest('[data-value]');
-    if (!b || b.disabled) return;
-    closeMenu();
-    pick(name, b.dataset.value);
-  });
-  el.addEventListener('focusout', e => {
-    if (menu?.el === el && e.relatedTarget && !el.contains(e.relatedTarget) && !chip.contains(e.relatedTarget)) closeMenu(false);
-  });
-  document.addEventListener('pointerdown', outside, true);
-  visualViewport?.addEventListener('resize', place);
-  addEventListener('resize', place);
-}
-function closeMenu(refocus = true) {
-  if (!menu) return;
-  const { chip, el } = menu;
-  menu = null;
-  el.remove();
-  document.removeEventListener('pointerdown', outside, true);
-  visualViewport?.removeEventListener('resize', place);
-  removeEventListener('resize', place);
-  const open = chip.querySelector('.wt-filter__open');
-  open.setAttribute('aria-expanded', 'false');
-  if (refocus) open.focus({ preventScroll: true });
-}
-function outside(e) { if (menu && !menu.el.contains(e.target) && !menu.chip.contains(e.target)) closeMenu(false); }
-// The choices, those that match the search if it has anything in it, the one it's set to ticked
-function listMenu() {
-  const { name, el } = menu, input = el.querySelector('input'), q = fold(input?.value ?? '');
-  const shown = choices[name].filter(c => !q || (c.value && fold(c.text).includes(q)));
-  el.querySelector('.wt-options').innerHTML = shown.map(c => `<li><button type="button" class="wt-option" role="radio" data-value="${esc(c.value)}" aria-checked="${c.value === s[name]}"${c.off ? ' disabled' : ''}><span class="wt-option__text"><span class="wt-option__label">${esc(c.text)}</span></span>${c.meta != null ? `<span class="wt-option__meta">${c.meta}</span>` : ''}${ICON.check}</button></li>`).join('')
-    || `<li class="wt-results__msg"><b>No ${PLURALS[name]} match “${esc(input.value.trim())}”</b>Try fewer letters.</li>`;
-}
-// Under the filter it hangs from, its top 4px below, lined up with one of its edges; on a phone, across the page's column. It goes no lower than the
-// screen (or what the keyboard leaves of it), and scrolls inside.
-function place() {
-  if (!menu) return;
-  const { chip, el } = menu, host = el.parentElement, cs = getComputedStyle(host);
-  const h = host.getBoundingClientRect(), c = chip.getBoundingClientRect();
-  const min = parseFloat(cs.paddingLeft) || 0, max = h.width - (parseFloat(cs.paddingRight) || 0);
-  const width = wide.matches ? Math.min(Math.max(c.width, 280), max - min) : max - min;
-  el.style.width = `${width}px`;
-  // From the filter's left edge, or, where that would run past the column, back from its right edge
-  const from = c.left - h.left + width <= max ? c.left - h.left : c.right - h.left - width;
-  el.style.left = `${Math.max(min, Math.min(from, max - width))}px`;
-  el.style.top = `${c.bottom - h.top + 4}px`;
-  const bottom = (visualViewport?.height ?? innerHeight) + (visualViewport?.offsetTop ?? 0);
-  el.style.maxHeight = `${Math.max(160, Math.min(420, bottom - c.bottom - 4 - 12))}px`;
-}
-function menuKeys(e) {
-  const { el } = menu, input = el.querySelector('input');
-  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); return; }
-  const all = [...el.querySelectorAll('[data-value]:not(:disabled)')];
-  if (e.key === 'Enter' && e.target === input) { e.preventDefault(); all[0]?.click(); return; }
-  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-  e.preventDefault();
-  const i = all.indexOf(document.activeElement), down = e.key === 'ArrowDown';
-  if (i < 0) { all[down ? 0 : all.length - 1]?.focus(); return; }
-  if (!down && i === 0 && input) { input.focus(); return; }
-  all[(i + (down ? 1 : all.length - 1)) % all.length].focus();
-}
+const openMenu = chip => toggleMenu(chip, { choices: () => choices[chip.dataset.filter], value: () => s[chip.dataset.filter], pick: v => pick(chip.dataset.filter, v) });
+
 // A wider choice drops the narrower ones it doesn't hold; a city sets its state
 function pick(name, value) {
   if (name === 'sort') return sortBy(value);
@@ -542,7 +452,7 @@ async function showEntry({ city, source, id }) {
 // on several trips, and a trip's name can read as a place's ("Saved to Yosemite National Park").
 // Signed out, it asks you to sign in first.
 let myTrips = null; // your trips, as Home's cards have them (with each one's stops and Want to go places), once asked this visit
-async function loadMyTrips() {
+export async function loadMyTrips() {
   const today = nowStamp().slice(0, 10);
   const list = await api('/trips');
   myTrips = list.filter(t => !t.end || t.end.slice(0, 10) >= today)
@@ -552,17 +462,18 @@ async function loadMyTrips() {
 // A spot as a place, from its card or its page: the place and only the place, as on any Want to go list
 const cardPlace = p => ({ key: `${p.city.id}/${p.source}/${p.id}`, name: p.name, city: p.city.name, address: `${p.city.name}, ${p.state}`, lat: p.lat, lng: p.lng, source: p.source, id: p.id });
 const pagePlace = g => ({ key: `${g.destination.id}/${g.source}/${g.id}`, name: g.name, city: g.destination.name, address: `${g.destination.name}, ${g.destination.state}`, lat: g.lat, lng: g.lng, source: g.source, id: g.id });
-const ideaOf = pl => ({
-  name: pl.name, address: pl.address, lat: pl.lat, lng: pl.lng, kind: guessKind(pl.name) === 'place' ? 'attraction' : guessKind(pl.name),
+export const ideaOf = pl => ({
+  name: pl.name, address: pl.address, lat: pl.lat, lng: pl.lng, kind: KINDS[pl.kind] ? pl.kind : guessKind(pl.name) === 'place' ? 'attraction' : guessKind(pl.name),
   wikidata: pl.source === 'wikidata' && QID.test(pl.id) ? pl.id : null,
 });
 const onTrip = (t, pl) => !!(findIdea(t, pl) || findStop(t, pl));
 // Planned, and not on Want to go too: the stop, whose day the trip's row says
 const plannedOn = (t, pl) => (findIdea(t, pl) ? null : findStop(t, pl));
-const savedIn = pl => (myTrips || []).filter(t => onTrip(t, pl));
+export const savedIn = pl => (myTrips || []).filter(t => onTrip(t, pl));
 const canSave = pl => pl.lat != null && pl.lng != null;
 
-async function saveSpot(pl, btn) {
+// after(): what to redraw once a trip has it or doesn't, on this page or another's (a trip plan's, tripplans.js)
+export async function saveSpot(pl, btn, after = showSaved) {
   if (!me) { toast({ title: 'Sign in to save places to a trip', detail: 'Your trips, and who’s on them, are in your account.' }, 'Sign in', () => { location.hash = '#/'; }); return; }
   btn.disabled = true;
   try { await loadMyTrips(); } catch (err) { if (err.status !== 401) failToast(err, 'Couldn’t load your trips'); return; } finally { btn.disabled = false; }
@@ -616,7 +527,7 @@ async function saveSpot(pl, btn) {
       // Its row says where it is now
       const tb = t && ul.querySelector(`[data-trip="${CSS.escape(t.id)}"]`);
       if (tb) { tb.setAttribute('aria-checked', String(onTrip(t, pl))); if (made) tb.focus(); }
-      showSaved();
+      after();
     }
     ul.addEventListener('click', e => {
       const b = e.target.closest('.wt-option, [data-rename]');

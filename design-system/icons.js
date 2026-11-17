@@ -1,4 +1,4 @@
-/* Dotsie design system — icons v4.3.0
+/* Dotsie design system — icons v4.4.0
  *
  * Line icons on a 24px grid, 2px stroke, round caps and joins, drawn in currentColor.
  * Usage: DotsieIcons.svg('car')            -> default size and stroke
@@ -17,6 +17,7 @@
     external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5',
     search: 'M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-4-4',
     pin: 'M12 21s-7-6.2-7-11.5a7 7 0 0114 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z',
+    book: 'M4 5.5A1.5 1.5 0 015.5 4H10a2 2 0 012 2v13.5a1.5 1.5 0 00-1.5-1.5h-5A1.5 1.5 0 014 16.5zM20 5.5A1.5 1.5 0 0018.5 4H14a2 2 0 00-2 2v13.5a1.5 1.5 0 011.5-1.5h5a1.5 1.5 0 001.5-1.5z',   // Guides, in the nav
     home: 'M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-5h4v5',
     settings: 'M4 7h9M19 7h1M4 17h1M11 17h9M16 9.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 19.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z',
     'chevron-down': 'M6 9l6 6 6-6',
