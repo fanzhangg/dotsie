@@ -353,7 +353,8 @@ const heroOf = p => {
   return heroes.get(p.id);
 };
 const cityOf = p => SPOT_CITIES.find(c => c.id === p.city);
-// A trip plan made from the sample spots, in place of the guide's (the app's come from pipeline/plan.py), with its article
+// Guides: trip plans made from the sample spots, in place of the app's (pipeline/plan.py); Seattle's with its article, Alamogordo's
+// before it has one
 const facts = (visit_minutes, hours, more = {}) => ({ visit_minutes, hours, book_ahead: false, admission: null, ...more });
 const stated = (open, close, closed_days = []) => ({ kind: 'stated', open, close, closed_days });
 const PLANS = [{
@@ -396,6 +397,20 @@ const PLANS = [{
     good_to_know: ['Book the Space Needle ahead on a sunny weekend.', 'The park’s beach path is steep on the way back up.'],
     closing: 'Two days, and you’ve seen the city from its market, its tower and its shore.',
   },
+}, {
+  planId: 'alamogordo-dunes-1d', city: 'alamogordo', title: '1 day in Alamogordo', traveler: 'a day trip: someone passing through, with a car',
+  places: {
+    'museum-of-space-history': { kind: 'museum', area: 'Alamogordo', facts: facts(90, stated('09:00', '17:00'), { admission: 'paid' }) },
+    'white-sands': { kind: 'nature', area: 'Tularosa Basin', facts: facts(180, { kind: 'always' }, { admission: 'paid' }) },
+  },
+  days: [
+    { day: 1, theme: 'Rockets, then the dunes', intro: 'The museum in the morning, the dunes until sunset.', items: [
+      { kind: 'stop', spot_id: 'sample/museum-of-space-history', start: '09:30', minutes: 90, why: 'Before the heat.', leg: null },
+      { kind: 'stop', spot_id: 'sample/white-sands', start: '13:00', minutes: 180, why: 'The dunes glow toward evening.', leg: { mode: 'drive', minutes: 25, coords: null } },
+    ] },
+  ],
+  ideas: [],
+  story: null,
 }];
 async function planWhole(plan) {
   const c = SPOT_CITIES.find(x => x.id === plan.city), ids = Object.keys(plan.places);
@@ -416,9 +431,11 @@ async function spots([a, b, ...rest], q) {
     return planWhole(plan);
   }
   if (a === 'plans') {
-    return Promise.all(PLANS.filter(x => !q.get('city') || x.city === q.get('city')).map(async x => {
+    // By city, as the app's are
+    const byCity = [...PLANS].sort((a, b) => a.city.localeCompare(b.city) || a.planId.localeCompare(b.planId));
+    return Promise.all(byCity.filter(x => !q.get('city') || x.city === q.get('city')).map(async x => {
       const p = await planWhole(x);
-      return { planId: p.planId, destination: p.destination, title: p.title, traveler: p.traveler, headline: p.story.headline, dek: p.story.dek,
+      return { planId: p.planId, destination: p.destination, title: p.title, traveler: p.traveler, headline: p.story?.headline ?? null, dek: p.story?.dek ?? null,
         days: p.days.length, stops: p.stops, photos: Object.values(p.places).map(pl => pl.hero).filter(Boolean).slice(0, 3) };
     }));
   }

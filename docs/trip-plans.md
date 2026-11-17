@@ -3,8 +3,8 @@
 Suggested days for a destination of the guide: a first visit of three days to Seattle so far. A plan is made from the
 destination's picks and their guide entries ([pipeline/guides.py](../pipeline/guides.py)), and only ever points at
 them: it holds places, times and the way between them, never guide text, so an entry written again shows in every plan
-it's in. Reviewed at `/developer/plans`, and shown in the app: a city's plans above its spots on the Spots page, each
-an article at `#/plans/<id>` that anyone can read and anyone signed in can make their own trip ([the UX design](ux-design.md#trip-plans)).
+it's in. Reviewed at `/developer/plans`, and shown in the app as guides: the Guides page lists them, each an article at
+`#/guides/<id>` that anyone can read and anyone signed in can make their own trip ([the UX design](ux-design.md#guides)).
 
 ## Two lines
 
@@ -62,7 +62,7 @@ don't give, a place shut some weekdays and a short visit are warnings: kept, but
 | `out/plans/<destination>/` | Each step's JSON, and `plans.html` to review them on this machine |
 | D1 (`app/migrations/0008_trip_plans.sql`) | `trip_plans`: a plan whole (days, ideas, its places' fact cards, its article); `trip_plan_spots`: which plans a place is in. Replaced a destination at a time |
 | `/developer/plans` | Each plan day by day, with its article, each place linked to its entry in the guide preview |
-| `/api/spots/plans` | The plans for the app: a city's as cards on the Spots page, and each whole for its article at `#/plans/<id>` ([app/web/tripplans.js](../app/web/tripplans.js)) |
+| `/api/spots/plans` | The plans for the app: all of them for the Guides page ([app/web/guides.js](../app/web/guides.js)), and each whole for its article at `#/guides/<id>` ([app/web/tripplans.js](../app/web/tripplans.js)) |
 | [mockups/guides](../mockups/guides) | Where the app's article started: the design tried out on Seattle's plans before it was in the app |
 
 ## Running it

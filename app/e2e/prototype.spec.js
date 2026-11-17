@@ -742,34 +742,54 @@ test('a spot opens its guide entry, a page of its own with its sources and links
   await expect(spotNames(page)).toHaveText(['White Sands National Park', 'New Mexico Museum of Space History']);
 });
 
-// Trip plans: the prototype's sample plan of its Seattle spots (see PLANS in prototype/backend.js)
-const planURL = '#/plans/seattle-first-visit-2d';
+// Guides: the prototype's sample trip plans of its spots (see PLANS in prototype/backend.js)
+const planURL = '#/guides/seattle-first-visit-2d';
 const article = page => page.locator('article.plan-article');
 const glance = page => page.getByRole('region', { name: 'The plan, day by day' });
-test('a city’s spots come with its trip plans, which a search or a type puts away', async ({ page }) => {
-  await page.goto('#/spots?city=seattle');
-  const plans = page.getByRole('region', { name: 'Trip plans' });
-  await expect(plans.getByRole('link')).toHaveText([/2 days in Seattle\s*4 places · A first visit/]);
-  await pickFilter(page, 'city', 'Vancouver, BC');
-  await expect(plans).toBeHidden();
-  await page.goto('#/spots?city=seattle');
-  await expect(plans).toBeVisible();
-  await page.getByRole('searchbox', { name: 'Search spots' }).fill('glass');
-  await expect(plans).toBeHidden();
-  await page.getByRole('button', { name: 'Clear search' }).click();
-  await plans.getByRole('link', { name: /2 days in Seattle/ }).click();
+test('Guides is a page of its own in the nav, worked as Spots is: a search and filters kept in the address, and a guide’s Back comes back to the list as it was', async ({ page }) => {
+  await page.goto('#/');
+  const nav = page.getByRole('navigation', { name: 'Pages' });
+  await nav.getByRole('link', { name: 'Guides' }).click();
+  await expect(page).toHaveTitle('Guides · Dotsie');
+  await expect(nav.getByRole('link', { name: 'Guides' })).toHaveAttribute('aria-current', 'page');
+  const names = page.locator('.wt-spot-card__name');
+  await expect(names).toHaveText(['1 day in Alamogordo', '2 days in Seattle']);
+  await expect(page.getByRole('status').filter({ hasText: 'guides' })).toHaveText('2 guides');
+  // A guide before it has an article says who it's for
+  await expect(page.getByRole('link', { name: /1 day in Alamogordo/ })).toContainText('For a day trip');
+  await expect(page.getByRole('link', { name: /2 days in Seattle/ })).toContainText('Seattle, WA · 2 days · 4 places');
+  // The search finds a guide by its city's or state's name, and says when there's none
+  await page.getByRole('searchbox', { name: 'Search guides' }).fill('washington');
+  await expect(names).toHaveText(['2 days in Seattle']);
+  await expect(page).toHaveURL(/#\/guides\?q=washington$/);
+  await page.getByRole('searchbox', { name: 'Search guides' }).fill('nowhere at all');
+  await expect(page.getByText('No guides match “nowhere at all”.')).toBeVisible();
+  await page.getByRole('button', { name: 'Clear search' }).first().click();
+  await expect(names).toHaveCount(2);
+  // The filters, as Spots has them: State, then City
+  await pickFilter(page, 'state', 'New Mexico');
+  await expect(names).toHaveText(['1 day in Alamogordo']);
+  await expect(page).toHaveURL(/#\/guides\?state=NM$/);
+  await pickFilter(page, 'state', 'Washington');
+  await pickFilter(page, 'city', 'Seattle');
+  await expect(page).toHaveURL(/#\/guides\?state=WA&city=seattle$/);
+  await page.getByRole('link', { name: /2 days in Seattle/ }).click();
   await expect(page).toHaveURL(new RegExp(`${planURL}$`));
-  await expect(article(page).getByRole('heading', { level: 1 })).toHaveText('Two Days in Seattle, From the Market to the Sound');
-  // No app bar: the page is the article, and its way back is to the city's spots
-  await expect(page.getByRole('navigation', { name: 'Pages' })).toBeHidden();
-  await page.getByRole('link', { name: 'Spots in Seattle' }).click();
-  await expect(page).toHaveURL(/#\/spots\?city=seattle$/);
+  // No app bar: the page is the article
+  await expect(nav).toBeHidden();
+  await page.getByRole('link', { name: 'All guides' }).click();
+  await expect(page).toHaveURL(/#\/guides\?state=WA&city=seattle$/);
+  await expect(filterChip(page, 'city').locator('.wt-filter__value')).toHaveText('Seattle');
+  await expect(names).toHaveText(['2 days in Seattle']);
+  // Spots has only its places
+  await nav.getByRole('link', { name: 'Spots' }).click();
+  await expect(page.locator('.wt-trip-card, .spots-plans')).toHaveCount(0);
 });
 
 test('a trip plan reads as an article: the plan at a glance day by day with its times, then a chapter a day with a card for each place', async ({ page }) => {
   await page.goto(planURL);
-  await expect(page).toHaveTitle('Two Days in Seattle, From the Market to the Sound · Dotsie');
-  await expect(article(page).getByText('Trip plan · Seattle, Washington')).toBeVisible();
+  await expect(page).toHaveTitle('Two Days in Seattle, From the Market to the Sound · Guides · Dotsie');
+  await expect(article(page).getByText('Seattle, Washington', { exact: true })).toBeVisible();
   await expect(article(page).getByText('2 days · 4 places · For a first visit')).toBeVisible();
   // The day tabs, the open day's map, and its places numbered as their pins, with their times
   const tabs = glance(page).getByRole('tablist', { name: 'Days' });
@@ -826,7 +846,7 @@ test('Make it my trip makes the plan a trip from the first day picked, each plac
   await expect(plan(page).locator('.wt-tl-stop .wt-tl-name')).toHaveText(['Pike Place Market', 'Lunch', 'Space Needle', 'Chihuly Garden and Glass']);
   await days(page).getByRole('tab', { name: 'Tue, Dec 1' }).click();
   await expect(plan(page).locator('.wt-tl-stop .wt-tl-name').last()).toHaveText('Discovery Park');
-  // Each place's pages are links on its stop: its guide entry first
+  // Each place's pages are links on its stop: its spot's page first
   await stop(page, 'Discovery Park').click();
-  await expect(plan(page).getByRole('link', { name: /^Guide/ })).toHaveAttribute('href', /#\/spots\/seattle\/sample\/discovery-park$/);
+  await expect(plan(page).getByRole('link', { name: /^Spot/ })).toHaveAttribute('href', /#\/spots\/seattle\/sample\/discovery-park$/);
 });

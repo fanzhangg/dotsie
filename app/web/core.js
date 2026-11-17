@@ -7,11 +7,11 @@ export const $app = document.getElementById('app');
 export const $sheets = document.getElementById('sheets');
 // The app's name as its wordmark, with a stop for the i's dot (see Wordmark in the design system); read as plain text
 export const WORDMARK = '<span aria-hidden="true">Dots<span class="wt-wordmark__i">ı</span>e</span><span class="wt-visually-hidden">Dotsie</span>';
-// The app's pages: Plan (Home, the trips) and Spots, each with its icon
-const PAGES = [['plan', '#/', 'Plan', 'map'], ['spots', '#/spots', 'Spots', 'star']];
+// The app's pages: Plan (Home, the trips), Spots and Guides, each with its icon
+const PAGES = [['plan', '#/', 'Plan', 'map'], ['spots', '#/spots', 'Spots', 'star'], ['guides', '#/guides', 'Guides', 'book']];
 export const navHTML = page => `<nav class="wt-nav" aria-label="Pages">${PAGES.map(([id, href, label, icon]) =>
   `<a class="wt-nav__link" href="${href}"${id === page ? ' aria-current="page"' : ''}>${DotsieIcons.svg(icon, 18)}${label}</a>`).join('')}</nav>`;
-// The top of Home and Spots, in one row: the pages, then `end` (the account, or Sign in) on the right. The page's
+// The top of Home, Spots and Guides, in one row: the pages, then `end` (the account, or Sign in) on the right. The page's
 // name is its heading, for screen readers: the nav shows it.
 export const appBarHTML = (page, end) => `<header class="wt-app-bar">
   <h1 class="wt-visually-hidden">${PAGES.find(p => p[0] === page)[2]}</h1>${navHTML(page)}

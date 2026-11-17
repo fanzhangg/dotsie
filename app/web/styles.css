@@ -10,13 +10,13 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 #app[data-page="trip"] { max-width: none; }
 @media (min-width: 520px) { #app:not([data-page="trip"]) { box-shadow: 0 0 0 1px var(--wt-border-default); } }
 
-/* ---------- Wide screens: Home's trips and the spots are a grid of cards on the page; sign-in is a card ---------- */
+/* ---------- Wide screens: Home's trips, the spots and the guides are a grid of cards on the page; sign-in is a card ---------- */
 @media (min-width: 768px) {
-  #app:is([data-page="home"], [data-page="spots"]) { --wt-app-bar-surface: var(--wt-surface-page); --spots-gutter: var(--wt-space-6); max-width: 1040px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
+  #app:is([data-page="home"], [data-page="spots"], [data-page="guides"]) { --wt-app-bar-surface: var(--wt-surface-page); --spots-gutter: var(--wt-space-6); max-width: 1040px; padding: 0 var(--wt-space-6); background: none; box-shadow: none; }
   /* The bar spans the page's column, its edges with the cards', on the page's color */
-  #app:is([data-page="home"], [data-page="spots"]) .wt-app-bar { min-height: 80px; margin: 0 calc(-1 * var(--wt-space-6)) var(--wt-space-2); padding-left: var(--wt-space-6); padding-right: var(--wt-space-6); }
-  #app:is([data-page="home"], [data-page="spots"]) .home { padding: 0 0 var(--wt-space-10); }
-  #app:is([data-page="home"], [data-page="spots"]) .home-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--wt-space-4); }
+  #app:is([data-page="home"], [data-page="spots"], [data-page="guides"]) .wt-app-bar { min-height: 80px; margin: 0 calc(-1 * var(--wt-space-6)) var(--wt-space-2); padding-left: var(--wt-space-6); padding-right: var(--wt-space-6); }
+  #app:is([data-page="home"], [data-page="spots"], [data-page="guides"]) .home { padding: 0 0 var(--wt-space-10); }
+  #app:is([data-page="home"], [data-page="spots"], [data-page="guides"]) .home-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--wt-space-4); }
   #app[data-page="home"] .home-grid--small { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
   .spots-find { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--wt-space-3); }
   #app[data-page="home"] .home-guest { justify-self: start; width: auto; }
@@ -28,7 +28,7 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 /* ---------- Home: the app bar (the page, the nav, the account), the trips under CURRENT, UPCOMING, WISHLIST and PAST, and New trip ----------
    On the grey of the trip's list sheet, with white cards on it. New trip floats at the bottom of the screen: across the
    column on a phone, a pill as wide as its words, centred, from 768px wide. */
-#app:is([data-page="home"], [data-page="spots"]) { display: flex; flex-direction: column; background: var(--wt-surface-sheet); }
+#app:is([data-page="home"], [data-page="spots"], [data-page="guides"]) { display: flex; flex-direction: column; background: var(--wt-surface-sheet); }
 .home-head { display: flex; align-items: center; justify-content: space-between; gap: var(--wt-space-3); padding: var(--wt-space-6) var(--wt-space-4) var(--wt-space-4); }
 .home-head h1 { margin: 0; font: var(--wt-type-display); letter-spacing: var(--wt-tracking-display); }
 .home-head__actions { display: flex; align-items: center; gap: var(--wt-space-2); margin-right: calc(-1 * var(--wt-space-2)); }
@@ -45,7 +45,7 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 /* New trip floats at the bottom (.wt-float-bar), on the page's grey; the page leaves it room at its end */
 #app[data-page="home"] .home { padding-bottom: var(--wt-float-bar-room); }
 .home-new { --wt-float-bar-surface: var(--wt-surface-sheet); }
-/* The app bar (the design system's) tops Home and Spots; on sign-in, the nav sits under the app's name */
+/* The app bar (the design system's) tops Home, Spots and Guides; on sign-in, the nav sits under the app's name */
 .wt-app-bar + .home { padding-top: var(--wt-space-2); }
 .signin-nav { padding: 0 var(--wt-space-4) var(--wt-space-3); }
 
@@ -68,7 +68,7 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
   transition: top var(--wt-duration-base) var(--wt-ease-out);
 }
 @media (max-width: 767.98px) { #app:has(.wt-app-bar.is-tucked) .spots-band { top: 0; padding-top: calc(var(--wt-space-2) + env(safe-area-inset-top)); } }
-#app[data-page="spots"] .wt-app-bar.is-scrolled { box-shadow: none; }
+#app:is([data-page="spots"], [data-page="guides"]) .wt-app-bar.is-scrolled { box-shadow: none; }
 .wt-app-bar.is-scrolled + .spots .spots-band { box-shadow: 0 1px 0 var(--wt-border-default); }
 /* The filters: a row of chips (the design system's), scrolling sideways if they don't fit */
 .spots-filters { display: flex; gap: var(--wt-space-2); overflow-x: auto; scrollbar-width: none; }
@@ -93,12 +93,10 @@ body { display: flow-root; } /* so the sign-in card's top margin doesn't push th
 .spot-save .wt-btn.is-saved .wt-icon { fill: currentColor; }
 .wt-guide.has-save { padding-bottom: calc(var(--wt-float-bar-room) + var(--wt-space-3)); }
 @media (min-width: 768px) { #app[data-page="spot"] { --spot-gutter: var(--wt-space-10); max-width: 680px; } .spot-save { --wt-float-bar-width: 680px; } }
-:is(.spots-list, .spots-entry, .spots-more, .spots-pager, .spots-plans)[hidden] { display: none; }
-/* The trip plans above a city's spots: cards like Home's trips, under a heading like Home's groups */
-.spots-plans { display: grid; gap: var(--wt-space-2); }
-.spots-plans__title { margin: 0; padding: 0 var(--wt-space-1); color: var(--wt-text-secondary); font: var(--wt-type-overline); letter-spacing: var(--wt-tracking-caps); text-transform: uppercase; }
+:is(.spots-list, .spots-entry, .spots-more, .spots-pager)[hidden] { display: none; }
 
-/* ---------- A trip plan: an article, laid out as a spot's page is (.wt-guide), with Make it my trip floating at the bottom ---------- */
+/* ---------- Guides: laid out as Spots, with its classes (guides.js). A guide: an article, laid out as a spot's page is
+   (.wt-guide), with Make it my trip floating at the bottom ---------- */
 #app[data-page="plan"] { --spot-gutter: var(--wt-space-4); }
 #app[data-page="plan"] .home { padding: 0 var(--spot-gutter); }
 .plan .wt-guide__top--photo { margin: 0 calc(-1 * var(--spot-gutter)); }

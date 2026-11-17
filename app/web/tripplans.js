@@ -1,7 +1,7 @@
-/* Trip plans: a destination's suggested days, made from its guide's picks (pipeline/plan.py, docs/trip-plans.md), each
-   told as an article, open to anyone, signed in or not. The Spots page lists them as cards (planCardHTML), with a city's
-   spots; #/plans/<id> is one, a page to read laid out as a spot's guide entry is (.wt-guide):
-   - its lead photo, with the way back over its corner, the headline, and who it's for;
+/* A guide: a trip plan, a destination's suggested days made from its spots (pipeline/plan.py, docs/trip-plans.md),
+   told as an article, open to anyone, signed in or not. The Guides page lists them (guides.js); #/guides/<id> is one, a
+   page to read laid out as a spot's guide entry is (.wt-guide):
+   - its lead photo, with the way back to the guides over its corner, the headline, and who it's for;
    - the plan at a glance: the day tabs, the open day's map (planmap.js), and its places numbered as their pins, with
      the times;
    - a chapter for each day, opening with "Day 2", its heading and what it asks of you (places, time on foot and by
@@ -24,6 +24,7 @@ import { openTripOn } from './timeline.js';
 import { failToast, toast } from './notices.js';
 import { ideaOf, loadMyTrips, openSpotFromPage, saveSpot, savedIn } from './spots.js';
 import { drawPlanMap, kindOfPlace } from './planmap.js';
+import { backToGuides, guidesHref } from './guides.js';
 
 const plans = new Map(); // id → the plan whole, once asked this visit
 let open = null; // the plan on the page: { id, plan, start, map, day, scroll }
@@ -87,22 +88,13 @@ function mapDays(p) {
   }));
 }
 
-// ---------- A plan, as a card on the Spots page ----------
-export function planCardHTML(c) {
-  const photos = (c.photos ?? []).filter(x => x?.thumb).slice(0, 3);
-  return `<a class="wt-trip-card spots-plan" href="#/plans/${esc(c.planId)}">
-    ${photos.length ? `<span class="wt-trip-card__photos" aria-hidden="true">${photos.map(x => `<img class="wt-trip-card__photo" src="${esc(x.thumb)}" alt="" loading="lazy" title="Photo: ${esc(x.author || 'Unknown author')} · ${esc(x.licence || '')}">`).join('')}</span>` : ''}
-    <span class="wt-trip-card__body"><span class="wt-trip-card__text"><span class="wt-trip-card__name">${esc(c.title)}</span>
-      <span class="wt-trip-card__dates">${c.stops} places · ${esc(forWhom(c))}</span></span></span></a>`;
-}
-
 // ---------- The page ----------
 export function renderPlan({ id }) {
   $app.dataset.page = 'plan';
   if (open?.id === id && $app.querySelector('.plan')) return;
   leavePlan();
   open = { id, plan: plans.get(id) ?? null, start: open?.id === id ? open.start : nextFriday(), map: null, day: 1 };
-  document.title = 'Trip plan · Dotsie';
+  document.title = 'Guides · Dotsie';
   if (open.plan) return show();
   $app.innerHTML = `<main class="home plan"><article class="wt-guide">${topHTML(null, null)}<span class="wt-spinner"></span></article></main>`;
   scrollTo(0, 0);
@@ -113,7 +105,7 @@ export function renderPlan({ id }) {
     show();
   }, err => {
     if (open?.id !== id) return;
-    $app.querySelector('.plan .wt-guide').innerHTML = `${topHTML(null, null)}<p class="wt-empty">${esc(err.code === 'not_found' ? 'This trip plan isn’t in the guide any more.' : `Couldn’t load this trip plan. ${failHint(err)}`)}</p>`;
+    $app.querySelector('.plan .wt-guide').innerHTML = `${topHTML(null, null)}<p class="wt-empty">${esc(err.code === 'not_found' ? 'This guide isn’t here any more.' : `Couldn’t load this guide. ${failHint(err)}`)}</p>`;
   });
 }
 // Off the page: its map goes, and with it its WebGL context
@@ -125,7 +117,7 @@ export function leavePlan() {
 
 function show() {
   const p = open.plan;
-  document.title = `${p.story?.headline || p.title} · Dotsie`;
+  document.title = `${p.story?.headline || p.title} · Guides · Dotsie`;
   $app.innerHTML = `<main class="home plan">${articleHTML(p)}</main>${makeBarHTML()}`;
   placeTabBar();
   const el = $app.querySelector('.plan-map__canvas');
@@ -135,9 +127,9 @@ function show() {
   markSaved();
 }
 
-// The lead photo across the top, with the way back over its corner: to the city's spots
+// The lead photo across the top, with the way back over its corner: to the guides, as you left them
 const topHTML = (p, hero) => `<div class="wt-guide__top${hero?.thumb ? ' wt-guide__top--photo' : ''}">
-    <a class="wt-guide__back" href="#/spots${p ? `?city=${encodeURIComponent(p.destination.id)}` : ''}" aria-label="${p ? `Spots in ${esc(p.destination.name)}` : 'All spots'}">${ICON.back}</a>
+    <a class="wt-guide__back" href="${guidesHref()}" aria-label="All guides" data-plan-back>${ICON.back}</a>
     ${hero?.thumb ? `<img class="wt-guide__hero" src="${esc(hero.thumb)}" alt="${esc(hero.caption || '')}" decoding="async">` : ''}</div>`;
 
 function articleHTML(p) {
@@ -170,7 +162,7 @@ function articleHTML(p) {
   return `<article class="wt-guide plan-article has-save">
     ${topHTML(p, hero)}
     <header class="wt-guide__head">
-      <p class="wt-guide__where">Trip plan · ${esc(where)}</p>
+      <p class="wt-guide__where">${esc(where)}</p>
       <h1 class="wt-guide__name">${esc(story?.headline || p.title)}</h1>
       ${story?.dek ? `<p class="wt-guide__lede">${esc(story.dek)}</p>` : ''}
       <p class="plan-by">${p.days.length} ${p.days.length === 1 ? 'day' : 'days'} · ${stops.length} places · For ${esc(forWhom(p).replace(/^./, c => c.toLowerCase()))}</p>
@@ -248,7 +240,7 @@ const makeBarHTML = (busy = false) => {
     <button type="button" class="wt-btn wt-btn--primary wt-btn--block" data-plan-make${busy ? ' disabled aria-busy="true"' : ''}>${busy ? '<span class="wt-spinner"></span>Making your trip…' : `${ICON.plus}Make it my trip`}</button></div>`;
 };
 // The plan's days from the first day, as a trip's stops: each place at its time, how long to stay and how to get
-// there, its Wikidata item (so its sheet says what Wikipedia says) and its pages as links; a meal as a restaurant stop
+// there, its Wikidata item (so its sheet says what Wikipedia says) and its pages as links (its spot's page first); a meal as a restaurant stop
 // near the place it's at
 export function stopsFrom(p, start, page = location.origin + location.pathname) {
   return p.days.flatMap(d => d.items.map((i, n) => {
@@ -256,7 +248,7 @@ export function stopsFrom(p, start, page = location.origin + location.pathname) 
     if (!pl) return null;
     const meal = i.kind !== 'stop', kind = meal ? 'restaurant' : STOP_KINDS.includes(pl.kind) ? pl.kind : '';
     const links = meal ? [] : [
-      { url: `${page}${spotHash(p, pl)}`, label: 'Guide' },
+      { url: `${page}${spotHash(p, pl)}`, label: 'Spot' },
       ...(pl.wikipedia ? [{ url: `https://en.wikipedia.org/wiki/${encodeURIComponent(pl.wikipedia.replace(/ /g, '_'))}`, label: 'Wikipedia' }] : []),
       ...(pl.website ? [{ url: pl.website, label: 'Website' }] : []),
     ];
@@ -327,6 +319,7 @@ function jumpTo(id) {
   c.classList.add('is-flash');
 }
 document.addEventListener('click', e => {
+  if (open && e.target.closest?.('[data-plan-back]')) return backToGuides(e);
   if (!open?.plan || !$app.querySelector('.plan')) return;
   const t = e.target.closest?.('[data-plan-day], [data-plan-pick], [data-plan-jump], [data-plan-save], [data-plan-make], [data-plan-spot]');
   if (!t) return;

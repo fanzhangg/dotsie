@@ -405,9 +405,9 @@ test('a developer page on a wide screen: the menu beside it, and its headings to
   await expect(contents.getByRole('link', { name: 'Errors' })).toHaveClass(/is-current/);
 });
 
-// Trip plans are for anyone to read; making one your trip needs an account. e2e/places.sql loads Testville's one plan:
+// Guides are for anyone to read; making one your trip needs an account. e2e/places.sql loads Testville's one plan:
 // Test Lodge and lunch beside it, with Test Stadium left over for Want to go
-test('anyone can read a trip plan from a city’s spots; signed in, Make it my trip makes it a trip, the leftovers on Want to go', async ({ page }) => {
+test('anyone can read a guide from the Guides page; signed in, Make it my trip makes it a trip, the leftovers on Want to go', async ({ page }) => {
   const get = async path => { const res = await page.request.get(path); return { status: res.status(), body: res.ok() ? await res.json() : null }; };
   const cards = await get('/api/spots/plans?city=testville');
   expect(cards.body).toEqual([expect.objectContaining({ planId: 'testville-first-visit-1d', title: '1 day in Testville', headline: 'A Day at Test Lodge',
@@ -418,8 +418,10 @@ test('anyone can read a trip plan from a city’s spots; signed in, Make it my t
   expect((await get('/api/spots/plans/nope')).status).toBe(404);
   expect((await get('/api/spots/plans?city=Not%20a%20city')).status).toBe(400);
 
-  await page.goto('/#/spots?city=testville');
-  await page.getByRole('region', { name: 'Trip plans' }).getByRole('link', { name: /1 day in Testville/ }).click();
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Guides' }).click();
+  await page.getByRole('searchbox', { name: 'Search guides' }).fill('testville');
+  await page.getByRole('link', { name: /1 day in Testville/ }).click();
   const article = page.locator('article.plan-article');
   await expect(article.getByRole('heading', { level: 1 })).toHaveText('A Day at Test Lodge');
   await expect(article.locator('.plan-card')).toContainText('Sleep under the beams loggers cut in 1917.');
@@ -430,7 +432,7 @@ test('anyone can read a trip plan from a city’s spots; signed in, Make it my t
   await page.goto('/');
   await guest(page, 'Alex');
   await expect(page.getByRole('button', { name: 'Account' })).toBeVisible();
-  await page.goto('/#/plans/testville-first-visit-1d');
+  await page.goto('/#/guides/testville-first-visit-1d');
   await page.getByLabel('First day of the trip').fill('2026-12-05');
   await page.getByRole('button', { name: 'Make it my trip' }).click();
   await expect(page).toHaveURL(/#\/trip\/\w+$/);
