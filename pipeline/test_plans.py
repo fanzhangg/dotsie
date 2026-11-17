@@ -54,6 +54,29 @@ class Picks(unittest.TestCase):
         self.assertEqual(a["hours"]["kind"], "stated")
 
 
+class Asking(unittest.TestCase):
+    def test_threads_asking_at_once_share_one_asker(self):
+        """knowledge.py writes fact cards from 8 threads; each made its own Asker on the one store connection, and
+        SQLite refused ("bad parameter or other API misuse")."""
+        made = []
+
+        class Fake:
+            def __init__(self, db):
+                made.append(self)
+                self.spent = {}
+
+            def __call__(self, *a):
+                return {"ok": True}
+
+        with mock.patch.object(planning, "Asker", Fake), mock.patch.object(planning, "_asker", None), \
+             mock.patch.object(planning, "_db", sqlite3.connect(":memory:", check_same_thread=False)):
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(8) as pool:
+                answers = list(pool.map(lambda n: planning.ask("m", "s", "t", {}, "low", "step", str(n)), range(32)))
+        self.assertEqual(len(made), 1)
+        self.assertEqual(answers, [{"ok": True}] * 32)
+
+
 class Export(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()

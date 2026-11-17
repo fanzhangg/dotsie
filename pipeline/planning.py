@@ -6,7 +6,7 @@ has written into its state's store (data/<ST>.sqlite). The plans start from thos
 answers go in the same store's llm_answers, through guides.py's Asker, so a run asks again only what changed and the
 store, kept in R2, carries them from one run to the next. Each step writes its JSON to out/plans/<destination>/.
 """
-import json, os, sqlite3
+import json, os, sqlite3, threading
 
 import store
 from guides import DESTINATIONS, HAIKU, OPUS, SONNET, Asker, log, obj, overlap, store_path
@@ -18,10 +18,17 @@ OUT = os.path.join(HERE, "out", "plans", DEST_ID)
 os.makedirs(OUT, exist_ok=True)
 
 _db = _asker = None
+_lock = threading.Lock()  # steps ask from several threads: one store connection and one Asker for all of them
 
 
 def db(path=None):
     """The destination's state's store (or `path`, for tests)."""
+    global _db
+    with _lock:
+        return _open(path)
+
+
+def _open(path):
     global _db
     if _db is None:
         path = path or store_path(DEST["state"])
@@ -36,8 +43,9 @@ def ask(model, system, text, schema, effort, step, key):
     """One structured answer, kept in the store under the step's name and version (e.g. "plan-v1"): asked again only
     when what it's asked changes."""
     global _asker
-    if _asker is None:
-        _asker = Asker(db())
+    with _lock:
+        if _asker is None:
+            _asker = Asker(_open(None))
     return _asker(step, step, key, model, system, text, schema, effort)
 
 
